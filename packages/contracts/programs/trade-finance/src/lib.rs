@@ -146,13 +146,22 @@ pub mod trade_finance {
             TradeFinanceError::OverConcentration
         );
 
-        // 模拟锁定 30% 首付：仅校验买方 USDC 余额，暂不实际转账。
-        // TODO: 后续通过 token::transfer CPI 将 down_payment 转入
-        // pool_token_account（资金池托管锁定）。
+        // 锁定 30% 首付：买方 USDC 实际转入订单托管账户（deal 持有）。
         require!(
             ctx.accounts.buyer_token_account.amount >= down_payment,
             TradeFinanceError::InsufficientFunds
         );
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.buyer_token_account.to_account_info(),
+                    to: ctx.accounts.deal_token_account.to_account_info(),
+                    authority: ctx.accounts.buyer.to_account_info(),
+                },
+            ),
+            down_payment,
+        )?;
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
@@ -242,6 +251,22 @@ pub mod trade_finance {
 
         let funding_amount = ctx.accounts.deal.pool_portion;
 
+        // 放款：资金池 vault 实际转入订单托管账户；到货后再由托管释放给卖方。
+        let pool_bump = [ctx.bumps.pool_authority];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.pool_token_account.to_account_info(),
+                    to: ctx.accounts.deal_token_account.to_account_info(),
+                    authority: ctx.accounts.pool_authority.to_account_info(),
+                },
+            )
+            .with_signer(&[pool_signer]),
+            funding_amount,
+        )?;
+
         let pool = &mut ctx.accounts.pool_state;
         pool.total_assets = pool
             .total_assets
@@ -255,8 +280,6 @@ pub mod trade_finance {
         let deal = &mut ctx.accounts.deal;
         deal.status = deal_status::FUNDED;
 
-        // TODO: 后续在此处通过 CPI 调用 token program，
-        // 从池子 vault（pool_token_account）转移 USDC 到卖方（seller）。
         emit!(FundedEvent {
             trade_id,
             amount: funding_amount,
@@ -398,11 +421,26 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
 
+        let repayment_total = pool_portion
+            .checked_add(platform_part)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         require!(
-            ctx.accounts.buyer_token_account.amount >= platform_part,
+            ctx.accounts.buyer_token_account.amount >= repayment_total,
             TradeFinanceError::InsufficientFunds
         );
 
+        // 本金 70% 回笼资金池 vault；费用中平台部分实时转入运营钱包。
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.buyer_token_account.to_account_info(),
+                    to: ctx.accounts.pool_token_account.to_account_info(),
+                    authority: ctx.accounts.buyer.to_account_info(),
+                },
+            ),
+            pool_portion,
+        )?;
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -493,6 +531,13 @@ pub struct CreateDeal<'info> {
     )]
     pub buyer_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        mut,
+        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = deal_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub deal_token_account: Account<'info, TokenAccount>,
+
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -523,6 +568,25 @@ pub struct FundDeal<'info> {
     )]
     pub deal: Account<'info, TradeDeal>,
 
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = deal_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub deal_token_account: Account<'info, TokenAccount>,
+
+    pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -561,6 +625,17 @@ pub struct RepayDeal<'info> {
         constraint = platform_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
     )]
     pub platform_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(mut, seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
 
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,

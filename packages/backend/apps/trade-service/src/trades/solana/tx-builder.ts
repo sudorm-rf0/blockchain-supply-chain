@@ -6,6 +6,7 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
+import { createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import { TRADE_ENV } from "../../config/env";
 
 export const BPS_BASE = 10_000n;
@@ -90,6 +91,7 @@ export async function buildCreateDealTransaction(
   const programId = new PublicKey(TRADE_ENV.programId);
   const poolState = derivePoolStatePda(programId);
   const dealPda = deriveDealPda(programId, input.buyer, input.id);
+  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, input.usdcMint);
 
   // Anchor discriminator = sha256("global:create_deal")[0..8]
   const discriminator = createHash("sha256")
@@ -107,12 +109,14 @@ export async function buildCreateDealTransaction(
   ]);
 
   // Contract CreateDeal account ordering:
-  // pool_state, buyer(signer), deal(init), buyer_token_account, usdc_mint, token_program, system_program
+  // pool_state, buyer(signer), deal(init), buyer_token_account,
+  // deal_token_account, usdc_mint, token_program, system_program
   const keys: AccountMeta[] = [
     { pubkey: poolState, isSigner: false, isWritable: true },
     { pubkey: input.buyer, isSigner: true, isWritable: true },
     { pubkey: dealPda, isSigner: false, isWritable: true },
     { pubkey: input.buyerTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: dealTokenAccount, isSigner: false, isWritable: true },
     { pubkey: input.usdcMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
@@ -122,13 +126,39 @@ export async function buildCreateDealTransaction(
   const transaction = new Transaction();
   transaction.feePayer = input.buyer;
   transaction.recentBlockhash = blockhash;
-  transaction.add(
-    new TransactionInstruction({
-      keys,
-      programId,
-      data,
-    }),
-  );
+
+  // 托管 ATA（deal PDA 持有）和买方 ATA 不存在时，随交易一起创建；
+  // 使用幂等指令，已存在时也无需额外 RPC 查询。
+  const [buyerAtaExists, dealAtaExists] = await Promise.all([
+    connection.getAccountInfo(input.buyerTokenAccount),
+    connection.getAccountInfo(dealTokenAccount),
+  ]);
+  if (!buyerAtaExists) {
+    transaction.add(
+      createAssociatedTokenAccountIdempotentInstruction(
+        input.buyer,
+        input.buyerTokenAccount,
+        input.buyer,
+        input.usdcMint,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      ),
+    );
+  }
+  if (!dealAtaExists) {
+    transaction.add(
+      createAssociatedTokenAccountIdempotentInstruction(
+        input.buyer,
+        dealTokenAccount,
+        dealPda,
+        input.usdcMint,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      ),
+    );
+  }
+
+  transaction.add(new TransactionInstruction({ keys, programId, data }));
 
   return { transaction, blockhash };
 }

@@ -43,22 +43,31 @@ export async function buildFundDealTransaction(
     admin: PublicKey;
     buyer: PublicKey;
     tradeId: bigint;
+    poolTokenAccount: PublicKey;
+    dealTokenAccount: PublicKey;
+    usdcMint: PublicKey;
   },
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
   const programId = new PublicKey(TRADE_ENV.programId);
   const poolState = derivePoolStatePda(programId);
+  const poolAuthority = derivePoolAuthorityPda(programId);
   const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
 
   // Contract: fund_deal(trade_id: u64)
   const data = Buffer.concat([FUND_DEAL_DISCRIMINATOR, encodeU64(input.tradeId)]);
 
-  // FundDeal accounts: pool_state, admin(signer), buyer, deal, token_program
+  // FundDeal accounts: pool_state, admin(signer), buyer, deal, pool_authority,
+  //   pool_token_account, deal_token_account, usdc_mint, token_program
   const keys: AccountMeta[] = [
     { pubkey: poolState, isSigner: false, isWritable: true },
     { pubkey: input.admin, isSigner: true, isWritable: true },
     { pubkey: input.buyer, isSigner: false, isWritable: false },
     { pubkey: dealPda, isSigner: false, isWritable: true },
+    { pubkey: poolAuthority, isSigner: false, isWritable: false },
+    { pubkey: input.poolTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: input.dealTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: input.usdcMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
@@ -77,25 +86,29 @@ export async function buildRepayDealTransaction(
     tradeId: bigint;
     buyerTokenAccount: PublicKey;
     platformTokenAccount: PublicKey;
+    poolTokenAccount: PublicKey;
     usdcMint: PublicKey;
   },
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
   const programId = new PublicKey(TRADE_ENV.programId);
   const poolState = derivePoolStatePda(programId);
+  const poolAuthority = derivePoolAuthorityPda(programId);
   const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
 
   // Contract: repay_deal(trade_id: u64)
   const data = Buffer.concat([REPAY_DEAL_DISCRIMINATOR, encodeU64(input.tradeId)]);
 
   // RepayDeal accounts: pool_state, buyer(signer), deal, buyer_token_account,
-  //   platform_token_account, usdc_mint, token_program
+  //   platform_token_account, pool_authority, pool_token_account, usdc_mint, token_program
   const keys: AccountMeta[] = [
     { pubkey: poolState, isSigner: false, isWritable: true },
     { pubkey: input.buyer, isSigner: true, isWritable: true },
     { pubkey: dealPda, isSigner: false, isWritable: true },
     { pubkey: input.buyerTokenAccount, isSigner: false, isWritable: true },
     { pubkey: input.platformTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: poolAuthority, isSigner: false, isWritable: false },
+    { pubkey: input.poolTokenAccount, isSigner: false, isWritable: true },
     { pubkey: input.usdcMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
