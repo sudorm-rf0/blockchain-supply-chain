@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "anchor build",
-    "test": "anchor test",
+    "test": "bash scripts/test.sh",
     "test:typecheck": "tsc --noEmit -p tsconfig.json",
     "deploy:localnet": "anchor deploy --provider.cluster localnet",
     "deploy:devnet": "anchor deploy --provider.cluster devnet"

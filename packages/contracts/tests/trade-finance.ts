@@ -1,4 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
+import assert from "node:assert/strict";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -47,12 +48,24 @@ describe("trade-finance full lifecycle", () => {
     await connection.confirmTransaction(signature, "confirmed");
   }
 
-  async function createAta(owner: PublicKey): Promise<PublicKey> {
-    return createAssociatedTokenAccount(connection, payer, usdcMint, owner);
+  async function createAta(
+    owner: PublicKey,
+    allowOwnerOffCurve = false,
+  ): Promise<PublicKey> {
+    return createAssociatedTokenAccount(
+      connection,
+      payer,
+      usdcMint,
+      owner,
+      undefined,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+      allowOwnerOffCurve,
+    );
   }
 
   function dealPda(buyerKey: PublicKey, id: anchor.BN): PublicKey {
-    return PublicKey.findProgramAddress(
+    return PublicKey.findProgramAddressSync(
       [
         Buffer.from("trade_finance"),
         Buffer.from("deal"),
@@ -85,11 +98,11 @@ describe("trade-finance full lifecycle", () => {
       USDC_DECIMALS,
     );
 
-    poolStatePda = PublicKey.findProgramAddress(
+    poolStatePda = PublicKey.findProgramAddressSync(
       POOL_SEEDS,
       program.programId,
     )[0];
-    poolAuthorityPda = PublicKey.findProgramAddress(
+    poolAuthorityPda = PublicKey.findProgramAddressSync(
       POOL_AUTHORITY_SEEDS,
       program.programId,
     )[0];
@@ -97,7 +110,7 @@ describe("trade-finance full lifecycle", () => {
     buyerAta = await createAta(buyer.publicKey);
     lpAta = await createAta(lp.publicKey);
     platformAta = await createAta(platformWallet.publicKey);
-    poolTokenAccount = await createAta(poolAuthorityPda);
+    poolTokenAccount = await createAta(poolAuthorityPda, true);
 
     await mintTo(
       connection,
@@ -143,8 +156,8 @@ describe("trade-finance full lifecycle", () => {
       .rpc();
 
     const poolState = await program.account.poolState.fetch(poolStatePda);
-    anchor.assert.equal(poolState.admin.toBase58(), admin.publicKey.toBase58());
-    anchor.assert.equal(poolState.totalAssets.toString(), USDC(100_000).toString());
+    assert.equal(poolState.admin.toBase58(), admin.publicKey.toBase58());
+    assert.equal(poolState.totalAssets.toString(), USDC(100_000).toString());
     console.log("Pool admin:", poolState.admin.toBase58());
     console.log("Pool totalAssets:", poolState.totalAssets.toString());
   });
@@ -170,12 +183,12 @@ describe("trade-finance full lifecycle", () => {
       .rpc();
 
     const dealState = await program.account.tradeDeal.fetch(deal);
-    anchor.assert.equal(dealState.status, 0); // Pending
-    anchor.assert.equal(dealState.buyer.toBase58(), buyer.publicKey.toBase58());
-    anchor.assert.equal(dealState.seller.toBase58(), seller.publicKey.toBase58());
-    anchor.assert.equal(dealState.downPayment.toString(), USDC(300).toString());
-    anchor.assert.equal(dealState.poolPortion.toString(), USDC(700).toString());
-    anchor.assert.equal(dealState.tenor.toString(), (30 * 86_400).toString());
+    assert.equal(dealState.status, 0); // Pending
+    assert.equal(dealState.buyer.toBase58(), buyer.publicKey.toBase58());
+    assert.equal(dealState.seller.toBase58(), seller.publicKey.toBase58());
+    assert.equal(dealState.downPayment.toString(), USDC(300).toString());
+    assert.equal(dealState.poolPortion.toString(), USDC(700).toString());
+    assert.equal(dealState.tenor.toString(), (30 * 86_400).toString());
     console.log("Deal PDA:", deal.toBase58());
     console.log("Deal status:", dealState.status);
   });
@@ -198,9 +211,9 @@ describe("trade-finance full lifecycle", () => {
 
     const dealState = await program.account.tradeDeal.fetch(deal);
     const poolState = await program.account.poolState.fetch(poolStatePda);
-    anchor.assert.equal(dealState.status, 1); // Funded
-    anchor.assert.equal(poolState.activeCapital.toString(), USDC(700).toString());
-    anchor.assert.equal(poolState.totalAssets.toString(), USDC(100_300).toString());
+    assert.equal(dealState.status, 1); // Funded
+    assert.equal(poolState.activeCapital.toString(), USDC(700).toString());
+    assert.equal(poolState.totalAssets.toString(), USDC(100_300).toString());
     console.log("Active capital:", poolState.activeCapital.toString());
     console.log("Total assets:", poolState.totalAssets.toString());
   });
@@ -231,10 +244,10 @@ describe("trade-finance full lifecycle", () => {
     const lpDividend = (fee * 4_000) / 10_000;
     const platformPart = (fee * 5_000) / 10_000;
 
-    anchor.assert.equal(dealState.status, 6); // Settled
-    anchor.assert.equal(poolState.pendingDividends.toString(), lpDividend.toString());
-    anchor.assert.equal(platformBalance.amount, BigInt(platformPart));
-    anchor.assert.equal(poolState.activeCapital.toString(), "0");
+    assert.equal(dealState.status, 6); // Settled
+    assert.equal(poolState.pendingDividends.toString(), lpDividend.toString());
+    assert.equal(platformBalance.amount, BigInt(platformPart));
+    assert.equal(poolState.activeCapital.toString(), "0");
     console.log("Pending dividends:", poolState.pendingDividends.toString());
     console.log("Platform balance:", platformBalance.amount.toString());
   });
@@ -263,9 +276,9 @@ describe("trade-finance full lifecycle", () => {
     } catch (error) {
       failed = true;
       console.log("Over-concentration error:", String(error));
-      anchor.assert.ok(String(error).includes("OverConcentration"));
+      assert.ok(String(error).includes("OverConcentration"));
     }
-    anchor.assert.ok(failed, "expected OverConcentration error");
+    assert.ok(failed, "expected OverConcentration error");
   });
 
   it("Handles default scenario", async () => {
@@ -273,7 +286,7 @@ describe("trade-finance full lifecycle", () => {
     const amount = new anchor.BN(USDC(1_000));
     const tenorDays = new anchor.BN(30);
     const deal = dealPda(buyer.publicKey, tradeId);
-    const dealTokenAccount = await createAta(deal);
+    const dealTokenAccount = await createAta(deal, true);
 
     await program.methods
       .createDeal(tradeId, seller.publicKey, amount, tenorDays)
@@ -344,16 +357,16 @@ describe("trade-finance full lifecycle", () => {
     const poolAfter = await getAccount(connection, poolTokenAccount);
     const dealAfter = await getAccount(connection, dealTokenAccount);
 
-    anchor.assert.equal(dealState.status, 7); // Defaulted
-    anchor.assert.equal(
+    assert.equal(dealState.status, 7); // Defaulted
+    assert.equal(
       poolAfter.amount,
       poolBefore.amount + BigInt(USDC(300)) - BigInt(insurancePayout),
     );
-    anchor.assert.equal(
+    assert.equal(
       dealAfter.amount,
       BigInt(USDC(700)) + BigInt(insurancePayout),
     );
-    anchor.assert.equal(
+    assert.equal(
       poolState.insuranceFund.toString(),
       new anchor.BN(poolStateBefore.insuranceFund)
         .sub(new anchor.BN(insurancePayout))
