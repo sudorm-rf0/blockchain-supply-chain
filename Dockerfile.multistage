@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+
+# ============ Builder ============
+FROM node:20-alpine AS builder
+WORKDIR /workspace
+
+RUN apk add --no-cache libc6-compat openssl python3 make g++ \
+    && corepack enable \
+    && corepack prepare pnpm@9.4.0 --activate
+
+COPY .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/frontend/package.json packages/frontend/package.json
+COPY packages/backend/package.json packages/backend/package.json
+
+RUN pnpm install --frozen-lockfile
+
+COPY packages/backend packages/backend
+RUN pnpm --filter @supply-chain/backend exec prisma generate
+RUN pnpm --filter @supply-chain/backend run build
+RUN pnpm --filter @supply-chain/backend run build:indexer
+RUN pnpm --filter @supply-chain/backend run build:trade
+RUN pnpm --filter @supply-chain/backend run build:pool
+RUN pnpm --filter @supply-chain/backend deploy --prod /app/backend-out
+
+COPY packages/frontend packages/frontend
+ENV NEXT_PUBLIC_BACKEND_URL=https://supply-chain.example.com/api
+ENV NEXT_PUBLIC_TRADE_API_URL=https://supply-chain.example.com/api
+ENV NEXT_PUBLIC_POOL_API_URL=https://supply-chain.example.com/api
+RUN mkdir -p packages/frontend/public
+RUN pnpm --filter @supply-chain/frontend run build
+
+# ============ Backend Runner ============
+FROM node:20-alpine AS backend-runner
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat openssl
+ENV NODE_ENV=production PORT=3001
+
+COPY --from=builder /app/backend-out ./
+COPY --from=builder /workspace/packages/backend/dist ./dist
+COPY --from=builder /workspace/packages/backend/prisma ./prisma
+
+RUN mkdir -p /app/uploads && chown -R node:node /app
+USER node
+EXPOSE 3001
+CMD ["node", "dist/main.js"]
+
+# ============ Frontend Runner ============
+FROM node:20-alpine AS frontend-runner
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat
+ENV NODE_ENV=production PORT=3000
+
+COPY --from=builder /workspace/packages/frontend/.next/standalone ./
+COPY --from=builder /workspace/packages/frontend/.next/static ./.next/static
+
+RUN mkdir -p ./public
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]

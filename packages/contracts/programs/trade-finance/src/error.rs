@@ -1,0 +1,64 @@
+use anchor_lang::prelude::*;
+
+#[error_code]
+pub enum TradeFinanceError {
+    /// 资金不足：买方 token 余额或资金池活跃资金不足以完成当前操作。
+    #[msg("Insufficient funds")]
+    InsufficientFunds,
+
+    /// 账期不符合：账期只允许 30/60/90/120 天。
+    #[msg("Tenor must be one of 30/60/90/120 days")]
+    InvalidTenor,
+
+    /// 非授权调用者：只有资金池管理员或订单对应买方可以执行该操作。
+    #[msg("Unauthorized caller")]
+    Unauthorized,
+
+    /// 贸易 ID 不存在：链上找不到对应的 TradeDeal 账户。
+    #[msg("Trade not found")]
+    TradeNotFound,
+
+    /// 状态机跳转非法：例如已 Settled 的订单不能再次转为 Funded。
+    #[msg("Invalid state transition")]
+    InvalidStateTransition,
+
+    /// 单笔贸易集中度超限：池垫付金额超过资金池总资产 1% 上限。
+    #[msg("Single trade exceeds the 1% concentration limit")]
+    OverConcentration,
+
+    /// 算术溢出：金额计算或账户字段累加时发生溢出。
+    #[msg("Math overflow")]
+    MathOverflow,
+
+    /// 保险基金余额不足：无法完成违约赔付。
+    #[msg("Insurance fund balance is insufficient for the payout")]
+    InsufficientInsuranceFund,
+
+    /// 订单金额非法：贸易金额必须大于 0。
+    #[msg("Deal amount must be greater than zero")]
+    InvalidAmount,
+
+    /// 订单尚未 Pending：只有 Pending 状态的订单可以放款。
+    #[msg("Deal must be Pending before funding")]
+    DealNotPending,
+
+    /// 订单尚未 Funded：只有 Funded 状态的订单可以还款或违约处理。
+    #[msg("Deal must be Funded before repayment")]
+    DealNotFunded,
+
+    /// Token 账户所有者不匹配：转入/转出账户必须归属对应角色。
+    #[msg("Token account owner mismatch")]
+    WrongTokenAccountOwner,
+
+    /// Token 账户 mint 不匹配：资金操作只接受 USDC。
+    #[msg("Token account mint mismatch")]
+    WrongTokenMint,
+
+    /// LP 代币总供应量为 0：无法计算 NAV。
+    #[msg("LP token supply must be greater than zero")]
+    ZeroLpSupply,
+
+    /// 状态码非法：TradeDeal.status 不是已知的枚举值。
+    #[msg("Unsupported deal status")]
+    InvalidStatus,
+}

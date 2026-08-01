@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer-service
+  namespace: supply-chain
+  labels:
+    app: supply-chain
+    tier: indexer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supply-chain
+      tier: indexer
+  template:
+    metadata:
+      labels:
+        app: supply-chain
+        tier: indexer
+    spec:
+      containers:
+        - name: indexer-service
+          image: ghcr.io/example/supply-chain-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/apps/indexer-service/src/main.js"]
+          ports:
+            - containerPort: 3003
+              name: http
+          env:
+            - name: INDEXER_PORT
+              value: "3003"
+            - name: NODE_ENV
+              value: "production"
+            - name: SOLANA_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: SOLANA_RPC_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: REDIS_URL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: DATABASE_URL
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: indexer-service
+  namespace: supply-chain
+spec:
+  selector:
+    app: supply-chain
+    tier: indexer
+  ports:
+    - name: http
+      port: 3003
+      targetPort: http

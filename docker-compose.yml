@@ -1,0 +1,52 @@
+name: supply-chain
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: supply-chain-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: supply_chain
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d supply_chain"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: supply-chain-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  solana-localnet:
+    image: solanalabs/solana:v1.17.3
+    container_name: supply-chain-solana-localnet
+    command: ["solana-test-validator", "--ledger", "/var/solana/ledger"]
+    ports:
+      - "8899:8899"
+      - "9900:9900"
+    volumes:
+      - solana_ledger:/var/solana/ledger
+      - solana_config:/root/.config/solana
+
+volumes:
+  postgres_data:
+  redis_data:
+  solana_ledger:
+  solana_config:

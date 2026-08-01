@@ -1,0 +1,19 @@
+[package]
+name = "supply-chain"
+version = "0.1.0"
+edition = "2021"
+description = "Solana supply chain program built with Anchor 0.30.1"
+
+[lib]
+name = "supply_chain"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anchor-lang = "=0.30.1"
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+
+[dev-dependencies]
+solana-program-test = "1.17.3"
+solana-sdk = "1.17.3"

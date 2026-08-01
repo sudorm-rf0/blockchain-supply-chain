@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RWA 资产数字化平台 — 项目介绍</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Serif+SC:wght@400;600;700;900&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0a1628;
+  --navy2:#0f1f38;
+  --navy3:#142a4a;
+  --gold:#c9a84c;
+  --gold2:#d4b96a;
+  --gold3:#e8d5a3;
+  --cream:#f5efe6;
+  --white:#faf8f4;
+  --gray:#8899aa;
+  --gray2:#5a6a7a;
+  --glass:rgba(255,255,255,.04);
+  --glass2:rgba(255,255,255,.06);
+  --radius:16px;
+  --shadow:0 8px 32px rgba(0,0,0,.3);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter','PingFang SC','Microsoft YaHei',sans-serif;background:var(--navy);color:var(--cream);overflow-x:hidden;line-height:1.7}
+.serif{font-family:'Noto Serif SC','Songti SC','SimSun',serif}
+
+/* ── Nav ── */
+nav{position:fixed;top:0;width:100%;z-index:100;background:rgba(10,22,40,.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.04)}
+nav .inner{max-width:1200px;margin:0 auto;padding:0 28px;height:64px;display:flex;align-items:center;justify-content:space-between}
+nav .logo{font-size:20px;font-weight:700;letter-spacing:1px;color:var(--gold)}
+nav .logo span{color:var(--cream);font-weight:300}
+nav .links{display:flex;gap:28px}
+nav .links a{color:var(--gray);text-decoration:none;font-size:14px;transition:color .3s;cursor:pointer}
+nav .links a:hover{color:var(--gold)}
+
+/* ── Hero ── */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:80px 28px 60px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 800px 500px at 20% 40%,rgba(201,168,76,.06),transparent),
+             radial-gradient(ellipse 600px 400px at 80% 60%,rgba(201,168,76,.03),transparent)}
+.hero .inner{max-width:1200px;margin:0 auto;width:100%;position:relative}
+.hero .badge{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:100px;font-size:13px;font-weight:500;background:rgba(201,168,76,.08);color:var(--gold2);border:1px solid rgba(201,168,76,.15);margin-bottom:32px;letter-spacing:1px}
+.hero h1{font-size:clamp(40px,6vw,72px);font-weight:700;line-height:1.15;letter-spacing:-1px;max-width:800px}
+.hero h1 .gold{color:var(--gold)}
+.hero h1 .white{color:var(--white)}
+.hero .sub{font-size:clamp(16px,1.5vw,20px);color:var(--gray);max-width:600px;margin:24px 0 48px;line-height:1.8}
+.hero .cta-row{display:flex;gap:16px;flex-wrap:wrap}
+.hero .cta{display:inline-flex;align-items:center;gap:10px;padding:14px 32px;border-radius:50px;font-size:15px;font-weight:600;text-decoration:none;transition:all .3s;cursor:pointer}
+.hero .cta-primary{background:var(--gold);color:var(--navy);border:none}
+.hero .cta-primary:hover{background:var(--gold2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(201,168,76,.2)}
+.hero .cta-outline{background:transparent;color:var(--cream);border:1px solid rgba(255,255,255,.15)}
+.hero .cta-outline:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── Stats bar ── */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:2px;max-width:1200px;margin:0 auto;padding:60px 28px;background:linear-gradient(135deg,var(--navy2),var(--navy3));border-radius:20px;border:1px solid rgba(255,255,255,.04)}
+.stat-item{text-align:center;padding:20px 12px}
+.stat-item .num{font-size:36px;font-weight:700;color:var(--gold);font-family:'Noto Serif SC',serif;letter-spacing:-.5px}
+.stat-item .num span{font-size:18px;font-weight:400;color:var(--gold2)}
+.stat-item .label{font-size:14px;color:var(--gray);margin-top:6px}
+
+/* ── Section ── */
+section{max-width:1200px;margin:0 auto;padding:100px 28px}
+.section-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--gold2);margin-bottom:16px}
+.section-tag::before{content:'';width:24px;height:1px;background:var(--gold2)}
+.section-title{font-size:clamp(28px,3.5vw,44px);font-weight:700;letter-spacing:-.5px;line-height:1.25;margin-bottom:16px}
+.section-desc{font-size:16px;color:var(--gray);max-width:600px;line-height:1.8;margin-bottom:48px}
+
+/* ── Value Cards ── */
+.value-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.value-card{background:linear-gradient(145deg,var(--glass),var(--glass2));border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:32px;transition:all .4s;position:relative;overflow:hidden;cursor:default}
+.value-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:opacity .4s}
+.value-card:hover::before{opacity:1}
+.value-card:hover{transform:translateY(-4px);border-color:rgba(201,168,76,.15);background:linear-gradient(145deg,rgba(201,168,76,.04),rgba(255,255,255,.03))}
+.value-card .icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03)}
+.value-card h3{font-size:18px;font-weight:600;margin-bottom:8px}
+.value-card p{font-size:14px;color:var(--gray);line-height:1.7}
+
+/* ── Use Cases ── */
+.cases-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
+.case-card{position:relative;border-radius:var(--radius);overflow:hidden;height:320px;display:flex;flex-direction:column;justify-content:flex-end;padding:32px;background:linear-gradient(180deg,rgba(10,22,40,.2) 0%,rgba(10,22,40,.95) 100%);border:1px solid rgba(255,255,255,.06);cursor:default;transition:all .4s}
+.case-card:hover{transform:translateY(-4px);border-color:rgba(201,168,76,.2)}
+.case-card .bg{position:absolute;inset:0;z-index:-1;opacity:.12}
+.case-card .tag{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(201,168,76,.12);color:var(--gold2);margin-bottom:12px;align-self:flex-start}
+.case-card h3{font-size:20px;font-weight:700;margin-bottom:6px}
+.case-card p{font-size:14px;color:var(--gray);line-height:1.7}
+
+/* ── How it works ── */
+.process{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+.process-item{flex:1;min-width:220px;text-align:center;padding:32px 20px;border-radius:var(--radius);background:var(--glass);border:1px solid rgba(255,255,255,.04);transition:all .3s}
+.process-item:hover{border-color:rgba(201,168,76,.1);transform:translateY(-2px)}
+.process-item .step{width:56px;height:56px;border-radius:50%;border:2px solid rgba(201,168,76,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:20px;font-weight:700;color:var(--gold);font-family:'Noto Serif SC',serif}
+.process-item h4{font-size:16px;font-weight:600;margin-bottom:6px}
+.process-item p{font-size:13px;color:var(--gray);line-height:1.6}
+.process-arrow{display:flex;align-items:center;padding-top:64px;font-size:24px;color:var(--gold2);opacity:.4}
+@media(max-width:768px){.process-arrow{display:none}}
+
+/* ── Why us ── */
+.why-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.why-item{display:flex;gap:16px;padding:20px;border-radius:12px;background:var(--glass);border:1px solid rgba(255,255,255,.04);transition:all .3s}
+.why-item:hover{border-color:rgba(201,168,76,.1)}
+.why-item .check{width:28px;height:28px;min-width:28px;border-radius:50%;background:rgba(201,168,76,.12);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:14px}
+.why-item h4{font-size:15px;font-weight:600;margin-bottom:2px}
+.why-item p{font-size:13px;color:var(--gray)}
+
+/* ── Eco Partner ── */
+.eco-row{display:flex;gap:24px;flex-wrap:wrap}
+.eco-item{flex:1;min-width:200px;padding:28px 24px;border-radius:12px;background:var(--glass);border:1px solid rgba(255,255,255,.04);text-align:center;transition:all .3s}
+.eco-item:hover{border-color:rgba(201,168,76,.1)}
+.eco-item .icon{font-size:32px;margin-bottom:8px}
+.eco-item h4{font-size:15px;font-weight:600;margin-bottom:4px}
+.eco-item p{font-size:13px;color:var(--gray)}
+
+/* ── CTA ── */
+.cta-section{text-align:center;padding:120px 28px;max-width:800px}
+.cta-section h2{font-size:clamp(28px,4vw,48px);font-weight:700;line-height:1.2;margin-bottom:20px}
+.cta-section p{font-size:16px;color:var(--gray);margin-bottom:40px;max-width:500px;margin-left:auto;margin-right:auto}
+.cta-section .btn{display:inline-flex;align-items:center;gap:12px;padding:16px 40px;border-radius:50px;font-size:16px;font-weight:600;background:var(--gold);color:var(--navy);text-decoration:none;transition:all .3s;border:none;cursor:pointer}
+.cta-section .btn:hover{background:var(--gold2);transform:translateY(-2px);box-shadow:0 8px 32px rgba(201,168,76,.2)}
+
+/* ── Footer ── */
+footer{text-align:center;padding:40px 28px;border-top:1px solid rgba(255,255,255,.04);color:var(--gray2);font-size:13px}
+footer a{color:var(--gold2);text-decoration:none}
+
+/* ── Animations ── */
+.fade-in{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+
+/* ── Responsive ── */
+@media(max-width:640px){
+  nav .links{display:none}
+  .hero h1{font-size:32px}
+  .stat-item .num{font-size:28px}
+  .cases-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <div class="logo">RWA<span>Protocol</span></div>
+    <div class="links">
+      <a onclick="document.getElementById('value').scrollIntoView({behavior:'smooth'})">核心价值</a>
+      <a onclick="document.getElementById('cases').scrollIntoView({behavior:'smooth'})">应用场景</a>
+      <a onclick="document.getElementById('process').scrollIntoView({behavior:'smooth'})">运作方式</a>
+      <a onclick="document.getElementById('why').scrollIntoView({behavior:'smooth'})">为什么选择我们</a>
+      <a onclick="document.getElementById('cta').scrollIntoView({behavior:'smooth'})">联系我们</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="inner">
+    <div class="badge">✦ 基于 Solana 区块链 · 合规 · 安全 · 高效</div>
+    <h1><span class="white">让现实世界资产</span><br><span class="gold">自由流动</span></h1>
+    <p class="sub">通过区块链技术将不动产、大宗商品、艺术品等现实资产数字化，<br>实现全球范围内的高效交易与流动。我们为资产拥有者与投资者<br>搭建可信的数字化桥梁。</p>
+    <div class="cta-row">
+      <a class="cta cta-primary" onclick="document.getElementById('value').scrollIntoView({behavior:'smooth'})">了解详情 →</a>
+      <a class="cta cta-outline" href="http://localhost:3002" target="_blank">进入平台 →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ STATS ═══ -->
+<div class="stats-bar fade-in">
+  <div class="stat-item"><div class="num">6<span>+</span></div><div class="label">资产类型支持</div></div>
+  <div class="stat-item"><div class="num">28<span>+</span></div><div class="label">智能合约功能</div></div>
+  <div class="stat-item"><div class="num">12<span>+</span></div><div class="label">安全验证机制</div></div>
+  <div class="stat-item"><div class="num">33<span>+</span></div><div class="label">风控规则覆盖</div></div>
+  <div class="stat-item"><div class="num">Solana</div><div class="label">高性能公链</div></div>
+</div>
+
+<!-- ═══ CORE VALUE ═══ -->
+<section id="value">
+  <div class="section-tag">核心价值</div>
+  <h2 class="section-title">为什么将资产上链？</h2>
+  <p class="section-desc">传统资产交易面临流动性差、门槛高、透明度不足等痛点。RWA 数字化为这些问题提供了全新的解决方案。</p>
+  <div class="value-grid">
+    <div class="value-card">
+      <div class="icon">◈</div>
+      <h3>提升流动性</h3>
+      <p>将不动产、艺术品等低流动性资产拆分为可交易的数字份额，投资者可随时买卖，资产不再被长期锁定。</p>
+    </div>
+    <div class="value-card">
+      <div class="icon">◉</div>
+      <h3>降低准入门槛</h3>
+      <p>通过份额化降低投资门槛，让更多投资者以小额资金参与到过去只有机构才能触及的优质资产中。</p>
+    </div>
+    <div class="value-card">
+      <div class="icon">◈</div>
+      <h3>全程透明可追溯</h3>
+      <p>所有交易记录在区块链上不可篡改，资产权属清晰可查，投资者可随时验证持有份额与资产状态。</p>
+    </div>
+    <div class="value-card">
+      <div class="icon">◐</div>
+      <h3>智能合规管控</h3>
+      <p>内置 KYC 身份验证与合规检查机制，在保护隐私的前提下确保交易符合监管要求，降低法律风险。</p>
+    </div>
+    <div class="value-card">
+      <div class="icon">⟐</div>
+      <h3>自动化估值</h3>
+      <p>接入权威价格数据源，资产估值实时更新，确保市场价格与链上价值保持一致，减少人工干预。</p>
+    </div>
+    <div class="value-card">
+      <div class="icon">◰</div>
+      <h3>7×24 全球交易</h3>
+      <p>区块链网络全年无休，全球投资者可跨越地域与时区限制进行交易，市场不再受传统交易时间约束。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ USE CASES ═══ -->
+<section id="cases">
+  <div class="section-tag">应用场景</div>
+  <h2 class="section-title">适用于多种现实资产</h2>
+  <p class="section-desc">我们的平台支持多种类型的资产数字化，满足不同行业的业务需求。</p>
+  <div class="cases-grid">
+    <div class="case-card">
+      <div class="bg" style="background:linear-gradient(135deg,#1a3a5c,#0a1628)"></div>
+      <div class="tag">不动产</div>
+      <h3>商业与住宅地产</h3>
+      <p>将商业写字楼、住宅小区、工业园区等不动产份额化，投资者可购买部分产权，享受租金收益与资产增值。</p>
+    </div>
+    <div class="case-card">
+      <div class="bg" style="background:linear-gradient(135deg,#3a2a1a,#0a1628)"></div>
+      <div class="tag">大宗商品</div>
+      <h3>黄金、白银与能源</h3>
+      <p>将实物黄金、白银等贵金属以及石油等能源商品数字化，每个代币对应实物存托凭证，支持实时价格锚定。</p>
+    </div>
+    <div class="case-card">
+      <div class="bg" style="background:linear-gradient(135deg,#2a1a3a,#0a1628)"></div>
+      <div class="tag">艺术品与收藏品</div>
+      <h3>书画、雕塑与古董</h3>
+      <p>知名艺术家作品、稀有收藏品可通过平台进行份额化交易，让更多人参与到艺术品投资市场。</p>
+    </div>
+    <div class="case-card">
+      <div class="bg" style="background:linear-gradient(135deg,#1a3a2a,#0a1628)"></div>
+      <div class="tag">企业股权</div>
+      <h3>私有公司股权</h3>
+      <p>非上市公司的股权可通过合规渠道数字化，为早期投资者提供退出通道，为企业拓宽融资渠道。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<section id="process">
+  <div class="section-tag">运作方式</div>
+  <h2 class="section-title">四步完成资产数字化</h2>
+  <p class="section-desc">从资产登记到流通交易，全流程在区块链上安全、透明地完成。</p>
+  <div class="process">
+    <div class="process-item">
+      <div class="step">01</div>
+      <h4>资产登记</h4>
+      <p>资产拥有者提交资产信息与估值证明，经平台审核后在区块链上创建唯一的数字身份。</p>
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-item">
+      <div class="step">02</div>
+      <h4>数字发行</h4>
+      <p>审核通过后，资产被拆分为标准化数字份额并在链上发行，每份代表资产的相应权益。</p>
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-item">
+      <div class="step">03</div>
+      <h4>合规交易</h4>
+      <p>投资者通过 KYC 验证后即可在二级市场买卖数字份额，所有交易记录公开可查。</p>
+    </div>
+    <div class="process-arrow">→</div>
+    <div class="process-item">
+      <div class="step">04</div>
+      <h4>赎回兑付</h4>
+      <p>数字份额持有者可按规则发起赎回，链上份额销毁后，对应的实物资产或现金完成交割。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ WHY US ═══ -->
+<section id="why">
+  <div class="section-tag">为什么选择我们</div>
+  <h2 class="section-title">可信赖的资产数字化平台</h2>
+  <p class="section-desc">我们在技术、合规与安全方面建立了全面的保障体系。</p>
+  <div class="why-grid">
+    <div class="why-item">
+      <div class="check">✦</div>
+      <div><h4>技术成熟</h4><p>基于经过市场验证的 Solana 高性能区块链，交易确认速度快、成本极低。</p></div>
+    </div>
+    <div class="why-item">
+      <div class="check">✦</div>
+      <div><h4>合规优先</h4><p>内置身份验证与合规检查功能，在保护隐私的同时满足监管要求。</p></div>
+    </div>
+    <div class="why-item">
+      <div class="check">✦</div>
+      <div><h4>安全可靠</h4><p>智能合约经过严格测试，多重签名机制保护关键操作，资金安全有保障。</p></div>
+    </div>
+    <div class="why-item">
+      <div class="check">✦</div>
+      <div><h4>全程透明</h4><p>所有资产信息与交易记录在链上公开，投资者可随时自行验证。</p></div>
+    </div>
+    <div class="why-item">
+      <div class="check">✦</div>
+      <div><h4>灵活定制</h4><p>支持多种资产类型，可根据不同行业特点定制数字化的具体方案。</p></div>
+    </div>
+    <div class="why-item">
+      <div class="check">✦</div>
+      <div><h4>生态兼容</h4><p>基于开放的 SPL Token 标准，与主流钱包和 DeFi 生态无缝对接。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ECOSYSTEM ═══ -->
+<section>
+  <div class="section-tag">技术生态</div>
+  <h2 class="section-title">构建于成熟的区块链基础设施</h2>
+  <p class="section-desc">我们的平台搭建在业界领先的技术之上，确保稳定、安全、高效运行。</p>
+  <div class="eco-row">
+    <div class="eco-item">
+      <div class="icon">◆</div>
+      <h4>Solana 区块链</h4>
+      <p>高性能 Layer 1 公链<br>交易秒级确认 · 手续费低于 0.01 美元</p>
+    </div>
+    <div class="eco-item">
+      <div class="icon">✦</div>
+      <h4>Anchor 框架</h4>
+      <p>行业标准开发框架<br>经过安全审计 · 社区广泛验证</p>
+    </div>
+    <div class="eco-item">
+      <div class="icon">◈</div>
+      <h4>SPL Token 标准</h4>
+      <p>Solana 生态统一标准<br>兼容所有主流钱包与交易所</p>
+    </div>
+    <div class="eco-item">
+      <div class="icon">◉</div>
+      <h4>Pyth 价格预言机</h4>
+      <p>去中心化实时价格数据<br>毫秒级更新 · 多方验证</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA ═══ -->
+<section id="cta" class="cta-section">
+  <h2>开启资产数字化之旅</h2>
+  <p>无论您是资产拥有者寻求更高效的交易方式，还是投资者希望获得更多优质资产配置机会，我们都能为您提供支持。</p>
+  <a class="btn" href="http://localhost:3002" target="_blank">进入平台体验 →</a>
+  <div style="margin-top:24px;font-size:13px;color:var(--gray2)">已部署于 Solana Devnet · 使用 Phantom 或 Solflare 钱包连接</div>
+</section>
+
+<footer>
+  <p>RWA Protocol · 现实世界资产数字化解决方案</p>
+  <p style="margin-top:4px">基于 Solana 区块链 · 智能合约部署地址: <span style="color:var(--gray);font-size:12px;font-family:monospace">9VM2wyCkVZqtbQqqwqpst7pH7We6ttTiSfJ3NdWhDRJ9</span></p>
+</footer>
+
+<script>
+const observer = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')})
+},{threshold:.1})
+document.querySelectorAll('.fade-in').forEach(el=>observer.observe(el))
+document.querySelectorAll('.value-card,.process-item,.case-card,.why-item,.eco-item,.stat-item').forEach((el,i)=>{
+  el.classList.add('fade-in')
+  el.style.transitionDelay = (i%4)*60+'ms'
+  observer.observe(el)
+})
+</script>
+</body>
+</html>

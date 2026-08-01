@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+enum DealStatus {
+  PENDING
+  FUNDED
+  IN_TRANSIT
+  CUSTOMS_CLEAR
+  DELIVERED
+  REPAYING
+  SETTLED
+  DEFAULTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  wallet    String   @unique
+  email     String?  @unique
+  passwordHash String?
+  name      String?
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyerDeals  TradeDeal[] @relation("Buyer")
+  sellerDeals TradeDeal[] @relation("Seller")
+  files       File[]
+}
+
+model TradeDeal {
+  id            String     @id
+  dealId        BigInt     @unique
+  buyerId       String?
+  sellerId      String?
+  buyerWallet   String
+  sellerWallet  String
+  amount        BigInt
+  downPayment   BigInt
+  poolPortion   BigInt
+  tenor         BigInt
+  status        DealStatus @default(PENDING)
+  createdAt     DateTime
+  repaidAt      DateTime?
+  txSignature   String?
+  logisticsHash String?
+  rawData       Json?
+  updatedAt     DateTime   @updatedAt
+
+  buyer  User? @relation("Buyer", fields: [buyerId], references: [id])
+  seller User? @relation("Seller", fields: [sellerId], references: [id])
+
+  @@index([status])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([buyerWallet])
+}
+
+model PoolSnapshot {
+  id                    String   @id @default(cuid())
+  poolAddress           String
+  nav                   BigInt
+  utilization           BigInt
+  totalAssets           BigInt
+  activeCapital         BigInt
+  reserveFund           BigInt
+  insuranceFund         BigInt
+  pendingDividends     BigInt
+  capturedAt            DateTime
+
+  @@unique([poolAddress, capturedAt])
+  @@index([poolAddress, capturedAt])
+}
+
+enum WithdrawStatus {
+  PENDING
+  READY
+  EXECUTED
+}
+
+model WithdrawRequest {
+  id          String         @id @default(cuid())
+  lpAddress   String
+  amount      Decimal        @db.Decimal(18, 6)
+  requestedAt DateTime
+  availableAt DateTime
+  status      WithdrawStatus @default(PENDING)
+
+  @@index([lpAddress, status])
+  @@map("withdraw_requests")
+}
+
+enum FileStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model File {
+  id          String     @id @default(cuid())
+  filename    String
+  size        Int
+  mimeType    String
+  path        String
+  hash        String
+  status      FileStatus @default(PENDING)
+  tradeId     String?
+  description String?
+  remark      String?
+  uploaderId  String?
+  uploader    User?      @relation(fields: [uploaderId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@map("files")
+}

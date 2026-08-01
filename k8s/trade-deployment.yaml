@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trade-service
+  namespace: supply-chain
+  labels:
+    app: supply-chain
+    tier: trade
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: supply-chain
+      tier: trade
+  template:
+    metadata:
+      labels:
+        app: supply-chain
+        tier: trade
+    spec:
+      containers:
+        - name: trade-service
+          image: ghcr.io/example/supply-chain-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/apps/trade-service/src/main.js"]
+          ports:
+            - containerPort: 3004
+              name: http
+          env:
+            - name: TRADE_SERVICE_PORT
+              value: "3004"
+            - name: NODE_ENV
+              value: "production"
+            - name: SOLANA_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: SOLANA_RPC_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: JWT_SECRET
+            - name: ALLOWED_ORIGIN
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: ALLOWED_ORIGIN
+                  optional: true
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: REDIS_URL
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trade-service
+  namespace: supply-chain
+spec:
+  selector:
+    app: supply-chain
+    tier: trade
+  ports:
+    - name: http
+      port: 3004
+      targetPort: http

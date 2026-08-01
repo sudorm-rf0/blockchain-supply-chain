@@ -1,0 +1,25 @@
+{
+  "name": "blockchain-supply-chain",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.4.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "clean": "turbo run clean",
+    "keygen": "node scripts/keygen.cjs",
+    "setup": "bash ./init-monorepo.sh",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@solana/web3.js": "^1.91.3",
+    "@types/express": "^5.0.6",
+    "turbo": "^2.0.3",
+    "typescript": "^5.5.3"
+  }
+}

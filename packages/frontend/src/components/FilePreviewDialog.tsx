@@ -1,0 +1,152 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Copy, Check, Download } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { getFile, type FileRecord } from "@/lib/api";
+
+interface FilePreviewDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  fileId: string | null;
+}
+
+function statusBadge(status: FileRecord["status"]) {
+  const map = {
+    PENDING: "bg-yellow-200 text-yellow-800",
+    APPROVED: "bg-green-200 text-green-800",
+    REJECTED: "bg-red-200 text-red-800",
+  } as const;
+  return map[status];
+}
+
+export function FilePreviewDialog({
+  open,
+  onOpenChange,
+  fileId,
+}: FilePreviewDialogProps) {
+  const [file, setFile] = useState<FileRecord | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!fileId) return;
+    try {
+      setFile(await getFile(fileId));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "加载文件失败");
+    }
+  }, [fileId]);
+
+  useEffect(() => {
+    if (open) void load();
+  }, [open, load]);
+
+  const copyHash = async () => {
+    if (!file) return;
+    await navigator.clipboard.writeText(file.hash);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const isImage = file?.mimeType === "image/png" || file?.mimeType === "image/jpeg";
+  const isPdf = file?.mimeType === "application/pdf";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>文件预览</DialogTitle>
+        </DialogHeader>
+        {file ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">文件名</p>
+                <p className="break-all">{file.filename}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">大小</p>
+                <p>{(file.size / 1024).toFixed(0)} KB</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">MIME 类型</p>
+                <p>{file.mimeType}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">上传时间</p>
+                <p>{new Date(file.createdAt).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">状态</p>
+                <Badge className={statusBadge(file.status)}>{file.status}</Badge>
+              </div>
+              <div>
+                <p className="text-muted-foreground">哈希</p>
+                <button
+                  type="button"
+                  onClick={() => void copyHash()}
+                  className="flex items-center gap-1 font-mono text-xs hover:underline"
+                >
+                  {file.hash.slice(0, 16)}...
+                  {copied ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {file.remark && (
+              <div>
+                <p className="text-muted-foreground">审核备注</p>
+                <p className="text-sm">{file.remark}</p>
+              </div>
+            )}
+
+            <div className="rounded-md border bg-muted/30 p-3">
+              {isImage ? (
+                <img
+                  src={file.path}
+                  alt={file.filename}
+                  className="mx-auto max-h-96"
+                />
+              ) : isPdf ? (
+                <iframe
+                  src={file.path}
+                  title={file.filename}
+                  className="h-96 w-full"
+                />
+              ) : (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  该文件类型不支持预览
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <a href={file.path} download>
+                <Button type="button" variant="outline">
+                  <Download className="mr-2 h-4 w-4" />
+                  下载
+                </Button>
+              </a>
+            </div>
+          </div>
+        ) : (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            加载中...
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -1,0 +1,31 @@
+import { Logger, ValidationPipe } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { AppModule } from "./app.module";
+import { TRADE_ENV } from "./config/env";
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.enableCors({
+    origin: [
+      /^https?:\/\/localhost(:\d+)?$/,
+      process.env.ALLOWED_ORIGIN,
+    ].filter(Boolean) as (string | RegExp)[],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-wallet-address"],
+  });
+
+  const config = new DocumentBuilder()
+    .setTitle("trade-service")
+    .setDescription("Trade finance pre-build transaction API")
+    .setVersion("1.0.0")
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup("docs", app, document);
+
+  await app.listen(TRADE_ENV.port);
+  Logger.log(`trade-service listening on ${TRADE_ENV.port}`, "Bootstrap");
+}
+
+void bootstrap();

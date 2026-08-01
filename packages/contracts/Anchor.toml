@@ -1,0 +1,17 @@
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[programs.localnet]
+supply_chain = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
+
+[programs.devnet]
+supply_chain = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
+
+[workspace]
+members = ["programs/supply-chain", "programs/trade-finance"]
+
+[scripts]
+test = "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/supply_chain
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prisma Generate
+        working-directory: packages/backend
+        run: pnpm exec prisma generate
+
+      - name: TypeScript Check (main backend)
+        working-directory: packages/backend
+        run: pnpm exec tsc --noEmit
+
+      - name: TypeScript Check (indexer-service)
+        working-directory: packages/backend
+        run: pnpm exec tsc -p apps/indexer-service/tsconfig.app.json --noEmit
+
+      - name: TypeScript Check (pool-service)
+        working-directory: packages/backend
+        run: pnpm exec tsc -p apps/pool-service/tsconfig.app.json --noEmit
+
+      - name: TypeScript Check (trade-service)
+        working-directory: packages/backend
+        run: pnpm exec tsc -p apps/trade-service/tsconfig.app.json --noEmit
+
+      - name: Tests
+        working-directory: packages/backend
+        run: pnpm exec jest --passWithNoTests
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: TypeScript Check
+        working-directory: packages/frontend
+        run: pnpm exec tsc --noEmit
+
+  contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Anchor CLI
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+
+      - name: Anchor Build
+        working-directory: packages/contracts
+        run: anchor build
