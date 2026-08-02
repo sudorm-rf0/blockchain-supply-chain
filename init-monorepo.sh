@@ -141,11 +141,14 @@ Local development:
   pnpm dev
 
 Contract deployment (requires anchor-cli + solana-cli):
-  cd packages/contracts && anchor build
-  anchor deploy --provider.cluster localnet
+  cd packages/contracts && anchor build && cargo build-sbf --arch v3
+  solana program deploy target/deploy/trade_finance.so --program-id target/deploy/trade_finance-keypair.json
+  solana program deploy target/deploy/supply_chain.so --program-id target/deploy/supply_chain-keypair.json
 
 Manual steps:
-  - Install Anchor CLI 0.30.1: cargo install --locked anchor-cli --version 0.30.1
-  - Install Solana CLI 1.17.x and create ~/.config/solana/id.json
+  - Install Anchor CLI 0.31.1: cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.1 anchor-cli --locked
+  - Install Agave CLI 4.1.2 (release tarball from github.com/anza-xyz/agave) and create ~/.config/solana/id.json
+  - localnet: docker compose up -d solana-localnet (builds Agave 4.1.2 image)
+  - deploy: cd packages/contracts && cargo build-sbf --arch v3 && solana program deploy ...
   - Anchor.toml wallet points to ~/.config/solana/id.json
 EOF

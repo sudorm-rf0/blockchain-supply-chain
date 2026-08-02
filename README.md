@@ -5,7 +5,8 @@ Solana/Anchor 供应链金融演示系统：单据上传审核、Solana 存证�
 
 ## 包结构
 
-- `packages/contracts`: Anchor 0.30.1 合约（`trade-finance` 全生命周期 + `supply-chain`）。
+- `packages/contracts`: Anchor 0.31.1 合约（`trade-finance` 全生命周期 + `supply-chain`），
+  工具链为 Agave 4.1.2 + SBFv3。
 - `packages/backend`: NestJS 10 主后端（认证、文件、存证）+ 3 个独立服务：
   `indexer-service`（链上监听与 DB 回写）、`trade-service`（订单预构建与确认）、
   `pool-service`（资金池总览与 LP 提款）。
@@ -24,12 +25,19 @@ cd packages/backend && pnpm exec prisma generate && pnpm exec prisma migrate dep
 docker compose up -d
 ```
 
+`solana-localnet` 首次会构建 Agave 4.1.2 镜像（固定 `linux/amd64`，
+Apple Silicon 上由 Docker 模拟运行），请确保构建时能访问 GitHub Releases。
+
 合约构建与 localnet 部署：
 
 ```bash
 cd packages/contracts
 anchor build
-PATH="$HOME/.local/share/solana/active_release/bin:$PATH" anchor deploy --provider.cluster localnet
+cargo build-sbf --arch v3
+PATH="$HOME/.local/share/solana/active_release/bin:$PATH" solana program deploy \
+  target/deploy/trade_finance.so --program-id target/deploy/trade_finance-keypair.json
+PATH="$HOME/.local/share/solana/active_release/bin:$PATH" solana program deploy \
+  target/deploy/supply_chain.so --program-id target/deploy/supply_chain-keypair.json
 ```
 
 后端服务（默认端口）：

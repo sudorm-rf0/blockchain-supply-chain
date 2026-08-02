@@ -24,7 +24,12 @@ fi
 
 cd "${ROOT}/packages/contracts"
 anchor build
-anchor deploy --provider.cluster devnet
+# Agave devnet expects the same SBFv3 target used by the CI localnet validator.
+cargo build-sbf --arch v3 >/dev/null
+solana program deploy target/deploy/trade_finance.so \
+  --program-id target/deploy/trade_finance-keypair.json
+solana program deploy target/deploy/supply_chain.so \
+  --program-id target/deploy/supply_chain-keypair.json
 
 echo "devnet deployment finished."
 echo "trade_finance program id: 9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"

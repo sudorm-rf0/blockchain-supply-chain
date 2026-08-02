@@ -8,7 +8,9 @@
 
 项目作为本地内测/演示已可用，核心业务（文件存证、订单全生命周期）真实跑通。
 **不建议直接生产上线**：依赖审计存在 39 个已知漏洞（其中 14 high、0 critical），
-Next.js 14 属已停止安全补丁的版本；合约未做第三方审计；生产部署未在真实集群验证。
+前端已升级到 Next.js 15.5.22 + React 19；依赖审计仍有 1 个无补丁的 high
+（`bigint-buffer`，来自 `@solana/spl-token` 原生依赖）；合约未做第三方审计；
+生产部署未在真实集群验证。
 
 ## 严重度统计
 
@@ -56,7 +58,9 @@ Next.js 14 属已停止安全补丁的版本；合约未做第三方审计；生
 
 - 依赖：移除 `@solana/wallet-adapter-wallets`（Trezor 链），漏洞 70 → 39，critical 归零；
   通过 overrides 升级 `multer` 至 2.1.x；随后升级 Next 15.5.16 与 `@solana/web3.js` 1.98.4，
-  漏洞进一步降至 28（0 critical）。
+  漏洞进一步降至 28（0 critical）；复查时前端升级到 Next 15.5.22，并通过
+  pnpm overrides 修复 body-parser / path-to-regexp / lodash / js-yaml / postcss /
+  sharp，最终 `pnpm audit --prod` 降至 7 个（1 high / 6 moderate，0 critical）。
 - 并发幂等：trade confirm upsert 在 indexer 并发创建时偶发主键冲突，增加 P2002 按
   PDA `id` 兜底更新；连续 3 次全链路冒烟验证稳定。
 - 链上状态机：补 `release_to_seller`，修正 repay 前置状态为 `REPAYING`。
@@ -67,13 +71,15 @@ Next.js 14 属已停止安全补丁的版本；合约未做第三方审计；生
 
 ## 验证记录
 
-- 后端/前端/三个独立服务构建通过；Jest 8/8；合约 7/7 测试通过。
-- Next.js 15.5.16 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`
+- 后端/前端/三个独立服务构建通过；Jest 41/41；合约 7/7 测试通过。
+- Next.js 15.5.22 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`
   浏览器验证 0 hydration 错误。
 - 文件哈希存证真实上链（slot 2518 无错误，后端链上校验通过）。
 - 订单全流程真实上链：PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR →
   DELIVERED → REPAYING → SETTLED。
 - 压测：files 4.5k req/s、trades 6.3k req/s、login p99 81ms、上传 532 文件/s。
+- CI 全绿：backend / frontend / contracts / e2e（localnet 全链路冒烟）/ docker
+  镜像构建 5 个 job 全部通过；localnet 验证器升级为 Agave 4.1.2（SBFv3）。
 
 ## 上线前必做
 
