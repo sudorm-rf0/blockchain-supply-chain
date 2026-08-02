@@ -13,6 +13,8 @@ import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto"
 
 const NOTICE_DAYS = 7;
 const NOTICE_SECONDS = NOTICE_DAYS * 24 * 60 * 60;
+const OVERVIEW_CACHE_KEY = "pool:overview:v1";
+const OVERVIEW_CACHE_SECONDS = 30;
 const ACTIVE_STATUSES = new Set([
   "PENDING",
   "FUNDED",
@@ -30,6 +32,11 @@ export class PoolService {
   ) {}
 
   async getOverview(): Promise<PoolOverviewResponseDto> {
+    const cached = await this.redis.get(OVERVIEW_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached) as PoolOverviewResponseDto;
+    }
+
     const [latest, recent, dealAgg, dealGroups] = await Promise.all([
       this.prisma.poolSnapshot.findFirst({
         orderBy: { capturedAt: "desc" },
@@ -84,7 +91,7 @@ export class PoolService {
       }
     }
 
-    return {
+    const overview: PoolOverviewResponseDto = {
       poolAddress: latest?.poolAddress ?? "",
       nav: (latest?.nav ?? 0n).toString(10),
       totalAssets: totalAssets.toString(10),
@@ -109,6 +116,12 @@ export class PoolService {
           totalAssets: snapshot.totalAssets.toString(10),
         })),
     };
+    await this.redis.setWithExpiry(
+      OVERVIEW_CACHE_KEY,
+      JSON.stringify(overview),
+      OVERVIEW_CACHE_SECONDS,
+    );
+    return overview;
   }
 
   async requestWithdrawal(
