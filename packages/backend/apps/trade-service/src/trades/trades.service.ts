@@ -40,7 +40,11 @@ let _connection: Connection | undefined;
 let _programId: PublicKey | undefined;
 
 function getConnection(): Connection {
-  return (_connection ??= new Connection(TRADE_ENV.rpcUrl, "confirmed"));
+  return (_connection ??= new Connection(TRADE_ENV.rpcUrl, {
+    commitment: "confirmed",
+    fetch: (url, options) =>
+      fetch(url, { ...options, signal: AbortSignal.timeout(30_000) }),
+  }));
 }
 function getProgramId(): PublicKey {
   return (_programId ??= new PublicKey(TRADE_ENV.programId));

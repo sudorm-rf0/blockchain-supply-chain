@@ -28,7 +28,11 @@ export function getRpcUrl(): string {
 }
 
 export function getConnection(): Connection {
-  cachedConnection ??= new Connection(getRpcUrl(), "confirmed");
+  cachedConnection ??= new Connection(getRpcUrl(), {
+    commitment: "confirmed",
+    fetch: (url, options) =>
+      fetch(url, { ...options, signal: AbortSignal.timeout(30_000) }),
+  });
   return cachedConnection;
 }
 
