@@ -77,6 +77,62 @@ function authHeaders(): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
+const API_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 15000);
+
+function isRetryable(error: unknown, method: string): boolean {
+  if (method !== "GET" || !(error instanceof Error)) return false;
+  return (
+    error.name === "AbortError" ||
+    error.message.includes("Failed to fetch") ||
+    /^HTTP 5\d\d/.test(error.message)
+  );
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function requestWithRetry(
+  url: string,
+  init: RequestInit,
+  headers: Record<string, string>,
+): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const maxAttempts = method === "GET" ? 3 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(
+        url,
+        { ...init, headers },
+        API_TIMEOUT_MS,
+      );
+      handleUnauthorized(url, response);
+      if (!response.ok) {
+        const message = await readError(response);
+        throw new Error(`HTTP ${response.status}: ${message}`);
+      }
+      return response;
+    } catch (error) {
+      if (attempt < maxAttempts && isRetryable(error, method)) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("request failed");
+}
+
 async function request<T>(
   url: string,
   init?: RequestInit,
@@ -90,11 +146,7 @@ async function request<T>(
   if (!headers["content-type"] && !(init?.body instanceof FormData)) {
     headers["content-type"] = "application/json";
   }
-  const response = await fetch(url, { ...init, headers });
-  handleUnauthorized(url, response);
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
+  const response = await requestWithRetry(url, init ?? {}, headers);
   return (await response.json()) as T;
 }
 
@@ -153,13 +205,11 @@ export async function getFile(id: string): Promise<FileRecord> {
 }
 
 export async function fetchFileBlob(id: string): Promise<Blob> {
-  const response = await fetch(`${BACKEND_URL}/api/files/${id}/content`, {
-    headers: authHeaders(),
-  });
-  handleUnauthorized(`${BACKEND_URL}/api/files/${id}/content`, response);
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
+  const response = await requestWithRetry(
+    `${BACKEND_URL}/api/files/${id}/content`,
+    {},
+    authHeaders(),
+  );
   return response.blob();
 }
 
