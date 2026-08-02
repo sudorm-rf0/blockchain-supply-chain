@@ -30,7 +30,7 @@ solana airdrop 100 >/dev/null
 
 cd "$ROOT/packages/contracts"
 cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml >/dev/null
-rustup default 1.89.0-sbpf-solana-v1.54
+rustup default 1.86.0
 anchor build >/dev/null || {
   echo "anchor build failed; retrying once with offline cargo cache" >&2
   CARGO_NET_OFFLINE=true anchor build >/dev/null

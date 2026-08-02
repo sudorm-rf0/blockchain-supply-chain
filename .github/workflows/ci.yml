@@ -129,18 +129,15 @@ jobs:
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
-      - name: Install Rust 1.89 (IDL/SBF build toolchain)
+      - name: Install Rust 1.86 (IDL build toolchain)
         run: |
-          rustup toolchain install 1.89.0 --profile minimal --no-self-update
-          rustup default 1.89.0
+          rustup toolchain install 1.86.0 --profile minimal --no-self-update
+          rustup default 1.86.0
       - name: Install standalone cargo-build-sbf
         run: cargo install cargo-build-sbf --locked
       - name: Anchor Build
         working-directory: packages/contracts
-        run: |
-          cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml >/dev/null
-          rustup default 1.89.0-sbpf-solana-v1.54
-          anchor build
+        run: anchor build
 
       - name: Test Typecheck
         working-directory: packages/contracts
@@ -230,10 +227,10 @@ jobs:
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
-      - name: Install Rust 1.89 (IDL/SBF build toolchain)
+      - name: Install Rust 1.86 (IDL build toolchain)
         run: |
-          rustup toolchain install 1.89.0 --profile minimal --no-self-update
-          rustup default 1.89.0
+          rustup toolchain install 1.86.0 --profile minimal --no-self-update
+          rustup default 1.86.0
       - name: Install standalone cargo-build-sbf
         run: cargo install cargo-build-sbf --locked
       - name: Run End-to-End Smoke
