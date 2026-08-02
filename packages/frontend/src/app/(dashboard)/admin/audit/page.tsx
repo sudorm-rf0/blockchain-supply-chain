@@ -23,6 +23,7 @@ import {
   fetchAuditLogs,
   type AuditLogRecord,
 } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 
 const LIMIT = 20;
 const ACTION_LABEL: Record<string, string> = {
@@ -102,7 +103,7 @@ export default function AuditLogsPage() {
               {logs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell className="whitespace-nowrap">
-                    {new Date(log.createdAt).toLocaleString()}
+                    {formatDateTime(log.createdAt)}
                   </TableCell>
                   <TableCell>{log.actorEmail ?? log.actorId ?? "-"}</TableCell>
                   <TableCell>

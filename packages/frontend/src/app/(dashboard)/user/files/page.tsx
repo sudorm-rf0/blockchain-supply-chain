@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { deleteFile, getFiles, type FileRecord } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 
 const LIMIT = 10;
 
@@ -127,7 +128,7 @@ export default function UserFilesPage() {
                   {file.hash.slice(0, 8)}
                 </TableCell>
                 <TableCell>
-                  {new Date(file.createdAt).toLocaleString()}
+                  {formatDateTime(file.createdAt)}
                 </TableCell>
                 <TableCell className="space-x-2">
                   <Button

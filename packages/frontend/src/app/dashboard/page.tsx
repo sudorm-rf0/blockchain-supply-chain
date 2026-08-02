@@ -19,6 +19,7 @@ import {
   formatUsdc,
   type IndexerStatus,
 } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 
 // ==== 分段标识: 数据与图表映射 ====
 interface ChartPoint {
@@ -123,7 +124,7 @@ export default function DashboardPage() {
             <span className="text-emerald-400">
               synced · last snapshot{" "}
               {indexer.lastPoolSnapshotAt
-                ? new Date(indexer.lastPoolSnapshotAt).toLocaleString()
+                ? formatDateTime(indexer.lastPoolSnapshotAt)
                 : "n/a"}
             </span>
           ) : (

@@ -29,6 +29,7 @@ import {
   type TradeRecord,
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
+import { formatDateTime } from "@/lib/format";
 
 const STATUS_STYLE: Record<string, string> = {
   PENDING: "bg-yellow-200 text-yellow-800",
@@ -195,7 +196,7 @@ export default function OrdersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(trade.createdAt).toLocaleString()}
+                      {formatDateTime(trade.createdAt)}
                     </TableCell>
                     <TableCell>
                       <div className="space-x-2">

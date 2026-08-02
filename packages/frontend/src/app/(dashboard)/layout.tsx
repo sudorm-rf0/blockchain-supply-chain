@@ -31,9 +31,16 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useUserStore();
+  const [hydrated, setHydrated] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
+    setHydrated(useUserStore.persist.hasHydrated());
+    return useUserStore.persist.onFinishHydration(() => setHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     if (!user) {
       router.replace("/login");
       return;
@@ -43,9 +50,9 @@ export default function DashboardLayout({
     } else if (pathname.startsWith("/user") && user.role !== "USER") {
       router.replace("/admin/files");
     }
-  }, [user, pathname, router]);
+  }, [hydrated, user, pathname, router]);
 
-  if (!user) {
+  if (!hydrated || !user) {
     return null;
   }
 

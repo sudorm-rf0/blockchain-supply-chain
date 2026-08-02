@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fetchFileBlob, getFile, type FileRecord } from "@/lib/api";
+import { formatDateTime } from "@/lib/format";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -97,7 +98,7 @@ export function FilePreviewDialog({
               </div>
               <div>
                 <p className="text-muted-foreground">上传时间</p>
-                <p>{new Date(file.createdAt).toLocaleString()}</p>
+                <p>{formatDateTime(file.createdAt)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">状态</p>
