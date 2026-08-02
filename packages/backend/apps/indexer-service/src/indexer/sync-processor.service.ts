@@ -55,7 +55,7 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
 
   private async handleDealSync(payload: DealSyncPayload): Promise<void> {
     const previous = await this.prisma.tradeDeal.findUnique({
-      where: { id: payload.accountKey },
+      where: { dealId: BigInt(payload.tradeId) },
       select: { status: true },
     });
 

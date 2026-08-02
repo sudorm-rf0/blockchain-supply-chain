@@ -13,9 +13,11 @@ import {
 } from "recharts";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import {
+  fetchIndexerStatus,
   PoolOverview,
   fetchPoolOverview,
   formatUsdc,
+  type IndexerStatus,
 } from "@/lib/api";
 
 // ==== 分段标识: 数据与图表映射 ====
@@ -39,6 +41,7 @@ function toChartPoints(trend: PoolOverview["trend"]): ChartPoint[] {
 // ==== 分段标识: 页面组件 ====
 export default function DashboardPage() {
   const [overview, setOverview] = useState<PoolOverview | null>(null);
+  const [indexer, setIndexer] = useState<IndexerStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,6 +60,16 @@ export default function DashboardPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setIndexer(await fetchIndexerStatus());
+      } catch {
+        setIndexer(null);
+      }
+    })();
+  }, []);
 
   const stats = overview
     ? [
@@ -102,6 +115,25 @@ export default function DashboardPage() {
           <WalletMultiButton />
         </div>
       </header>
+
+      <div className="flex items-center justify-between text-xs text-zinc-500">
+        <p>
+          Indexer{" "}
+          {indexer ? (
+            <span className="text-emerald-400">
+              synced · last snapshot{" "}
+              {indexer.lastPoolSnapshotAt
+                ? new Date(indexer.lastPoolSnapshotAt).toLocaleString()
+                : "n/a"}
+            </span>
+          ) : (
+            <span className="text-red-400">unreachable</span>
+          )}
+        </p>
+        {indexer && indexer.queue.failed > 0 && (
+          <p className="text-amber-400">{indexer.queue.failed} failed jobs</p>
+        )}
+      </div>
 
       {loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

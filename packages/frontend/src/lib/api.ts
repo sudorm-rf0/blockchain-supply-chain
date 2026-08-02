@@ -4,6 +4,8 @@ const TRADE_API_URL =
   process.env.NEXT_PUBLIC_TRADE_API_URL ?? "http://localhost:3004";
 const POOL_API_URL =
   process.env.NEXT_PUBLIC_POOL_API_URL ?? "http://localhost:3005";
+const INDEXER_API_URL =
+  process.env.NEXT_PUBLIC_INDEXER_API_URL ?? "http://localhost:3003";
 
 import { useUserStore } from "@/stores/user-store";
 
@@ -289,6 +291,26 @@ export interface PoolOverview {
 
 export async function fetchPoolOverview(): Promise<PoolOverview> {
   return request(`${POOL_API_URL}/api/pool/overview`, { cache: "no-store" });
+}
+
+export interface IndexerStatus {
+  service: string;
+  queue: {
+    wait: number;
+    active: number;
+    delayed: number;
+    failed: number;
+  };
+  lastPoolSnapshotAt: string | null;
+  lastDealSyncedAt: string | null;
+  totalDeals: number;
+  now: string;
+}
+
+export async function fetchIndexerStatus(): Promise<IndexerStatus> {
+  return request(`${INDEXER_API_URL}/api/indexer/status`, {
+    cache: "no-store",
+  });
 }
 
 export function formatUsdc(raw: string | number): string {
