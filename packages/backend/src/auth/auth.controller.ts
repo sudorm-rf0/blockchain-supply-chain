@@ -18,6 +18,14 @@ import { AuthGuard } from "./auth.guard";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 
+function getClientIp(request: Request): string {
+  const forwarded = request.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0].trim();
+  }
+  return request.ip ?? "unknown";
+}
+
 @Controller("api/auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -33,8 +41,8 @@ export class AuthController {
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  login(@Body() body: LoginDto) {
-    return this.authService.login(body);
+  login(@Body() body: LoginDto, @Req() req: Request) {
+    return this.authService.login(body, getClientIp(req));
   }
 
   @Get("me")

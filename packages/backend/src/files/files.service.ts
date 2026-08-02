@@ -1,6 +1,9 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
@@ -42,6 +45,8 @@ const MAGIC_BYTES: Record<string, number[]> = {
   docx: [0x50, 0x4b, 0x03, 0x04],         // PK..
   doc: [0xd0, 0xcf, 0x11, 0xe0],          // OLE2
 };
+
+const MAX_UPLOADS_PER_DAY = Number(process.env.MAX_UPLOADS_PER_DAY ?? 200);
 
 const VALID_STATUS_FILTERS = new Set([
   "PENDING",
@@ -93,6 +98,38 @@ export class FilesService {
     if (fields.tradeId && (!/^\d+$/.test(fields.tradeId) || BigInt(fields.tradeId) < 0n)) {
       throw new BadRequestException("invalid tradeId");
     }
+    const uploadDay = new Date().toISOString().slice(0, 10);
+    const quotaKey = `upload:quota:${uploaderId}:${uploadDay}`;
+    const usedToday = Number((await this.redis.get(quotaKey)) ?? 0);
+    if (usedToday >= MAX_UPLOADS_PER_DAY) {
+      throw new HttpException(
+        "今日上传次数已达上限，请明天再试",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (fields.tradeId) {
+      const uploader = await this.prisma.user.findUnique({
+        where: { id: uploaderId },
+        select: { wallet: true },
+      });
+      if (!uploader?.wallet) {
+        throw new ForbiddenException("请先绑定钱包再上传单据");
+      }
+      const trade = await this.prisma.tradeDeal.findUnique({
+        where: { dealId: fields.tradeId },
+        select: { buyerWallet: true, sellerWallet: true },
+      });
+      if (!trade) {
+        throw new BadRequestException("关联订单不存在");
+      }
+      if (
+        trade.buyerWallet !== uploader.wallet &&
+        trade.sellerWallet !== uploader.wallet
+      ) {
+        throw new ForbiddenException("只能上传与本人相关的贸易订单单据");
+      }
+    }
 
     const hash = createHash("sha256");
     try {
@@ -102,6 +139,14 @@ export class FilesService {
       throw new BadRequestException("文件读取失败");
     }
     const fileHash = hash.digest("hex");
+    const duplicate = await this.prisma.file.findFirst({
+      where: { hash: fileHash, uploaderId },
+      select: { id: true },
+    });
+    if (duplicate) {
+      this.removeUploadedFile(file.path);
+      throw new ConflictException("该文件已上传过，请勿重复上传");
+    }
     const scanResult = await this.scan.scan(file.path);
     if (!scanResult.clean) {
       this.removeUploadedFile(file.path);
@@ -131,6 +176,19 @@ export class FilesService {
         include: { uploader: true },
       });
       await this.redis.incr("files:list:version").catch(() => undefined);
+      if (usedToday === 0) {
+        const endOfDay = new Date();
+        endOfDay.setUTCHours(24, 0, 0, 0);
+        const ttl = Math.max(
+          60,
+          Math.floor((endOfDay.getTime() - Date.now()) / 1000),
+        );
+        await this.redis
+          .setEx(quotaKey, ttl, String(usedToday + 1))
+          .catch(() => undefined);
+      } else {
+        await this.redis.incr(quotaKey).catch(() => undefined);
+      }
       return created;
     } catch (error) {
       await this.storage.remove(persisted.storageKey).catch(() => undefined);
@@ -219,9 +277,12 @@ export class FilesService {
 
   async patch(
     id: string,
-    body: { status?: "APPROVED" | "REJECTED"; remark?: string },
+    body: { status?: "APPROVED" | "REJECTED"; confirm?: boolean; remark?: string },
     actor?: { id: string; email?: string },
   ) {
+    if (body.confirm !== true) {
+      throw new BadRequestException("请二次确认后执行审核操作");
+    }
     const file = await this.prisma.file.findUnique({ where: { id } });
     if (!file) throw new NotFoundException("文件不存在");
     const updated = await this.prisma.file.update({
@@ -246,7 +307,10 @@ export class FilesService {
     return this.publicFile(updated);
   }
 
-  async remove(id: string, userId: string, role: string) {
+  async remove(id: string, userId: string, role: string, confirm?: string) {
+    if (confirm !== "true") {
+      throw new BadRequestException("请二次确认后删除文件");
+    }
     const file = await this.prisma.file.findUnique({ where: { id } });
     if (!file) throw new NotFoundException("文件不存在");
     if (role !== "ADMIN" && file.uploaderId !== userId) {

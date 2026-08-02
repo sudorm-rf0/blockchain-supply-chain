@@ -214,7 +214,9 @@ export async function fetchFileBlob(id: string): Promise<Blob> {
 }
 
 export async function deleteFile(id: string): Promise<{ ok: boolean }> {
-  return request(`${BACKEND_URL}/api/files/${id}`, { method: "DELETE" });
+  return request(`${BACKEND_URL}/api/files/${id}?confirm=true`, {
+    method: "DELETE",
+  });
 }
 
 export async function reviewFile(
@@ -224,7 +226,7 @@ export async function reviewFile(
   return request(`${BACKEND_URL}/api/files/${id}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, confirm: true }),
   });
 }
 
@@ -389,7 +391,7 @@ export async function confirmFundTrade(
   return request(`${TRADE_API_URL}/api/trades/${tradeId}/fund/confirm`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ txSignature }),
+    body: JSON.stringify({ txSignature, confirm: true }),
   });
 }
 
@@ -439,7 +441,7 @@ export async function confirmRepayTrade(
   return request(`${TRADE_API_URL}/api/trades/${tradeId}/repay/confirm`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ txSignature }),
+    body: JSON.stringify({ txSignature, confirm: true }),
   });
 }
 
@@ -461,7 +463,7 @@ export async function confirmDefaultTrade(
   return request(`${TRADE_API_URL}/api/trades/${tradeId}/default/confirm`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ txSignature }),
+    body: JSON.stringify({ txSignature, confirm: true }),
   });
 }
 
@@ -483,7 +485,7 @@ export async function confirmReleaseTrade(
   return request(`${TRADE_API_URL}/api/trades/${tradeId}/release/confirm`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ txSignature }),
+    body: JSON.stringify({ txSignature, confirm: true }),
   });
 }
 
@@ -565,7 +567,7 @@ export async function executeWithdrawal(
   return request(`${POOL_API_URL}/api/lp/withdraw-request/${id}/execute`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ txSignature }),
+    body: JSON.stringify({ txSignature, confirm: true }),
   });
 }
 

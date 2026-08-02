@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { Keypair } from "@solana/web3.js";
 import { AuthService } from "./auth.service";
 
@@ -75,6 +80,20 @@ describe("AuthService", () => {
         wallet: Keypair.generate().publicKey.toBase58(),
       }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it("locks an ip after too many failed attempts", async () => {
+    const redis = makeRedis();
+    (redis.incr as jest.Mock).mockImplementation(async (key: string) =>
+      key.startsWith("login:fail:ip:") ? 20 : 1,
+    );
+    const service = new AuthService(makePrisma() as never, redis as never);
+    await expect(
+      service.login(
+        { email: "ip-lock@example.com", password: "wrong-pass" },
+        "203.0.113.7",
+      ),
+    ).rejects.toThrow(HttpException);
   });
 
   it("logs in with a matching password and rejects a wrong one", async () => {

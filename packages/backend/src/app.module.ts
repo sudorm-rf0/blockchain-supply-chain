@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { OriginGuard } from "./common/origin.guard";
 import { AppController } from "./app.controller";
 import { AdminStatsController } from "./admin/admin.controller";
 import { AuthModule } from "./auth/auth.module";
@@ -30,6 +31,10 @@ import { RedisService } from "./redis/redis.service";
     PrismaService,
     RedisService,
     MetricsService,
+    {
+      provide: APP_GUARD,
+      useClass: OriginGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

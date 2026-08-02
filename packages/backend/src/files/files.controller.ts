@@ -127,7 +127,16 @@ export class FilesController {
 
   @Delete(":id")
   @UseGuards(AuthGuard)
-  remove(@Param("id") id: string, @Req() req: Request) {
-    return this.filesService.remove(id, req.user!.sub, req.user!.role);
+  remove(
+    @Param("id") id: string,
+    @Query("confirm") confirm: string,
+    @Req() req: Request,
+  ) {
+    return this.filesService.remove(
+      id,
+      req.user!.sub,
+      req.user!.role,
+      confirm,
+    );
   }
 }

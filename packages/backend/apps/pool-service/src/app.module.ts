@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { OriginGuard } from "./common/origin.guard";
 import { HealthController } from "./health/health.controller";
 import { MetricsController } from "./observability/metrics.controller";
 import { MetricsMiddleware } from "./observability/metrics.middleware";
@@ -23,6 +24,10 @@ import { PoolModule } from "./pool/pool.module";
   controllers: [HealthController, MetricsController],
   providers: [
     MetricsService,
+    {
+      provide: APP_GUARD,
+      useClass: OriginGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

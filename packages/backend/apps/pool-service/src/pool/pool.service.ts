@@ -242,7 +242,7 @@ export class PoolService {
 
   async executeWithdrawal(
     id: string,
-    body: { txSignature?: string },
+    body: { txSignature?: string; confirm?: boolean },
     userId: string,
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -254,6 +254,9 @@ export class PoolService {
     });
     if (!request) {
       throw new NotFoundException("withdrawal request not found");
+    }
+    if (body.confirm !== true) {
+      throw new BadRequestException("请二次确认后执行提款");
     }
     if (request.status !== "READY") {
       throw new BadRequestException("仅 READY 状态的提款可执行");

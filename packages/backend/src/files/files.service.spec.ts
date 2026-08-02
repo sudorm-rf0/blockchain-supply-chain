@@ -1,4 +1,8 @@
-import { ForbiddenException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+} from "@nestjs/common";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,10 +18,23 @@ function makePrisma() {
     file: {
       create: jest.fn(async ({ data }) => ({ id: "f1", ...data })),
       findUnique: jest.fn(async () => null),
+      findFirst: jest.fn(async () => null),
       update: jest.fn(async ({ data }) => ({ id: "f1", ...data })),
       delete: jest.fn(async () => ({ ok: true })),
       count: jest.fn(async () => 0),
       findMany: jest.fn(async () => []),
+    },
+    user: {
+      findUnique: jest.fn(async () => ({
+        id: "user-1",
+        wallet: "buyerWallet",
+      })),
+    },
+    tradeDeal: {
+      findUnique: jest.fn(async () => ({
+        buyerWallet: "buyerWallet",
+        sellerWallet: "sellerWallet",
+      })),
     },
   };
 }
@@ -99,6 +116,10 @@ describe("FilesService", () => {
     } as Express.Multer.File;
     const result = await service.upload(file, { tradeId: "42" }, "user-1");
     expect(result.id).toBe("f1");
+    expect(prisma.tradeDeal.findUnique).toHaveBeenCalledWith({
+      where: { dealId: "42" },
+      select: { buyerWallet: true, sellerWallet: true },
+    });
     expect(prisma.file.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -108,5 +129,77 @@ describe("FilesService", () => {
         }),
       }),
     );
+  });
+
+  it("rejects uploads tied to a trade the user is not a party to", async () => {
+    const prisma = makePrisma();
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: "user-1",
+      wallet: "attackerWallet",
+    });
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    const path = join(dir, "owned.png");
+    writeFileSync(path, PNG_BYTES);
+    const file = {
+      originalname: "owned.png",
+      path,
+      size: PNG_BYTES.length,
+      mimetype: "image/png",
+    } as Express.Multer.File;
+    await expect(
+      service.upload(file, { tradeId: "42" }, "user-1"),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("rejects duplicate uploads of the same hash by the same user", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findFirst as jest.Mock).mockResolvedValue({ id: "existing" });
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    const path = join(dir, "dup.png");
+    writeFileSync(path, PNG_BYTES);
+    const file = {
+      originalname: "dup.png",
+      path,
+      size: PNG_BYTES.length,
+      mimetype: "image/png",
+    } as Express.Multer.File;
+    await expect(
+      service.upload(file, {}, "user-1"),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("rejects uploads beyond the daily quota", async () => {
+    const redis = makeRedisFiles();
+    (redis.get as jest.Mock).mockResolvedValue("200");
+    const service = new FilesService(
+      makePrisma() as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      redis as never,
+      makeScan() as never,
+    );
+    const path = join(dir, "quota.png");
+    writeFileSync(path, PNG_BYTES);
+    const file = {
+      originalname: "quota.png",
+      path,
+      size: PNG_BYTES.length,
+      mimetype: "image/png",
+    } as Express.Multer.File;
+    await expect(
+      service.upload(file, {}, "user-1"),
+    ).rejects.toThrow(HttpException);
   });
 });

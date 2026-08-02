@@ -203,4 +203,27 @@ describe("PoolService", () => {
     );
     await expect(service.listWithdrawals("admin-1")).resolves.toEqual([]);
   });
+
+  it("requires an explicit confirmation to execute a withdrawal", async () => {
+    const prisma = makePrisma({
+      withdrawRequest: {
+        findUnique: jest.fn(async () => ({
+          id: "wr-1",
+          status: "READY",
+        })),
+        update: jest.fn(async ({ data }) => ({ ...data, id: "wr-1" })),
+      },
+    });
+    const service = new PoolService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.executeWithdrawal("wr-1", {}, "admin-1"),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.executeWithdrawal("wr-1", { confirm: true }, "admin-1"),
+    ).resolves.toMatchObject({ status: "EXECUTED" });
+  });
 });
