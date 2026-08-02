@@ -16,6 +16,7 @@ export interface AuthUser {
   email: string;
   name: string;
   role: UserRole;
+  wallet?: string;
 }
 
 export type FileStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -261,6 +262,86 @@ export async function confirmTrade(
 
 export async function fetchMyTrades(): Promise<TradeRecord[]> {
   return request(`${TRADE_API_URL}/api/trades`, { cache: "no-store" });
+}
+
+export interface BuiltTransactionResponse {
+  tradeId: string;
+  transaction: string;
+  blockhash: string;
+  message: string;
+  targetStatus?: number;
+}
+
+export async function buildFundTrade(
+  tradeId: string,
+  adminWallet: string,
+): Promise<BuiltTransactionResponse> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/fund`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ adminWallet }),
+  });
+}
+
+export async function confirmFundTrade(
+  tradeId: string,
+  txSignature: string,
+): Promise<{ ok: boolean; tradeId: string; status: string }> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/fund/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ txSignature }),
+  });
+}
+
+export async function buildAdvanceTrade(
+  tradeId: string,
+  targetStatus: number,
+  adminWallet: string,
+): Promise<BuiltTransactionResponse> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/advance`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ targetStatus: String(targetStatus), adminWallet }),
+  });
+}
+
+export async function confirmAdvanceTrade(
+  tradeId: string,
+  targetStatus: number,
+  adminWallet: string,
+  txSignature: string,
+): Promise<{ ok: boolean; tradeId: string; status: string }> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/advance/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      targetStatus: String(targetStatus),
+      adminWallet,
+      txSignature,
+    }),
+  });
+}
+
+export async function buildRepayTrade(
+  tradeId: string,
+): Promise<BuiltTransactionResponse> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/repay`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+export async function confirmRepayTrade(
+  tradeId: string,
+  txSignature: string,
+): Promise<{ ok: boolean; tradeId: string; status: string }> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/repay/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ txSignature }),
+  });
 }
 
 export interface PoolTrendPoint {

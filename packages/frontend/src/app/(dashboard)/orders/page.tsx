@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { Transaction } from "@solana/web3.js";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -11,7 +15,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchMyTrades, formatUsdc, type TradeRecord } from "@/lib/api";
+import {
+  buildAdvanceTrade,
+  buildFundTrade,
+  buildRepayTrade,
+  confirmAdvanceTrade,
+  confirmFundTrade,
+  confirmRepayTrade,
+  fetchMyTrades,
+  formatUsdc,
+  type TradeRecord,
+} from "@/lib/api";
+import { useUserStore } from "@/stores/user-store";
 
 const STATUS_STYLE: Record<string, string> = {
   PENDING: "bg-yellow-200 text-yellow-800",
@@ -24,9 +39,20 @@ const STATUS_STYLE: Record<string, string> = {
   DEFAULTED: "bg-red-200 text-red-800",
 };
 
+const NEXT_STATUS: Record<string, { code: number; label: string } | null> = {
+  FUNDED: { code: 2, label: "推进至运输中" },
+  IN_TRANSIT: { code: 3, label: "推进至清关" },
+  CUSTOMS_CLEAR: { code: 4, label: "推进至已交付" },
+  DELIVERED: { code: 5, label: "推进至还款中" },
+};
+
 export default function OrdersPage() {
+  const { connection } = useConnection();
+  const { connected, publicKey, sendTransaction } = useWallet();
+  const user = useUserStore((state) => state.user);
   const [trades, setTrades] = useState<TradeRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -42,9 +68,72 @@ export default function OrdersPage() {
     void load();
   }, [load]);
 
+  const signAndConfirm = async (
+    tradeId: string,
+    build: () => Promise<{ transaction: string }>,
+    confirm: (signature: string) => Promise<{ status: string }>,
+  ) => {
+    if (!connected || !publicKey) {
+      toast.error("请先连接钱包");
+      return;
+    }
+    setBusyId(tradeId);
+    try {
+      const built = await build();
+      const transaction = Transaction.from(
+        Buffer.from(built.transaction, "base64"),
+      );
+      const signature = await sendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature, "confirmed");
+      const result = await confirm(signature);
+      toast.success(`订单状态已更新：${result.status}`);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "链上操作失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onFund = (trade: TradeRecord) =>
+    void signAndConfirm(
+      trade.tradeId,
+      () => buildFundTrade(trade.tradeId, publicKey!.toBase58()),
+      (signature) => confirmFundTrade(trade.tradeId, signature),
+    );
+
+  const onAdvance = (trade: TradeRecord) => {
+    const next = NEXT_STATUS[trade.status];
+    if (!next || !publicKey) return;
+    return void signAndConfirm(
+      trade.tradeId,
+      () => buildAdvanceTrade(trade.tradeId, next.code, publicKey.toBase58()),
+      (signature) =>
+        confirmAdvanceTrade(
+          trade.tradeId,
+          next.code,
+          publicKey.toBase58(),
+          signature,
+        ),
+    );
+  };
+
+  const onRepay = (trade: TradeRecord) =>
+    void signAndConfirm(
+      trade.tradeId,
+      () => buildRepayTrade(trade.tradeId),
+      (signature) => confirmRepayTrade(trade.tradeId, signature),
+    );
+
+  const isAdmin = user?.role === "ADMIN";
+  const isBuyer = Boolean(user?.wallet);
+
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">我的订单</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">我的订单</h1>
+        <WalletMultiButton />
+      </div>
       {loading ? (
         <p className="text-sm text-muted-foreground">加载中...</p>
       ) : trades.length === 0 ? (
@@ -61,28 +150,71 @@ export default function OrdersPage() {
                 <TableHead>账期</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>创建时间</TableHead>
+                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {trades.map((trade) => (
-                <TableRow key={trade.id}>
-                  <TableCell className="font-mono text-xs">
-                    {trade.tradeId}
-                  </TableCell>
-                  <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
-                  <TableCell>{formatUsdc(trade.downPayment)}</TableCell>
-                  <TableCell>{formatUsdc(trade.poolPortion)}</TableCell>
-                  <TableCell>{trade.tenor} 天</TableCell>
-                  <TableCell>
-                    <Badge className={STATUS_STYLE[trade.status] ?? ""}>
-                      {trade.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(trade.createdAt).toLocaleString()}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {trades.map((trade) => {
+                const canFund = isAdmin && trade.status === "PENDING";
+                const canAdvance =
+                  isAdmin && NEXT_STATUS[trade.status] !== undefined;
+                const canRepay =
+                  isBuyer &&
+                  trade.status === "REPAYING" &&
+                  user?.wallet === trade.buyerWallet;
+                return (
+                  <TableRow key={trade.id}>
+                    <TableCell className="font-mono text-xs">
+                      {trade.tradeId}
+                    </TableCell>
+                    <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
+                    <TableCell>{formatUsdc(trade.downPayment)}</TableCell>
+                    <TableCell>{formatUsdc(trade.poolPortion)}</TableCell>
+                    <TableCell>{trade.tenor} 天</TableCell>
+                    <TableCell>
+                      <Badge className={STATUS_STYLE[trade.status] ?? ""}>
+                        {trade.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(trade.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-x-2">
+                        {canFund && (
+                          <Button
+                            size="sm"
+                            disabled={busyId === trade.tradeId}
+                            onClick={() => onFund(trade)}
+                          >
+                            拨款
+                          </Button>
+                        )}
+                        {canAdvance && NEXT_STATUS[trade.status] && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busyId === trade.tradeId}
+                            onClick={() => onAdvance(trade)}
+                          >
+                            {NEXT_STATUS[trade.status]!.label}
+                          </Button>
+                        )}
+                        {canRepay && (
+                          <Button
+                            size="sm"
+                            disabled={busyId === trade.tradeId}
+                            onClick={() => onRepay(trade)}
+                          >
+                            还款
+                          </Button>
+                        )}
+                        {!canFund && !canAdvance && !canRepay && "-"}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

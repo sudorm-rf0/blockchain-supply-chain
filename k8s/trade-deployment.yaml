@@ -69,6 +69,12 @@ spec:
                   name: backend-secrets
                   key: USDC_MINT
                   optional: true
+            - name: LP_MINT
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: LP_MINT
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health

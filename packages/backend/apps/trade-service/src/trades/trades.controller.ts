@@ -19,6 +19,9 @@ import { AuthGuard } from "../auth/auth.guard";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
 import { ConfirmTradeDto } from "./dto/confirm-trade.dto";
+import { ConfirmSignatureDto } from "./dto/confirm-signature.dto";
+import { AdvanceTradeDto } from "./dto/advance-trade.dto";
+import { FundTradeDto } from "./dto/fund-trade.dto";
 import { TradeItemDto } from "./dto/trade-item.dto";
 import { TradesService } from "./trades.service";
 
@@ -62,5 +65,84 @@ export class TradesController {
     @Req() req: Request,
   ) {
     return this.tradesService.confirmTrade(tradeId, dto, req.user!.sub);
+  }
+
+  @Post(":tradeId/fund")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "预构建资金池拨款交易（管理员）" })
+  fund(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: FundTradeDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.buildFundTrade(tradeId, dto, req.user!.sub);
+  }
+
+  @Post(":tradeId/fund/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "确认拨款交易已上链" })
+  confirmFund(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: ConfirmSignatureDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.confirmFundTrade(tradeId, dto, req.user!.sub);
+  }
+
+  @Post(":tradeId/advance")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "预构建物流状态推进交易（管理员）" })
+  advance(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: AdvanceTradeDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.buildAdvanceTrade(tradeId, dto, req.user!.sub);
+  }
+
+  @Post(":tradeId/advance/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "确认物流状态推进交易已上链" })
+  confirmAdvance(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: AdvanceTradeDto & ConfirmSignatureDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.confirmAdvanceTrade(
+      tradeId,
+      dto,
+      req.user!.sub,
+    );
+  }
+
+  @Post(":tradeId/repay")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "预构建买方还款交易" })
+  repay(
+    @Param("tradeId") tradeId: string,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.buildRepayTrade(tradeId, req.user!.sub);
+  }
+
+  @Post(":tradeId/repay/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "确认还款交易已上链" })
+  confirmRepay(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: ConfirmSignatureDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.confirmRepayTrade(
+      tradeId,
+      dto,
+      req.user!.sub,
+    );
   }
 }

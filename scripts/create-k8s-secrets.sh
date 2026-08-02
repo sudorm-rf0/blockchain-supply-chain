@@ -13,6 +13,7 @@ SOLANA_RPC_URL="${SOLANA_RPC_URL:-https://api.devnet.solana.com}"
 ALLOWED_ORIGIN="${ALLOWED_ORIGIN:-}"
 TRADE_FINANCE_PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID:-9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3}"
 USDC_MINT="${USDC_MINT:-4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU}"
+LP_MINT="${LP_MINT:-4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU}"
 RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL:-}"
 
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
@@ -28,6 +29,7 @@ kubectl -n "${NAMESPACE}" create secret generic backend-secrets \
   --from-literal=SOLANA_RPC_URL="${SOLANA_RPC_URL}" \
   --from-literal=TRADE_FINANCE_PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID}" \
   --from-literal=USDC_MINT="${USDC_MINT}" \
+  --from-literal=LP_MINT="${LP_MINT}" \
   ${RISK_WEBHOOK_URL:+--from-literal=RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL}"} \
   ${ALLOWED_ORIGIN:+--from-literal=ALLOWED_ORIGIN="${ALLOWED_ORIGIN}"} \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
