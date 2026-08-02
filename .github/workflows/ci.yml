@@ -129,6 +129,9 @@ jobs:
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
+
       - name: Anchor Build
         working-directory: packages/contracts
         run: anchor build
@@ -220,6 +223,9 @@ jobs:
           mv "$HOME/.local/share/solana/solana-release" "$HOME/.local/share/solana/active_release"
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
+
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
 
       - name: Run End-to-End Smoke
         run: bash scripts/ci-e2e.sh
