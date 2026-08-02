@@ -138,7 +138,8 @@ jobs:
       - name: Anchor Build
         working-directory: packages/contracts
         run: |
-          export PATH="$HOME/.cache/solana/v1.54/platform-tools/rust/bin:$PATH"
+          cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml >/dev/null
+          rustup default 1.89.0-sbpf-solana-v1.54
           anchor build
 
       - name: Test Typecheck

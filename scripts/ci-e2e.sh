@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export PATH="$HOME/.cache/solana/v1.54/platform-tools/rust/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/active_release/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/active_release/bin:$PATH"
 export COPYFILE_DISABLE=1
 # crates.io sparse index is faster and less likely to hang on CI runners.
 export CARGO_REGISTRIES_CRATES_IO_PROTOCOL="${CARGO_REGISTRIES_CRATES_IO_PROTOCOL:-sparse}"
@@ -29,6 +29,8 @@ done
 solana airdrop 100 >/dev/null
 
 cd "$ROOT/packages/contracts"
+cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml >/dev/null
+rustup default 1.89.0-sbpf-solana-v1.54
 anchor build >/dev/null || {
   echo "anchor build failed; retrying once with offline cargo cache" >&2
   CARGO_NET_OFFLINE=true anchor build >/dev/null
