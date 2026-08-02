@@ -114,8 +114,15 @@ jobs:
       - name: Install Solana CLI (cache miss)
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
-          curl -sSfL https://release.solana.com/v1.17.3/install | sh
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 https://release.solana.com/v1.17.3/install | sh; then
+              break
+            fi
+            sleep 5
+          done
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
+          test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
       - name: Anchor Build
         working-directory: packages/contracts
@@ -194,8 +201,15 @@ jobs:
       - name: Install Solana CLI (cache miss)
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
-          curl -sSfL https://release.solana.com/v1.17.3/install | sh
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 https://release.solana.com/v1.17.3/install | sh; then
+              break
+            fi
+            sleep 5
+          done
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
+          test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
       - name: Run End-to-End Smoke
         run: bash scripts/ci-e2e.sh
