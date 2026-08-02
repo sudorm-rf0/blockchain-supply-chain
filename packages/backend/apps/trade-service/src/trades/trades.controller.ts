@@ -52,6 +52,13 @@ export class TradesController {
     return this.tradesService.listMyTrades(req.user!.sub);
   }
 
+  @Get("admin")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "全部订单列表（管理员）" })
+  listAll(@Req() req: Request): Promise<TradeItemDto[]> {
+    return this.tradesService.listAllTrades(req.user!.sub);
+  }
+
   @Post(":tradeId/confirm")
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)

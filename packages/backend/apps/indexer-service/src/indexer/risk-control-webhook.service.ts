@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { createHmac } from "node:crypto";
 import { INDEXER_ENV } from "../config/env";
 import type { TradeDeal } from "@prisma/client";
 
@@ -24,10 +25,19 @@ export class RiskControlWebhookService {
       },
     };
 
+    const timestamp = Date.now();
+    const body = JSON.stringify(payload);
+    const signature = createHmac("sha256", INDEXER_ENV.webhookSecret)
+      .update(`${timestamp}.${body}`)
+      .digest("hex");
     const response = await fetch(INDEXER_ENV.riskWebhookUrl, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        "content-type": "application/json",
+        "x-webhook-signature": signature,
+        "x-webhook-timestamp": String(timestamp),
+      },
+      body,
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) {

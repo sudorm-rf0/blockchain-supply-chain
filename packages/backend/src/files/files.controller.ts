@@ -126,7 +126,7 @@ export class FilesController {
   }
 
   @Delete(":id")
-  @UseGuards(AuthGuard, AdminGuard)
+  @UseGuards(AuthGuard)
   remove(@Param("id") id: string, @Req() req: Request) {
     return this.filesService.remove(id, req.user!.sub, req.user!.role);
   }

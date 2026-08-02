@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ClipboardCheck,
+  Banknote,
   Files,
   LayoutDashboard,
   ReceiptText,
@@ -27,6 +28,8 @@ export function Sidebar({ role }: SidebarProps) {
             icon: ClipboardCheck,
           },
           { href: "/admin/audit", label: "审计日志", icon: ScrollText },
+          { href: "/admin/trades", label: "全部订单", icon: ReceiptText },
+          { href: "/admin/withdrawals", label: "提款管理", icon: Banknote },
           { href: "/orders", label: "我的订单", icon: ReceiptText },
           {
             href: "/admin/files?status=ALL",

@@ -356,4 +356,23 @@ export class PoolService {
     });
     return { ok: true, id, status: "EXECUTED" };
   }
+
+  async listWithdrawals(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== "ADMIN") {
+      throw new ForbiddenException("仅管理员可查看提款列表");
+    }
+    const requests = await this.prisma.withdrawRequest.findMany({
+      orderBy: { requestedAt: "desc" },
+      take: 200,
+    });
+    return requests.map((request) => ({
+      id: request.id,
+      lpAddress: request.lpAddress,
+      amount: request.amount.toString(),
+      requestedAt: request.requestedAt.toISOString(),
+      availableAt: request.availableAt.toISOString(),
+      status: request.status,
+    }));
+  }
 }

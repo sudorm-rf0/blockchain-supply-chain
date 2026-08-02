@@ -223,6 +223,31 @@ export class TradesService {
     }));
   }
 
+  async listAllTrades(userId: string): Promise<TradeItemDto[]> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== "ADMIN") {
+      throw new ForbiddenException("仅管理员可查看全部订单");
+    }
+    const trades = await this.prisma.tradeDeal.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    return trades.map((trade) => ({
+      id: trade.id,
+      tradeId: trade.dealId.toString(10),
+      buyerWallet: trade.buyerWallet,
+      sellerWallet: trade.sellerWallet,
+      amount: trade.amount.toString(10),
+      downPayment: trade.downPayment.toString(10),
+      poolPortion: trade.poolPortion.toString(10),
+      tenor: Number(trade.tenor),
+      status: trade.status,
+      txSignature: trade.txSignature,
+      logisticsHash: trade.logisticsHash,
+      createdAt: trade.createdAt.toISOString(),
+    }));
+  }
+
   async confirmTrade(tradeId: string, dto: ConfirmTradeDto, userId: string) {
     let id: bigint;
     try {

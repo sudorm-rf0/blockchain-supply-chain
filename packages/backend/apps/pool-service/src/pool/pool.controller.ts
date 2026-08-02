@@ -82,4 +82,11 @@ export class PoolController {
   confirmRedeemLp(@Body() dto: ConfirmRedeemDto, @Req() req: Request) {
     return this.poolService.confirmRedeemLp(dto, req.user!.sub);
   }
+
+  @Get("lp/withdraw-requests")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "全部提款请求列表（管理员）" })
+  listWithdrawals(@Req() req: Request) {
+    return this.poolService.listWithdrawals(req.user!.sub);
+  }
 }

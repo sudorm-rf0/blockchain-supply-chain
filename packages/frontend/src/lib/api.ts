@@ -539,6 +539,36 @@ export async function confirmRedeemLp(
   });
 }
 
+export async function fetchAllTrades(): Promise<TradeRecord[]> {
+  return request(`${TRADE_API_URL}/api/trades/admin`, { cache: "no-store" });
+}
+
+export interface WithdrawRequestRecord {
+  id: string;
+  lpAddress: string;
+  amount: string;
+  requestedAt: string;
+  availableAt: string;
+  status: string;
+}
+
+export async function fetchWithdrawRequests(): Promise<WithdrawRequestRecord[]> {
+  return request(`${POOL_API_URL}/api/lp/withdraw-requests`, {
+    cache: "no-store",
+  });
+}
+
+export async function executeWithdrawal(
+  id: string,
+  txSignature?: string,
+): Promise<{ ok: boolean; id: string; status: string }> {
+  return request(`${POOL_API_URL}/api/lp/withdraw-request/${id}/execute`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ txSignature }),
+  });
+}
+
 export interface IndexerStatus {
   service: string;
   queue: {
