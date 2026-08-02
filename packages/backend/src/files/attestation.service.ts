@@ -55,17 +55,21 @@ export class AttestationService {
     await this.ensureWalletBound(user, owner);
 
     let tradeId = this.parseTradeId(body.tradeId);
+    if (file.tradeId && this.parseTradeId(file.tradeId) !== 0n && tradeId !== this.parseTradeId(file.tradeId)) {
+      throw new BadRequestException("tradeId does not match the tradeId associated with the file");
+    }
+    const effectiveTradeId = tradeId !== 0n ? tradeId : this.parseTradeId(file.tradeId);
     let dealPda: PublicKey | null = null;
-    if (tradeId !== 0n) {
+    if (effectiveTradeId !== 0n) {
       const trade = await this.prisma.tradeDeal.findUnique({
-        where: { dealId: tradeId },
+        where: { dealId: effectiveTradeId },
       });
       if (!trade) {
         throw new BadRequestException("trade not found");
       }
       dealPda = deriveDealPda(
         new PublicKey(trade.buyerWallet),
-        tradeId,
+        effectiveTradeId,
       );
     }
 
@@ -76,7 +80,7 @@ export class AttestationService {
 
     const { transaction, blockhash } = await buildAttestDocumentTransaction({
       owner,
-      tradeId,
+      tradeId: effectiveTradeId,
       fileHash,
       uri: file.path,
       dealPda,
@@ -92,7 +96,7 @@ export class AttestationService {
     return {
       transaction: serialized,
       blockhash,
-      documentPda: deriveDocumentPda(tradeId, fileHash).toBase58(),
+      documentPda: deriveDocumentPda(effectiveTradeId, fileHash).toBase58(),
       message: "请确认钱包弹窗，签署单据哈希存证交易",
     };
   }
@@ -231,11 +235,17 @@ export class AttestationService {
     if (walletOwner && walletOwner.id !== user.id) {
       throw new ConflictException("该钱包已被其他用户绑定");
     }
-    // 首次存证时绑定钱包；旧账号的 wallet 字段可能还是邮箱占位值。
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { wallet: owner.toBase58() },
-    });
+    try {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { wallet: owner.toBase58() },
+      });
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        throw new ConflictException("该钱包已被其他用户绑定");
+      }
+      throw error;
+    }
   }
 
   private parseTradeId(value: string | null | undefined): bigint {

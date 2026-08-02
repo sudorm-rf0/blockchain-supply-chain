@@ -116,11 +116,18 @@ export class AuthService {
     if (existing && existing.id !== userId) {
       throw new ConflictException("该钱包地址已被其他用户绑定");
     }
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { wallet },
-    });
-    return this.publicUser(user);
+    try {
+      const user = await this.prisma.user.update({
+        where: { id: userId },
+        data: { wallet },
+      });
+      return this.publicUser(user);
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        throw new ConflictException("该钱包地址已被其他用户绑定");
+      }
+      throw error;
+    }
   }
 
   private publicUser(user: {

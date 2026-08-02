@@ -21,6 +21,11 @@ export const useUserStore = create<UserState>()(
       setUser: (user) => set({ user }),
       logout: () => set({ user: null, token: null }),
     }),
-    { name: "supply-chain-user" },
+    {
+      name: "supply-chain-user",
+      version: 1,
+      migrate: (persistedState: unknown) =>
+        persistedState as UserState,
+    },
   ),
 );

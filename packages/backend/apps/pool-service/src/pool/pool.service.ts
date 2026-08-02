@@ -157,7 +157,13 @@ export class PoolService {
     }
 
     const key = `lp:withdraw:${dto.lpWallet}`;
-    const existing = await this.redis.get(key);
+    const lockAcquired = await this.redis.setNX(key, "locked", NOTICE_SECONDS);
+    if (!lockAcquired) {
+      throw new ConflictException(
+        "withdrawal already requested within the 7-day notice period",
+      );
+    }
+
     const existingDb = await this.prisma.withdrawRequest.findFirst({
       where: {
         lpAddress: dto.lpWallet,
@@ -165,7 +171,8 @@ export class PoolService {
       },
       select: { id: true },
     });
-    if (existing || existingDb) {
+    if (existingDb) {
+      await this.redis.del(key);
       throw new ConflictException(
         "withdrawal already requested within the 7-day notice period",
       );

@@ -13,6 +13,17 @@ import { createBullConnection } from "./redis-connection";
 import { DEAL_STATUS_BY_CODE } from "./trade-deal.parser";
 import { RiskControlWebhookService } from "./risk-control-webhook.service";
 
+const LIFECYCLE_ORDER: Record<string, number> = {
+  PENDING: 0,
+  FUNDED: 1,
+  IN_TRANSIT: 2,
+  CUSTOMS_CLEAR: 3,
+  DELIVERED: 4,
+  REPAYING: 5,
+  SETTLED: 6,
+  DEFAULTED: 7,
+};
+
 @Injectable()
 export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SyncProcessorService.name);
@@ -61,6 +72,17 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
 
     const status = (DEAL_STATUS_BY_CODE[payload.status] ??
       "PENDING") as DealStatus;
+
+    if (previous) {
+      const incomingRank = LIFECYCLE_ORDER[status] ?? -1;
+      const existingRank = LIFECYCLE_ORDER[previous.status] ?? -1;
+      if (incomingRank < existingRank) {
+        this.logger.warn(
+          `skipping deal ${payload.tradeId} sync: incoming status ${status} is behind existing ${previous.status}`,
+        );
+        return;
+      }
+    }
     const buyer = await this.upsertUser(payload.buyerWallet);
     const seller = await this.upsertUser(payload.sellerWallet);
 
@@ -112,11 +134,16 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
       status === "DEFAULTED" &&
       !previous?.defaultWebhookSentAt
     ) {
-      await this.riskWebhook.notifyDefaulted(deal);
-      await this.prisma.tradeDeal.update({
-        where: { dealId: data.dealId },
+      const marked = await this.prisma.tradeDeal.updateMany({
+        where: {
+          dealId: data.dealId,
+          defaultWebhookSentAt: null,
+        },
         data: { defaultWebhookSentAt: new Date() },
       });
+      if (marked.count > 0) {
+        await this.riskWebhook.notifyDefaulted(deal);
+      }
     }
   }
 

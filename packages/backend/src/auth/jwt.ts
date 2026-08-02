@@ -1,11 +1,12 @@
 import {
   createHmac,
+  randomBytes,
   timingSafeEqual,
 } from "node:crypto";
 
 const ALGORITHM = "sha256";
 const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-const DEV_SECRET = "supply-chain-dev-secret-change-in-production";
+const DEV_SECRET = randomBytes(32).toString("hex");
 
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -58,7 +59,8 @@ export function verifyJwt(token: string): JwtPayload | null {
       return null;
     }
     const payload = JSON.parse(base64urlDecode(payloadB64).toString("utf8")) as JwtPayload;
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (typeof payload.sub !== "string" || !payload.sub) return null;
     return payload;
   } catch {
     return null;

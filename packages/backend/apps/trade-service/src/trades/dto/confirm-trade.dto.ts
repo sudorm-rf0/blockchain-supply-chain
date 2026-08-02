@@ -1,5 +1,5 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsOptional, IsString } from "class-validator";
 
 export class ConfirmTradeDto {
   @ApiProperty({
@@ -36,4 +36,12 @@ export class ConfirmTradeDto {
   })
   @IsString()
   txSignature!: string;
+
+  @ApiPropertyOptional({
+    description: "物流哈希，用于链下溯源关联",
+    example: "0xabc123",
+  })
+  @IsOptional()
+  @IsString()
+  logisticsHash?: string | null;
 }

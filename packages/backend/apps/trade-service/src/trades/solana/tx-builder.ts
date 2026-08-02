@@ -320,13 +320,13 @@ export async function buildDefaultDealTransaction(
   input: DefaultDealTransactionInput,
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
-  const programId = new PublicKey(TRADE_ENV.programId);
-  const usdcMint = new PublicKey(TRADE_ENV.usdcMint);
-  const poolState = derivePoolStatePda(programId);
-  const poolAuthority = derivePoolAuthorityPda(programId);
-  const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
-  const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, usdcMint);
-  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, usdcMint);
+  const prog = programId();
+  const uMint = usdcMintKey();
+  const poolState = derivePoolStatePda(prog);
+  const poolAuthority = derivePoolAuthorityPda(prog);
+  const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
+  const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, uMint);
+  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, uMint);
 
   const keys: AccountMeta[] = [
     { pubkey: poolState, isSigner: false, isWritable: true },
@@ -336,9 +336,9 @@ export async function buildDefaultDealTransaction(
     { pubkey: poolAuthority, isSigner: false, isWritable: false },
     { pubkey: poolTokenAccount, isSigner: false, isWritable: true },
     { pubkey: dealTokenAccount, isSigner: false, isWritable: true },
-    { pubkey: usdcMint, isSigner: false, isWritable: false },
+    { pubkey: uMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    { pubkey: new PublicKey(TRADE_ENV.lpMint), isSigner: false, isWritable: false },
+    { pubkey: lpMintKey(), isSigner: false, isWritable: false },
   ];
 
   const data = buildDefaultDealInstructionData(input.tradeId);
@@ -346,7 +346,7 @@ export async function buildDefaultDealTransaction(
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
-  transaction.add(new TransactionInstruction({ keys, programId, data }));
+  transaction.add(new TransactionInstruction({ keys, programId: prog, data }));
   return { transaction, blockhash };
 }
 
@@ -417,5 +417,9 @@ export async function buildCreateDealTransaction(
 }
 
 export function generateTradeId(): bigint {
-  return randomBytes(8).readBigUInt64LE();
+  let id: bigint;
+  do {
+    id = randomBytes(8).readBigUInt64LE();
+  } while (id === 0n);
+  return id;
 }

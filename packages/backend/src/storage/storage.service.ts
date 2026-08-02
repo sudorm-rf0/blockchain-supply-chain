@@ -6,7 +6,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
-import { createReadStream } from "node:fs";
+import { createReadStream, statSync } from "node:fs";
 import { mkdirSync, renameSync, unlinkSync, existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -35,7 +35,7 @@ export class LocalStorageService implements StorageService {
     renameSync(localPath, join(this.uploadDir, filename));
     return {
       storageKey: `/uploads/${filename}`,
-      size: 0,
+      size: statSync(join(this.uploadDir, filename)).size,
     };
   }
 
@@ -86,8 +86,9 @@ export class S3StorageService implements StorageService {
       },
     });
     await upload.done();
+    const size = statSync(localPath).size;
     unlinkSync(localPath);
-    return { storageKey: key, size: 0 };
+    return { storageKey: key, size };
   }
 
   async open(storageKey: string): Promise<Readable> {

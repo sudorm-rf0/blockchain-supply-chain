@@ -124,10 +124,8 @@ export async function buildAttestDocumentTransaction(
       isWritable: false,
     });
   } else {
-    // Anchor 的 Option<Account> 为 None 时使用 program id 作为占位公钥，
-    // 不能直接省略，也不能使用全零 PublicKey.default。
     keys.push({
-      pubkey: programId,
+      pubkey: SystemProgram.programId,
       isSigner: false,
       isWritable: false,
     });

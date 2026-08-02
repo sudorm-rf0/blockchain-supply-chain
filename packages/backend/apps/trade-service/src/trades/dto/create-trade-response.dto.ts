@@ -36,4 +36,10 @@ export class CreateTradeResponseDto {
     example: "700000000",
   })
   poolPortion!: string;
+
+  @ApiProperty({
+    description: "是否为重复请求（已存在相同参数的 PENDING 交易）",
+    example: false,
+  })
+  duplicate?: boolean;
 }

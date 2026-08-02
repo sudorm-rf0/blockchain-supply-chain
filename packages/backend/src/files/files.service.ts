@@ -86,8 +86,17 @@ export class FilesService {
       throw new ForbiddenException("文件内容与扩展名不匹配");
     }
 
+    if (fields.tradeId && (!/^\d+$/.test(fields.tradeId) || BigInt(fields.tradeId) < 0n)) {
+      throw new BadRequestException("invalid tradeId");
+    }
+
     const hash = createHash("sha256");
-    await pipeline(createReadStream(file.path), hash);
+    try {
+      await pipeline(createReadStream(file.path), hash);
+    } catch {
+      this.removeUploadedFile(file.path);
+      throw new BadRequestException("文件读取失败");
+    }
     const fileHash = hash.digest("hex");
     let persisted;
     try {
@@ -101,7 +110,7 @@ export class FilesService {
       return await this.prisma.file.create({
         data: {
           filename: file.originalname,
-          size: persisted.size || file.size,
+          size: persisted.size,
           mimeType: ALLOWED_EXTENSIONS[extension],
           path: persisted.storageKey,
           hash: fileHash,
@@ -215,8 +224,11 @@ export class FilesService {
     if (role !== "ADMIN" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权删除此文件");
     }
-    await this.storage.remove(file.path);
+    if (file.txSignature) {
+      throw new ForbiddenException("已存证文件不可删除");
+    }
     await this.prisma.file.delete({ where: { id } });
+    await this.storage.remove(file.path).catch(() => undefined);
     await this.audit.record({
       actorId: userId,
       targetType: "FILE",

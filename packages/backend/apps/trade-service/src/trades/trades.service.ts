@@ -44,6 +44,8 @@ function getProgramId(): PublicKey {
   return (_programId ??= new PublicKey(TRADE_ENV.programId));
 }
 
+const U64_MAX = (1n << 64n) - 1n;
+
 type ParsedTxMessage = {
   accountKeys?: PublicKey[];
   staticAccountKeys?: PublicKey[];
@@ -126,6 +128,34 @@ export class TradesService {
 
     const downPayment = (amount * DOWN_PAYMENT_BPS) / BPS_BASE;
     const poolPortion = amount - downPayment;
+
+    const existing = await this.prisma.tradeDeal.findFirst({
+      where: {
+        buyerWallet: dto.buyerWallet,
+        sellerWallet: dto.sellerWallet,
+        amount,
+        tenor: tenorDays,
+        status: "PENDING",
+      },
+      select: { dealId: true },
+    });
+    if (existing) {
+      const cached = deriveDealPda(
+        getProgramId(),
+        this.parsePubkey(dto.buyerWallet, "buyerWallet"),
+        existing.dealId,
+      );
+      return {
+        tradeId: existing.dealId.toString(10),
+        transaction: "",
+        blockhash: "",
+        dealPda: cached.toBase58(),
+        downPayment: downPayment.toString(10),
+        poolPortion: poolPortion.toString(10),
+        duplicate: true,
+      };
+    }
+
     const tradeId = generateTradeId();
 
     const buyerPubkey = this.parsePubkey(dto.buyerWallet, "buyerWallet");
@@ -207,7 +237,7 @@ export class TradesService {
       where: { dealId: id },
       select: { id: true, status: true },
     });
-    if (existing && existing.status !== "PENDING") {
+    if (existing) {
       return {
         ok: true,
         tradeId: id.toString(10),
@@ -275,7 +305,7 @@ export class TradesService {
       status: "PENDING",
       createdAt: new Date(),
       txSignature: dto.txSignature,
-      logisticsHash: null,
+      logisticsHash: dto.logisticsHash ?? null,
     };
 
     const deal = await this.prisma.tradeDeal.upsert({
@@ -335,6 +365,9 @@ export class TradesService {
 
   async confirmFundTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
     const trade = await this.requireAdminAndDeal(tradeId, userId);
+    if (trade.status !== "PENDING") {
+      throw new BadRequestException("only PENDING deals can be funded");
+    }
     const buyerPubkey = new PublicKey(trade.buyerWallet);
     const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
     await verifyOnChainInstruction(
@@ -391,6 +424,9 @@ export class TradesService {
   ) {
     if (!dto.txSignature) throw new BadRequestException("txSignature is required");
     const trade = await this.requireAdminAndDeal(tradeId, userId);
+    if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
+      throw new BadRequestException(`cannot advance deal from status ${trade.status}`);
+    }
     const targetStatus = this.parseTargetStatus(dto.targetStatus);
     const buyerPubkey = new PublicKey(trade.buyerWallet);
     const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
@@ -436,6 +472,9 @@ export class TradesService {
 
   async confirmRepayTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
     const trade = await this.requireBuyerDeal(tradeId, userId);
+    if (trade.status !== "DELIVERED") {
+      throw new BadRequestException("only DELIVERED deals can be repaid");
+    }
     const buyerPubkey = new PublicKey(trade.buyerWallet);
     const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
     await verifyOnChainInstruction(
@@ -492,6 +531,9 @@ export class TradesService {
     userId: string,
   ) {
     const trade = await this.requireAdminAndDeal(tradeId, userId);
+    if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
+      throw new BadRequestException(`cannot default deal from status ${trade.status}`);
+    }
     const dealPda = deriveDealPda(
       getProgramId(),
       new PublicKey(trade.buyerWallet),
@@ -506,7 +548,6 @@ export class TradesService {
       where: { dealId: BigInt(tradeId) },
       data: {
         status: "DEFAULTED",
-        repaidAt: new Date(),
         txSignature: body.txSignature,
       },
     });
@@ -565,8 +606,8 @@ export class TradesService {
   private parseU64(value: string, field: string): bigint {
     try {
       const parsed = BigInt(value);
-      if (parsed < 0n) {
-        throw new Error("negative");
+      if (parsed < 0n || parsed > U64_MAX) {
+        throw new Error("out of range");
       }
       return parsed;
     } catch {

@@ -18,7 +18,11 @@ const schema = z
     email: z.string().email("邮箱格式不正确"),
     password: z.string().min(6, "密码至少 6 位"),
     confirmPassword: z.string().min(6, "密码至少 6 位"),
-    wallet: z.string().optional(),
+    wallet: z
+      .string()
+      .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, "钱包地址格式不正确")
+      .optional()
+      .or(z.literal("")),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "两次输入的密码不一致",

@@ -18,6 +18,15 @@ export class RedisService implements OnModuleDestroy {
     await this.client.set(key, value, "EX", seconds);
   }
 
+  async setNX(key: string, value: string, seconds: number): Promise<boolean> {
+    const result = await this.client.set(key, value, "EX", seconds, "NX");
+    return result === "OK";
+  }
+
+  async del(key: string): Promise<void> {
+    await this.client.del(key);
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.client.quit();
   }
