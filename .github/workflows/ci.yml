@@ -115,12 +115,17 @@ jobs:
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          for i in 1 2 3 4 5; do
-            if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 https://release.solana.com/v1.17.3/install | sh; then
+          URL="https://github.com/solana-labs/solana/releases/download/v1.17.3/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          for i in 1 2 3; do
+            if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/solana-release.tar.bz2 "$URL"; then
               break
             fi
             sleep 5
           done
+          rm -rf "$HOME/.local/share/solana"
+          mkdir -p "$HOME/.local/share/solana"
+          tar -xjf /tmp/solana-release.tar.bz2 -C "$HOME/.local/share/solana"
+          mv "$HOME/.local/share/solana/solana-release" "$HOME/.local/share/solana/active_release"
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
@@ -202,12 +207,17 @@ jobs:
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          for i in 1 2 3 4 5; do
-            if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 https://release.solana.com/v1.17.3/install | sh; then
+          URL="https://github.com/solana-labs/solana/releases/download/v1.17.3/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          for i in 1 2 3; do
+            if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/solana-release.tar.bz2 "$URL"; then
               break
             fi
             sleep 5
           done
+          rm -rf "$HOME/.local/share/solana"
+          mkdir -p "$HOME/.local/share/solana"
+          tar -xjf /tmp/solana-release.tar.bz2 -C "$HOME/.local/share/solana"
+          mv "$HOME/.local/share/solana/solana-release" "$HOME/.local/share/solana/active_release"
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
