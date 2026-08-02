@@ -199,6 +199,19 @@ export class TradesService {
       throw new ForbiddenException("buyer wallet does not match the signed-in user");
     }
 
+    const existing = await this.prisma.tradeDeal.findUnique({
+      where: { dealId: id },
+      select: { id: true, status: true },
+    });
+    if (existing && existing.status !== "PENDING") {
+      return {
+        ok: true,
+        tradeId: id.toString(10),
+        dealPda: existing.id,
+        status: existing.status,
+      };
+    }
+
     const amount = this.parseU64(dto.amount, "amount");
     const tenorDays = this.parseU64(dto.tenor, "tenor");
     if (amount <= 0n) throw new BadRequestException("amount must be greater than zero");

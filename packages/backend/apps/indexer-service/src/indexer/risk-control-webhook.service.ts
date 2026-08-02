@@ -24,21 +24,15 @@ export class RiskControlWebhookService {
       },
     };
 
-    try {
-      const response = await fetch(INDEXER_ENV.riskWebhookUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(5_000),
-      });
-      if (!response.ok) {
-        throw new Error(`risk webhook responded ${response.status}`);
-      }
-      this.logger.log(`defaulted webhook delivered for deal ${deal.id}`);
-    } catch (error) {
-      this.logger.error(
-        `failed to deliver defaulted webhook for deal ${deal.id}: ${String(error)}`,
-      );
+    const response = await fetch(INDEXER_ENV.riskWebhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) {
+      throw new Error(`risk webhook responded ${response.status}`);
     }
+    this.logger.log(`defaulted webhook delivered for deal ${deal.id}`);
   }
 }

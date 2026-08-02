@@ -56,7 +56,7 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
   private async handleDealSync(payload: DealSyncPayload): Promise<void> {
     const previous = await this.prisma.tradeDeal.findUnique({
       where: { dealId: BigInt(payload.tradeId) },
-      select: { status: true },
+      select: { status: true, defaultWebhookSentAt: true },
     });
 
     const status = (DEAL_STATUS_BY_CODE[payload.status] ??
@@ -108,8 +108,15 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    if (status === "DEFAULTED" && previous?.status !== "DEFAULTED") {
+    if (
+      status === "DEFAULTED" &&
+      !previous?.defaultWebhookSentAt
+    ) {
       await this.riskWebhook.notifyDefaulted(deal);
+      await this.prisma.tradeDeal.update({
+        where: { dealId: data.dealId },
+        data: { defaultWebhookSentAt: new Date() },
+      });
     }
   }
 
