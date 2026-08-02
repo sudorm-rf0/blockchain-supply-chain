@@ -137,7 +137,7 @@ jobs:
         run: cargo install cargo-build-sbf --locked
       - name: Anchor Build
         working-directory: packages/contracts
-        run: anchor build
+        run: RUSTC_BOOTSTRAP=1 anchor build
 
       - name: Test Typecheck
         working-directory: packages/contracts
