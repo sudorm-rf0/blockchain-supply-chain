@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import compression from "compression";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { TRADE_ENV } from "./config/env";
 
 async function bootstrap(): Promise<void> {
@@ -11,6 +12,7 @@ async function bootstrap(): Promise<void> {
   app.use(compression());
   app.use(helmet());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.enableCors({
     origin: [
       /^https?:\/\/localhost(:\d+)?$/,
