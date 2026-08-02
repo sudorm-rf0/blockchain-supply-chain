@@ -137,7 +137,9 @@ jobs:
         run: cargo install cargo-build-sbf --locked
       - name: Anchor Build
         working-directory: packages/contracts
-        run: anchor build
+        run: |
+          export PATH="$HOME/.cache/solana/v1.54/platform-tools/rust/bin:$PATH"
+          anchor build
 
       - name: Test Typecheck
         working-directory: packages/contracts
