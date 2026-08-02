@@ -22,7 +22,7 @@
     "@solana/wallet-adapter-phantom": "^0.9.29",
     "@solana/wallet-adapter-react": "^0.15.32",
     "@solana/wallet-adapter-react-ui": "^0.9.34",
-    "@solana/web3.js": "^1.91.3",
+    "@solana/web3.js": "^1.98.4",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
