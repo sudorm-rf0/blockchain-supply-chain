@@ -314,23 +314,40 @@ export class TradesService {
       logisticsHash: dto.logisticsHash ?? null,
     };
 
-    const deal = await this.prisma.tradeDeal.upsert({
-      where: { dealId: id },
-      create: data,
-      update: {
-        id: data.id,
-        buyer: data.buyer,
-        seller: data.seller,
-        buyerWallet: data.buyerWallet,
-        sellerWallet: data.sellerWallet,
-        amount: data.amount,
-        downPayment: data.downPayment,
-        poolPortion: data.poolPortion,
-        tenor: data.tenor,
-        status: data.status,
-        txSignature: data.txSignature,
-      },
-    });
+    const updateData = {
+      id: data.id,
+      buyer: data.buyer,
+      seller: data.seller,
+      buyerWallet: data.buyerWallet,
+      sellerWallet: data.sellerWallet,
+      amount: data.amount,
+      downPayment: data.downPayment,
+      poolPortion: data.poolPortion,
+      tenor: data.tenor,
+      status: data.status,
+      txSignature: data.txSignature,
+    };
+    let deal;
+    try {
+      deal = await this.prisma.tradeDeal.upsert({
+        where: { dealId: id },
+        create: data,
+        update: updateData,
+      });
+    } catch (error) {
+      // indexer may have created the same PDA concurrently; converge by id.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        deal = await this.prisma.tradeDeal.update({
+          where: { id: data.id },
+          data: updateData,
+        });
+      } else {
+        throw error;
+      }
+    }
     await this.audit.record({
       actorId: userId,
       action: "TRADE_CREATED",

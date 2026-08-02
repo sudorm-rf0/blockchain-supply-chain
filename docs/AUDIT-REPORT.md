@@ -19,15 +19,14 @@ Next.js 14 属已停止安全补丁的版本；合约未做第三方审计；生
 | Medium | 6 | Token 存储、测试覆盖、Prisma/Node 兼容、文件存储、风控依赖、病毒扫描 |
 | Low | 5 | 限流策略、默认管理员密码、LP 赎回缺失、审计保留策略、备份未演练 |
 
-依赖审计（`pnpm audit --prod`）：39 vulnerabilities（3 low / 22 moderate / 14 high）。
+依赖审计（`pnpm audit --prod`）：28 vulnerabilities（1 low / 16 moderate / 11 high）。
 
 ## High 发现
 
-1. **Next.js 14 无安全补丁**：`next@14.2.35` 存在多个 high 级漏洞
-   （path-to-regexp 回溯、RSC DoS、WebSocket SSRF、Middleware 绕过）。
-   建议上线前升级到 `next@15.5.16+` 并同步 React 19，或保持前端不直接暴露公网。
-2. **Solana SDK 版本不匹配**：钱包适配器要求 `@solana/web3.js >=1.98`，
-   项目固定 `1.91.3`，存在 peer 冲突与兼容风险。建议升级 `@solana/web3.js` 并回归钱包流程。
+1. ~~Next.js 14 无安全补丁~~ **已修复**：升级到 `next@15.5.16` + React 19，
+   页面构建与浏览器 hydration 回归通过。
+2. ~~Solana SDK 版本不匹配~~ **已修复**：升级 `@solana/web3.js` 至 1.98.4，
+   前后端构建、合约 typecheck、全链路冒烟通过。
 3. **合约未第三方审计**：`trade-finance` 与 `supply-chain` 只在 Anchor 测试与 localnet
    验证过，涉及资金托管/清算/费用分配，必须由独立审计方出报告。
 4. **生产部署未验证**：K8s 清单/Docker/Helm 只做静态校验；TLS、备份恢复、真实 RPC、
@@ -55,7 +54,10 @@ Next.js 14 属已停止安全补丁的版本；合约未做第三方审计；生
 ## 已修复项（审计周期内）
 
 - 依赖：移除 `@solana/wallet-adapter-wallets`（Trezor 链），漏洞 70 → 39，critical 归零；
-  通过 overrides 升级 `multer` 至 2.1.x。
+  通过 overrides 升级 `multer` 至 2.1.x；随后升级 Next 15.5.16 与 `@solana/web3.js` 1.98.4，
+  漏洞进一步降至 28（0 critical）。
+- 并发幂等：trade confirm upsert 在 indexer 并发创建时偶发主键冲突，增加 P2002 按
+  PDA `id` 兜底更新；连续 3 次全链路冒烟验证稳定。
 - 链上状态机：补 `release_to_seller`，修正 repay 前置状态为 `REPAYING`。
 - Prisma BigInt：订单 ID 限制 48 位；indexer 跳过超范围 ID，保留后端交易签名。
 - 存证：修正 `Option<Account>` 占位、重复哈希存证 409 幂等。
@@ -65,6 +67,8 @@ Next.js 14 属已停止安全补丁的版本；合约未做第三方审计；生
 ## 验证记录
 
 - 后端/前端/三个独立服务构建通过；Jest 8/8；合约 7/7 测试通过。
+- Next.js 15.5.16 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`
+  浏览器验证 0 hydration 错误。
 - 文件哈希存证真实上链（slot 2518 无错误，后端链上校验通过）。
 - 订单全流程真实上链：PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR →
   DELIVERED → REPAYING → SETTLED。
@@ -72,7 +76,6 @@ Next.js 14 属已停止安全补丁的版本；合约未做第三方审计；生
 
 ## 上线前必做
 
-1. 升级 Next.js 15.5.16+ 与 `@solana/web3.js`，重新跑钱包/上链回归。
-2. 合约第三方审计并修复。
-3. devnet 全流程冒烟 → staging 真实集群 → 主网。
-4. 配置 S3、正式 RPC、TLS、备份恢复演练、监控告警。
+1. 合约第三方审计并修复。
+2. devnet 全流程冒烟 → staging 真实集群 → 主网。
+3. 配置 S3、正式 RPC、TLS、备份恢复演练（本机演练已通过）、监控告警。

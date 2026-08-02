@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import { FilePreviewDialog } from "@/components/FilePreviewDialog";
@@ -51,12 +51,15 @@ function statusClass(status: FileRecord["status"]) {
 export default function AdminFilesPage({
   searchParams,
 }: {
-  searchParams?: { status?: string };
+  searchParams?: Promise<{ status?: string }>;
 }) {
+  const resolvedParams = use(
+    searchParams ?? Promise.resolve<{ status?: string }>({}),
+  );
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [status, setStatus] = useState(searchParams?.status ?? "PENDING");
+  const [status, setStatus] = useState(resolvedParams.status ?? "PENDING");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
