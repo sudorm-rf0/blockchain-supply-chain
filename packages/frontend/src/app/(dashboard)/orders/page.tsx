@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
@@ -7,6 +8,7 @@ import { Transaction } from "@solana/web3.js";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RepaymentCountdown } from "@/components/RepaymentCountdown";
 import {
   Table,
   TableBody,
@@ -164,8 +166,8 @@ export default function OrdersPage() {
       ) : trades.length === 0 ? (
         <p className="text-sm text-muted-foreground">暂无订单</p>
       ) : (
-        <div className="rounded-md border">
-          <Table>
+        <div className="overflow-x-auto rounded-md border">
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
                 <TableHead>订单 ID</TableHead>
@@ -203,12 +205,20 @@ export default function OrdersPage() {
                       <Badge className={STATUS_STYLE[trade.status] ?? ""}>
                         {trade.status}
                       </Badge>
+                      <RepaymentCountdown
+                        createdAt={trade.createdAt}
+                        tenorSeconds={trade.tenor}
+                        status={trade.status}
+                      />
                     </TableCell>
                     <TableCell>
                       {formatDateTime(trade.createdAt)}
                     </TableCell>
                     <TableCell>
                       <div className="space-x-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/orders/${trade.tradeId}`}>详情</Link>
+                        </Button>
                         {canFund && (
                           <Button
                             size="sm"

@@ -88,8 +88,8 @@ export default function AuditLogsPage() {
       ) : logs.length === 0 ? (
         <p className="text-sm text-muted-foreground">暂无审计记录</p>
       ) : (
-        <div className="rounded-md border">
-          <Table>
+        <div className="overflow-x-auto rounded-md border">
+          <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow>
                 <TableHead>时间</TableHead>

@@ -160,7 +160,7 @@ export default function DashboardPage() {
         <p className="mt-1 text-xs text-zinc-500">
           按当前 NAV 换算，单次赎回不超过闲置资金 50%
         </p>
-        <div className="mt-3 flex max-w-md items-end gap-3">
+        <div className="mt-3 flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex-1">
             <span className="text-xs text-zinc-400">LP 数量</span>
             <input
