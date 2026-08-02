@@ -4,6 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$HOME/.local/share/solana/active_release/bin:$HOME/.cargo/bin:$PATH"
 export COPYFILE_DISABLE=1
+# crates.io sparse index is faster and less likely to hang on CI runners.
+export CARGO_REGISTRIES_CRATES_IO_PROTOCOL="${CARGO_REGISTRIES_CRATES_IO_PROTOCOL:-sparse}"
+export CARGO_NET_RETRY="${CARGO_NET_RETRY:-3}"
+export CARGO_HTTP_TIMEOUT="${CARGO_HTTP_TIMEOUT:-60}"
 LEDGER_DIR="${LEDGER_DIR:-/tmp/solana-ci-ledger}"
 cd "$ROOT"
 
@@ -25,7 +29,10 @@ done
 solana airdrop 100 >/dev/null
 
 cd "$ROOT/packages/contracts"
-anchor build >/dev/null
+anchor build >/dev/null || {
+  echo "anchor build failed; retrying once with offline cargo cache" >&2
+  CARGO_NET_OFFLINE=true anchor build >/dev/null
+}
 anchor deploy --provider.cluster localnet --program-name trade_finance >/dev/null
 
 cd "$ROOT"
@@ -39,6 +46,7 @@ pnpm build:trade >/dev/null
 pnpm build:pool >/dev/null
 pnpm build:indexer >/dev/null
 pnpm exec prisma migrate deploy >/dev/null
+pnpm exec prisma db seed >/dev/null
 
 THROTTLE_LIMIT=100000 pnpm start >/tmp/backend.log 2>&1 &
 THROTTLE_LIMIT=100000 USDC_MINT="$USDC_MINT" LP_MINT="$LP_MINT" pnpm start:trade >/tmp/trade.log 2>&1 &
