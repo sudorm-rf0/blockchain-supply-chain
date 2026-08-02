@@ -41,6 +41,17 @@ spec:
                 secretKeyRef:
                   name: backend-secrets
                   key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: JWT_SECRET
+            - name: ALLOWED_ORIGIN
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: ALLOWED_ORIGIN
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health

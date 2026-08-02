@@ -57,6 +57,18 @@ spec:
                 secretKeyRef:
                   name: backend-secrets
                   key: REDIS_URL
+            - name: TRADE_FINANCE_PROGRAM_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: TRADE_FINANCE_PROGRAM_ID
+                  optional: true
+            - name: USDC_MINT
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: USDC_MINT
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health

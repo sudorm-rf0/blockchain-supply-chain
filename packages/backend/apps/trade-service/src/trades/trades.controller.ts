@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -16,6 +18,8 @@ import {
 import { AuthGuard } from "../auth/auth.guard";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
+import { ConfirmTradeDto } from "./dto/confirm-trade.dto";
+import { TradeItemDto } from "./dto/trade-item.dto";
 import { TradesService } from "./trades.service";
 
 @ApiTags("trades")
@@ -36,5 +40,27 @@ export class TradesController {
     @Req() req: Request,
   ): Promise<CreateTradeResponseDto> {
     return this.tradesService.createTrade(dto, req.user!.sub);
+  }
+
+  @Get()
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "当前用户相关订单列表" })
+  list(@Req() req: Request): Promise<TradeItemDto[]> {
+    return this.tradesService.listMyTrades(req.user!.sub);
+  }
+
+  @Post(":tradeId/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: "确认创建订单交易已上链",
+    description: "校验链上 create_deal 指令后回写 TradeDeal 记录",
+  })
+  confirm(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: ConfirmTradeDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.confirmTrade(tradeId, dto, req.user!.sub);
   }
 }

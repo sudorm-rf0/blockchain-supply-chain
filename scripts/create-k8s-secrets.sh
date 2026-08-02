@@ -8,6 +8,12 @@ POSTGRES_USER="${POSTGRES_USER:-postgres}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
 POSTGRES_DB="${POSTGRES_DB:-supply_chain}"
 REDIS_PASSWORD="${REDIS_PASSWORD:-$(openssl rand -hex 16)}"
+JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
+SOLANA_RPC_URL="${SOLANA_RPC_URL:-https://api.devnet.solana.com}"
+ALLOWED_ORIGIN="${ALLOWED_ORIGIN:-}"
+TRADE_FINANCE_PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID:-9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3}"
+USDC_MINT="${USDC_MINT:-4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU}"
+RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL:-}"
 
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
@@ -18,6 +24,12 @@ kubectl -n "${NAMESPACE}" create secret generic backend-secrets \
   --from-literal=POSTGRES_USER="${POSTGRES_USER}" \
   --from-literal=POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
   --from-literal=POSTGRES_DB="${POSTGRES_DB}" \
+  --from-literal=JWT_SECRET="${JWT_SECRET}" \
+  --from-literal=SOLANA_RPC_URL="${SOLANA_RPC_URL}" \
+  --from-literal=TRADE_FINANCE_PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID}" \
+  --from-literal=USDC_MINT="${USDC_MINT}" \
+  ${RISK_WEBHOOK_URL:+--from-literal=RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL}"} \
+  ${ALLOWED_ORIGIN:+--from-literal=ALLOWED_ORIGIN="${ALLOWED_ORIGIN}"} \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
 if [[ -f "${CERT_DIR}/postgres/server.crt" ]]; then

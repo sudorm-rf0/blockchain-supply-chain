@@ -46,6 +46,18 @@ spec:
                 secretKeyRef:
                   name: backend-secrets
                   key: DATABASE_URL
+            - name: RISK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: RISK_WEBHOOK_URL
+                  optional: true
+            - name: POOL_STATE_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: POOL_STATE_ADDRESS
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health

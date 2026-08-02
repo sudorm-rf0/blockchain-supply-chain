@@ -220,6 +220,47 @@ export async function createTrade(
   });
 }
 
+export interface TradeRecord {
+  id: string;
+  tradeId: string;
+  buyerWallet: string;
+  sellerWallet: string;
+  amount: string;
+  downPayment: string;
+  poolPortion: string;
+  tenor: number;
+  status: string;
+  txSignature?: string | null;
+  logisticsHash?: string | null;
+  createdAt: string;
+}
+
+export async function confirmTrade(
+  tradeId: string,
+  body: {
+    buyerWallet: string;
+    sellerWallet: string;
+    amount: string;
+    tenor: string;
+    txSignature: string;
+  },
+): Promise<{
+  ok: boolean;
+  tradeId: string;
+  dealPda: string;
+  status: string;
+}> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function fetchMyTrades(): Promise<TradeRecord[]> {
+  return request(`${TRADE_API_URL}/api/trades`, { cache: "no-store" });
+}
+
 export interface PoolTrendPoint {
   capturedAt: string;
   nav: string;

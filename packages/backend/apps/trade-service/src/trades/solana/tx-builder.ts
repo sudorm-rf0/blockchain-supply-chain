@@ -84,6 +84,30 @@ export interface CreateDealTransactionInput {
   usdcMint: PublicKey;
 }
 
+export interface CreateDealInstructionInput {
+  id: bigint;
+  seller: PublicKey;
+  amount: bigint;
+  tenorDays: bigint;
+}
+
+export function buildCreateDealInstructionData(
+  input: CreateDealInstructionInput,
+): Buffer {
+  const discriminator = createHash("sha256")
+    .update("global:create_deal")
+    .digest()
+    .subarray(0, 8);
+
+  return Buffer.concat([
+    discriminator,
+    encodeU64(input.id),
+    input.seller.toBuffer(),
+    encodeU64(input.amount),
+    encodeU64(input.tenorDays),
+  ]);
+}
+
 export async function buildCreateDealTransaction(
   input: CreateDealTransactionInput,
   connection: Connection,
@@ -93,20 +117,7 @@ export async function buildCreateDealTransaction(
   const dealPda = deriveDealPda(programId, input.buyer, input.id);
   const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, input.usdcMint);
 
-  // Anchor discriminator = sha256("global:create_deal")[0..8]
-  const discriminator = createHash("sha256")
-    .update("global:create_deal")
-    .digest()
-    .subarray(0, 8);
-
-  // Contract layout: id(u64) | seller(Pubkey 32 bytes) | amount(u64) | tenor_days(u64)
-  const data = Buffer.concat([
-    discriminator,
-    encodeU64(input.id),
-    input.seller.toBuffer(),
-    encodeU64(input.amount),
-    encodeU64(input.tenorDays),
-  ]);
+  const data = buildCreateDealInstructionData(input);
 
   // Contract CreateDeal account ordering:
   // pool_state, buyer(signer), deal(init), buyer_token_account,

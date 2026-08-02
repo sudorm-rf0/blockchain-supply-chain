@@ -87,7 +87,7 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
     };
 
     const deal = await this.prisma.tradeDeal.upsert({
-      where: { id: payload.accountKey },
+      where: { dealId: data.dealId },
       create: data,
       update: {
         dealId: data.dealId,

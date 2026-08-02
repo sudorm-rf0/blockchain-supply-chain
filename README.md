@@ -1,24 +1,66 @@
 # Blockchain Supply Chain Monorepo
 
-Solana/Anchor + NestJS + Next.js monorepo managed with pnpm workspaces and
-Turbo.
+Solana/Anchor 供应链金融演示系统：单据上传审核、Solana 存证、贸易订单创建与
+资金池快照。使用 pnpm workspaces + Turbo 管理。
 
-## Packages
+## 包结构
 
-- `packages/contracts`: Anchor 0.30.1 Solana program (devnet + localnet).
-- `packages/backend`: NestJS 10 API with `@solana/web3.js`, Prisma, BullMQ.
-- `packages/frontend`: Next.js 14 App Router app with wallet adapter and
-  Tailwind CSS.
+- `packages/contracts`: Anchor 0.30.1 合约（`trade-finance` 全生命周期 + `supply-chain`）。
+- `packages/backend`: NestJS 10 主后端（认证、文件、存证）+ 3 个独立服务：
+  `indexer-service`（链上监听与 DB 回写）、`trade-service`（订单预构建与确认）、
+  `pool-service`（资金池总览与 LP 提款）。
+- `packages/frontend`: Next.js 14 App Router + Tailwind + shadcn/ui + Solana 钱包。
 
-## Quick start
+## 本地启动
 
 ```bash
 ./init-monorepo.sh --infra
-pnpm --filter backend run prisma:generate
-pnpm dev
+cd packages/backend && pnpm exec prisma generate && pnpm exec prisma migrate deploy
 ```
 
-`./init-monorepo.sh` generates `.env` files, creates the Solana program keypair
-under `packages/contracts/target/deploy/`, patches the program ID into
-`Anchor.toml` and `lib.rs`, then runs `pnpm install`. Pass `--build` to also
-run Turbo and Anchor builds.
+基础设施（Postgres / Redis / Solana localnet）：
+
+```bash
+docker compose up -d
+```
+
+合约构建与 localnet 部署：
+
+```bash
+cd packages/contracts
+anchor build
+PATH="$HOME/.local/share/solana/active_release/bin:$PATH" anchor deploy --provider.cluster localnet
+```
+
+后端服务（默认端口）：
+
+```bash
+cd packages/backend
+pnpm dev              # 主后端 3001
+pnpm dev:indexer      # 3003（需 REDIS_URL=redis://localhost:6380）
+pnpm dev:trade        # 3004
+pnpm dev:pool         # 3005（需 REDIS_URL=redis://localhost:6380）
+```
+
+前端：
+
+```bash
+cd packages/frontend
+FRONTEND_PORT=3100 pnpm dev
+```
+
+打开 `http://localhost:3100`。种子管理员：`admin@supply-chain.io` /
+`Admin123!`（可用 `pnpm --filter @supply-chain/backend prisma:seed` 重建）。
+
+## 测试
+
+```bash
+pnpm --filter @supply-chain/backend exec jest --runInBand
+cd packages/contracts && pnpm test
+cd packages/frontend && pnpm build
+```
+
+## 部署
+
+Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，上线前
+核对项见 [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md)。

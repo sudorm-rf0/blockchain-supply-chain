@@ -4,6 +4,11 @@
 FROM node:20-alpine AS builder
 WORKDIR /workspace
 
+ARG NEXT_PUBLIC_BACKEND_URL=https://supply-chain.example.com/api
+ARG NEXT_PUBLIC_TRADE_API_URL=https://supply-chain.example.com/api
+ARG NEXT_PUBLIC_POOL_API_URL=https://supply-chain.example.com/api
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN apk add --no-cache libc6-compat openssl python3 make g++ \
     && corepack enable \
     && corepack prepare pnpm@9.4.0 --activate
@@ -24,9 +29,9 @@ RUN pnpm --filter @supply-chain/backend run build:pool
 RUN pnpm --filter @supply-chain/backend deploy --prod /app/backend-out
 
 COPY packages/frontend packages/frontend
-ENV NEXT_PUBLIC_BACKEND_URL=https://supply-chain.example.com/api
-ENV NEXT_PUBLIC_TRADE_API_URL=https://supply-chain.example.com/api
-ENV NEXT_PUBLIC_POOL_API_URL=https://supply-chain.example.com/api
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+ENV NEXT_PUBLIC_TRADE_API_URL=${NEXT_PUBLIC_TRADE_API_URL}
+ENV NEXT_PUBLIC_POOL_API_URL=${NEXT_PUBLIC_POOL_API_URL}
 RUN mkdir -p packages/frontend/public
 RUN pnpm --filter @supply-chain/frontend run build
 

@@ -48,7 +48,7 @@ jobs:
 
       - name: Tests
         working-directory: packages/backend
-        run: pnpm exec jest --passWithNoTests
+        run: pnpm exec jest --runInBand
 
   frontend:
     runs-on: ubuntu-latest
@@ -70,6 +70,10 @@ jobs:
       - name: TypeScript Check
         working-directory: packages/frontend
         run: pnpm exec tsc --noEmit
+
+      - name: Production Build
+        working-directory: packages/frontend
+        run: pnpm build
 
   contracts:
     runs-on: ubuntu-latest
@@ -95,3 +99,20 @@ jobs:
       - name: Anchor Build
         working-directory: packages/contracts
         run: anchor build
+
+      - name: Test Typecheck
+        working-directory: packages/contracts
+        run: pnpm run test:typecheck
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, contracts]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build --target backend-runner -f Dockerfile.multistage .
+
+      - name: Build frontend image
+        run: docker build --target frontend-runner -f Dockerfile.multistage .

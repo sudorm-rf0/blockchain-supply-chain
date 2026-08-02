@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { TransactionStatusToast } from "@/components/TransactionStatusToast";
 import {
+  confirmTrade,
   createTrade,
   formatUsdc,
 } from "@/lib/api";
@@ -14,6 +16,7 @@ import {
 const TENOR_OPTIONS = [30, 60, 90, 120];
 
 export default function NewTradePage() {
+  const router = useRouter();
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -61,6 +64,14 @@ export default function NewTradePage() {
         Buffer.from(response.transaction, "base64"),
       );
       const txSignature = await sendTransaction(transaction, connection);
+      await connection.confirmTransaction(txSignature, "confirmed");
+      await confirmTrade(response.tradeId, {
+        buyerWallet: publicKey.toBase58(),
+        sellerWallet: sellerWallet.trim() || publicKey.toBase58(),
+        amount: amountRaw.toString(10),
+        tenor: tenorDays,
+        txSignature,
+      });
 
       setQuote({
         downPayment: response.downPayment,
@@ -68,6 +79,7 @@ export default function NewTradePage() {
         tradeId: response.tradeId,
       });
       setSignature(txSignature);
+      router.push("/orders");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {

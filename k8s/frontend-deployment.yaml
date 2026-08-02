@@ -28,24 +28,6 @@ spec:
           env:
             - name: NODE_ENV
               value: "production"
-            - name: NEXT_PUBLIC_BACKEND_URL
-              valueFrom:
-                secretKeyRef:
-                  name: frontend-config
-                  key: BACKEND_URL
-                  optional: true
-            - name: NEXT_PUBLIC_TRADE_API_URL
-              valueFrom:
-                secretKeyRef:
-                  name: frontend-config
-                  key: TRADE_API_URL
-                  optional: true
-            - name: NEXT_PUBLIC_POOL_API_URL
-              valueFrom:
-                secretKeyRef:
-                  name: frontend-config
-                  key: POOL_API_URL
-                  optional: true
           livenessProbe:
             httpGet:
               path: /

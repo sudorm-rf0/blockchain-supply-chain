@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Files,
   LayoutDashboard,
+  ReceiptText,
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ export function Sidebar({ role }: SidebarProps) {
             label: "文件审核",
             icon: ClipboardCheck,
           },
+          { href: "/orders", label: "我的订单", icon: ReceiptText },
           {
             href: "/admin/files?status=ALL",
             label: "全部文件",
@@ -33,6 +35,7 @@ export function Sidebar({ role }: SidebarProps) {
       : [
           { href: "/user/upload", label: "上传文件", icon: Upload },
           { href: "/user/files", label: "我的文件", icon: Files },
+          { href: "/orders", label: "我的订单", icon: ReceiptText },
         ];
 
   const isActive = (href: string) => {
