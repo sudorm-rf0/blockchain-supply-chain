@@ -29,13 +29,16 @@ done
 solana airdrop 100 >/dev/null
 
 cd "$ROOT/packages/contracts"
+echo "PHASE anchor-build" >&2
 anchor build --no-idl >/dev/null || {
   echo "anchor build failed; retrying once with offline cargo cache" >&2
   CARGO_NET_OFFLINE=true anchor build --no-idl >/dev/null
 }
+echo "PHASE anchor-deploy" >&2
 anchor deploy --provider.cluster localnet --program-name trade_finance >/dev/null
 
 cd "$ROOT"
+echo "PHASE init-localnet" >&2
 ENV_OUT="$(node scripts/init-localnet.mjs)"
 USDC_MINT="$(printf '%s\n' "$ENV_OUT" | sed -n 's/^USDC_MINT=//p')"
 LP_MINT="$(printf '%s\n' "$ENV_OUT" | sed -n 's/^LP_MINT=//p')"
@@ -63,5 +66,6 @@ for _ in $(seq 1 60); do
 done
 
 cd "$ROOT"
+echo "PHASE smoke" >&2
 USDC_MINT="$USDC_MINT" node scripts/smoke-e2e.mjs
 echo "ci e2e passed"
