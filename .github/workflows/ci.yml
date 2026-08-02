@@ -110,12 +110,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.local/share/solana
-          key: solana-1.18.26-${{ runner.os }}
+          key: agave-4.1.2-${{ runner.os }}
       - name: Install Solana CLI (cache miss)
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          URL="https://github.com/solana-labs/solana/releases/download/v1.18.26/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          URL="https://github.com/anza-xyz/agave/releases/download/v4.1.2/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
           for i in 1 2 3; do
             if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/solana-release.tar.bz2 "$URL"; then
               break
@@ -202,12 +202,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.local/share/solana
-          key: solana-1.18.26-e2e-${{ runner.os }}
+          key: agave-4.1.2-e2e-${{ runner.os }}
       - name: Install Solana CLI (cache miss)
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          URL="https://github.com/solana-labs/solana/releases/download/v1.18.26/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          URL="https://github.com/anza-xyz/agave/releases/download/v4.1.2/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
           for i in 1 2 3; do
             if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/solana-release.tar.bz2 "$URL"; then
               break
