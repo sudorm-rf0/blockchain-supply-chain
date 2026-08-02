@@ -98,8 +98,11 @@ jobs:
         with:
           path: ~/.cargo/bin/anchor
           key: anchor-0.30.1-${{ runner.os }}
+      - name: Install Rust 1.79 (anchor-cli toolchain)
+        if: steps.cache-anchor.outputs.cache-hit != 'true'
+        run: rustup toolchain install 1.79.0 --profile minimal --no-self-update
       - name: Build Anchor (cache miss)
-        run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+        run: cargo +1.79.0 install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
         if: steps.cache-anchor.outputs.cache-hit != 'true'
 
       - name: Cache Solana CLI
@@ -175,8 +178,11 @@ jobs:
         with:
           path: ~/.cargo/bin/anchor
           key: anchor-0.30.1-e2e-${{ runner.os }}
+      - name: Install Rust 1.79 (anchor-cli toolchain)
+        if: steps.cache-anchor.outputs.cache-hit != 'true'
+        run: rustup toolchain install 1.79.0 --profile minimal --no-self-update
       - name: Build Anchor (cache miss)
-        run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+        run: cargo +1.79.0 install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
         if: steps.cache-anchor.outputs.cache-hit != 'true'
 
       - name: Cache Solana CLI
