@@ -29,9 +29,9 @@ done
 solana airdrop 100 >/dev/null
 
 cd "$ROOT/packages/contracts"
-anchor build >/dev/null || {
+anchor build --no-idl >/dev/null || {
   echo "anchor build failed; retrying once with offline cargo cache" >&2
-  CARGO_NET_OFFLINE=true anchor build >/dev/null
+  CARGO_NET_OFFLINE=true anchor build --no-idl >/dev/null
 }
 anchor deploy --provider.cluster localnet --program-name trade_finance >/dev/null
 
