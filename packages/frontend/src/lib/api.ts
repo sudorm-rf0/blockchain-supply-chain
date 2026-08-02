@@ -55,19 +55,20 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
+function authHeaders(): Record<string, string> {
+  const token = useUserStore.getState().token;
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
+
 async function request<T>(
   url: string,
   init?: RequestInit,
 ): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = authHeaders();
   if (init?.headers) {
     for (const [k, v] of Object.entries(init.headers as Record<string, string>)) {
       headers[k] = v;
     }
-  }
-  const token = useUserStore.getState().token;
-  if (token) {
-    headers["authorization"] = `Bearer ${token}`;
   }
   if (!headers["content-type"] && !(init?.body instanceof FormData)) {
     headers["content-type"] = "application/json";
@@ -131,6 +132,16 @@ export async function getFiles(params: {
 
 export async function getFile(id: string): Promise<FileRecord> {
   return request(`${BACKEND_URL}/api/files/${id}`);
+}
+
+export async function fetchFileBlob(id: string): Promise<Blob> {
+  const response = await fetch(`${BACKEND_URL}/api/files/${id}/content`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return response.blob();
 }
 
 export async function deleteFile(id: string): Promise<{ ok: boolean }> {

@@ -3,9 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import type { FileStatus, Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { existsSync, unlinkSync } from "node:fs";
+import { createReadStream, existsSync, unlinkSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -95,10 +95,10 @@ export class FilesService {
   async list(params: {
     page: number;
     limit: number;
-    status?: string;
+    status?: FileStatus;
     userId?: string;
   }) {
-    const where: Record<string, unknown> = {};
+    const where: Prisma.FileWhereInput = {};
     if (params.status) where.status = params.status;
     if (params.userId) where.uploaderId = params.userId;
 
@@ -132,6 +132,21 @@ export class FilesService {
     return this.publicFile(file);
   }
 
+  async getContent(id: string, userId: string, role: string) {
+    const file = await this.prisma.file.findUnique({ where: { id } });
+    if (!file) throw new NotFoundException("文件不存在");
+    if (role !== "ADMIN" && file.uploaderId !== userId) {
+      throw new ForbiddenException("无权查看此文件");
+    }
+    const diskPath = this.resolveDiskPath(file.path);
+    if (!existsSync(diskPath)) throw new NotFoundException("文件已丢失");
+    return {
+      diskPath,
+      filename: file.filename,
+      mimeType: file.mimeType,
+    };
+  }
+
   async patch(
     id: string,
     body: { status?: "APPROVED" | "REJECTED"; remark?: string },
@@ -155,11 +170,7 @@ export class FilesService {
     if (role !== "ADMIN" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权删除此文件");
     }
-    const diskPath = join(
-      process.cwd(),
-      "uploads",
-      file.path.split("/").pop() ?? "",
-    );
+    const diskPath = this.resolveDiskPath(file.path);
     if (existsSync(diskPath)) unlinkSync(diskPath);
     await this.prisma.file.delete({ where: { id } });
     return { ok: true };
@@ -167,6 +178,10 @@ export class FilesService {
 
   private removeUploadedFile(path: string) {
     if (path && existsSync(path)) unlinkSync(path);
+  }
+
+  private resolveDiskPath(relativePath: string): string {
+    return join(process.cwd(), "uploads", basename(relativePath));
   }
 
   private publicFile(file: {

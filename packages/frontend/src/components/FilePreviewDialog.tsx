@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Copy, Check, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getFile, type FileRecord } from "@/lib/api";
+import { fetchFileBlob, getFile, type FileRecord } from "@/lib/api";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -34,20 +34,35 @@ export function FilePreviewDialog({
   fileId,
 }: FilePreviewDialogProps) {
   const [file, setFile] = useState<FileRecord | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!fileId) return;
-    try {
-      setFile(await getFile(fileId));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载文件失败");
-    }
-  }, [fileId]);
-
   useEffect(() => {
-    if (open) void load();
-  }, [open, load]);
+    if (!open || !fileId) return;
+    let cancelled = false;
+    let createdUrl: string | null = null;
+    setObjectUrl(null);
+    void (async () => {
+      try {
+        const [meta, blob] = await Promise.all([
+          getFile(fileId),
+          fetchFileBlob(fileId),
+        ]);
+        if (cancelled) return;
+        createdUrl = URL.createObjectURL(blob);
+        setFile(meta);
+        setObjectUrl(createdUrl);
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error instanceof Error ? error.message : "加载文件失败");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [open, fileId]);
 
   const copyHash = async () => {
     if (!file) return;
@@ -115,13 +130,13 @@ export function FilePreviewDialog({
             <div className="rounded-md border bg-muted/30 p-3">
               {isImage ? (
                 <img
-                  src={file.path}
+                  src={objectUrl ?? ""}
                   alt={file.filename}
                   className="mx-auto max-h-96"
                 />
               ) : isPdf ? (
                 <iframe
-                  src={file.path}
+                  src={objectUrl ?? ""}
                   title={file.filename}
                   className="h-96 w-full"
                 />
@@ -133,7 +148,7 @@ export function FilePreviewDialog({
             </div>
 
             <div className="flex justify-end">
-              <a href={file.path} download>
+              <a href={objectUrl ?? ""} download={file.filename}>
                 <Button type="button" variant="outline">
                   <Download className="mr-2 h-4 w-4" />
                   下载

@@ -5,13 +5,15 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { PrismaService } from "../prisma/prisma.service";
 import {
+  buildAttestDocumentInstructionData,
   buildAttestDocumentTransaction,
   deriveDealPda,
   deriveDocumentPda,
-  getRpcUrl,
+  getConnection,
+  getProgramId,
 } from "./solana/document-tx-builder";
 
 @Injectable()
@@ -52,17 +54,9 @@ export class AttestationService {
     });
     await this.ensureWalletBound(user, owner);
 
-    let tradeId = 0n;
+    let tradeId = this.parseTradeId(body.tradeId);
     let dealPda: PublicKey | null = null;
-    if (body.tradeId && body.tradeId !== "0") {
-      try {
-        tradeId = BigInt(body.tradeId);
-      } catch {
-        throw new BadRequestException("invalid tradeId");
-      }
-      if (tradeId < 0n) {
-        throw new BadRequestException("invalid tradeId");
-      }
+    if (tradeId !== 0n) {
       const trade = await this.prisma.tradeDeal.findUnique({
         where: { dealId: tradeId },
       });
@@ -75,10 +69,7 @@ export class AttestationService {
       );
     }
 
-    const fileHash = Buffer.from(file.hash, "hex");
-    if (fileHash.length !== 32) {
-      throw new BadRequestException("stored file hash is invalid");
-    }
+    const fileHash = this.parseFileHash(file.hash);
     if (Buffer.byteLength(file.path, "utf8") > 256) {
       throw new BadRequestException("file path is too long for on-chain URI");
     }
@@ -125,18 +116,73 @@ export class AttestationService {
       throw new ForbiddenException("no permission to confirm this file");
     }
 
-    const connection = new Connection(getRpcUrl(), "confirmed");
-    const status = await connection.getSignatureStatus(body.txSignature);
-    const result = status.value;
-    if (!result || result.err) {
+    const fileHash = this.parseFileHash(file.hash);
+    const tradeId = this.parseTradeId(file.tradeId);
+    const expectedDocumentPda = deriveDocumentPda(tradeId, fileHash);
+    if (
+      body.documentPda &&
+      body.documentPda !== expectedDocumentPda.toBase58()
+    ) {
+      throw new BadRequestException("document PDA does not match the file hash");
+    }
+
+    const connection = getConnection();
+    let tx;
+    try {
+      tx = await connection.getTransaction(body.txSignature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+    } catch {
+      throw new BadRequestException("交易签名无效或尚未上链");
+    }
+    if (!tx || tx.meta?.err) {
       throw new BadRequestException("transaction is not confirmed on chain");
+    }
+
+    const message = tx.transaction.message as {
+      accountKeys?: PublicKey[];
+      staticAccountKeys?: PublicKey[];
+      compiledInstructions: Array<{
+        programIdIndex: number;
+        accountKeyIndexes: number[];
+        data: Uint8Array;
+      }>;
+    };
+    const accountKeys = message.accountKeys ?? message.staticAccountKeys ?? [];
+    const expectedData = buildAttestDocumentInstructionData({
+      tradeId,
+      fileHash,
+      uri: file.path,
+    });
+    const expectedProgramId = getProgramId();
+    const hasAttestInstruction = message.compiledInstructions.some(
+      (instruction) => {
+        const programMatches = accountKeys[
+          instruction.programIdIndex
+        ]?.equals(expectedProgramId);
+        const dataMatches =
+          Buffer.compare(
+            Buffer.from(instruction.data),
+            expectedData,
+          ) === 0;
+        const pdaMatches = instruction.accountKeyIndexes.some(
+          (index) => accountKeys[index]?.equals(expectedDocumentPda),
+        );
+        return Boolean(programMatches && dataMatches && pdaMatches);
+      },
+    );
+    if (!hasAttestInstruction) {
+      throw new BadRequestException(
+        "transaction does not contain the expected attest_document instruction",
+      );
     }
 
     const updated = await this.prisma.file.update({
       where: { id: fileId },
       data: {
         txSignature: body.txSignature,
-        documentPda: body.documentPda ?? null,
+        documentPda: expectedDocumentPda.toBase58(),
         attestedAt: new Date(),
       },
     });
@@ -178,10 +224,39 @@ export class AttestationService {
       }
       return;
     }
+    const walletOwner = await this.prisma.user.findUnique({
+      where: { wallet: owner.toBase58() },
+      select: { id: true },
+    });
+    if (walletOwner && walletOwner.id !== user.id) {
+      throw new ConflictException("该钱包已被其他用户绑定");
+    }
     // 首次存证时绑定钱包；旧账号的 wallet 字段可能还是邮箱占位值。
     await this.prisma.user.update({
       where: { id: user.id },
       data: { wallet: owner.toBase58() },
     });
+  }
+
+  private parseTradeId(value: string | null | undefined): bigint {
+    if (!value || value === "0") return 0n;
+    let tradeId: bigint;
+    try {
+      tradeId = BigInt(value);
+    } catch {
+      throw new BadRequestException("invalid tradeId");
+    }
+    if (tradeId < 0n) {
+      throw new BadRequestException("invalid tradeId");
+    }
+    return tradeId;
+  }
+
+  private parseFileHash(hash: string): Buffer {
+    const fileHash = Buffer.from(hash, "hex");
+    if (fileHash.length !== 32) {
+      throw new BadRequestException("stored file hash is invalid");
+    }
+    return fileHash;
   }
 }

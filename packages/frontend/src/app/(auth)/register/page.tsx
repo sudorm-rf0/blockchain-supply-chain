@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,15 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { register as registerApi } from "@/lib/api";
-import { useUserStore } from "@/stores/user-store";
 
 const schema = z
   .object({
@@ -28,7 +19,6 @@ const schema = z
     password: z.string().min(6, "密码至少 6 位"),
     confirmPassword: z.string().min(6, "密码至少 6 位"),
     wallet: z.string().optional(),
-    role: z.enum(["USER", "ADMIN"]),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "两次输入的密码不一致",
@@ -39,8 +29,6 @@ type RegisterForm = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const setAuth = useUserStore((state) => state.setAuth);
-  const [role, setRole] = useState<"USER" | "ADMIN">("USER");
   const {
     register,
     handleSubmit,
@@ -52,25 +40,19 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirmPassword: "",
-      role: "USER",
     },
   });
 
   const onSubmit = async (values: RegisterForm) => {
-    if (values.role === "ADMIN") {
-      toast.error("管理员账号由平台分配，公开注册仅支持普通用户");
-      return;
-    }
     try {
-      const { token, user } = await registerApi({
+      await registerApi({
         name: values.name,
         email: values.email,
         password: values.password,
         wallet: values.wallet || undefined,
       });
-      setAuth(user, token);
-      toast.success("注册成功");
-      router.push(user.role === "ADMIN" ? "/admin/files" : "/user/upload");
+      toast.success("注册成功，请登录");
+      router.push("/login");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "注册失败");
     }
@@ -125,21 +107,6 @@ export default function RegisterPage() {
                 placeholder="Solana 钱包公钥"
                 {...register("wallet")}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>角色</Label>
-              <Select
-                value={role}
-                onValueChange={(value) => setRole(value as "USER" | "ADMIN")}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USER">普通用户</SelectItem>
-                  <SelectItem value="ADMIN">管理员</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "注册中..." : "注册"}

@@ -1,12 +1,24 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { PublicKey } from "@solana/web3.js";
+import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
 import { signJwt } from "./jwt";
+
+const scryptAsync = promisify(scrypt) as (
+  password: string,
+  salt: string,
+  keylen: number,
+) => Promise<Buffer>;
+
+async function hashPassword(password: string, salt: string): Promise<Buffer> {
+  return scryptAsync(password, salt, 64);
+}
 
 @Injectable()
 export class AuthService {
@@ -19,7 +31,17 @@ export class AuthService {
     wallet?: string;
   }) {
     if (!body.name || !body.email || !body.password) {
-      throw new UnauthorizedException("缺少注册字段");
+      throw new BadRequestException("缺少注册字段");
+    }
+    if (body.password.length < 6) {
+      throw new BadRequestException("密码至少 6 位");
+    }
+    if (body.wallet) {
+      try {
+        new PublicKey(body.wallet);
+      } catch {
+        throw new BadRequestException("Solana 钱包地址格式不正确");
+      }
     }
     const existing = await this.prisma.user.findUnique({
       where: { email: body.email },
@@ -28,11 +50,14 @@ export class AuthService {
       throw new ConflictException("邮箱已被注册");
     }
     const wallet = body.wallet || body.email;
+    const salt = randomBytes(16).toString("hex");
+    const passwordHash = (await hashPassword(body.password, salt)).toString("hex");
     const user = await this.prisma.user.create({
       data: {
         wallet,
         email: body.email,
         name: body.name,
+        passwordHash: `${salt}:${passwordHash}`,
         role: "USER",
       },
     });
@@ -53,7 +78,7 @@ export class AuthService {
       throw new UnauthorizedException("邮箱或密码错误");
     }
     const [salt, storedHash] = user.passwordHash.split(":");
-    const hash = scryptSync(body.password, salt, 64);
+    const hash = await hashPassword(body.password, salt);
     const stored = Buffer.from(storedHash, "hex");
     if (hash.length !== stored.length || !timingSafeEqual(hash, stored)) {
       throw new UnauthorizedException("邮箱或密码错误");

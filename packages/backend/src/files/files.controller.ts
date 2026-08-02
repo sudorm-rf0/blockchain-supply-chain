@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -18,10 +19,11 @@ import { diskStorage } from "multer";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import { AuthGuard } from "../auth/auth.guard";
 import { AdminGuard } from "../auth/admin.guard";
 import { FilesService } from "./files.service";
+import type { FileStatus } from "@prisma/client";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const UPLOAD_DIR = join(process.cwd(), "uploads");
@@ -71,7 +73,7 @@ export class FilesController {
     return this.filesService.list({
       page: Math.max(1, Number(page) || 1),
       limit: Math.min(100, Math.max(1, Number(limit) || 10)),
-      status,
+      status: status as FileStatus | undefined,
       userId: req!.user!.role === "ADMIN" ? undefined : req!.user!.sub,
     });
   }
@@ -80,6 +82,33 @@ export class FilesController {
   @UseGuards(AuthGuard)
   getOne(@Param("id") id: string, @Req() req: Request) {
     return this.filesService.getOne(id, req.user!.sub, req.user!.role);
+  }
+
+  @Get(":id/content")
+  @UseGuards(AuthGuard)
+  async content(
+    @Param("id") id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const file = await this.filesService.getContent(
+      id,
+      req.user!.sub,
+      req.user!.role,
+    );
+    const encodedName = encodeURIComponent(file.filename);
+    await new Promise<void>((resolve, reject) => {
+      res.sendFile(
+        file.diskPath,
+        {
+          headers: {
+            "Content-Type": file.mimeType,
+            "Content-Disposition": `inline; filename="download"; filename*=UTF-8''${encodedName}`,
+          },
+        },
+        (error) => (error ? reject(error) : resolve()),
+      );
+    });
   }
 
   @Patch(":id")

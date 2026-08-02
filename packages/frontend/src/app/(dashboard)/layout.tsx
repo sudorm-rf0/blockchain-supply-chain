@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import { LogOut, Menu, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/Sidebar";
@@ -29,9 +29,27 @@ export default function DashboardLayout({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, logout } = useUserStore();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const role = user?.role ?? "USER";
+
+  useEffect(() => {
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (pathname.startsWith("/admin") && user.role !== "ADMIN") {
+      router.replace("/user/files");
+    } else if (pathname.startsWith("/user") && user.role !== "USER") {
+      router.replace("/admin/files");
+    }
+  }, [user, pathname, router]);
+
+  if (!user) {
+    return null;
+  }
+
+  const role = user.role;
 
   const handleLogout = () => {
     logout();
@@ -67,28 +85,28 @@ export default function DashboardLayout({
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button">
-                <Avatar>
-                  <AvatarFallback>
-                    <UserIcon className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user?.name ?? "未登录"}</DropdownMenuLabel>
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                {user?.email ?? ""}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                退出登录
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button">
+                  <Avatar>
+                    <AvatarFallback>
+                      <UserIcon className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{user?.name ?? "未登录"}</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                  {user?.email ?? ""}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  退出登录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
         <main className="flex-1 p-6">{children}</main>

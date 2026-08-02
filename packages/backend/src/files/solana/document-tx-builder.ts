@@ -13,14 +13,23 @@ const DEFAULT_PROGRAM_ID =
 const DOCUMENT_SEED = Buffer.from("trade_finance");
 const DOCUMENT_PREFIX = Buffer.from("document");
 
+let cachedProgramId: PublicKey | null = null;
+let cachedConnection: Connection | null = null;
+
 export function getProgramId(): PublicKey {
-  return new PublicKey(
+  cachedProgramId ??= new PublicKey(
     process.env.TRADE_FINANCE_PROGRAM_ID ?? DEFAULT_PROGRAM_ID,
   );
+  return cachedProgramId;
 }
 
 export function getRpcUrl(): string {
   return process.env.SOLANA_RPC_URL ?? "http://localhost:8899";
+}
+
+export function getConnection(): Connection {
+  cachedConnection ??= new Connection(getRpcUrl(), "confirmed");
+  return cachedConnection;
 }
 
 export function encodeU64(value: bigint): Buffer {
@@ -74,15 +83,12 @@ export interface AttestDocumentTransactionInput {
   dealPda?: PublicKey | null;
 }
 
-export async function buildAttestDocumentTransaction(
-  input: AttestDocumentTransactionInput,
-): Promise<{ transaction: Transaction; blockhash: string }> {
+export function buildAttestDocumentInstructionData(
+  input: Pick<AttestDocumentTransactionInput, "tradeId" | "fileHash" | "uri">,
+): Buffer {
   if (input.fileHash.length !== 32) {
     throw new Error("file hash must be 32 bytes");
   }
-
-  const programId = getProgramId();
-  const documentPda = deriveDocumentPda(input.tradeId, input.fileHash);
 
   // Anchor discriminator = sha256("global:attest_document")[0..8]
   const discriminator = createHash("sha256")
@@ -91,12 +97,20 @@ export async function buildAttestDocumentTransaction(
     .subarray(0, 8);
 
   // Contract layout: trade_id(u64) | file_hash([u8;32]) | uri(String)
-  const data = Buffer.concat([
+  return Buffer.concat([
     discriminator,
     encodeU64(input.tradeId),
     input.fileHash,
     encodeBorshString(input.uri),
   ]);
+}
+
+export async function buildAttestDocumentTransaction(
+  input: AttestDocumentTransactionInput,
+): Promise<{ transaction: Transaction; blockhash: string }> {
+  const programId = getProgramId();
+  const documentPda = deriveDocumentPda(input.tradeId, input.fileHash);
+  const data = buildAttestDocumentInstructionData(input);
 
   // AttestDocument accounts: owner(signer), document(init), deal(optional), system_program
   const keys: AccountMeta[] = [
@@ -124,7 +138,7 @@ export async function buildAttestDocumentTransaction(
     isWritable: false,
   });
 
-  const connection = new Connection(getRpcUrl(), "confirmed");
+  const connection = getConnection();
   const { blockhash } = await connection.getLatestBlockhash("confirmed");
   const transaction = new Transaction();
   transaction.feePayer = input.owner;

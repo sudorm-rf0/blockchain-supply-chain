@@ -70,6 +70,7 @@ export default function UploadPage() {
       setTxSignature(null);
       setDocumentPda(null);
       setFile(null);
+      setTradeId("");
       setDescription("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "上传失败");
