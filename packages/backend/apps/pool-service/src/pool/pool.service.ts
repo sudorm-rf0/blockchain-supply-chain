@@ -6,10 +6,16 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 import { AuditService } from "../audit/audit.service";
+import {
+  buildRedeemLpInstructionData,
+  buildRedeemLpTransaction,
+} from "../lp/redeem-lp.builder";
+import { POOL_ENV } from "../config/env";
 import { PoolOverviewResponseDto } from "./dto/pool-overview-response.dto";
 import { WithdrawRequestDto } from "./dto/withdraw-request.dto";
 import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto";
@@ -248,5 +254,106 @@ export class PoolService {
       metadata: { txSignature: body.txSignature ?? null },
     });
     return { ok: true, id: updated.id, status: updated.status };
+  }
+
+  async buildRedeemLp(
+    dto: { lpWallet: string; lpAmount: string },
+    userId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.wallet !== dto.lpWallet) {
+      throw new ForbiddenException("lp wallet does not match the signed-in user");
+    }
+    let lpAmount: bigint;
+    try {
+      lpAmount = BigInt(dto.lpAmount);
+      if (lpAmount <= 0n) throw new Error("non-positive");
+    } catch {
+      throw new BadRequestException("invalid lpAmount");
+    }
+    const connection = new Connection(POOL_ENV.rpcUrl, "confirmed");
+    const { transaction, blockhash } = await buildRedeemLpTransaction(
+      new PublicKey(dto.lpWallet),
+      lpAmount,
+      connection,
+    );
+    return {
+      transaction: transaction
+        .serialize({ requireAllSignatures: false, verifySignatures: false })
+        .toString("base64"),
+      blockhash,
+      message: "请确认钱包弹窗，签署 LP 赎回交易",
+    };
+  }
+
+  async confirmRedeemLp(
+    dto: { lpAmount: string; txSignature: string },
+    userId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.wallet) {
+      throw new ForbiddenException("登录用户未绑定钱包");
+    }
+    let lpAmount: bigint;
+    try {
+      lpAmount = BigInt(dto.lpAmount);
+      if (lpAmount <= 0n) throw new Error("non-positive");
+    } catch {
+      throw new BadRequestException("invalid lpAmount");
+    }
+
+    const connection = new Connection(POOL_ENV.rpcUrl, "confirmed");
+    let tx;
+    try {
+      tx = await connection.getTransaction(dto.txSignature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+    } catch {
+      throw new BadRequestException("交易签名无效或尚未上链");
+    }
+    if (!tx || tx.meta?.err) {
+      throw new BadRequestException("交易未在链上确认");
+    }
+    const message = tx.transaction.message as {
+      accountKeys?: PublicKey[];
+      staticAccountKeys?: PublicKey[];
+      compiledInstructions: Array<{
+        programIdIndex: number;
+        data: Uint8Array;
+      }>;
+    };
+    const accountKeys = message.accountKeys ?? message.staticAccountKeys ?? [];
+    const programId = new PublicKey(POOL_ENV.programId);
+    const expectedData = buildRedeemLpInstructionData(lpAmount);
+    const hasRedeem = message.compiledInstructions.some((instruction) => {
+      return (
+        accountKeys[instruction.programIdIndex]?.equals(programId) &&
+        Buffer.compare(Buffer.from(instruction.data), expectedData) === 0
+      );
+    });
+    if (!hasRedeem) {
+      throw new BadRequestException("交易不包含预期的 redeem_lp 指令");
+    }
+
+    const id = randomUUID();
+    await this.prisma.withdrawRequest.create({
+      data: {
+        id,
+        lpAddress: user.wallet,
+        amount: new Prisma.Decimal(lpAmount.toString()).div(1_000_000),
+        requestedAt: new Date(),
+        availableAt: new Date(),
+        status: "EXECUTED",
+      },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "LP_REDEEMED",
+      targetType: "WITHDRAW",
+      targetId: id,
+      metadata: { lpAmount: dto.lpAmount, txSignature: dto.txSignature },
+    });
+    return { ok: true, id, status: "EXECUTED" };
   }
 }

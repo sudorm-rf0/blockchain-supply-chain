@@ -81,4 +81,20 @@ pub enum TradeFinanceError {
     /// 单据与订单不匹配：上传者不是 TradeDeal 的买方或卖方。
     #[msg("Document owner is not a party of the trade")]
     InvalidDocumentOwner,
+
+    /// 赎回数量非法：LP 赎回数量必须大于 0，且换算出的 USDC 必须大于 0。
+    #[msg("Redeem amount must be greater than zero")]
+    ZeroRedeemAmount,
+
+    /// LP 余额不足：用户 LP 代币余额不足以完成赎回。
+    #[msg("Insufficient LP token balance")]
+    InsufficientLpTokens,
+
+    /// 单次赎回超限：单次赎回不得超过闲置资金上限（默认 50%）。
+    #[msg("Redeem exceeds the single-transaction limit")]
+    MaxRedeemExceeded,
+
+    /// 保险基金不足：赎回后保险基金低于最低余额，拒绝操作以保护资金池。
+    #[msg("Insurance fund would fall below the minimum balance")]
+    InsuranceRatioTooLow,
 }

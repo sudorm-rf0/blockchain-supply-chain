@@ -6,6 +6,7 @@ import {
   createAssociatedTokenAccount,
   createMint,
   getAccount,
+  getMint,
   getAssociatedTokenAddressSync,
   mintTo,
 } from "@solana/spl-token";
@@ -521,5 +522,71 @@ describe("trade-finance full lifecycle", () => {
     );
     console.log("Default status:", dealState.status);
     console.log("Insurance fund:", poolState.insuranceFund.toString());
+  });
+
+  it("Redeems LP tokens and enforces redemption limits", async () => {
+    const redeemAccounts = {
+      poolState: poolStatePda,
+      lpUser: lp.publicKey,
+      lpUserTokenAccount: lpTokenAta,
+      lpUserUsdcTokenAccount: lpAta,
+      poolAuthority: poolAuthorityPda,
+      poolTokenAccount,
+      usdcMint,
+      lpMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    };
+
+    const lpMintInfo = await getMint(connection, lpMint);
+    const poolToken = await getAccount(connection, poolTokenAccount);
+    const poolBefore = await program.account.poolState.fetch(poolStatePda);
+    const lpTokenBefore = await getAccount(connection, lpTokenAta);
+    const usdcBefore = await getAccount(connection, lpAta);
+
+    const lpAmount = new anchor.BN(5_000);
+    const usdcOut = lpAmount
+      .mul(new anchor.BN(poolToken.amount.toString()))
+      .div(new anchor.BN(lpMintInfo.supply.toString()));
+
+    await program.methods
+      .redeemLp(lpAmount)
+      .accounts(redeemAccounts)
+      .signers([lp])
+      .rpc();
+
+    const poolAfter = await program.account.poolState.fetch(poolStatePda);
+    const lpTokenAfter = await getAccount(connection, lpTokenAta);
+    const usdcAfter = await getAccount(connection, lpAta);
+
+    assert.equal(
+      lpTokenAfter.amount,
+      lpTokenBefore.amount - BigInt(lpAmount.toString()),
+    );
+    assert.equal(
+      usdcAfter.amount,
+      usdcBefore.amount + BigInt(usdcOut.toString()),
+    );
+    assert.equal(
+      poolAfter.totalAssets.toString(),
+      poolBefore.totalAssets.sub(usdcOut).toString(),
+    );
+    console.log("Redeemed LP:", lpAmount.toString(), "for USDC:", usdcOut.toString());
+
+    await assert.rejects(
+      program.methods
+        .redeemLp(new anchor.BN(90_000))
+        .accounts(redeemAccounts)
+        .signers([lp])
+        .rpc(),
+      /MaxRedeemExceeded|Redeem exceeds/,
+    );
+    await assert.rejects(
+      program.methods
+        .redeemLp(new anchor.BN(0))
+        .accounts(redeemAccounts)
+        .signers([lp])
+        .rpc(),
+      /ZeroRedeemAmount|Redeem amount/,
+    );
   });
 });

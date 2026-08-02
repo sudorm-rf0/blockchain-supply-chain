@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { Transaction } from "@solana/web3.js";
+import { toast } from "sonner";
 import {
   Area,
   AreaChart,
@@ -12,7 +15,10 @@ import {
   YAxis,
 } from "recharts";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { Button } from "@/components/ui/button";
 import {
+  buildRedeemLp,
+  confirmRedeemLp,
   fetchIndexerStatus,
   PoolOverview,
   fetchPoolOverview,
@@ -41,10 +47,14 @@ function toChartPoints(trend: PoolOverview["trend"]): ChartPoint[] {
 
 // ==== 分段标识: 页面组件 ====
 export default function DashboardPage() {
+  const { connection } = useConnection();
+  const { connected, publicKey, sendTransaction } = useWallet();
   const [overview, setOverview] = useState<PoolOverview | null>(null);
   const [indexer, setIndexer] = useState<IndexerStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lpAmount, setLpAmount] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +81,34 @@ export default function DashboardPage() {
       }
     })();
   }, []);
+
+  const handleRedeem = async () => {
+    if (!connected || !publicKey) {
+      toast.error("请先连接钱包");
+      return;
+    }
+    const raw = BigInt(Math.round(Number(lpAmount) * 1_000_000));
+    if (!Number.isFinite(Number(lpAmount)) || raw <= BigInt(0)) {
+      toast.error("请输入有效的 LP 数量");
+      return;
+    }
+    setRedeeming(true);
+    try {
+      const built = await buildRedeemLp(publicKey.toBase58(), raw.toString(10));
+      const transaction = Transaction.from(
+        Buffer.from(built.transaction, "base64"),
+      );
+      const signature = await sendTransaction(transaction, connection);
+      await connection.confirmTransaction(signature, "confirmed");
+      const result = await confirmRedeemLp(raw.toString(10), signature);
+      toast.success(`LP 赎回已执行：${result.status}`);
+      await load();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "LP 赎回失败");
+    } finally {
+      setRedeeming(false);
+    }
+  };
 
   const stats = overview
     ? [
@@ -116,6 +154,34 @@ export default function DashboardPage() {
           <WalletMultiButton />
         </div>
       </header>
+
+      <section className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
+        <h2 className="text-sm font-semibold text-zinc-200">LP 链上赎回</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          按当前 NAV 换算，单次赎回不超过闲置资金 50%
+        </p>
+        <div className="mt-3 flex max-w-md items-end gap-3">
+          <label className="flex-1">
+            <span className="text-xs text-zinc-400">LP 数量</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={lpAmount}
+              onChange={(event) => setLpAmount(event.target.value)}
+              placeholder="1000"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500"
+            />
+          </label>
+          <Button
+            type="button"
+            disabled={redeeming || !connected}
+            onClick={() => void handleRedeem()}
+          >
+            {redeeming ? "赎回中..." : "链上赎回"}
+          </Button>
+        </div>
+      </section>
 
       <div className="flex items-center justify-between text-xs text-zinc-500">
         <p>

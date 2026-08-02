@@ -11,4 +11,17 @@ function envNumber(name: string, fallback: number): number {
 export const POOL_ENV = {
   redisUrl: env("REDIS_URL", "redis://localhost:6379"),
   port: envNumber("POOL_SERVICE_PORT", 3005),
+  rpcUrl: env("SOLANA_RPC_URL", "http://localhost:8899"),
+  programId: env(
+    "TRADE_FINANCE_PROGRAM_ID",
+    "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3",
+  ),
+  usdcMint: env(
+    "USDC_MINT",
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  ),
+  lpMint: env(
+    "LP_MINT",
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  ),
 } as const;

@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
 
 use crate::error::TradeFinanceError;
 use crate::state::{deal_status, DocumentRecord, MAX_DOCUMENT_URI_LEN, PoolState, TradeDeal};
@@ -40,6 +40,10 @@ pub const RESERVE_FUND_PCT_BPS: u64 = 8000;
 pub const INSURANCE_FUND_PCT_BPS: u64 = 2000;
 /// 违约时保险基金按资金池垫付额的赔付比例，1000 bps = 10%。
 pub const INSURANCE_PAYOUT_PCT_BPS: u64 = 1000;
+/// LP 单次赎回占闲置资金的最高比例，5000 bps = 50%。
+pub const MAX_REDEEM_BPS: u64 = 5000;
+/// 赎回后保险基金最低余额（USDC 原始单位，100 USDC）。
+pub const MIN_INSURANCE_ABS: u64 = 100_000_000;
 
 // ==== 分段标识: 账户数据结构 ====
 // TradeDeal 与 PoolState 定义在 state.rs，含 space() 与状态机辅助方法。
@@ -82,6 +86,13 @@ pub struct DocumentAttestedEvent {
     pub file_hash: [u8; 32],
     pub uri: String,
     pub uploaded_at: i64,
+}
+
+#[event]
+pub struct RedeemedEvent {
+    pub lp_user: Pubkey,
+    pub lp_amount: u64,
+    pub usdc_out: u64,
 }
 
 /// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
@@ -316,6 +327,121 @@ pub mod trade_finance {
         pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
 
         msg!("pool deposit: {} USDC, nav: {}", amount, pool.nav);
+        Ok(())
+    }
+
+    /// LP 赎回：按 NAV 换算并销毁 LP 代币，同时受单次上限与保险池保护。
+    pub fn redeem_lp(ctx: Context<RedeemLp>, lp_amount: u64) -> Result<()> {
+        require!(
+            lp_amount > 0,
+            TradeFinanceError::ZeroRedeemAmount
+        );
+        require!(
+            ctx.accounts.lp_user_token_account.amount >= lp_amount,
+            TradeFinanceError::InsufficientLpTokens
+        );
+
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        require!(lp_supply > 0, TradeFinanceError::ZeroLpSupply);
+        let vault_before = ctx.accounts.pool_token_account.amount;
+        require!(vault_before > 0, TradeFinanceError::InsufficientFunds);
+
+        let usdc_out = ((lp_amount as u128)
+            .checked_mul(vault_before as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / lp_supply as u128) as u64;
+        require!(
+            usdc_out > 0,
+            TradeFinanceError::ZeroRedeemAmount
+        );
+
+        let max_redeem = ((vault_before as u128)
+            .checked_mul(MAX_REDEEM_BPS as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / BPS_BASE as u128) as u64;
+        require!(
+            usdc_out <= max_redeem,
+            TradeFinanceError::MaxRedeemExceeded
+        );
+
+        let pool = &mut ctx.accounts.pool_state;
+        let total_before = pool.total_assets;
+        let reserve_before = pool.reserve_fund;
+        let insurance_before = pool.insurance_fund;
+        let total_after = total_before
+            .checked_sub(usdc_out)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        require!(
+            pool.active_capital <= total_after,
+            TradeFinanceError::InsufficientFunds
+        );
+
+        let reserve_out = ((reserve_before as u128)
+            .checked_mul(usdc_out as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / total_before as u128) as u64;
+        let insurance_out = ((insurance_before as u128)
+            .checked_mul(usdc_out as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / total_before as u128) as u64;
+        let insurance_after = insurance_before
+            .checked_sub(insurance_out)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        require!(
+            insurance_after >= MIN_INSURANCE_ABS,
+            TradeFinanceError::InsuranceRatioTooLow
+        );
+
+        let pool_bump = [ctx.bumps.pool_authority];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+
+        token::burn(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Burn {
+                    from: ctx.accounts.lp_user_token_account.to_account_info(),
+                    authority: ctx.accounts.lp_user.to_account_info(),
+                    mint: ctx.accounts.lp_mint.to_account_info(),
+                },
+            ),
+            lp_amount,
+        )?;
+
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.pool_token_account.to_account_info(),
+                    to: ctx.accounts.lp_user_usdc_token_account.to_account_info(),
+                    authority: ctx.accounts.pool_authority.to_account_info(),
+                },
+            )
+            .with_signer(&[pool_signer]),
+            usdc_out,
+        )?;
+
+        ctx.accounts.pool_token_account.reload()?;
+        pool.total_assets = total_after;
+        pool.reserve_fund = reserve_before
+            .checked_sub(reserve_out)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.insurance_fund = insurance_after;
+        let vault_after = ctx.accounts.pool_token_account.amount;
+        let lp_supply_after = ctx.accounts.lp_mint.supply;
+        pool.nav = pool.calculate_nav(vault_after, pool.active_capital, lp_supply_after)?;
+
+        emit!(RedeemedEvent {
+            lp_user: ctx.accounts.lp_user.key(),
+            lp_amount,
+            usdc_out,
+        });
+
+        msg!(
+            "redeemed {} LP for {} USDC by {}",
+            lp_amount,
+            usdc_out,
+            ctx.accounts.lp_user.key()
+        );
         Ok(())
     }
 
@@ -984,6 +1110,45 @@ pub struct DepositPool<'info> {
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
     pub lp_mint: Account<'info, Mint>,
+}
+
+#[derive(Accounts)]
+pub struct RedeemLp<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    #[account(mut)]
+    pub lp_user: Signer<'info>,
+
+    #[account(
+        mut,
+        constraint = lp_user_token_account.owner == lp_user.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = lp_user_token_account.mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub lp_user_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = lp_user_usdc_token_account.owner == lp_user.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = lp_user_usdc_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub lp_user_usdc_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    pub usdc_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub lp_mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]

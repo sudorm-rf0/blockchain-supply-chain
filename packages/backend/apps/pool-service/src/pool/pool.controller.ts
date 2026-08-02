@@ -20,6 +20,8 @@ import { PoolOverviewResponseDto } from "./dto/pool-overview-response.dto";
 import { WithdrawRequestDto } from "./dto/withdraw-request.dto";
 import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto";
 import { ExecuteWithdrawDto } from "./dto/execute-withdraw.dto";
+import { RedeemLpDto } from "./dto/redeem-lp.dto";
+import { ConfirmRedeemDto } from "./dto/confirm-redeem.dto";
 import { PoolService } from "./pool.service";
 import { AuthGuard } from "../auth/auth.guard";
 
@@ -63,5 +65,21 @@ export class PoolController {
     @Req() req: Request,
   ) {
     return this.poolService.executeWithdrawal(id, dto, req.user!.sub);
+  }
+
+  @Post("lp/redeem")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "预构建 LP 链上赎回交易" })
+  redeemLp(@Body() dto: RedeemLpDto, @Req() req: Request) {
+    return this.poolService.buildRedeemLp(dto, req.user!.sub);
+  }
+
+  @Post("lp/redeem/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "确认 LP 赎回交易已上链" })
+  confirmRedeemLp(@Body() dto: ConfirmRedeemDto, @Req() req: Request) {
+    return this.poolService.confirmRedeemLp(dto, req.user!.sub);
   }
 }

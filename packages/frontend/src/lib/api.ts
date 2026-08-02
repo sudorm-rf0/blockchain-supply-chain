@@ -517,6 +517,28 @@ export async function fetchPoolOverview(): Promise<PoolOverview> {
   return request(`${POOL_API_URL}/api/pool/overview`, { cache: "no-store" });
 }
 
+export async function buildRedeemLp(
+  lpWallet: string,
+  lpAmount: string,
+): Promise<BuiltTransactionResponse> {
+  return request(`${POOL_API_URL}/api/lp/redeem`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ lpWallet, lpAmount }),
+  });
+}
+
+export async function confirmRedeemLp(
+  lpAmount: string,
+  txSignature: string,
+): Promise<{ ok: boolean; id: string; status: string }> {
+  return request(`${POOL_API_URL}/api/lp/redeem/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ lpAmount, txSignature }),
+  });
+}
+
 export interface IndexerStatus {
   service: string;
   queue: {
