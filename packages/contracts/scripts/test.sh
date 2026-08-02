@@ -13,4 +13,8 @@ export COPYFILE_DISABLE=1
 
 cd "$(dirname "$0")/.."
 bash scripts/clean-test-ledger.sh
+mkdir -p "$HOME/.config/solana"
+if [[ ! -f "$HOME/.config/solana/id.json" ]]; then
+  solana-keygen new --force --no-bip39-passphrase -o "$HOME/.config/solana/id.json" >/dev/null
+fi
 anchor test
