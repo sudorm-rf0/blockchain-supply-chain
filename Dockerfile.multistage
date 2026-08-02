@@ -49,7 +49,7 @@ COPY --from=builder /workspace/packages/backend/prisma ./prisma
 RUN mkdir -p /app/uploads && chown -R node:node /app
 USER node
 EXPOSE 3001
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
 
 # ============ Frontend Runner ============
 FROM node:20-alpine AS frontend-runner

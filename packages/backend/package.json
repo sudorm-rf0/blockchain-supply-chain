@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main.js",
+    "start": "node dist/src/main.js",
     "dev:indexer": "tsc -p apps/indexer-service/tsconfig.app.json --watch --preserveWatchOutput",
     "build:indexer": "tsc -p apps/indexer-service/tsconfig.app.json",
     "start:indexer": "node dist/apps/indexer-service/src/main.js",

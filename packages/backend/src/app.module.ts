@@ -10,7 +10,7 @@ import { FilesModule } from "./files/files.module";
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,
-        limit: 120,
+        limit: Number(process.env.THROTTLE_LIMIT ?? 120),
       },
     ]),
     AuthModule,
