@@ -63,6 +63,28 @@ pub struct FundedEvent {
     pub amount: u64,
 }
 
+#[event]
+pub struct DealStatusChangedEvent {
+    pub trade_id: u64,
+    pub status: u8,
+}
+
+#[event]
+pub struct ReleasedEvent {
+    pub trade_id: u64,
+    pub amount: u64,
+}
+
+/// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
+fn validate_advance(from: u8, to: u8) -> Result<()> {
+    match (from, to) {
+        (deal_status::FUNDED, deal_status::IN_TRANSIT)
+        | (deal_status::IN_TRANSIT, deal_status::CUSTOMS_CLEAR)
+        | (deal_status::CUSTOMS_CLEAR, deal_status::DELIVERED) => Ok(()),
+        _ => Err(TradeFinanceError::InvalidStateTransition.into()),
+    }
+}
+
 // ==== 分段标识: 指令实现 ====
 #[program]
 pub mod trade_finance {
@@ -207,6 +229,7 @@ pub mod trade_finance {
             ),
             amount,
         )?;
+        ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
         let reserve_portion = amount
@@ -230,7 +253,11 @@ pub mod trade_finance {
             .checked_add(amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
 
-        msg!("pool deposit: {} USDC", amount);
+        let vault_amount = ctx.accounts.pool_token_account.amount;
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+
+        msg!("pool deposit: {} USDC, nav: {}", amount, pool.nav);
         Ok(())
     }
 
@@ -266,6 +293,7 @@ pub mod trade_finance {
             .with_signer(&[pool_signer]),
             funding_amount,
         )?;
+        ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
         pool.total_assets = pool
@@ -276,6 +304,9 @@ pub mod trade_finance {
             .active_capital
             .checked_add(funding_amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        let vault_amount = ctx.accounts.pool_token_account.amount;
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
 
         let deal = &mut ctx.accounts.deal;
         deal.status = deal_status::FUNDED;
@@ -304,8 +335,11 @@ pub mod trade_finance {
             TradeFinanceError::TradeNotFound
         );
         require!(
-            ctx.accounts.deal.status == deal_status::FUNDED,
-            TradeFinanceError::DealNotFunded
+            matches!(
+                ctx.accounts.deal.status,
+                deal_status::FUNDED..=deal_status::DELIVERED
+            ),
+            TradeFinanceError::InvalidStateTransition
         );
 
         let down_payment = ctx.accounts.deal.down_payment;
@@ -361,6 +395,7 @@ pub mod trade_finance {
             .with_signer(&[pool_signer]),
             insurance_payout,
         )?;
+        ctx.accounts.pool_token_account.reload()?;
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
@@ -380,6 +415,9 @@ pub mod trade_finance {
             .active_capital
             .checked_sub(pool_portion)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        let vault_amount = ctx.accounts.pool_token_account.amount;
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
 
         msg!(
             "deal {} defaulted: liquidated {} USDC collateral, insurance payout {} USDC",
@@ -398,8 +436,8 @@ pub mod trade_finance {
             TradeFinanceError::TradeNotFound
         );
         require!(
-            deal.status == deal_status::FUNDED,
-            TradeFinanceError::DealNotFunded
+            deal.status == deal_status::REPAYING,
+            TradeFinanceError::DealNotRepaying
         );
 
         let amount = deal.amount;
@@ -452,6 +490,7 @@ pub mod trade_finance {
             ),
             platform_part,
         )?;
+        ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
         pool.add_pending_dividends(lp_dividend)?;
@@ -463,6 +502,9 @@ pub mod trade_finance {
             .active_capital
             .checked_sub(pool_portion)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        let vault_amount = ctx.accounts.pool_token_account.amount;
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
@@ -475,6 +517,100 @@ pub mod trade_finance {
             buyer_rebate,
             lp_dividend
         );
+        Ok(())
+    }
+
+    /// 管理员推进物流状态：Funded -> InTransit -> CustomsClear -> Delivered。
+    pub fn advance_deal(
+        ctx: Context<AdvanceDeal>,
+        trade_id: u64,
+        target_status: u8,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            ctx.accounts.deal.id == trade_id,
+            TradeFinanceError::TradeNotFound
+        );
+        validate_advance(ctx.accounts.deal.status, target_status)?;
+
+        let deal = &mut ctx.accounts.deal;
+        deal.status = target_status;
+
+        emit!(DealStatusChangedEvent {
+            trade_id,
+            status: target_status,
+        });
+        msg!("deal {} advanced to status {}", trade_id, target_status);
+        Ok(())
+    }
+
+    /// 管理员在交付确认后释放托管资金给卖方，订单进入还款期。
+    pub fn release_to_seller(ctx: Context<ReleaseToSeller>, trade_id: u64) -> Result<()> {
+        require!(
+            ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            ctx.accounts.deal.id == trade_id,
+            TradeFinanceError::TradeNotFound
+        );
+        require!(
+            ctx.accounts.deal.status == deal_status::DELIVERED,
+            TradeFinanceError::DealNotDelivered
+        );
+
+        let release_amount = ctx.accounts.deal.amount;
+        let trade_id_bytes = trade_id.to_le_bytes();
+        let deal_bump = [ctx.bumps.deal];
+        let deal_signer: &[&[u8]] = &[
+            b"trade_finance",
+            b"deal",
+            ctx.accounts.deal.buyer.as_ref(),
+            &trade_id_bytes,
+            &deal_bump,
+        ];
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.deal_token_account.to_account_info(),
+                    to: ctx.accounts.seller_token_account.to_account_info(),
+                    authority: ctx.accounts.deal.to_account_info(),
+                },
+            )
+            .with_signer(&[deal_signer]),
+            release_amount,
+        )?;
+
+        let deal = &mut ctx.accounts.deal;
+        deal.status = deal_status::REPAYING;
+
+        emit!(ReleasedEvent {
+            trade_id,
+            amount: release_amount,
+        });
+        msg!(
+            "deal {} released {} USDC to seller",
+            trade_id,
+            release_amount
+        );
+        Ok(())
+    }
+
+    /// 刷新链上 NAV：(资金池闲置余额 + 未偿还贸易净值) / LP 代币总供应量。
+    pub fn refresh_nav(ctx: Context<RefreshNav>) -> Result<()> {
+        require!(
+            ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        let pool = &mut ctx.accounts.pool_state;
+        let vault_amount = ctx.accounts.pool_token_account.amount;
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+        msg!("pool nav refreshed: {}", pool.nav);
         Ok(())
     }
 }
@@ -588,6 +724,98 @@ pub struct FundDeal<'info> {
 
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    pub lp_mint: Account<'info, Mint>,
+}
+
+#[derive(Accounts)]
+#[instruction(trade_id: u64, target_status: u8)]
+pub struct AdvanceDeal<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    /// CHECK: 买方公钥用于推导订单 PDA。
+    pub buyer: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        seeds = [
+            b"trade_finance",
+            b"deal" as &[u8],
+            buyer.key().as_ref(),
+            trade_id.to_le_bytes().as_ref()
+        ],
+        bump,
+        constraint = deal.buyer == buyer.key() @ TradeFinanceError::Unauthorized
+    )]
+    pub deal: Account<'info, TradeDeal>,
+}
+
+#[derive(Accounts)]
+#[instruction(trade_id: u64)]
+pub struct ReleaseToSeller<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    /// CHECK: 买方公钥用于推导订单 PDA。
+    pub buyer: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        seeds = [
+            b"trade_finance",
+            b"deal" as &[u8],
+            buyer.key().as_ref(),
+            trade_id.to_le_bytes().as_ref()
+        ],
+        bump,
+        constraint = deal.buyer == buyer.key() @ TradeFinanceError::Unauthorized
+    )]
+    pub deal: Account<'info, TradeDeal>,
+
+    #[account(
+        mut,
+        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = deal_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub deal_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = seller_token_account.owner == deal.seller @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = seller_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub seller_token_account: Account<'info, TokenAccount>,
+
+    pub usdc_mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct RefreshNav<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    #[account(
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    pub usdc_mint: Account<'info, Mint>,
+    pub lp_mint: Account<'info, Mint>,
 }
 
 #[derive(Accounts)]
@@ -609,7 +837,7 @@ pub struct RepayDeal<'info> {
         ],
         bump,
         constraint = deal.buyer == buyer.key() @ TradeFinanceError::Unauthorized,
-        constraint = deal.status == deal_status::FUNDED @ TradeFinanceError::DealNotFunded
+        constraint = deal.status == deal_status::REPAYING @ TradeFinanceError::DealNotRepaying
     )]
     pub deal: Account<'info, TradeDeal>,
 
@@ -622,7 +850,8 @@ pub struct RepayDeal<'info> {
 
     #[account(
         mut,
-        constraint = platform_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        constraint = platform_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint,
+        constraint = platform_token_account.owner == pool_state.platform_wallet @ TradeFinanceError::WrongTokenAccountOwner
     )]
     pub platform_token_account: Account<'info, TokenAccount>,
 
@@ -639,6 +868,7 @@ pub struct RepayDeal<'info> {
 
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    pub lp_mint: Account<'info, Mint>,
 }
 
 #[derive(Accounts)]
@@ -669,6 +899,7 @@ pub struct DepositPool<'info> {
 
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    pub lp_mint: Account<'info, Mint>,
 }
 
 #[derive(Accounts)]
@@ -716,4 +947,5 @@ pub struct DefaultDeal<'info> {
 
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    pub lp_mint: Account<'info, Mint>,
 }

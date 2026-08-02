@@ -61,4 +61,16 @@ pub enum TradeFinanceError {
     /// 状态码非法：TradeDeal.status 不是已知的枚举值。
     #[msg("Unsupported deal status")]
     InvalidStatus,
+
+    /// 订单尚未进入运输阶段：只有 Funded 状态可以推进到 InTransit。
+    #[msg("Deal must be Funded before entering transit")]
+    DealNotFundedForTransit,
+
+    /// 订单尚未完成交付：只有 Delivered 状态可以释放托管资金给卖方。
+    #[msg("Deal must be Delivered before release to seller")]
+    DealNotDelivered,
+
+    /// 订单尚未进入还款期：只有 Repaying 状态可以完成结清。
+    #[msg("Deal must be Repaying before settlement")]
+    DealNotRepaying,
 }

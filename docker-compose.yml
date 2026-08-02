@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -37,10 +37,30 @@ services:
   solana-localnet:
     image: solanalabs/solana:v1.17.3
     container_name: supply-chain-solana-localnet
-    command: ["solana-test-validator", "--ledger", "/var/solana/ledger"]
+    command:
+      [
+        "solana-test-validator",
+        "--ledger",
+        "/var/solana/ledger",
+        "--gossip-host",
+        "127.0.0.1",
+        "--gossip-port",
+        "8002",
+        "--tpu-port",
+        "8001",
+        "--tpu-quic-port",
+        "8003",
+      ]
     ports:
       - "8899:8899"
+      - "8900:8900"
       - "9900:9900"
+      - "8001:8001/tcp"
+      - "8001:8001/udp"
+      - "8002:8002/tcp"
+      - "8002:8002/udp"
+      - "8003:8003/tcp"
+      - "8003:8003/udp"
     volumes:
       - solana_ledger:/var/solana/ledger
       - solana_config:/root/.config/solana

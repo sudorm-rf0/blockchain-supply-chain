@@ -34,11 +34,14 @@ describe("trade-finance full lifecycle", () => {
   let platformWallet: anchor.web3.Keypair;
 
   let usdcMint: PublicKey;
+  let lpMint: PublicKey;
   let poolStatePda: PublicKey;
   let poolAuthorityPda: PublicKey;
   let poolTokenAccount: PublicKey;
   let buyerAta: PublicKey;
+  let sellerAta: PublicKey;
   let lpAta: PublicKey;
+  let lpTokenAta: PublicKey;
   let platformAta: PublicKey;
 
   async function airdrop(
@@ -49,12 +52,13 @@ describe("trade-finance full lifecycle", () => {
     await connection.confirmTransaction(signature, "confirmed");
   }
 
-  async function createAta(
+  async function createAtaFor(
+    mint: PublicKey,
     owner: PublicKey,
     allowOwnerOffCurve = false,
   ): Promise<PublicKey> {
     const ata = getAssociatedTokenAddressSync(
-      usdcMint,
+      mint,
       owner,
       allowOwnerOffCurve,
       TOKEN_PROGRAM_ID,
@@ -66,13 +70,20 @@ describe("trade-finance full lifecycle", () => {
     return createAssociatedTokenAccount(
       connection,
       payer,
-      usdcMint,
+      mint,
       owner,
       undefined,
       TOKEN_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID,
       allowOwnerOffCurve,
     );
+  }
+
+  async function createAta(
+    owner: PublicKey,
+    allowOwnerOffCurve = false,
+  ): Promise<PublicKey> {
+    return createAtaFor(usdcMint, owner, allowOwnerOffCurve);
   }
 
   function dealPda(buyerKey: PublicKey, id: anchor.BN): PublicKey {
@@ -108,6 +119,7 @@ describe("trade-finance full lifecycle", () => {
       null,
       USDC_DECIMALS,
     );
+    lpMint = await createMint(connection, payer, payer.publicKey, null, 0);
 
     poolStatePda = PublicKey.findProgramAddressSync(
       POOL_SEEDS,
@@ -119,7 +131,9 @@ describe("trade-finance full lifecycle", () => {
     )[0];
 
     buyerAta = await createAta(buyer.publicKey);
+    sellerAta = await createAta(seller.publicKey);
     lpAta = await createAta(lp.publicKey);
+    lpTokenAta = await createAtaFor(lpMint, lp.publicKey);
     platformAta = await createAta(platformWallet.publicKey);
     poolTokenAccount = await createAta(poolAuthorityPda, true);
 
@@ -138,6 +152,14 @@ describe("trade-finance full lifecycle", () => {
       buyerAta,
       payer.publicKey,
       USDC(2_000),
+    );
+    await mintTo(
+      connection,
+      payer,
+      lpMint,
+      lpTokenAta,
+      payer.publicKey,
+      100_000,
     );
   });
 
@@ -161,6 +183,7 @@ describe("trade-finance full lifecycle", () => {
         poolAuthority: poolAuthorityPda,
         poolTokenAccount,
         usdcMint,
+        lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([lp])
@@ -169,8 +192,10 @@ describe("trade-finance full lifecycle", () => {
     const poolState = await program.account.poolState.fetch(poolStatePda);
     assert.equal(poolState.admin.toBase58(), admin.publicKey.toBase58());
     assert.equal(poolState.totalAssets.toString(), USDC(100_000).toString());
+    assert.equal(poolState.nav.toString(), USDC(1).toString());
     console.log("Pool admin:", poolState.admin.toBase58());
     console.log("Pool totalAssets:", poolState.totalAssets.toString());
+    console.log("Pool nav:", poolState.nav.toString());
   });
 
   it("Creates a trade deal", async () => {
@@ -224,6 +249,7 @@ describe("trade-finance full lifecycle", () => {
         poolTokenAccount,
         dealTokenAccount,
         usdcMint,
+        lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([admin])
@@ -234,6 +260,7 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(dealState.status, 1); // Funded
     assert.equal(poolState.activeCapital.toString(), USDC(700).toString());
     assert.equal(poolState.totalAssets.toString(), USDC(100_300).toString());
+    assert.equal(poolState.nav.toString(), USDC(1).toString());
     const poolVaultAfterFund = await getAccount(connection, poolTokenAccount);
     const escrowAfterFund = await getAccount(connection, dealTokenAccount);
     assert.equal(poolVaultAfterFund.amount, BigInt(USDC(100_000 - 700)));
@@ -247,6 +274,42 @@ describe("trade-finance full lifecycle", () => {
     const deal = dealPda(buyer.publicKey, tradeId);
     const dealTokenAccount = await createAta(deal, true);
 
+    // 物流状态推进：Funded -> InTransit -> CustomsClear -> Delivered
+    for (const target of [2, 3, 4]) {
+      await program.methods
+        .advanceDeal(tradeId, target)
+        .accounts({
+          poolState: poolStatePda,
+          admin: admin.publicKey,
+          buyer: buyer.publicKey,
+          deal,
+        })
+        .signers([admin])
+        .rpc();
+    }
+    let dealState = await program.account.tradeDeal.fetch(deal);
+    assert.equal(dealState.status, 4); // Delivered
+
+    // 交付确认后释放托管资金给卖方，订单进入还款期
+    await program.methods
+      .releaseToSeller(tradeId)
+      .accounts({
+        poolState: poolStatePda,
+        admin: admin.publicKey,
+        buyer: buyer.publicKey,
+        deal,
+        dealTokenAccount,
+        sellerTokenAccount: sellerAta,
+        usdcMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([admin])
+      .rpc();
+    dealState = await program.account.tradeDeal.fetch(deal);
+    assert.equal(dealState.status, 5); // Repaying
+    const sellerBalance = await getAccount(connection, sellerAta);
+    assert.equal(sellerBalance.amount, BigInt(USDC(1_000)));
+
     await program.methods
       .repayDeal(tradeId)
       .accounts({
@@ -258,12 +321,13 @@ describe("trade-finance full lifecycle", () => {
         poolAuthority: poolAuthorityPda,
         poolTokenAccount,
         usdcMint,
+        lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([buyer])
       .rpc();
 
-    const dealState = await program.account.tradeDeal.fetch(deal);
+    dealState = await program.account.tradeDeal.fetch(deal);
     const poolState = await program.account.poolState.fetch(poolStatePda);
     const platformBalance = await getAccount(connection, platformAta);
     const poolVaultAfterRepay = await getAccount(connection, poolTokenAccount);
@@ -276,6 +340,7 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(poolState.pendingDividends.toString(), lpDividend.toString());
     assert.equal(platformBalance.amount, BigInt(platformPart));
     assert.equal(poolState.activeCapital.toString(), "0");
+    assert.equal(poolState.nav.toString(), USDC(1).toString());
     assert.equal(poolVaultAfterRepay.amount, BigInt(USDC(100_000)));
     console.log("Pending dividends:", poolState.pendingDividends.toString());
     console.log("Platform balance:", platformBalance.amount.toString());
@@ -345,6 +410,7 @@ describe("trade-finance full lifecycle", () => {
         poolTokenAccount,
         dealTokenAccount,
         usdcMint,
+        lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([admin])
@@ -365,6 +431,7 @@ describe("trade-finance full lifecycle", () => {
         poolTokenAccount,
         dealTokenAccount,
         usdcMint,
+        lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([admin])
