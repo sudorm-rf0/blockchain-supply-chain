@@ -30,9 +30,9 @@ solana airdrop 100 >/dev/null
 
 cd "$ROOT/packages/contracts"
 echo "PHASE anchor-build" >&2
-cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch sbfv1 >/dev/null || {
+cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v1 >/dev/null || {
   echo "sbf build failed; retrying once with offline cargo cache" >&2
-  CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch sbfv1 >/dev/null
+  CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v1 >/dev/null
 }
 echo "PHASE anchor-deploy" >&2
 solana program deploy "$ROOT/packages/contracts/target/deploy/trade_finance.so" \
