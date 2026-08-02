@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,6 +10,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { TRADE_ENV } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { RedisService } from "../redis/redis.service";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
 import { ConfirmTradeDto } from "./dto/confirm-trade.dto";
@@ -113,7 +115,21 @@ export class TradesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly redis: RedisService,
   ) {}
+
+  private async withConfirmLock<T>(tradeId: string, run: () => Promise<T>): Promise<T> {
+    const key = `trade:confirm:${this.normalizeTradeId(tradeId)}`;
+    const acquired = await this.redis.setNX(key, "1", 60);
+    if (!acquired) {
+      throw new ConflictException("该订单正在处理中，请勿重复提交");
+    }
+    try {
+      return await run();
+    } finally {
+      await this.redis.del(key);
+    }
+  }
 
   async createTrade(
     dto: CreateTradeDto,
@@ -149,10 +165,10 @@ export class TradesService {
       const cached = deriveDealPda(
         getProgramId(),
         this.parsePubkey(dto.buyerWallet, "buyerWallet"),
-        existing.dealId,
+        BigInt(existing.dealId),
       );
       return {
-        tradeId: existing.dealId.toString(10),
+        tradeId: existing.dealId,
         transaction: "",
         blockhash: "",
         dealPda: cached.toBase58(),
@@ -209,7 +225,7 @@ export class TradesService {
     });
     return trades.map((trade) => ({
       id: trade.id,
-      tradeId: trade.dealId.toString(10),
+      tradeId: trade.dealId,
       buyerWallet: trade.buyerWallet,
       sellerWallet: trade.sellerWallet,
       amount: trade.amount.toString(10),
@@ -234,7 +250,7 @@ export class TradesService {
     });
     return trades.map((trade) => ({
       id: trade.id,
-      tradeId: trade.dealId.toString(10),
+      tradeId: trade.dealId,
       buyerWallet: trade.buyerWallet,
       sellerWallet: trade.sellerWallet,
       amount: trade.amount.toString(10),
@@ -249,144 +265,146 @@ export class TradesService {
   }
 
   async confirmTrade(tradeId: string, dto: ConfirmTradeDto, userId: string) {
-    let id: bigint;
-    try {
-      id = BigInt(tradeId);
-    } catch {
-      throw new BadRequestException("invalid tradeId");
-    }
-    if (id < 0n) throw new BadRequestException("invalid tradeId");
-    if (!dto.txSignature) throw new BadRequestException("txSignature is required");
+    return this.withConfirmLock(tradeId, async () => {
+        let id: bigint;
+        try {
+          id = BigInt(tradeId);
+        } catch {
+          throw new BadRequestException("invalid tradeId");
+        }
+        if (id < 0n) throw new BadRequestException("invalid tradeId");
+        if (!dto.txSignature) throw new BadRequestException("txSignature is required");
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new ForbiddenException("登录用户不存在");
-    if (user.wallet !== dto.buyerWallet) {
-      throw new ForbiddenException("buyer wallet does not match the signed-in user");
-    }
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new ForbiddenException("登录用户不存在");
+        if (user.wallet !== dto.buyerWallet) {
+          throw new ForbiddenException("buyer wallet does not match the signed-in user");
+        }
 
-    const existing = await this.prisma.tradeDeal.findUnique({
-      where: { dealId: id },
-      select: { id: true, status: true },
-    });
-    if (existing) {
-      return {
-        ok: true,
-        tradeId: id.toString(10),
-        dealPda: existing.id,
-        status: existing.status,
-      };
-    }
-
-    const amount = this.parseU64(dto.amount, "amount");
-    const tenorDays = this.parseU64(dto.tenor, "tenor");
-    if (amount <= 0n) throw new BadRequestException("amount must be greater than zero");
-    if (!isValidTenor(tenorDays)) {
-      throw new BadRequestException("tenor must be 30, 60, 90, or 120 days");
-    }
-
-    const buyerPubkey = this.parsePubkey(dto.buyerWallet, "buyerWallet");
-    const sellerPubkey = this.parsePubkey(dto.sellerWallet, "sellerWallet");
-    const progId = getProgramId();
-    const dealPda = deriveDealPda(progId, buyerPubkey, id);
-    const expectedData = buildCreateDealInstructionData({
-      id,
-      seller: sellerPubkey,
-      amount,
-      tenorDays,
-    });
-
-    const connection = getConnection();
-    let tx;
-    try {
-      tx = await connection.getTransaction(dto.txSignature, {
-        commitment: "confirmed",
-        maxSupportedTransactionVersion: 0,
-      });
-    } catch {
-      throw new BadRequestException("交易签名无效或尚未上链");
-    }
-    if (!tx || tx.meta?.err) {
-      throw new BadRequestException("交易未在链上确认");
-    }
-
-    const message = tx.transaction.message as ParsedTxMessage;
-    const keys = getAccountKeys(message);
-    const hasCreateDeal = message.compiledInstructions.some((ix) =>
-      instructionMatchesTransaction(ix, keys, expectedData, progId, dealPda),
-    );
-    if (!hasCreateDeal) {
-      throw new BadRequestException("交易不包含预期的 create_deal 指令");
-    }
-
-    const downPayment = (amount * DOWN_PAYMENT_BPS) / BPS_BASE;
-    const poolPortion = amount - downPayment;
-    const buyer = await this.upsertUser(dto.buyerWallet);
-    const seller = await this.upsertUser(dto.sellerWallet);
-    const data: Prisma.TradeDealCreateInput = {
-      id: dealPda.toBase58(),
-      dealId: id,
-      buyer: { connect: { id: buyer.id } },
-      seller: { connect: { id: seller.id } },
-      buyerWallet: dto.buyerWallet,
-      sellerWallet: dto.sellerWallet,
-      amount,
-      downPayment,
-      poolPortion,
-      tenor: tenorDays,
-      status: "PENDING",
-      createdAt: new Date(),
-      txSignature: dto.txSignature,
-      logisticsHash: dto.logisticsHash ?? null,
-    };
-
-    const updateData = {
-      id: data.id,
-      buyer: data.buyer,
-      seller: data.seller,
-      buyerWallet: data.buyerWallet,
-      sellerWallet: data.sellerWallet,
-      amount: data.amount,
-      downPayment: data.downPayment,
-      poolPortion: data.poolPortion,
-      tenor: data.tenor,
-      status: data.status,
-      txSignature: data.txSignature,
-    };
-    let deal;
-    try {
-      deal = await this.prisma.tradeDeal.upsert({
-        where: { dealId: id },
-        create: data,
-        update: updateData,
-      });
-    } catch (error) {
-      // indexer may have created the same PDA concurrently; converge by id.
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
-        deal = await this.prisma.tradeDeal.update({
-          where: { id: data.id },
-          data: updateData,
+        const existing = await this.prisma.tradeDeal.findUnique({
+          where: { dealId: id.toString(10) },
+          select: { id: true, status: true },
         });
-      } else {
-        throw error;
-      }
-    }
-    await this.audit.record({
-      actorId: userId,
-      action: "TRADE_CREATED",
-      targetType: "TRADE",
-      targetId: tradeId,
-      metadata: { status: deal.status },
-    });
+        if (existing) {
+          return {
+            ok: true,
+            tradeId: id.toString(10),
+            dealPda: existing.id,
+            status: existing.status,
+          };
+        }
 
-    return {
-      ok: true,
-      tradeId: deal.dealId.toString(10),
-      dealPda: deal.id,
-      status: deal.status,
-    };
+        const amount = this.parseU64(dto.amount, "amount");
+        const tenorDays = this.parseU64(dto.tenor, "tenor");
+        if (amount <= 0n) throw new BadRequestException("amount must be greater than zero");
+        if (!isValidTenor(tenorDays)) {
+          throw new BadRequestException("tenor must be 30, 60, 90, or 120 days");
+        }
+
+        const buyerPubkey = this.parsePubkey(dto.buyerWallet, "buyerWallet");
+        const sellerPubkey = this.parsePubkey(dto.sellerWallet, "sellerWallet");
+        const progId = getProgramId();
+        const dealPda = deriveDealPda(progId, buyerPubkey, id);
+        const expectedData = buildCreateDealInstructionData({
+          id,
+          seller: sellerPubkey,
+          amount,
+          tenorDays,
+        });
+
+        const connection = getConnection();
+        let tx;
+        try {
+          tx = await connection.getTransaction(dto.txSignature, {
+            commitment: "confirmed",
+            maxSupportedTransactionVersion: 0,
+          });
+        } catch {
+          throw new BadRequestException("交易签名无效或尚未上链");
+        }
+        if (!tx || tx.meta?.err) {
+          throw new BadRequestException("交易未在链上确认");
+        }
+
+        const message = tx.transaction.message as ParsedTxMessage;
+        const keys = getAccountKeys(message);
+        const hasCreateDeal = message.compiledInstructions.some((ix) =>
+          instructionMatchesTransaction(ix, keys, expectedData, progId, dealPda),
+        );
+        if (!hasCreateDeal) {
+          throw new BadRequestException("交易不包含预期的 create_deal 指令");
+        }
+
+        const downPayment = (amount * DOWN_PAYMENT_BPS) / BPS_BASE;
+        const poolPortion = amount - downPayment;
+        const buyer = await this.upsertUser(dto.buyerWallet);
+        const seller = await this.upsertUser(dto.sellerWallet);
+        const data: Prisma.TradeDealCreateInput = {
+          id: dealPda.toBase58(),
+          dealId: id.toString(10),
+          buyer: { connect: { id: buyer.id } },
+          seller: { connect: { id: seller.id } },
+          buyerWallet: dto.buyerWallet,
+          sellerWallet: dto.sellerWallet,
+          amount,
+          downPayment,
+          poolPortion,
+          tenor: tenorDays,
+          status: "PENDING",
+          createdAt: new Date(),
+          txSignature: dto.txSignature,
+          logisticsHash: dto.logisticsHash ?? null,
+        };
+
+        const updateData = {
+          id: data.id,
+          buyer: data.buyer,
+          seller: data.seller,
+          buyerWallet: data.buyerWallet,
+          sellerWallet: data.sellerWallet,
+          amount: data.amount,
+          downPayment: data.downPayment,
+          poolPortion: data.poolPortion,
+          tenor: data.tenor,
+          status: data.status,
+          txSignature: data.txSignature,
+        };
+        let deal;
+        try {
+          deal = await this.prisma.tradeDeal.upsert({
+            where: { dealId: id.toString(10) },
+            create: data,
+            update: updateData,
+          });
+        } catch (error) {
+          // indexer may have created the same PDA concurrently; converge by id.
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+          ) {
+            deal = await this.prisma.tradeDeal.update({
+              where: { id: data.id },
+              data: updateData,
+            });
+          } else {
+            throw error;
+          }
+        }
+        await this.audit.record({
+          actorId: userId,
+          action: "TRADE_CREATED",
+          targetType: "TRADE",
+          targetId: tradeId,
+          metadata: { status: deal.status },
+        });
+
+        return {
+          ok: true,
+          tradeId: deal.dealId,
+          dealPda: deal.id,
+          status: deal.status,
+        };
+  });
   }
 
   async buildFundTrade(tradeId: string, body: { adminWallet: string }, userId: string) {
@@ -412,28 +430,30 @@ export class TradesService {
   }
 
   async confirmFundTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
-    const trade = await this.requireAdminAndDeal(tradeId, userId);
-    if (trade.status !== "PENDING") {
-      throw new BadRequestException("only PENDING deals can be funded");
-    }
-    const buyerPubkey = new PublicKey(trade.buyerWallet);
-    const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
-    await verifyOnChainInstruction(
-      body.txSignature,
-      buildFundDealInstructionData(BigInt(tradeId)),
-      dealPda,
-    );
-    const updated = await this.prisma.tradeDeal.update({
-      where: { dealId: BigInt(tradeId) },
-      data: { status: "FUNDED", txSignature: body.txSignature },
-    });
-    await this.audit.record({
-      actorId: userId,
-      action: "TRADE_FUNDED",
-      targetType: "TRADE",
-      targetId: tradeId,
-    });
-    return { ok: true, tradeId, status: updated.status };
+    return this.withConfirmLock(tradeId, async () => {
+        const trade = await this.requireAdminAndDeal(tradeId, userId);
+        if (trade.status !== "PENDING") {
+          throw new BadRequestException("only PENDING deals can be funded");
+        }
+        const buyerPubkey = new PublicKey(trade.buyerWallet);
+        const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
+        await verifyOnChainInstruction(
+          body.txSignature,
+          buildFundDealInstructionData(BigInt(tradeId)),
+          dealPda,
+        );
+        const updated = await this.prisma.tradeDeal.update({
+          where: { dealId: this.normalizeTradeId(tradeId) },
+          data: { status: "FUNDED", txSignature: body.txSignature },
+        });
+        await this.audit.record({
+          actorId: userId,
+          action: "TRADE_FUNDED",
+          targetType: "TRADE",
+          targetId: tradeId,
+        });
+        return { ok: true, tradeId, status: updated.status };
+  });
   }
 
   async buildAdvanceTrade(tradeId: string, dto: AdvanceTradeDto, userId: string) {
@@ -470,32 +490,34 @@ export class TradesService {
     dto: AdvanceTradeDto & ConfirmSignatureDto,
     userId: string,
   ) {
-    if (!dto.txSignature) throw new BadRequestException("txSignature is required");
-    const trade = await this.requireAdminAndDeal(tradeId, userId);
-    if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
-      throw new BadRequestException(`cannot advance deal from status ${trade.status}`);
-    }
-    const targetStatus = this.parseTargetStatus(dto.targetStatus);
-    const buyerPubkey = new PublicKey(trade.buyerWallet);
-    const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
-    await verifyOnChainInstruction(
-      dto.txSignature,
-      buildAdvanceDealInstructionData(BigInt(tradeId), targetStatus),
-      dealPda,
-    );
-    const status = TARGET_STATUS_BY_CODE[targetStatus];
-    const updated = await this.prisma.tradeDeal.update({
-      where: { dealId: BigInt(tradeId) },
-      data: { status: status as DealStatus, txSignature: dto.txSignature },
-    });
-    await this.audit.record({
-      actorId: userId,
-      action: "TRADE_ADVANCED",
-      targetType: "TRADE",
-      targetId: tradeId,
-      metadata: { targetStatus },
-    });
-    return { ok: true, tradeId, status: updated.status };
+    return this.withConfirmLock(tradeId, async () => {
+        if (!dto.txSignature) throw new BadRequestException("txSignature is required");
+        const trade = await this.requireAdminAndDeal(tradeId, userId);
+        if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
+          throw new BadRequestException(`cannot advance deal from status ${trade.status}`);
+        }
+        const targetStatus = this.parseTargetStatus(dto.targetStatus);
+        const buyerPubkey = new PublicKey(trade.buyerWallet);
+        const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
+        await verifyOnChainInstruction(
+          dto.txSignature,
+          buildAdvanceDealInstructionData(BigInt(tradeId), targetStatus),
+          dealPda,
+        );
+        const status = TARGET_STATUS_BY_CODE[targetStatus];
+        const updated = await this.prisma.tradeDeal.update({
+          where: { dealId: this.normalizeTradeId(tradeId) },
+          data: { status: status as DealStatus, txSignature: dto.txSignature },
+        });
+        await this.audit.record({
+          actorId: userId,
+          action: "TRADE_ADVANCED",
+          targetType: "TRADE",
+          targetId: tradeId,
+          metadata: { targetStatus },
+        });
+        return { ok: true, tradeId, status: updated.status };
+  });
   }
 
   async buildRepayTrade(tradeId: string, userId: string) {
@@ -519,28 +541,30 @@ export class TradesService {
   }
 
   async confirmRepayTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
-    const trade = await this.requireBuyerDeal(tradeId, userId);
-    if (trade.status !== "REPAYING") {
-      throw new BadRequestException("only REPAYING deals can be repaid");
-    }
-    const buyerPubkey = new PublicKey(trade.buyerWallet);
-    const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
-    await verifyOnChainInstruction(
-      body.txSignature,
-      buildRepayDealInstructionData(BigInt(tradeId)),
-      dealPda,
-    );
-    const updated = await this.prisma.tradeDeal.update({
-      where: { dealId: BigInt(tradeId) },
-      data: { status: "SETTLED", repaidAt: new Date(), txSignature: body.txSignature },
-    });
-    await this.audit.record({
-      actorId: userId,
-      action: "TRADE_REPAID",
-      targetType: "TRADE",
-      targetId: tradeId,
-    });
-    return { ok: true, tradeId, status: updated.status };
+    return this.withConfirmLock(tradeId, async () => {
+        const trade = await this.requireBuyerDeal(tradeId, userId);
+        if (trade.status !== "REPAYING") {
+          throw new BadRequestException("only REPAYING deals can be repaid");
+        }
+        const buyerPubkey = new PublicKey(trade.buyerWallet);
+        const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
+        await verifyOnChainInstruction(
+          body.txSignature,
+          buildRepayDealInstructionData(BigInt(tradeId)),
+          dealPda,
+        );
+        const updated = await this.prisma.tradeDeal.update({
+          where: { dealId: this.normalizeTradeId(tradeId) },
+          data: { status: "SETTLED", repaidAt: new Date(), txSignature: body.txSignature },
+        });
+        await this.audit.record({
+          actorId: userId,
+          action: "TRADE_REPAID",
+          targetType: "TRADE",
+          targetId: tradeId,
+        });
+        return { ok: true, tradeId, status: updated.status };
+  });
   }
 
   async buildDefaultTrade(
@@ -578,34 +602,36 @@ export class TradesService {
     body: ConfirmSignatureDto,
     userId: string,
   ) {
-    const trade = await this.requireAdminAndDeal(tradeId, userId);
-    if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
-      throw new BadRequestException(`cannot default deal from status ${trade.status}`);
-    }
-    const dealPda = deriveDealPda(
-      getProgramId(),
-      new PublicKey(trade.buyerWallet),
-      BigInt(tradeId),
-    );
-    await verifyOnChainInstruction(
-      body.txSignature,
-      buildDefaultDealInstructionData(BigInt(tradeId)),
-      dealPda,
-    );
-    const updated = await this.prisma.tradeDeal.update({
-      where: { dealId: BigInt(tradeId) },
-      data: {
-        status: "DEFAULTED",
-        txSignature: body.txSignature,
-      },
-    });
-    await this.audit.record({
-      actorId: userId,
-      action: "TRADE_DEFAULTED",
-      targetType: "TRADE",
-      targetId: tradeId,
-    });
-    return { ok: true, tradeId, status: updated.status };
+    return this.withConfirmLock(tradeId, async () => {
+        const trade = await this.requireAdminAndDeal(tradeId, userId);
+        if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
+          throw new BadRequestException(`cannot default deal from status ${trade.status}`);
+        }
+        const dealPda = deriveDealPda(
+          getProgramId(),
+          new PublicKey(trade.buyerWallet),
+          BigInt(tradeId),
+        );
+        await verifyOnChainInstruction(
+          body.txSignature,
+          buildDefaultDealInstructionData(BigInt(tradeId)),
+          dealPda,
+        );
+        const updated = await this.prisma.tradeDeal.update({
+          where: { dealId: this.normalizeTradeId(tradeId) },
+          data: {
+            status: "DEFAULTED",
+            txSignature: body.txSignature,
+          },
+        });
+        await this.audit.record({
+          actorId: userId,
+          action: "TRADE_DEFAULTED",
+          targetType: "TRADE",
+          targetId: tradeId,
+        });
+        return { ok: true, tradeId, status: updated.status };
+  });
   }
 
   async buildReleaseTrade(
@@ -644,28 +670,30 @@ export class TradesService {
     body: ConfirmSignatureDto,
     userId: string,
   ) {
-    const trade = await this.requireAdminAndDeal(tradeId, userId);
-    const dealPda = deriveDealPda(
-      getProgramId(),
-      new PublicKey(trade.buyerWallet),
-      BigInt(tradeId),
-    );
-    await verifyOnChainInstruction(
-      body.txSignature,
-      buildReleaseToSellerInstructionData(BigInt(tradeId)),
-      dealPda,
-    );
-    const updated = await this.prisma.tradeDeal.update({
-      where: { dealId: BigInt(tradeId) },
-      data: { status: "REPAYING", txSignature: body.txSignature },
-    });
-    await this.audit.record({
-      actorId: userId,
-      action: "TRADE_RELEASED",
-      targetType: "TRADE",
-      targetId: tradeId,
-    });
-    return { ok: true, tradeId, status: updated.status };
+    return this.withConfirmLock(tradeId, async () => {
+        const trade = await this.requireAdminAndDeal(tradeId, userId);
+        const dealPda = deriveDealPda(
+          getProgramId(),
+          new PublicKey(trade.buyerWallet),
+          BigInt(tradeId),
+        );
+        await verifyOnChainInstruction(
+          body.txSignature,
+          buildReleaseToSellerInstructionData(BigInt(tradeId)),
+          dealPda,
+        );
+        const updated = await this.prisma.tradeDeal.update({
+          where: { dealId: this.normalizeTradeId(tradeId) },
+          data: { status: "REPAYING", txSignature: body.txSignature },
+        });
+        await this.audit.record({
+          actorId: userId,
+          action: "TRADE_RELEASED",
+          targetType: "TRADE",
+          targetId: tradeId,
+        });
+        return { ok: true, tradeId, status: updated.status };
+  });
   }
 
   private async requireAdminAndDeal(tradeId: string, userId: string) {
@@ -675,7 +703,7 @@ export class TradesService {
     }
     const dealId = this.parseTradeId(tradeId);
     const trade = await this.prisma.tradeDeal.findUnique({
-      where: { dealId },
+      where: { dealId: this.normalizeTradeId(tradeId) },
     });
     if (!trade) throw new NotFoundException("trade not found");
     return trade;
@@ -686,7 +714,7 @@ export class TradesService {
     if (!user?.wallet) throw new ForbiddenException("登录用户未绑定钱包");
     const dealId = this.parseTradeId(tradeId);
     const trade = await this.prisma.tradeDeal.findUnique({
-      where: { dealId },
+      where: { dealId: this.normalizeTradeId(tradeId) },
     });
     if (!trade) throw new NotFoundException("trade not found");
     if (trade.buyerWallet !== user.wallet) {
@@ -721,6 +749,10 @@ export class TradesService {
     } catch {
       throw new BadRequestException(`invalid ${field}`);
     }
+  }
+
+  private normalizeTradeId(value: string): string {
+    return this.parseTradeId(value).toString(10);
   }
 
   private parseTradeId(value: string): bigint {

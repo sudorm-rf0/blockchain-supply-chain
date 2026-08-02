@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { Transaction } from "@solana/web3.js";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -159,7 +159,7 @@ export default function OrdersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">我的订单</h1>
-        <WalletMultiButton />
+        <WalletConnectButton />
       </div>
       {loading ? (
         <p className="text-sm text-muted-foreground">加载中...</p>

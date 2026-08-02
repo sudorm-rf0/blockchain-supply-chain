@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Transaction } from "@solana/web3.js";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -124,7 +124,7 @@ export default function UploadPage() {
             <p className="text-sm text-muted-foreground">
               上传后可使用钱包将文件哈希写入 Solana 存证
             </p>
-            <WalletMultiButton />
+            <WalletConnectButton />
           </div>
 
           <div

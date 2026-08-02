@@ -62,7 +62,7 @@ export class AttestationService {
     let dealPda: PublicKey | null = null;
     if (effectiveTradeId !== 0n) {
       const trade = await this.prisma.tradeDeal.findUnique({
-        where: { dealId: effectiveTradeId },
+        where: { dealId: effectiveTradeId.toString(10) },
       });
       if (!trade) {
         throw new BadRequestException("trade not found");

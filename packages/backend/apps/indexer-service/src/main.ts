@@ -5,9 +5,11 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { initSentry } from "./observability/sentry";
+import { assertStartupEnv, validateStartupEnv } from "./config/env-check";
 import { INDEXER_ENV } from "./config/env";
 
 async function bootstrap(): Promise<void> {
+  assertStartupEnv(validateStartupEnv({ required: ["DATABASE_URL"], redisRequired: true, rpcRequired: true }));
   initSentry("indexer-service");
   const app = await NestFactory.create(AppModule);
   app.use(compression());

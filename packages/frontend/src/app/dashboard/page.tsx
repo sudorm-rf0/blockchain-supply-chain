@@ -14,7 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { Button } from "@/components/ui/button";
 import {
   buildRedeemLp,
@@ -151,7 +151,7 @@ export default function DashboardPage() {
               New Trade
             </Link>
           </nav>
-          <WalletMultiButton />
+          <WalletConnectButton />
         </div>
       </header>
 

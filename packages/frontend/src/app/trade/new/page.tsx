@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { TransactionStatusToast } from "@/components/TransactionStatusToast";
 import {
   confirmTrade,
@@ -101,7 +101,7 @@ export default function NewTradePage() {
           >
             Dashboard
           </Link>
-          <WalletMultiButton />
+          <WalletConnectButton />
         </div>
       </header>
 

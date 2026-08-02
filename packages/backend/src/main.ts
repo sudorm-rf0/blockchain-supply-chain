@@ -7,8 +7,10 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { initSentry } from "./observability/sentry";
+import { assertStartupEnv, validateStartupEnv } from "./config/env-check";
 
 async function bootstrap() {
+  assertStartupEnv(validateStartupEnv({ required: ["DATABASE_URL"], secrets: ["JWT_SECRET"], redisRequired: true, rpcRequired: true }));
   initSentry("backend");
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.use(compression());

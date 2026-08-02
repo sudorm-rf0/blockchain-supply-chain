@@ -13,7 +13,7 @@ export class RiskControlWebhookService {
       occurredAt: new Date().toISOString(),
       deal: {
         id: deal.id,
-        dealId: deal.dealId.toString(10),
+        dealId: deal.dealId,
         buyerWallet: deal.buyerWallet,
         sellerWallet: deal.sellerWallet,
         amount: deal.amount.toString(10),

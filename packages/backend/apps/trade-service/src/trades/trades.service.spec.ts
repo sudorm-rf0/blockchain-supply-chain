@@ -27,6 +27,13 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeRedis() {
+  return {
+    setNX: jest.fn(async () => true),
+    del: jest.fn(async () => undefined),
+  };
+}
+
 function makeAudit() {
   return { record: jest.fn(async () => undefined) };
 }
@@ -34,7 +41,7 @@ function makeAudit() {
 describe("TradesService", () => {
   it("rejects non-matching buyer wallets on create", async () => {
     const prisma = makePrisma();
-    const service = new TradesService(prisma as never, makeAudit() as never);
+    const service = new TradesService(prisma as never, makeAudit() as never, makeRedis() as never);
     await expect(
       service.createTrade(
         {
@@ -58,7 +65,7 @@ describe("TradesService", () => {
         })),
       },
     });
-    const service = new TradesService(prisma as never, makeAudit() as never);
+    const service = new TradesService(prisma as never, makeAudit() as never, makeRedis() as never);
     await expect(
       service.createTrade(
         {
@@ -81,7 +88,7 @@ describe("TradesService", () => {
         })),
       },
     });
-    const service = new TradesService(prisma as never, makeAudit() as never);
+    const service = new TradesService(prisma as never, makeAudit() as never, makeRedis() as never);
     const result = await service.confirmTrade(
       "1",
       {
@@ -98,7 +105,7 @@ describe("TradesService", () => {
 
   it("only lets admins list all trades", async () => {
     const prisma = makePrisma();
-    const service = new TradesService(prisma as never, makeAudit() as never);
+    const service = new TradesService(prisma as never, makeAudit() as never, makeRedis() as never);
     await expect(service.listAllTrades("user-1")).rejects.toThrow(
       ForbiddenException,
     );
