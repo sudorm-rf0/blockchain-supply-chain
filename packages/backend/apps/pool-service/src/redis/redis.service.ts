@@ -7,24 +7,44 @@ export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
 
   constructor() {
-    this.client = new Redis(POOL_ENV.redisUrl);
+    this.client = new Redis(POOL_ENV.redisUrl, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+    });
+    this.client.on("error", () => undefined);
   }
 
   async get(key: string): Promise<string | null> {
-    return this.client.get(key);
+    try {
+      return await this.client.get(key);
+    } catch {
+      return null;
+    }
   }
 
   async setWithExpiry(key: string, value: string, seconds: number): Promise<void> {
-    await this.client.set(key, value, "EX", seconds);
+    try {
+      await this.client.set(key, value, "EX", seconds);
+    } catch {
+      // silently ignore write errors
+    }
   }
 
   async setNX(key: string, value: string, seconds: number): Promise<boolean> {
-    const result = await this.client.set(key, value, "EX", seconds, "NX");
-    return result === "OK";
+    try {
+      const result = await this.client.set(key, value, "EX", seconds, "NX");
+      return result === "OK";
+    } catch {
+      return false;
+    }
   }
 
   async del(key: string): Promise<void> {
-    await this.client.del(key);
+    try {
+      await this.client.del(key);
+    } catch {
+      // silently ignore
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

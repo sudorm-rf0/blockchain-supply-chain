@@ -118,7 +118,7 @@ K8s 环境每天 02:00 自动 `pg_dump -Fc` 到 `postgres-backups` PVC，保留
 ## 7. 合约运维
 
 - 重新部署合约：`bash scripts/deploy-devnet.sh`（devnet）或 localnet
-  `anchor deploy`。
+  `cargo build-sbf --arch v3 && solana program deploy --program-id <keypair> target/deploy/*.so`。
 - 初始化资金池：`node scripts/init-localnet.mjs`，输出
   `USDC_MINT` / `LP_MINT` / `ADMIN`。
 - 违约事件会调用 `RISK_WEBHOOK_URL`，签名头

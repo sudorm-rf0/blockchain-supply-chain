@@ -21,6 +21,10 @@
 docker compose up -d
 ```
 
+`solana-localnet` 会在首次启动时构建 Agave 4.1.2 镜像（需要网络下载
+官方发布包）。Agave 4.x 只提供 x86_64 Linux 包，因此该服务固定使用
+`linux/amd64`；Apple Silicon 上会通过 Docker 模拟运行，仅用于本地开发。
+
 数据库初始化：
 
 ```bash
@@ -29,14 +33,17 @@ pnpm exec prisma generate
 pnpm exec prisma migrate deploy
 ```
 
-合约构建并部署到 localnet（`solana` 在
+合约构建并部署到 localnet（Anchor 0.31.1 + Agave 4.1.2，`solana` 在
 `~/.local/share/solana/active_release/bin`）：
 
 ```bash
 cd packages/contracts
 anchor build
-PATH="$HOME/.local/share/solana/active_release/bin:$PATH" \
-  anchor deploy --provider.cluster localnet
+cargo build-sbf --arch v3
+PATH="$HOME/.local/share/solana/active_release/bin:$PATH" solana program deploy \
+  target/deploy/trade_finance.so --program-id target/deploy/trade_finance-keypair.json
+PATH="$HOME/.local/share/solana/active_release/bin:$PATH" solana program deploy \
+  target/deploy/supply_chain.so --program-id target/deploy/supply_chain-keypair.json
 ```
 
 初始化资金池与代币：
@@ -89,7 +96,8 @@ solana airdrop 2 $(solana address)              # 缺少 devnet SOL 时
 bash scripts/deploy-devnet.sh
 ```
 
-脚本会 `anchor build && anchor deploy --provider.cluster devnet`。上线前
+脚本会 `anchor build && cargo build-sbf --arch v3`，再用固定的
+Program keypair 执行 `solana program deploy`。上线前
 必须完成第三方合约审计并核对 Program ID：
 
 - `trade_finance`: `9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3`

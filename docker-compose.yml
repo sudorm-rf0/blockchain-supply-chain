@@ -35,7 +35,10 @@ services:
       retries: 10
 
   solana-localnet:
-    image: solanalabs/solana:v1.18.26
+    platform: linux/amd64
+    build:
+      context: ./infra/localnet
+    image: supply-chain-localnet:agave-4.1.2
     container_name: supply-chain-solana-localnet
     command:
       [
