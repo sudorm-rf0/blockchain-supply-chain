@@ -7,6 +7,7 @@ import {
   Files,
   LayoutDashboard,
   ReceiptText,
+  ScrollText,
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ export function Sidebar({ role }: SidebarProps) {
             label: "文件审核",
             icon: ClipboardCheck,
           },
+          { href: "/admin/audit", label: "审计日志", icon: ScrollText },
           { href: "/orders", label: "我的订单", icon: ReceiptText },
           {
             href: "/admin/files?status=ALL",

@@ -1,57 +1,55 @@
+{{- range $name, $svc := .Values.services }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pool-service
-  namespace: supply-chain
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
   labels:
     app: supply-chain
-    tier: pool
+    tier: {{ $name }}
 spec:
-  replicas: 2
+  replicas: {{ $svc.replicaCount }}
   selector:
     matchLabels:
       app: supply-chain
-      tier: pool
+      tier: {{ $name }}
   template:
     metadata:
       labels:
         app: supply-chain
-        tier: pool
+        tier: {{ $name }}
     spec:
       containers:
-        - name: pool-service
-          image: ghcr.io/example/supply-chain-backend:latest
-          imagePullPolicy: IfNotPresent
-          command: ["node", "dist/apps/pool-service/src/main.js"]
+        - name: {{ $name }}
+          image: "{{ $.Values.image.repository }}-{{ default "backend" $svc.imageSuffix }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- with $svc.command }}
+          command: {{ toJson . }}
+          {{- end }}
           ports:
-            - containerPort: 3005
+            - containerPort: {{ $svc.port }}
               name: http
           env:
-            - name: POOL_SERVICE_PORT
-              value: "3005"
             - name: NODE_ENV
               value: "production"
-            - name: REDIS_URL
-              valueFrom:
-                secretKeyRef:
-                  name: backend-secrets
-                  key: REDIS_URL
+            {{- if $svc.env }}
+            {{- toYaml $svc.env | nindent 12 }}
+            {{- end }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets
+                  name: {{ $.Values.secrets.backendSecrets }}
                   key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secrets.backendSecrets }}
+                  key: REDIS_URL
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets
+                  name: {{ $.Values.secrets.backendSecrets }}
                   key: JWT_SECRET
-            - name: ALLOWED_ORIGIN
-              valueFrom:
-                secretKeyRef:
-                  name: backend-secrets
-                  key: ALLOWED_ORIGIN
-                  optional: true
           livenessProbe:
             httpGet:
               path: /health
@@ -76,16 +74,4 @@ spec:
               cpu: 250m
               memory: 256Mi
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: pool-service
-  namespace: supply-chain
-spec:
-  selector:
-    app: supply-chain
-    tier: pool
-  ports:
-    - name: http
-      port: 3005
-      targetPort: http
+{{- end }}

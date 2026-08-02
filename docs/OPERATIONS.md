@@ -20,7 +20,10 @@
 - 主后端 `/metrics` 暴露 Prometheus 指标（HTTP 请求量、延迟、Node 默认指标）。
 - 主后端 `/health` 返回服务与数据库状态；`/health/ready` 供 K8s readiness 使用，
   数据库不可用时返回 503。
+- trade/pool/indexer 同样提供 `/health/ready`；四个服务均暴露 `/metrics`。
 - indexer `/api/indexer/status` 返回队列深度与最近同步时间。
+- 管理端 `GET /api/admin/audit-logs` 提供审计日志（审核、删除、订单状态、
+  提款申请/执行），前端 `/admin/audit` 可查看。
 
 建议接入：Prometheus + Grafana（`/metrics`），Sentry 收集后端异常，日志收集
 统一走 stdout JSON。
@@ -44,3 +47,13 @@ S3_BUCKET=supply-chain-files pnpm --filter @supply-chain/backend start
 2. `scripts/create-k8s-secrets.sh` 注入全部密钥。
 3. `scripts/deploy.sh` 构建镜像并滚动发布。
 4. 打开 Prometheus 抓取 `/metrics`，配置告警。
+
+也可以使用 Helm 模板（`infra/helm/supply-chain`）部署 5 个服务与 Ingress：
+
+```bash
+helm upgrade --install supply-chain infra/helm/supply-chain \
+  --namespace supply-chain \
+  --set image.repository=your-registry/supply-chain \
+  --set image.tag=latest \
+  --set ingress.host=your-domain
+```

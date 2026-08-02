@@ -1,0 +1,6 @@
+apiVersion: v2
+name: supply-chain
+description: Solana supply chain finance platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

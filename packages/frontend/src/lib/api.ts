@@ -178,6 +178,39 @@ export async function reviewFile(
   });
 }
 
+export interface AuditLogRecord {
+  id: string;
+  actorId: string | null;
+  actorEmail: string | null;
+  action: string;
+  targetType: string;
+  targetId: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AuditLogsResponse {
+  items: AuditLogRecord[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export async function fetchAuditLogs(params: {
+  page: number;
+  limit: number;
+  action?: string;
+  targetType?: string;
+}): Promise<AuditLogsResponse> {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit),
+  });
+  if (params.action) query.set("action", params.action);
+  if (params.targetType) query.set("targetType", params.targetType);
+  return request(`${BACKEND_URL}/api/admin/audit-logs?${query.toString()}`);
+}
+
 export interface AttestDocumentResponse {
   transaction: string;
   blockhash: string;

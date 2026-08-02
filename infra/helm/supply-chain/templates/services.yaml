@@ -1,0 +1,19 @@
+{{- range $name, $svc := .Values.services }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: supply-chain
+    tier: {{ $name }}
+spec:
+  selector:
+    app: supply-chain
+    tier: {{ $name }}
+  ports:
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: http
+---
+{{- end }}

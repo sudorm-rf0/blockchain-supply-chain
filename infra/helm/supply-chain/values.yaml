@@ -1,0 +1,55 @@
+namespace: supply-chain
+
+image:
+  repository: ghcr.io/example/supply-chain
+  tag: latest
+  pullPolicy: IfNotPresent
+
+ingress:
+  host: supply-chain.example.com
+  className: nginx
+  tlsSecret: supply-chain-tls
+
+services:
+  backend:
+    replicaCount: 1
+    port: 3001
+    command: []
+    env:
+      - name: PORT
+        value: "3001"
+  frontend:
+    replicaCount: 2
+    port: 3000
+    imageSuffix: frontend
+    command: []
+    env: []
+  indexer:
+    replicaCount: 1
+    port: 3003
+    command: ["node", "dist/apps/indexer-service/src/main.js"]
+    env:
+      - name: INDEXER_PORT
+        value: "3003"
+  trade:
+    replicaCount: 2
+    port: 3004
+    command: ["node", "dist/apps/trade-service/src/main.js"]
+    env:
+      - name: TRADE_SERVICE_PORT
+        value: "3004"
+  pool:
+    replicaCount: 2
+    port: 3005
+    command: ["node", "dist/apps/pool-service/src/main.js"]
+    env:
+      - name: POOL_SERVICE_PORT
+        value: "3005"
+
+secrets:
+  backendSecrets: backend-secrets
+  requiredKeys:
+    - DATABASE_URL
+    - REDIS_URL
+    - JWT_SECRET
+    - SOLANA_RPC_URL

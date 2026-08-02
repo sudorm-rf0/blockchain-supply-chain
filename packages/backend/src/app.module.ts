@@ -3,6 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AppController } from "./app.controller";
 import { AuthModule } from "./auth/auth.module";
+import { AuditModule } from "./audit/audit.module";
 import { FilesModule } from "./files/files.module";
 import { MetricsController } from "./observability/metrics.controller";
 import { MetricsMiddleware } from "./observability/metrics.middleware";
@@ -18,6 +19,7 @@ import { PrismaService } from "./prisma/prisma.service";
       },
     ]),
     AuthModule,
+    AuditModule,
     FilesModule,
   ],
   controllers: [AppController, MetricsController],

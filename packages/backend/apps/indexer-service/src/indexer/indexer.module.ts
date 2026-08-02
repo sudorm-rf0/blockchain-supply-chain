@@ -15,5 +15,6 @@ import { SyncQueueService } from "./sync-queue.service";
     RiskControlWebhookService,
     IndexerService,
   ],
+  exports: [PrismaService],
 })
 export class IndexerModule {}

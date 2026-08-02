@@ -8,6 +8,7 @@ import { Prisma, type DealStatus } from "@prisma/client";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { TRADE_ENV } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
 import { ConfirmTradeDto } from "./dto/confirm-trade.dto";
@@ -101,7 +102,10 @@ async function verifyOnChainInstruction(
 
 @Injectable()
 export class TradesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async createTrade(
     dto: CreateTradeDto,
@@ -291,6 +295,13 @@ export class TradesService {
         txSignature: data.txSignature,
       },
     });
+    await this.audit.record({
+      actorId: userId,
+      action: "TRADE_CREATED",
+      targetType: "TRADE",
+      targetId: tradeId,
+      metadata: { status: deal.status },
+    });
 
     return {
       ok: true,
@@ -334,6 +345,12 @@ export class TradesService {
     const updated = await this.prisma.tradeDeal.update({
       where: { dealId: BigInt(tradeId) },
       data: { status: "FUNDED", txSignature: body.txSignature },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "TRADE_FUNDED",
+      targetType: "TRADE",
+      targetId: tradeId,
     });
     return { ok: true, tradeId, status: updated.status };
   }
@@ -387,6 +404,13 @@ export class TradesService {
       where: { dealId: BigInt(tradeId) },
       data: { status: status as DealStatus, txSignature: dto.txSignature },
     });
+    await this.audit.record({
+      actorId: userId,
+      action: "TRADE_ADVANCED",
+      targetType: "TRADE",
+      targetId: tradeId,
+      metadata: { targetStatus },
+    });
     return { ok: true, tradeId, status: updated.status };
   }
 
@@ -422,6 +446,12 @@ export class TradesService {
     const updated = await this.prisma.tradeDeal.update({
       where: { dealId: BigInt(tradeId) },
       data: { status: "SETTLED", repaidAt: new Date(), txSignature: body.txSignature },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "TRADE_REPAID",
+      targetType: "TRADE",
+      targetId: tradeId,
     });
     return { ok: true, tradeId, status: updated.status };
   }
@@ -479,6 +509,12 @@ export class TradesService {
         repaidAt: new Date(),
         txSignature: body.txSignature,
       },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "TRADE_DEFAULTED",
+      targetType: "TRADE",
+      targetId: tradeId,
     });
     return { ok: true, tradeId, status: updated.status };
   }

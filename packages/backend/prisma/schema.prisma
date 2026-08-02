@@ -125,3 +125,18 @@ model File {
   @@index([status])
   @@map("files")
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}

@@ -34,12 +34,23 @@ function makeStorage() {
   };
 }
 
+function makeAudit() {
+  return {
+    record: jest.fn(async () => undefined),
+    list: jest.fn(async () => ({ items: [], total: 0, page: 1, limit: 20 })),
+  };
+}
+
 describe("FilesService", () => {
   const dir = mkdtempSync(join(tmpdir(), "files-spec-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   it("rejects a file whose magic bytes do not match the extension", async () => {
-    const service = new FilesService(makePrisma() as never, makeStorage() as never);
+    const service = new FilesService(
+      makePrisma() as never,
+      makeStorage() as never,
+      makeAudit() as never,
+    );
     const path = join(dir, "fake.png");
     writeFileSync(path, "this is not an image");
     const file = {
@@ -55,7 +66,11 @@ describe("FilesService", () => {
 
   it("accepts a valid PNG and persists its sha256", async () => {
     const prisma = makePrisma();
-    const service = new FilesService(prisma as never, makeStorage() as never);
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+    );
     const path = join(dir, "ok.png");
     writeFileSync(path, PNG_BYTES);
     const file = {

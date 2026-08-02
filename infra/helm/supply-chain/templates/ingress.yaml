@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: supply-chain
+  namespace: {{ .Values.namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tlsSecret }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

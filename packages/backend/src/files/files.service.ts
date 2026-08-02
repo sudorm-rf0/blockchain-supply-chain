@@ -13,6 +13,7 @@ import { extname } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { PrismaService } from "../prisma/prisma.service";
 import type { StorageService } from "../storage/storage.service";
+import { AuditService } from "../audit/audit.service";
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
   pdf: "application/pdf",
@@ -58,6 +59,7 @@ export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject("STORAGE_SERVICE") private readonly storage: StorageService,
+    private readonly audit: AuditService,
   ) {}
 
   async upload(
@@ -182,6 +184,7 @@ export class FilesService {
   async patch(
     id: string,
     body: { status?: "APPROVED" | "REJECTED"; remark?: string },
+    actor?: { id: string; email?: string },
   ) {
     const file = await this.prisma.file.findUnique({ where: { id } });
     if (!file) throw new NotFoundException("文件不存在");
@@ -193,6 +196,16 @@ export class FilesService {
       },
       include: { uploader: true },
     });
+    if (body.status && body.status !== file.status) {
+      await this.audit.record({
+        actorId: actor?.id,
+        actorEmail: actor?.email,
+        action: body.status === "APPROVED" ? "FILE_APPROVED" : "FILE_REJECTED",
+        targetType: "FILE",
+        targetId: id,
+        metadata: { from: file.status, remark: body.remark ?? null },
+      });
+    }
     return this.publicFile(updated);
   }
 
@@ -204,6 +217,12 @@ export class FilesService {
     }
     await this.storage.remove(file.path);
     await this.prisma.file.delete({ where: { id } });
+    await this.audit.record({
+      actorId: userId,
+      targetType: "FILE",
+      targetId: id,
+      action: "FILE_DELETED",
+    });
     return { ok: true };
   }
 

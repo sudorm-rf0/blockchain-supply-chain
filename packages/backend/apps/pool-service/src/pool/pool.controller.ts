@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -18,6 +19,7 @@ import {
 import { PoolOverviewResponseDto } from "./dto/pool-overview-response.dto";
 import { WithdrawRequestDto } from "./dto/withdraw-request.dto";
 import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto";
+import { ExecuteWithdrawDto } from "./dto/execute-withdraw.dto";
 import { PoolService } from "./pool.service";
 import { AuthGuard } from "../auth/auth.guard";
 
@@ -49,5 +51,17 @@ export class PoolController {
     @Req() req: Request,
   ): Promise<WithdrawRequestResponseDto> {
     return this.poolService.requestWithdrawal(dto, req.user!.sub);
+  }
+
+  @Post("lp/withdraw-request/:id/execute")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "管理员执行 READY 提款" })
+  executeWithdrawal(
+    @Param("id") id: string,
+    @Body() dto: ExecuteWithdrawDto,
+    @Req() req: Request,
+  ) {
+    return this.poolService.executeWithdrawal(id, dto, req.user!.sub);
   }
 }

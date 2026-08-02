@@ -117,8 +117,12 @@ export class FilesController {
   patch(
     @Param("id") id: string,
     @Body() body: ReviewFileDto,
+    @Req() req: Request,
   ) {
-    return this.filesService.patch(id, body);
+    return this.filesService.patch(id, body, {
+      id: req.user!.sub,
+      email: req.user!.email,
+    });
   }
 
   @Delete(":id")

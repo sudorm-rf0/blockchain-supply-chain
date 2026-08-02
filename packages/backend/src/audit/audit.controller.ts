@@ -1,0 +1,26 @@
+import { Controller, Get, Query, Req, UseGuards } from "@nestjs/common";
+import type { Request } from "express";
+import { AuthGuard } from "../auth/auth.guard";
+import { AdminGuard } from "../auth/admin.guard";
+import { AuditService } from "./audit.service";
+
+@Controller("api/admin/audit-logs")
+@UseGuards(AuthGuard, AdminGuard)
+export class AuditController {
+  constructor(private readonly audit: AuditService) {}
+
+  @Get()
+  list(
+    @Query("page") page = "1",
+    @Query("limit") limit = "20",
+    @Query("action") action?: string,
+    @Query("targetType") targetType?: string,
+  ) {
+    return this.audit.list({
+      page: Math.max(1, Number(page) || 1),
+      limit: Math.min(100, Math.max(1, Number(limit) || 20)),
+      action,
+      targetType,
+    });
+  }
+}

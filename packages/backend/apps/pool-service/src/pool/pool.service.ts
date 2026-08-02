@@ -3,11 +3,13 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
+import { AuditService } from "../audit/audit.service";
 import { PoolOverviewResponseDto } from "./dto/pool-overview-response.dto";
 import { WithdrawRequestDto } from "./dto/withdraw-request.dto";
 import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto";
@@ -30,6 +32,7 @@ export class PoolService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly audit: AuditService,
   ) {}
 
   async getOverview(): Promise<PoolOverviewResponseDto> {
@@ -192,6 +195,13 @@ export class PoolService {
       },
     });
     await this.redis.setWithExpiry(key, value, NOTICE_SECONDS);
+    await this.audit.record({
+      actorId: userId,
+      action: "WITHDRAW_REQUESTED",
+      targetType: "WITHDRAW",
+      targetId: queueId,
+      metadata: { lpWallet: dto.lpWallet, amount: dto.amount },
+    });
 
     return {
       queueId,
@@ -199,5 +209,37 @@ export class PoolService {
       noticeDays: NOTICE_DAYS,
       unlockAt: unlockAt.toISOString(),
     };
+  }
+
+  async executeWithdrawal(
+    id: string,
+    body: { txSignature?: string },
+    userId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== "ADMIN") {
+      throw new ForbiddenException("仅管理员可执行提款");
+    }
+    const request = await this.prisma.withdrawRequest.findUnique({
+      where: { id },
+    });
+    if (!request) {
+      throw new NotFoundException("withdrawal request not found");
+    }
+    if (request.status !== "READY") {
+      throw new BadRequestException("仅 READY 状态的提款可执行");
+    }
+    const updated = await this.prisma.withdrawRequest.update({
+      where: { id },
+      data: { status: "EXECUTED" },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "WITHDRAW_EXECUTED",
+      targetType: "WITHDRAW",
+      targetId: id,
+      metadata: { txSignature: body.txSignature ?? null },
+    });
+    return { ok: true, id: updated.id, status: updated.status };
   }
 }

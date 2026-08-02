@@ -4,9 +4,17 @@ import { RedisService } from "../redis/redis.service";
 import { PoolController } from "./pool.controller";
 import { PoolService } from "./pool.service";
 import { WithdrawalWorkerService } from "./withdrawal-worker.service";
+import { AuditService } from "../audit/audit.service";
 
 @Module({
   controllers: [PoolController],
-  providers: [PoolService, WithdrawalWorkerService, PrismaService, RedisService],
+  providers: [
+    PoolService,
+    WithdrawalWorkerService,
+    AuditService,
+    PrismaService,
+    RedisService,
+  ],
+  exports: [PrismaService],
 })
 export class PoolModule {}
