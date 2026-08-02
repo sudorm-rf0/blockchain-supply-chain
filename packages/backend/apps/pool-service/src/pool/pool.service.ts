@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -34,7 +35,11 @@ export class PoolService {
   async getOverview(): Promise<PoolOverviewResponseDto> {
     const cached = await this.redis.get(OVERVIEW_CACHE_KEY);
     if (cached) {
-      return JSON.parse(cached) as PoolOverviewResponseDto;
+      try {
+        return JSON.parse(cached) as PoolOverviewResponseDto;
+      } catch {
+        // 缓存损坏时忽略并重新计算。
+      }
     }
 
     const [latest, recent, dealAgg, dealGroups] = await Promise.all([
@@ -128,6 +133,14 @@ export class PoolService {
     dto: WithdrawRequestDto,
     userId: string,
   ): Promise<WithdrawRequestResponseDto> {
+    if (!/^\d+(\.\d{1,6})?$/.test(dto.amount)) {
+      throw new BadRequestException("invalid withdrawal amount");
+    }
+    const amountValue = new Prisma.Decimal(dto.amount);
+    if (amountValue.lte(0)) {
+      throw new BadRequestException("withdrawal amount must be positive");
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });

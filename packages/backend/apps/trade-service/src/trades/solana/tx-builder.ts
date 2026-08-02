@@ -22,6 +22,21 @@ const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
   "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
 );
 
+let _programIdCache: PublicKey | undefined;
+let _usdcMintCache: PublicKey | undefined;
+let _lpMintCache: PublicKey | undefined;
+
+function programId(): PublicKey {
+  return (_programIdCache ??= new PublicKey(TRADE_ENV.programId));
+}
+function usdcMintKey(): PublicKey {
+  return (_usdcMintCache ??= new PublicKey(TRADE_ENV.usdcMint));
+}
+function lpMintKey(): PublicKey {
+  if (!TRADE_ENV.lpMint) throw new Error("LP_MINT env var is required for fund/repay transactions");
+  return (_lpMintCache ??= new PublicKey(TRADE_ENV.lpMint));
+}
+
 export function encodeU64(value: bigint): Buffer {
   const buffer = Buffer.alloc(8);
   buffer.writeBigUInt64LE(value);
@@ -174,13 +189,13 @@ export async function buildFundDealTransaction(
   input: FundDealTransactionInput,
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
-  const programId = new PublicKey(TRADE_ENV.programId);
-  const usdcMint = new PublicKey(TRADE_ENV.usdcMint);
-  const poolState = derivePoolStatePda(programId);
-  const poolAuthority = derivePoolAuthorityPda(programId);
-  const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
-  const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, usdcMint);
-  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, usdcMint);
+  const prog = programId();
+  const uMint = usdcMintKey();
+  const poolState = derivePoolStatePda(prog);
+  const poolAuthority = derivePoolAuthorityPda(prog);
+  const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
+  const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, uMint);
+  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, uMint);
 
   const keys: AccountMeta[] = [
     { pubkey: poolState, isSigner: false, isWritable: true },
@@ -190,9 +205,9 @@ export async function buildFundDealTransaction(
     { pubkey: poolAuthority, isSigner: false, isWritable: false },
     { pubkey: poolTokenAccount, isSigner: false, isWritable: true },
     { pubkey: dealTokenAccount, isSigner: false, isWritable: true },
-    { pubkey: usdcMint, isSigner: false, isWritable: false },
+    { pubkey: uMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    { pubkey: new PublicKey(TRADE_ENV.lpMint), isSigner: false, isWritable: false },
+    { pubkey: lpMintKey(), isSigner: false, isWritable: false },
   ];
 
   const data = buildFundDealInstructionData(input.tradeId);
@@ -200,7 +215,7 @@ export async function buildFundDealTransaction(
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
-  transaction.add(new TransactionInstruction({ keys, programId, data }));
+  transaction.add(new TransactionInstruction({ keys, programId: prog, data }));
   return { transaction, blockhash };
 }
 
@@ -208,9 +223,9 @@ export async function buildAdvanceDealTransaction(
   input: AdvanceDealTransactionInput,
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
-  const programId = new PublicKey(TRADE_ENV.programId);
-  const poolState = derivePoolStatePda(programId);
-  const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
+  const prog = programId();
+  const poolState = derivePoolStatePda(prog);
+  const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
 
   const keys: AccountMeta[] = [
     { pubkey: poolState, isSigner: false, isWritable: true },
@@ -224,7 +239,7 @@ export async function buildAdvanceDealTransaction(
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
-  transaction.add(new TransactionInstruction({ keys, programId, data }));
+  transaction.add(new TransactionInstruction({ keys, programId: prog, data }));
   return { transaction, blockhash };
 }
 
@@ -232,10 +247,10 @@ export async function buildRepayDealTransaction(
   input: RepayDealTransactionInput,
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
-  const programId = new PublicKey(TRADE_ENV.programId);
-  const poolState = derivePoolStatePda(programId);
-  const poolAuthority = derivePoolAuthorityPda(programId);
-  const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
+  const prog = programId();
+  const poolState = derivePoolStatePda(prog);
+  const poolAuthority = derivePoolAuthorityPda(prog);
+  const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
   const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, input.usdcMint);
   const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, input.usdcMint);
   const buyerTokenAccount = deriveAssociatedTokenAccount(input.buyer, input.usdcMint);
@@ -260,7 +275,7 @@ export async function buildRepayDealTransaction(
     { pubkey: poolTokenAccount, isSigner: false, isWritable: true },
     { pubkey: input.usdcMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    { pubkey: new PublicKey(TRADE_ENV.lpMint), isSigner: false, isWritable: false },
+    { pubkey: lpMintKey(), isSigner: false, isWritable: false },
   ];
 
   const data = buildRepayDealInstructionData(input.tradeId);
@@ -283,7 +298,7 @@ export async function buildRepayDealTransaction(
     );
   }
 
-  transaction.add(new TransactionInstruction({ keys, programId, data }));
+  transaction.add(new TransactionInstruction({ keys, programId: prog, data }));
   return { transaction, blockhash };
 }
 
@@ -291,9 +306,9 @@ export async function buildCreateDealTransaction(
   input: CreateDealTransactionInput,
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
-  const programId = new PublicKey(TRADE_ENV.programId);
-  const poolState = derivePoolStatePda(programId);
-  const dealPda = deriveDealPda(programId, input.buyer, input.id);
+  const prog = programId();
+  const poolState = derivePoolStatePda(prog);
+  const dealPda = deriveDealPda(prog, input.buyer, input.id);
   const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, input.usdcMint);
 
   const data = buildCreateDealInstructionData(input);
@@ -348,7 +363,7 @@ export async function buildCreateDealTransaction(
     );
   }
 
-  transaction.add(new TransactionInstruction({ keys, programId, data }));
+  transaction.add(new TransactionInstruction({ keys, programId: prog, data }));
 
   return { transaction, blockhash };
 }

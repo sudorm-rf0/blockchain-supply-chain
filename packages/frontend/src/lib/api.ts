@@ -9,7 +9,7 @@ const INDEXER_API_URL =
 
 import { useUserStore } from "@/stores/user-store";
 
-export type UserRole = "USER" | "ADMIN";
+type UserRole = "USER" | "ADMIN";
 
 export interface AuthUser {
   id: string;

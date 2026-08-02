@@ -31,6 +31,72 @@ import {
   isValidTenor,
 } from "./solana/tx-builder";
 
+let _connection: Connection | undefined;
+let _programId: PublicKey | undefined;
+
+function getConnection(): Connection {
+  return (_connection ??= new Connection(TRADE_ENV.rpcUrl, "confirmed"));
+}
+function getProgramId(): PublicKey {
+  return (_programId ??= new PublicKey(TRADE_ENV.programId));
+}
+
+type ParsedTxMessage = {
+  accountKeys?: PublicKey[];
+  staticAccountKeys?: PublicKey[];
+  compiledInstructions: Array<{
+    programIdIndex: number;
+    accountKeyIndexes: number[];
+    data: Uint8Array;
+  }>;
+};
+
+function getAccountKeys(message: ParsedTxMessage): PublicKey[] {
+  return message.accountKeys ?? message.staticAccountKeys ?? [];
+}
+
+function instructionMatchesTransaction(
+  instruction: ParsedTxMessage["compiledInstructions"][0],
+  accountKeys: PublicKey[],
+  expectedData: Buffer,
+  programId: PublicKey,
+  dealPda: PublicKey,
+): boolean {
+  const programMatches = accountKeys[instruction.programIdIndex]?.equals(programId);
+  const dataMatches = Buffer.compare(Buffer.from(instruction.data), expectedData) === 0;
+  const pdaMatches = instruction.accountKeyIndexes.some((i) => accountKeys[i]?.equals(dealPda));
+  return Boolean(programMatches && dataMatches && pdaMatches);
+}
+
+async function verifyOnChainInstruction(
+  txSignature: string,
+  expectedData: Buffer,
+  dealPda: PublicKey,
+): Promise<void> {
+  const connection = getConnection();
+  const progId = getProgramId();
+  let tx;
+  try {
+    tx = await connection.getTransaction(txSignature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    });
+  } catch {
+    throw new BadRequestException("交易签名无效或尚未上链");
+  }
+  if (!tx || tx.meta?.err) {
+    throw new BadRequestException("交易未在链上确认");
+  }
+  const message = tx.transaction.message as ParsedTxMessage;
+  const keys = getAccountKeys(message);
+  const found = message.compiledInstructions.some((ix) =>
+    instructionMatchesTransaction(ix, keys, expectedData, progId, dealPda),
+  );
+  if (!found) {
+    throw new BadRequestException("交易不包含预期的合约指令");
+  }
+}
+
 @Injectable()
 export class TradesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -39,34 +105,25 @@ export class TradesService {
     dto: CreateTradeDto,
     userId: string,
   ): Promise<CreateTradeResponseDto> {
-    const buyer = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!buyer) {
-      throw new ForbiddenException("登录用户不存在");
-    }
+    const buyer = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!buyer) throw new ForbiddenException("登录用户不存在");
     if (buyer.wallet !== dto.buyerWallet) {
-      throw new ForbiddenException(
-        "buyer wallet does not match the signed-in user",
-      );
+      throw new ForbiddenException("buyer wallet does not match the signed-in user");
     }
 
-    const amount = BigInt(dto.amount);
-    const tenorDays = BigInt(dto.tenor);
-    if (amount <= 0n) {
-      throw new BadRequestException("amount must be greater than zero");
-    }
+    const amount = this.parseU64(dto.amount, "amount");
+    const tenorDays = this.parseU64(dto.tenor, "tenor");
+    if (amount <= 0n) throw new BadRequestException("amount must be greater than zero");
     if (!isValidTenor(tenorDays)) {
       throw new BadRequestException("tenor must be 30, 60, 90, or 120 days");
     }
 
-    // Match contract rounding: pool_portion = amount - floor(amount * 30 / 100)
     const downPayment = (amount * DOWN_PAYMENT_BPS) / BPS_BASE;
     const poolPortion = amount - downPayment;
     const tradeId = generateTradeId();
 
-    const buyerPubkey = new PublicKey(dto.buyerWallet);
-    const sellerPubkey = new PublicKey(dto.sellerWallet);
+    const buyerPubkey = this.parsePubkey(dto.buyerWallet, "buyerWallet");
+    const sellerPubkey = this.parsePubkey(dto.sellerWallet, "sellerWallet");
     const usdcMint = new PublicKey(TRADE_ENV.usdcMint);
 
     const { transaction, blockhash } = await buildCreateDealTransaction(
@@ -79,38 +136,32 @@ export class TradesService {
         buyerTokenAccount: deriveAssociatedTokenAccount(buyerPubkey, usdcMint),
         usdcMint,
       },
-      new Connection(TRADE_ENV.rpcUrl, "confirmed"),
+      getConnection(),
     );
-
-    const serialized = transaction
-      .serialize({ requireAllSignatures: false, verifySignatures: false })
-      .toString("base64");
 
     return {
       tradeId: tradeId.toString(10),
-      transaction: serialized,
+      transaction: transaction
+        .serialize({ requireAllSignatures: false, verifySignatures: false })
+        .toString("base64"),
       blockhash,
-      dealPda: deriveDealPda(
-        new PublicKey(TRADE_ENV.programId),
-        buyerPubkey,
-        tradeId,
-      ).toBase58(),
+      dealPda: deriveDealPda(getProgramId(), buyerPubkey, tradeId).toBase58(),
       downPayment: downPayment.toString(10),
       poolPortion: poolPortion.toString(10),
     };
   }
 
   async listMyTrades(userId: string): Promise<TradeItemDto[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user?.wallet) {
-      return [];
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const wallet = user?.wallet;
+    let where: Prisma.TradeDealWhereInput;
+    if (wallet) {
+      where = { OR: [{ buyerWallet: wallet }, { sellerWallet: wallet }] };
+    } else {
+      where = { buyer: { id: userId } };
     }
     const trades = await this.prisma.tradeDeal.findMany({
-      where: {
-        OR: [{ buyerWallet: user.wallet }, { sellerWallet: user.wallet }],
-      },
+      where,
       orderBy: { createdAt: "desc" },
       take: 100,
     });
@@ -130,49 +181,33 @@ export class TradesService {
     }));
   }
 
-  async confirmTrade(
-    tradeId: string,
-    dto: ConfirmTradeDto,
-    userId: string,
-  ) {
+  async confirmTrade(tradeId: string, dto: ConfirmTradeDto, userId: string) {
     let id: bigint;
     try {
       id = BigInt(tradeId);
     } catch {
       throw new BadRequestException("invalid tradeId");
     }
-    if (id < 0n) {
-      throw new BadRequestException("invalid tradeId");
-    }
-    if (!dto.txSignature) {
-      throw new BadRequestException("txSignature is required");
-    }
+    if (id < 0n) throw new BadRequestException("invalid tradeId");
+    if (!dto.txSignature) throw new BadRequestException("txSignature is required");
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      throw new ForbiddenException("登录用户不存在");
-    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ForbiddenException("登录用户不存在");
     if (user.wallet !== dto.buyerWallet) {
-      throw new ForbiddenException(
-        "buyer wallet does not match the signed-in user",
-      );
+      throw new ForbiddenException("buyer wallet does not match the signed-in user");
     }
 
-    const amount = BigInt(dto.amount);
-    const tenorDays = BigInt(dto.tenor);
-    if (amount <= 0n) {
-      throw new BadRequestException("amount must be greater than zero");
-    }
+    const amount = this.parseU64(dto.amount, "amount");
+    const tenorDays = this.parseU64(dto.tenor, "tenor");
+    if (amount <= 0n) throw new BadRequestException("amount must be greater than zero");
     if (!isValidTenor(tenorDays)) {
       throw new BadRequestException("tenor must be 30, 60, 90, or 120 days");
     }
 
-    const buyerPubkey = new PublicKey(dto.buyerWallet);
-    const sellerPubkey = new PublicKey(dto.sellerWallet);
-    const programId = new PublicKey(TRADE_ENV.programId);
-    const dealPda = deriveDealPda(programId, buyerPubkey, id);
+    const buyerPubkey = this.parsePubkey(dto.buyerWallet, "buyerWallet");
+    const sellerPubkey = this.parsePubkey(dto.sellerWallet, "sellerWallet");
+    const progId = getProgramId();
+    const dealPda = deriveDealPda(progId, buyerPubkey, id);
     const expectedData = buildCreateDealInstructionData({
       id,
       seller: sellerPubkey,
@@ -180,7 +215,7 @@ export class TradesService {
       tenorDays,
     });
 
-    const connection = new Connection(TRADE_ENV.rpcUrl, "confirmed");
+    const connection = getConnection();
     let tx;
     try {
       tx = await connection.getTransaction(dto.txSignature, {
@@ -194,30 +229,13 @@ export class TradesService {
       throw new BadRequestException("交易未在链上确认");
     }
 
-    const message = tx.transaction.message as {
-      accountKeys?: PublicKey[];
-      staticAccountKeys?: PublicKey[];
-      compiledInstructions: Array<{
-        programIdIndex: number;
-        accountKeyIndexes: number[];
-        data: Uint8Array;
-      }>;
-    };
-    const accountKeys = message.accountKeys ?? message.staticAccountKeys ?? [];
-    const hasCreateDeal = message.compiledInstructions.some((instruction) => {
-      const programMatches =
-        accountKeys[instruction.programIdIndex]?.equals(programId);
-      const dataMatches =
-        Buffer.compare(Buffer.from(instruction.data), expectedData) === 0;
-      const pdaMatches = instruction.accountKeyIndexes.some(
-        (index) => accountKeys[index]?.equals(dealPda),
-      );
-      return Boolean(programMatches && dataMatches && pdaMatches);
-    });
+    const message = tx.transaction.message as ParsedTxMessage;
+    const keys = getAccountKeys(message);
+    const hasCreateDeal = message.compiledInstructions.some((ix) =>
+      instructionMatchesTransaction(ix, keys, expectedData, progId, dealPda),
+    );
     if (!hasCreateDeal) {
-      throw new BadRequestException(
-        "交易不包含预期的 create_deal 指令",
-      );
+      throw new BadRequestException("交易不包含预期的 create_deal 指令");
     }
 
     const downPayment = (amount * DOWN_PAYMENT_BPS) / BPS_BASE;
@@ -267,11 +285,7 @@ export class TradesService {
     };
   }
 
-  async buildFundTrade(
-    tradeId: string,
-    body: { adminWallet: string },
-    userId: string,
-  ) {
+  async buildFundTrade(tradeId: string, body: { adminWallet: string }, userId: string) {
     const trade = await this.requireAdminAndDeal(tradeId, userId);
     let admin: PublicKey;
     try {
@@ -280,12 +294,8 @@ export class TradesService {
       throw new BadRequestException("invalid admin wallet");
     }
     const { transaction, blockhash } = await buildFundDealTransaction(
-      {
-        tradeId: BigInt(tradeId),
-        buyer: new PublicKey(trade.buyerWallet),
-        admin,
-      },
-      new Connection(TRADE_ENV.rpcUrl, "confirmed"),
+      { tradeId: BigInt(tradeId), buyer: new PublicKey(trade.buyerWallet), admin },
+      getConnection(),
     );
     return {
       tradeId,
@@ -297,18 +307,11 @@ export class TradesService {
     };
   }
 
-  async confirmFundTrade(
-    tradeId: string,
-    body: ConfirmSignatureDto,
-    userId: string,
-  ) {
+  async confirmFundTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
     const trade = await this.requireAdminAndDeal(tradeId, userId);
-    const dealPda = deriveDealPda(
-      new PublicKey(TRADE_ENV.programId),
-      new PublicKey(trade.buyerWallet),
-      BigInt(tradeId),
-    );
-    await this.verifyInstruction(
+    const buyerPubkey = new PublicKey(trade.buyerWallet);
+    const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
+    await verifyOnChainInstruction(
       body.txSignature,
       buildFundDealInstructionData(BigInt(tradeId)),
       dealPda,
@@ -320,11 +323,7 @@ export class TradesService {
     return { ok: true, tradeId, status: updated.status };
   }
 
-  async buildAdvanceTrade(
-    tradeId: string,
-    dto: AdvanceTradeDto,
-    userId: string,
-  ) {
+  async buildAdvanceTrade(tradeId: string, dto: AdvanceTradeDto, userId: string) {
     const trade = await this.requireAdminAndDeal(tradeId, userId);
     const targetStatus = this.parseTargetStatus(dto.targetStatus);
     let admin: PublicKey;
@@ -340,7 +339,7 @@ export class TradesService {
         admin,
         targetStatus,
       },
-      new Connection(TRADE_ENV.rpcUrl, "confirmed"),
+      getConnection(),
     );
     return {
       tradeId,
@@ -358,17 +357,12 @@ export class TradesService {
     dto: AdvanceTradeDto & ConfirmSignatureDto,
     userId: string,
   ) {
-    if (!dto.txSignature) {
-      throw new BadRequestException("txSignature is required");
-    }
+    if (!dto.txSignature) throw new BadRequestException("txSignature is required");
     const trade = await this.requireAdminAndDeal(tradeId, userId);
     const targetStatus = this.parseTargetStatus(dto.targetStatus);
-    const dealPda = deriveDealPda(
-      new PublicKey(TRADE_ENV.programId),
-      new PublicKey(trade.buyerWallet),
-      BigInt(tradeId),
-    );
-    await this.verifyInstruction(
+    const buyerPubkey = new PublicKey(trade.buyerWallet);
+    const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
+    await verifyOnChainInstruction(
       dto.txSignature,
       buildAdvanceDealInstructionData(BigInt(tradeId), targetStatus),
       dealPda,
@@ -389,7 +383,7 @@ export class TradesService {
         buyer: new PublicKey(trade.buyerWallet),
         usdcMint: new PublicKey(TRADE_ENV.usdcMint),
       },
-      new Connection(TRADE_ENV.rpcUrl, "confirmed"),
+      getConnection(),
     );
     return {
       tradeId,
@@ -401,18 +395,11 @@ export class TradesService {
     };
   }
 
-  async confirmRepayTrade(
-    tradeId: string,
-    body: ConfirmSignatureDto,
-    userId: string,
-  ) {
+  async confirmRepayTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
     const trade = await this.requireBuyerDeal(tradeId, userId);
-    const dealPda = deriveDealPda(
-      new PublicKey(TRADE_ENV.programId),
-      new PublicKey(trade.buyerWallet),
-      BigInt(tradeId),
-    );
-    await this.verifyInstruction(
+    const buyerPubkey = new PublicKey(trade.buyerWallet);
+    const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
+    await verifyOnChainInstruction(
       body.txSignature,
       buildRepayDealInstructionData(BigInt(tradeId)),
       dealPda,
@@ -429,26 +416,22 @@ export class TradesService {
     if (!user || user.role !== "ADMIN") {
       throw new ForbiddenException("仅管理员可执行此操作");
     }
+    const dealId = this.parseTradeId(tradeId);
     const trade = await this.prisma.tradeDeal.findUnique({
-      where: { dealId: BigInt(tradeId) },
+      where: { dealId },
     });
-    if (!trade) {
-      throw new NotFoundException("trade not found");
-    }
+    if (!trade) throw new NotFoundException("trade not found");
     return trade;
   }
 
   private async requireBuyerDeal(tradeId: string, userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.wallet) {
-      throw new ForbiddenException("登录用户未绑定钱包");
-    }
+    if (!user?.wallet) throw new ForbiddenException("登录用户未绑定钱包");
+    const dealId = this.parseTradeId(tradeId);
     const trade = await this.prisma.tradeDeal.findUnique({
-      where: { dealId: BigInt(tradeId) },
+      where: { dealId },
     });
-    if (!trade) {
-      throw new NotFoundException("trade not found");
-    }
+    if (!trade) throw new NotFoundException("trade not found");
     if (trade.buyerWallet !== user.wallet) {
       throw new ForbiddenException("仅订单买方可执行还款");
     }
@@ -458,54 +441,40 @@ export class TradesService {
   private parseTargetStatus(value: string): number {
     const status = Number(value);
     if (!Number.isInteger(status) || !(status in TARGET_STATUS_BY_CODE)) {
-      throw new BadRequestException(
-        "targetStatus must be 2, 3, 4, or 5",
-      );
+      throw new BadRequestException("targetStatus must be 2, 3, 4, or 5");
     }
     return status;
   }
 
-  private async verifyInstruction(
-    txSignature: string,
-    expectedData: Buffer,
-    dealPda: PublicKey,
-  ): Promise<void> {
-    const connection = new Connection(TRADE_ENV.rpcUrl, "confirmed");
-    let tx;
+  private parsePubkey(value: string, field: string): PublicKey {
     try {
-      tx = await connection.getTransaction(txSignature, {
-        commitment: "confirmed",
-        maxSupportedTransactionVersion: 0,
-      });
+      return new PublicKey(value);
     } catch {
-      throw new BadRequestException("交易签名无效或尚未上链");
+      throw new BadRequestException(`invalid ${field}`);
     }
-    if (!tx || tx.meta?.err) {
-      throw new BadRequestException("交易未在链上确认");
+  }
+
+  private parseU64(value: string, field: string): bigint {
+    try {
+      const parsed = BigInt(value);
+      if (parsed < 0n) {
+        throw new Error("negative");
+      }
+      return parsed;
+    } catch {
+      throw new BadRequestException(`invalid ${field}`);
     }
-    const message = tx.transaction.message as {
-      accountKeys?: PublicKey[];
-      staticAccountKeys?: PublicKey[];
-      compiledInstructions: Array<{
-        programIdIndex: number;
-        accountKeyIndexes: number[];
-        data: Uint8Array;
-      }>;
-    };
-    const accountKeys = message.accountKeys ?? message.staticAccountKeys ?? [];
-    const programId = new PublicKey(TRADE_ENV.programId);
-    const hasInstruction = message.compiledInstructions.some((instruction) => {
-      const programMatches =
-        accountKeys[instruction.programIdIndex]?.equals(programId);
-      const dataMatches =
-        Buffer.compare(Buffer.from(instruction.data), expectedData) === 0;
-      const pdaMatches = instruction.accountKeyIndexes.some(
-        (index) => accountKeys[index]?.equals(dealPda),
-      );
-      return Boolean(programMatches && dataMatches && pdaMatches);
-    });
-    if (!hasInstruction) {
-      throw new BadRequestException("交易不包含预期的合约指令");
+  }
+
+  private parseTradeId(value: string): bigint {
+    try {
+      const id = BigInt(value);
+      if (id < 0n) {
+        throw new Error("negative");
+      }
+      return id;
+    } catch {
+      throw new BadRequestException("invalid tradeId");
     }
   }
 

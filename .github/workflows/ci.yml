@@ -93,8 +93,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Install Anchor CLI
-        run: |
-          cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/anchor
+          key: anchor-0.30.1-${{ runner.os }}
+        # fallback: install if cache miss
+      - name: Build Anchor (cache miss)
+        run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+        if: steps.cache-anchor.outputs.cache-hit != 'true'
 
       - name: Anchor Build
         working-directory: packages/contracts

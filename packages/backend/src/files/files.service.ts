@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -36,6 +37,12 @@ const MAGIC_BYTES: Record<string, number[]> = {
   docx: [0x50, 0x4b, 0x03, 0x04],         // PK..
   doc: [0xd0, 0xcf, 0x11, 0xe0],          // OLE2
 };
+
+const VALID_STATUS_FILTERS = new Set([
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+]);
 
 function detectTypeByMagic(buf: Buffer): string | null {
   for (const [type, magic] of Object.entries(MAGIC_BYTES)) {
@@ -104,7 +111,12 @@ export class FilesService {
     userId?: string;
   }) {
     const where: Prisma.FileWhereInput = {};
-    if (params.status) where.status = params.status;
+    if (params.status) {
+      if (!VALID_STATUS_FILTERS.has(params.status)) {
+        throw new BadRequestException("invalid status filter");
+      }
+      where.status = params.status;
+    }
     if (params.userId) where.uploaderId = params.userId;
 
     const [items, total] = await Promise.all([

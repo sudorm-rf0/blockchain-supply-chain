@@ -61,15 +61,23 @@ export class AuthService {
     }
     const salt = randomBytes(16).toString("hex");
     const passwordHash = (await hashPassword(body.password, salt)).toString("hex");
-    const user = await this.prisma.user.create({
-      data: {
-        wallet,
-        email: body.email,
-        name: body.name,
-        passwordHash: `${salt}:${passwordHash}`,
-        role: "USER",
-      },
-    });
+    let user;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          wallet,
+          email: body.email,
+          name: body.name,
+          passwordHash: `${salt}:${passwordHash}`,
+          role: "USER",
+        },
+      });
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        throw new ConflictException("该钱包地址或邮箱已被其他用户绑定");
+      }
+      throw error;
+    }
     const token = signJwt({
       sub: user.id,
       email: user.email ?? "",

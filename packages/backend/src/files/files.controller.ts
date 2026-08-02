@@ -105,7 +105,7 @@ export class FilesController {
         {
           headers: {
             "Content-Type": file.mimeType,
-            "Content-Disposition": `inline; filename="download"; filename*=UTF-8''${encodedName}`,
+            "Content-Disposition": `inline; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,
           },
         },
         (error) => (error ? reject(error) : resolve()),
