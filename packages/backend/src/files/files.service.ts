@@ -176,6 +176,9 @@ export class FilesService {
     mimeType: string;
     path: string;
     hash: string;
+    txSignature: string | null;
+    documentPda: string | null;
+    attestedAt: Date | null;
     status: string;
     tradeId: string | null;
     description: string | null;
@@ -190,6 +193,9 @@ export class FilesService {
       mimeType: file.mimeType,
       path: file.path,
       hash: file.hash,
+      txSignature: file.txSignature,
+      documentPda: file.documentPda,
+      attestedAt: file.attestedAt?.toISOString() ?? null,
       status: file.status,
       tradeId: file.tradeId,
       description: file.description,

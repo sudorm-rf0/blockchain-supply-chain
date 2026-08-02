@@ -73,4 +73,12 @@ pub enum TradeFinanceError {
     /// 订单尚未进入还款期：只有 Repaying 状态可以完成结清。
     #[msg("Deal must be Repaying before settlement")]
     DealNotRepaying,
+
+    /// 单据 URI 超长：链上存证 URI 不能为空且不能超过 256 字节。
+    #[msg("Document URI must not be empty or exceed 256 bytes")]
+    InvalidDocumentUri,
+
+    /// 单据与订单不匹配：上传者不是 TradeDeal 的买方或卖方。
+    #[msg("Document owner is not a party of the trade")]
+    InvalidDocumentOwner,
 }

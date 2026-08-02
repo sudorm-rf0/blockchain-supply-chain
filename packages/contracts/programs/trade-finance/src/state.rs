@@ -2,6 +2,9 @@ use anchor_lang::prelude::*;
 
 use crate::error::TradeFinanceError;
 
+/// 链上单据 URI 最大长度（字节）。
+pub const MAX_DOCUMENT_URI_LEN: usize = 256;
+
 /// TradeDeal.status 常量映射。
 pub mod deal_status {
     pub const PENDING: u8 = 0;
@@ -126,5 +129,35 @@ impl PoolState {
             .checked_add(outstanding_trade_nav)
             .ok_or(TradeFinanceError::MathOverflow)?;
         Ok(total_value / lp_token_supply)
+    }
+}
+
+/// 链上单据存证记录：SHA-256 哈希写入 PDA，URI 指向链下文件。
+#[account]
+pub struct DocumentRecord {
+    /// 关联贸易订单 ID；0 表示未关联订单。
+    pub trade_id: u64,
+    /// 上传者钱包。
+    pub owner: Pubkey,
+    /// 文件 SHA-256 哈希（32 字节）。
+    pub file_hash: [u8; 32],
+    /// 链下文件 URI（如 /uploads/xxx.pdf）。
+    pub uri: String,
+    /// 存证时间戳。
+    pub uploaded_at: i64,
+}
+
+impl DocumentRecord {
+    pub const DISCRIMINATOR_SIZE: usize = 8;
+
+    /// 账户空间 = 8 字节 Anchor 前缀 + 固定字段 + String 长度前缀 + 最大 URI 长度。
+    pub fn space() -> usize {
+        Self::DISCRIMINATOR_SIZE
+            + 8  // trade_id
+            + 32 // owner
+            + 32 // file_hash
+            + 4  // String 长度前缀
+            + MAX_DOCUMENT_URI_LEN
+            + 8  // uploaded_at
     }
 }

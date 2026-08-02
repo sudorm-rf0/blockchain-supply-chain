@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::error::TradeFinanceError;
-use crate::state::{deal_status, PoolState, TradeDeal};
+use crate::state::{deal_status, DocumentRecord, MAX_DOCUMENT_URI_LEN, PoolState, TradeDeal};
 
 declare_id!("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
 
@@ -75,6 +75,15 @@ pub struct ReleasedEvent {
     pub amount: u64,
 }
 
+#[event]
+pub struct DocumentAttestedEvent {
+    pub trade_id: u64,
+    pub owner: Pubkey,
+    pub file_hash: [u8; 32],
+    pub uri: String,
+    pub uploaded_at: i64,
+}
+
 /// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
 fn validate_advance(from: u8, to: u8) -> Result<()> {
     match (from, to) {
@@ -122,6 +131,55 @@ pub mod trade_finance {
             platform_wallet: pool.platform_wallet,
             nav: pool.nav,
         })
+    }
+
+    /// 单据存证：把文件 SHA-256 哈希写入独立 PDA，供审计与溯源。
+    pub fn attest_document(
+        ctx: Context<AttestDocument>,
+        trade_id: u64,
+        file_hash: [u8; 32],
+        uri: String,
+    ) -> Result<()> {
+        require!(
+            !uri.is_empty() && uri.len() <= MAX_DOCUMENT_URI_LEN,
+            TradeFinanceError::InvalidDocumentUri
+        );
+
+        if let Some(deal) = &ctx.accounts.deal {
+            require!(
+                deal.id == trade_id,
+                TradeFinanceError::TradeNotFound
+            );
+            require!(
+                ctx.accounts.owner.key() == deal.buyer
+                    || ctx.accounts.owner.key() == deal.seller,
+                TradeFinanceError::InvalidDocumentOwner
+            );
+        }
+
+        let clock = Clock::get()?;
+        let document = &mut ctx.accounts.document;
+        document.trade_id = trade_id;
+        document.owner = ctx.accounts.owner.key();
+        document.file_hash = file_hash;
+        document.uri = uri.clone();
+        document.uploaded_at = clock.unix_timestamp;
+
+        emit!(DocumentAttestedEvent {
+            trade_id,
+            owner: document.owner,
+            file_hash,
+            uri: document.uri.clone(),
+            uploaded_at: document.uploaded_at,
+        });
+
+        msg!(
+            "document attested: trade_id={}, owner={}, uri={}",
+            trade_id,
+            document.owner,
+            document.uri
+        );
+        Ok(())
     }
 
     /// 创建贸易订单：校验账期与 1% 集中度，模拟锁定 30% 首付。
@@ -635,6 +693,32 @@ pub struct InitializePool<'info> {
 pub struct GetPoolInfo<'info> {
     #[account(seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
+}
+
+#[derive(Accounts)]
+#[instruction(trade_id: u64, file_hash: [u8; 32], uri: String)]
+pub struct AttestDocument<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(
+        init,
+        payer = owner,
+        space = DocumentRecord::space(),
+        seeds = [
+            b"trade_finance",
+            b"document" as &[u8],
+            trade_id.to_le_bytes().as_ref(),
+            file_hash.as_ref()
+        ],
+        bump
+    )]
+    pub document: Account<'info, DocumentRecord>,
+
+    /// CHECK: 可选订单账户，用于校验单据归属（0 或未提供 trade_id 时可跳过）。
+    pub deal: Option<Account<'info, TradeDeal>>,
+
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]

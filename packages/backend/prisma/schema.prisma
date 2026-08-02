@@ -109,6 +109,9 @@ model File {
   mimeType    String
   path        String
   hash        String
+  txSignature String?
+  documentPda String?
+  attestedAt  DateTime?
   status      FileStatus @default(PENDING)
   tradeId     String?
   description String?

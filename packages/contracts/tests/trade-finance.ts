@@ -98,6 +98,18 @@ describe("trade-finance full lifecycle", () => {
     )[0];
   }
 
+  function documentPda(tradeId: anchor.BN, fileHash: Buffer): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("trade_finance"),
+        Buffer.from("document"),
+        tradeId.toArrayLike(Buffer, "le", 8),
+        fileHash,
+      ],
+      program.programId,
+    )[0];
+  }
+
   before(async () => {
     payer = anchor.web3.Keypair.generate();
     admin = anchor.web3.Keypair.generate();
@@ -231,6 +243,56 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(escrowAfterCreate.amount, BigInt(USDC(300)));
     console.log("Deal PDA:", deal.toBase58());
     console.log("Deal status:", dealState.status);
+  });
+
+  it("Attests trade documents on chain", async () => {
+    const tradeId = new anchor.BN(1);
+    const fileHash = Buffer.from(
+      anchor.web3.Keypair.generate().publicKey.toBytes(),
+    );
+    const uri = "ipfs://bafybeig7/export-invoice-trade-1.pdf";
+    const doc = documentPda(tradeId, fileHash);
+
+    await program.methods
+      .attestDocument(tradeId, fileHash, uri)
+      .accounts({
+        owner: buyer.publicKey,
+        document: doc,
+        deal: dealPda(buyer.publicKey, tradeId),
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([buyer])
+      .rpc();
+
+    const record = await program.account.documentRecord.fetch(doc);
+    assert.equal(record.tradeId.toString(), tradeId.toString());
+    assert.equal(record.owner.toBase58(), buyer.publicKey.toBase58());
+    assert.deepEqual([...record.fileHash], [...fileHash]);
+    assert.equal(record.uri, uri);
+    assert.ok(record.uploadedAt.gt(new anchor.BN(0)));
+
+    const standaloneHash = Buffer.from(
+      anchor.web3.Keypair.generate().publicKey.toBytes(),
+    );
+    const standaloneUri = "ipfs://bafybeig7/standalone-bill-of-lading.pdf";
+    const standaloneDoc = documentPda(new anchor.BN(0), standaloneHash);
+    await program.methods
+      .attestDocument(new anchor.BN(0), standaloneHash, standaloneUri)
+      .accounts({
+        owner: buyer.publicKey,
+        document: standaloneDoc,
+        deal: null,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([buyer])
+      .rpc();
+    const standalone = await program.account.documentRecord.fetch(standaloneDoc);
+    assert.equal(standalone.tradeId.toString(), "0");
+    assert.equal(standalone.uri, standaloneUri);
+    console.log("Document PDA:", doc.toBase58());
+    console.log("Document URI:", record.uri);
+    console.log("Document uploadedAt:", record.uploadedAt.toString());
+    console.log("Standalone document PDA:", standaloneDoc.toBase58());
   });
 
   it("Funds a deal", async () => {

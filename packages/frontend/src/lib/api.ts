@@ -25,6 +25,9 @@ export interface FileRecord {
   mimeType: string;
   path: string;
   hash: string;
+  txSignature?: string | null;
+  documentPda?: string | null;
+  attestedAt?: string | null;
   status: FileStatus;
   tradeId?: string | null;
   description?: string | null;
@@ -140,6 +143,40 @@ export async function reviewFile(
 ): Promise<FileRecord> {
   return request(`${BACKEND_URL}/api/files/${id}`, {
     method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export interface AttestDocumentResponse {
+  transaction: string;
+  blockhash: string;
+  documentPda: string;
+  message: string;
+}
+
+export async function buildDocumentAttest(
+  fileId: string,
+  body: { walletAddress: string; tradeId?: string },
+): Promise<AttestDocumentResponse> {
+  return request(`${BACKEND_URL}/api/files/${fileId}/attest`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function confirmDocumentAttest(
+  fileId: string,
+  body: { txSignature: string; documentPda: string },
+): Promise<{
+  ok: boolean;
+  txSignature: string | null;
+  documentPda: string | null;
+  attestedAt: string | null;
+}> {
+  return request(`${BACKEND_URL}/api/files/${fileId}/attest/confirm`, {
+    method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
