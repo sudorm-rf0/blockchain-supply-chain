@@ -1,12 +1,11 @@
 import {
   createHmac,
-  randomBytes,
   timingSafeEqual,
 } from "node:crypto";
 
 const ALGORITHM = "sha256";
 const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-const DEV_SECRET = randomBytes(32).toString("hex");
+const DEV_SECRET = "supply-chain-dev-secret-change-in-production";
 
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
