@@ -97,12 +97,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/anchor
-          key: anchor-0.30.1-${{ runner.os }}
+          key: anchor-0.31.1-${{ runner.os }}
       - name: Install Rust 1.79 (anchor-cli toolchain)
         if: steps.cache-anchor.outputs.cache-hit != 'true'
         run: rustup toolchain install 1.79.0 --profile minimal --no-self-update
       - name: Build Anchor (cache miss)
-        run: cargo +1.79.0 install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+        run: cargo +1.79.0 install --git https://github.com/coral-xyz/anchor --tag v0.31.1 anchor-cli --locked
         if: steps.cache-anchor.outputs.cache-hit != 'true'
 
       - name: Cache Solana CLI
@@ -129,15 +129,9 @@ jobs:
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
-      - name: Install Rust 1.86 (IDL build toolchain)
-        run: |
-          rustup toolchain install 1.86.0 --profile minimal --no-self-update
-          rustup default 1.86.0
-      - name: Install standalone cargo-build-sbf
-        run: cargo install cargo-build-sbf --locked
       - name: Anchor Build
         working-directory: packages/contracts
-        run: RUSTC_BOOTSTRAP=1 anchor build
+        run: anchor build
 
       - name: Test Typecheck
         working-directory: packages/contracts
@@ -195,12 +189,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/anchor
-          key: anchor-0.30.1-e2e-${{ runner.os }}
+          key: anchor-0.31.1-e2e-${{ runner.os }}
       - name: Install Rust 1.79 (anchor-cli toolchain)
         if: steps.cache-anchor.outputs.cache-hit != 'true'
         run: rustup toolchain install 1.79.0 --profile minimal --no-self-update
       - name: Build Anchor (cache miss)
-        run: cargo +1.79.0 install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+        run: cargo +1.79.0 install --git https://github.com/coral-xyz/anchor --tag v0.31.1 anchor-cli --locked
         if: steps.cache-anchor.outputs.cache-hit != 'true'
 
       - name: Cache Solana CLI
@@ -227,12 +221,6 @@ jobs:
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
-      - name: Install Rust 1.86 (IDL build toolchain)
-        run: |
-          rustup toolchain install 1.86.0 --profile minimal --no-self-update
-          rustup default 1.86.0
-      - name: Install standalone cargo-build-sbf
-        run: cargo install cargo-build-sbf --locked
       - name: Run End-to-End Smoke
         run: bash scripts/ci-e2e.sh
 

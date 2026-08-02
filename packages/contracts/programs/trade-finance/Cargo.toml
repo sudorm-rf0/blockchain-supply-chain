@@ -2,19 +2,19 @@
 name = "trade-finance"
 version = "0.1.0"
 edition = "2021"
-description = "Trade finance pool program built with Anchor 0.30.1"
+description = "Trade finance pool program built with Anchor 0.31.1"
 
 [lib]
 name = "trade_finance"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-anchor-lang = "=0.30.1"
-anchor-spl = "=0.30.1"
+anchor-lang = "=0.31.1"
+anchor-spl = "=0.31.1"
 
 [features]
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dev-dependencies]
-solana-program-test = "1.18.26"
-solana-sdk = "1.18.26"
+solana-program-test = "2.0.0"
+solana-sdk = "2.0.0"
