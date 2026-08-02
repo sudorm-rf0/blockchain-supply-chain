@@ -27,16 +27,26 @@ function makePrisma() {
   };
 }
 
+function makeRedis() {
+  return {
+    get: jest.fn(async () => null),
+    setEx: jest.fn(async () => undefined),
+    incr: jest.fn(async () => 1),
+    expire: jest.fn(async () => undefined),
+    del: jest.fn(async () => undefined),
+  };
+}
+
 describe("AuthService", () => {
   it("rejects short passwords", async () => {
-    const service = new AuthService(makePrisma() as never);
+    const service = new AuthService(makePrisma() as never, makeRedis() as never);
     await expect(
       service.register({ name: "A", email: "a@example.com", password: "123" }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it("rejects invalid Solana wallets", async () => {
-    const service = new AuthService(makePrisma() as never);
+    const service = new AuthService(makePrisma() as never, makeRedis() as never);
     await expect(
       service.register({
         name: "A",
@@ -49,7 +59,7 @@ describe("AuthService", () => {
 
   it("rejects duplicate emails", async () => {
     const prisma = makePrisma();
-    const service = new AuthService(prisma as never);
+    const service = new AuthService(prisma as never, makeRedis() as never);
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
       name: "A",
@@ -69,7 +79,7 @@ describe("AuthService", () => {
 
   it("logs in with a matching password and rejects a wrong one", async () => {
     const prisma = makePrisma();
-    const service = new AuthService(prisma as never);
+    const service = new AuthService(prisma as never, makeRedis() as never);
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
       name: "A",

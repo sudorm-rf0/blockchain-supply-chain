@@ -4,9 +4,11 @@ import compression from "compression";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
+import { initSentry } from "./observability/sentry";
 import { INDEXER_ENV } from "./config/env";
 
 async function bootstrap(): Promise<void> {
+  initSentry("indexer-service");
   const app = await NestFactory.create(AppModule);
   app.use(compression());
   app.use(helmet());
@@ -20,7 +22,8 @@ async function bootstrap(): Promise<void> {
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   });
-  await app.listen(INDEXER_ENV.port);
+
+    await app.listen(INDEXER_ENV.port);
   Logger.log(`indexer-service listening on ${INDEXER_ENV.port}`, "Bootstrap");
 }
 

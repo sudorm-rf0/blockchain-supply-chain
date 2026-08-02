@@ -149,6 +149,11 @@ export class PoolService {
     if (amountValue.lte(0)) {
       throw new BadRequestException("withdrawal amount must be positive");
     }
+    if (amountValue.gt(POOL_ENV.maxWithdrawUsdc)) {
+      throw new BadRequestException(
+        `withdrawal amount exceeds the per-request limit of ${POOL_ENV.maxWithdrawUsdc} USDC`,
+      );
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

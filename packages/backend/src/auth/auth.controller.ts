@@ -23,7 +23,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post("register")
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   register(
     @Body() body: RegisterDto,
   ) {
@@ -32,7 +32,7 @@ export class AuthController {
 
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   login(@Body() body: LoginDto) {
     return this.authService.login(body);
   }

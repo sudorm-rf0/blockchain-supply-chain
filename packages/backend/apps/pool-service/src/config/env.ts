@@ -24,4 +24,5 @@ export const POOL_ENV = {
     "LP_MINT",
     "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   ),
+  maxWithdrawUsdc: envNumber("MAX_WITHDRAW_USDC", 1_000_000),
 } as const;

@@ -14,7 +14,14 @@ export class RequestIdMiddleware implements NestMiddleware {
     const start = performance.now();
     res.on("finish", () => {
       this.logger.log(
-        `${req.method} ${req.originalUrl} ${res.statusCode} ${(performance.now() - start).toFixed(1)}ms id=${requestId}`,
+        JSON.stringify({
+          level: "info",
+          method: req.method,
+          path: req.originalUrl,
+          status: res.statusCode,
+          durationMs: Number((performance.now() - start).toFixed(1)),
+          requestId,
+        }),
       );
     });
     next();

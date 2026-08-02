@@ -41,6 +41,20 @@ function makeAudit() {
   };
 }
 
+function makeRedisFiles() {
+  return {
+    get: jest.fn(async () => null),
+    setEx: jest.fn(async () => undefined),
+    incr: jest.fn(async () => 1),
+    expire: jest.fn(async () => undefined),
+    del: jest.fn(async () => undefined),
+  };
+}
+
+function makeScan() {
+  return { scan: jest.fn(async () => ({ clean: true })) };
+}
+
 describe("FilesService", () => {
   const dir = mkdtempSync(join(tmpdir(), "files-spec-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -50,6 +64,8 @@ describe("FilesService", () => {
       makePrisma() as never,
       makeStorage() as never,
       makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
     );
     const path = join(dir, "fake.png");
     writeFileSync(path, "this is not an image");
@@ -70,6 +86,8 @@ describe("FilesService", () => {
       prisma as never,
       makeStorage() as never,
       makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
     );
     const path = join(dir, "ok.png");
     writeFileSync(path, PNG_BYTES);

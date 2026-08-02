@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -8,6 +10,7 @@ import { PublicKey } from "@solana/web3.js";
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
+import { RedisService } from "../redis/redis.service";
 import { signJwt } from "./jwt";
 
 const scryptAsync = promisify(scrypt) as (
@@ -22,7 +25,10 @@ async function hashPassword(password: string, salt: string): Promise<Buffer> {
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   async register(body: {
     name: string;
@@ -88,6 +94,18 @@ export class AuthService {
   }
 
   async login(body: { email: string; password: string }) {
+    const failKey = `login:fail:${body.email}`;
+    const fails = await this.redis.incr(failKey);
+    if (fails === 1) {
+      await this.redis.expire(failKey, 15 * 60);
+    }
+    if (fails >= 5) {
+      throw new HttpException(
+        "尝试次数过多，请 15 分钟后再试",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { email: body.email },
     });
@@ -100,6 +118,7 @@ export class AuthService {
     if (hash.length !== stored.length || !timingSafeEqual(hash, stored)) {
       throw new UnauthorizedException("邮箱或密码错误");
     }
+    await this.redis.del(failKey);
     const token = signJwt({
       sub: user.id,
       email: user.email ?? "",

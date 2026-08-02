@@ -5,9 +5,11 @@ import compression from "compression";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
+import { initSentry } from "./observability/sentry";
 import { TRADE_ENV } from "./config/env";
 
 async function bootstrap(): Promise<void> {
+  initSentry("trade-service");
   const app = await NestFactory.create(AppModule);
   app.use(compression());
   app.use(helmet());
@@ -31,7 +33,8 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);
 
-  await app.listen(TRADE_ENV.port);
+
+    await app.listen(TRADE_ENV.port);
   Logger.log(`trade-service listening on ${TRADE_ENV.port}`, "Bootstrap");
 }
 

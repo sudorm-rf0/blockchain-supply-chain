@@ -14,6 +14,8 @@ import { pipeline } from "node:stream/promises";
 import { PrismaService } from "../prisma/prisma.service";
 import type { StorageService } from "../storage/storage.service";
 import { AuditService } from "../audit/audit.service";
+import { RedisService } from "../redis/redis.service";
+import { ScanService } from "../security/scan.service";
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
   pdf: "application/pdf",
@@ -60,6 +62,8 @@ export class FilesService {
     private readonly prisma: PrismaService,
     @Inject("STORAGE_SERVICE") private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly redis: RedisService,
+    private readonly scan: ScanService,
   ) {}
 
   async upload(
@@ -98,6 +102,12 @@ export class FilesService {
       throw new BadRequestException("文件读取失败");
     }
     const fileHash = hash.digest("hex");
+    const scanResult = await this.scan.scan(file.path);
+    if (!scanResult.clean) {
+      this.removeUploadedFile(file.path);
+      throw new ForbiddenException("文件未通过安全扫描");
+    }
+
     let persisted;
     try {
       persisted = await this.storage.persist(file.path, file.originalname);
@@ -107,7 +117,7 @@ export class FilesService {
     }
 
     try {
-      return await this.prisma.file.create({
+      const created = await this.prisma.file.create({
         data: {
           filename: file.originalname,
           size: persisted.size,
@@ -120,6 +130,8 @@ export class FilesService {
         },
         include: { uploader: true },
       });
+      await this.redis.incr("files:list:version").catch(() => undefined);
+      return created;
     } catch (error) {
       await this.storage.remove(persisted.storageKey).catch(() => undefined);
       throw error;
@@ -132,6 +144,17 @@ export class FilesService {
     status?: FileStatus;
     userId?: string;
   }) {
+    const version = (await this.redis.get("files:list:version")) ?? "0";
+    const cacheKey = `files:list:v${version}:${params.page}:${params.limit}:${params.status ?? "all"}:${params.userId ?? "admin"}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as {
+        items: ReturnType<FilesService["publicFile"]>[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+    }
     const where: Prisma.FileWhereInput = {};
     if (params.status) {
       if (!VALID_STATUS_FILTERS.has(params.status)) {
@@ -151,12 +174,16 @@ export class FilesService {
       }),
       this.prisma.file.count({ where }),
     ]);
-    return {
+    const result = {
       items: items.map((file) => this.publicFile(file)),
       total,
       page: params.page,
       limit: params.limit,
     };
+    await this.redis
+      .setEx(cacheKey, 15, JSON.stringify(result))
+      .catch(() => undefined);
+    return result;
   }
 
   async getOne(id: string, userId: string, role: string) {
@@ -215,6 +242,7 @@ export class FilesService {
         metadata: { from: file.status, remark: body.remark ?? null },
       });
     }
+    await this.redis.incr("files:list:version").catch(() => undefined);
     return this.publicFile(updated);
   }
 
@@ -235,6 +263,7 @@ export class FilesService {
       targetId: id,
       action: "FILE_DELETED",
     });
+    await this.redis.incr("files:list:version").catch(() => undefined);
     return { ok: true };
   }
 

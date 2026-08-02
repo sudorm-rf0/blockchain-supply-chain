@@ -11,6 +11,7 @@ import { MetricsMiddleware } from "./observability/metrics.middleware";
 import { MetricsService } from "./observability/metrics.service";
 import { RequestIdMiddleware } from "./observability/request-id.middleware";
 import { PrismaService } from "./prisma/prisma.service";
+import { RedisService } from "./redis/redis.service";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PrismaService } from "./prisma/prisma.service";
   controllers: [AppController, MetricsController, AdminStatsController],
   providers: [
     PrismaService,
+    RedisService,
     MetricsService,
     {
       provide: APP_GUARD,

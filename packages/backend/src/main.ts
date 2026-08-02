@@ -6,8 +6,10 @@ import compression from "compression";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/all-exceptions.filter";
+import { initSentry } from "./observability/sentry";
 
 async function bootstrap() {
+  initSentry("backend");
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.use(compression());
   app.use(helmet());

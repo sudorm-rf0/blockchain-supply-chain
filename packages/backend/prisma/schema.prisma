@@ -20,14 +20,14 @@ enum DealStatus {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  wallet    String   @unique
-  email     String?  @unique
+  id           String   @id @default(cuid())
+  wallet       String   @unique
+  email        String?  @unique
   passwordHash String?
-  name      String?
-  role      String   @default("USER")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  name         String?
+  role         String   @default("USER")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   buyerDeals  TradeDeal[] @relation("Buyer")
   sellerDeals TradeDeal[] @relation("Seller")
@@ -35,24 +35,24 @@ model User {
 }
 
 model TradeDeal {
-  id            String     @id
-  dealId        BigInt     @unique
-  buyerId       String?
-  sellerId      String?
-  buyerWallet   String
-  sellerWallet  String
-  amount        BigInt
-  downPayment   BigInt
-  poolPortion   BigInt
-  tenor         BigInt
-  status        DealStatus @default(PENDING)
-  createdAt     DateTime
-  repaidAt      DateTime?
-  txSignature   String?
-  logisticsHash String?
+  id                   String     @id
+  dealId               BigInt     @unique
+  buyerId              String?
+  sellerId             String?
+  buyerWallet          String
+  sellerWallet         String
+  amount               BigInt
+  downPayment          BigInt
+  poolPortion          BigInt
+  tenor                BigInt
+  status               DealStatus @default(PENDING)
+  createdAt            DateTime
+  repaidAt             DateTime?
+  txSignature          String?
+  logisticsHash        String?
   defaultWebhookSentAt DateTime?
-  rawData       Json?
-  updatedAt     DateTime   @updatedAt
+  rawData              Json?
+  updatedAt            DateTime   @updatedAt
 
   buyer  User? @relation("Buyer", fields: [buyerId], references: [id])
   seller User? @relation("Seller", fields: [sellerId], references: [id])
@@ -61,19 +61,20 @@ model TradeDeal {
   @@index([buyerId])
   @@index([sellerId])
   @@index([buyerWallet])
+  @@index([createdAt])
 }
 
 model PoolSnapshot {
-  id                    String   @id @default(cuid())
-  poolAddress           String
-  nav                   BigInt
-  utilization           BigInt
-  totalAssets           BigInt
-  activeCapital         BigInt
-  reserveFund           BigInt
-  insuranceFund         BigInt
-  pendingDividends     BigInt
-  capturedAt            DateTime
+  id               String   @id @default(cuid())
+  poolAddress      String
+  nav              BigInt
+  utilization      BigInt
+  totalAssets      BigInt
+  activeCapital    BigInt
+  reserveFund      BigInt
+  insuranceFund    BigInt
+  pendingDividends BigInt
+  capturedAt       DateTime
 
   @@unique([poolAddress, capturedAt])
   @@index([poolAddress, capturedAt])
@@ -94,6 +95,7 @@ model WithdrawRequest {
   status      WithdrawStatus @default(PENDING)
 
   @@index([lpAddress, status])
+  @@index([requestedAt])
   @@map("withdraw_requests")
 }
 
@@ -123,6 +125,8 @@ model File {
   updatedAt   DateTime   @updatedAt
 
   @@index([status])
+  @@index([createdAt])
+  @@index([tradeId])
   @@map("files")
 }
 
@@ -138,5 +142,6 @@ model AuditLog {
 
   @@index([action])
   @@index([targetType, targetId])
+  @@index([createdAt])
   @@map("audit_logs")
 }
