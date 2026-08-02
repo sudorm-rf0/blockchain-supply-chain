@@ -102,6 +102,18 @@ jobs:
         run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
         if: steps.cache-anchor.outputs.cache-hit != 'true'
 
+      - name: Cache Solana CLI
+        id: cache-solana
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/solana
+          key: solana-1.17.3-${{ runner.os }}
+      - name: Install Solana CLI (cache miss)
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: |
+          curl -sSfL https://release.solana.com/v1.17.3/install | sh
+          echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
+
       - name: Anchor Build
         working-directory: packages/contracts
         run: anchor build
@@ -109,6 +121,78 @@ jobs:
       - name: Test Typecheck
         working-directory: packages/contracts
         run: pnpm run test:typecheck
+
+      - name: Anchor Tests
+        working-directory: packages/contracts
+        run: pnpm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: supply_chain
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=5&schema=public
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prisma Generate
+        working-directory: packages/backend
+        run: pnpm exec prisma generate
+
+      - name: Cache Anchor CLI
+        id: cache-anchor
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/anchor
+          key: anchor-0.30.1-e2e-${{ runner.os }}
+      - name: Build Anchor (cache miss)
+        run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.30.1 anchor-cli --locked
+        if: steps.cache-anchor.outputs.cache-hit != 'true'
+
+      - name: Cache Solana CLI
+        id: cache-solana
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/solana
+          key: solana-1.17.3-e2e-${{ runner.os }}
+      - name: Install Solana CLI (cache miss)
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: |
+          curl -sSfL https://release.solana.com/v1.17.3/install | sh
+          echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Run End-to-End Smoke
+        run: bash scripts/ci-e2e.sh
 
   docker:
     runs-on: ubuntu-latest
