@@ -35,7 +35,9 @@ anchor build --no-idl >/dev/null || {
   CARGO_NET_OFFLINE=true anchor build --no-idl >/dev/null
 }
 echo "PHASE anchor-deploy" >&2
-anchor deploy --provider.cluster localnet --program-name trade_finance >/dev/null
+solana program deploy "$ROOT/packages/contracts/target/deploy/trade_finance.so" \
+  --program-id "$ROOT/packages/contracts/target/deploy/trade_finance-keypair.json" \
+  --url http://127.0.0.1:8899 >/dev/null
 
 cd "$ROOT"
 echo "PHASE init-localnet" >&2

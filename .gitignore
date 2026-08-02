@@ -12,6 +12,9 @@ coverage/
 .claude/
 
 packages/contracts/target/
+!packages/contracts/target/deploy/
+packages/contracts/target/deploy/*
+!packages/contracts/target/deploy/*-keypair.json
 packages/contracts/.anchor/
 packages/backend/dist/
 packages/backend/uploads/
