@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
 } from "@nestjs/common";
 import { PoolService } from "./pool.service";
@@ -30,7 +31,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
 
 function makeRedis() {
   return {
-    get: jest.fn(async () => null),
+    get: jest.fn(),
     setWithExpiry: jest.fn(async () => undefined),
     setNX: jest.fn(async () => true),
     del: jest.fn(async () => undefined),
@@ -107,6 +108,87 @@ describe("PoolService", () => {
         "user-1",
       ),
     ).rejects.toThrow("db down");
+    expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
+  });
+
+  it("serves the cached overview from a snapshot-scoped key", async () => {
+    const capturedAt = new Date("2026-08-02T15:00:00.000Z");
+    const prisma = makePrisma({
+      poolSnapshot: {
+        findFirst: jest.fn(async () => ({
+          capturedAt,
+          totalAssets: 1000n,
+          nav: 2n,
+          activeCapital: 200n,
+          reserveFund: 700n,
+          insuranceFund: 100n,
+          pendingDividends: 50n,
+          utilization: 30n,
+          poolAddress: "pool-pda",
+        })),
+        findMany: jest.fn(async () => []),
+      },
+      tradeDeal: {
+        aggregate: jest.fn(async () => ({
+          _count: 0,
+          _sum: { amount: 0n, downPayment: 0n, poolPortion: 0n },
+        })),
+        groupBy: jest.fn(async () => []),
+      },
+    });
+    const cached = { nav: "2", totalAssets: "1000" };
+    const redis = makeRedis();
+    (redis.get as jest.Mock).mockImplementation(async (key: string) =>
+      key === "pool:overview:v1:2026-08-02T15:00:00.000Z"
+        ? JSON.stringify(cached)
+        : null,
+    );
+    const service = new PoolService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+    );
+    const result = await service.getOverview();
+    expect(result).toEqual(cached);
+    expect(redis.get).toHaveBeenCalledWith(
+      "pool:overview:v1:2026-08-02T15:00:00.000Z",
+    );
+  });
+
+  it("rejects a withdrawal when the redis notice lock is already held", async () => {
+    const redis = makeRedis();
+    redis.setNX.mockResolvedValue(false);
+    const service = new PoolService(
+      makePrisma() as never,
+      redis as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.requestWithdrawal(
+        { lpWallet: "lpWallet", amount: "100" },
+        "user-1",
+      ),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("releases the lock when an existing pending request is found", async () => {
+    const prisma = makePrisma({
+      withdrawRequest: {
+        findFirst: jest.fn(async () => ({ id: "existing-wr" })),
+      },
+    });
+    const redis = makeRedis();
+    const service = new PoolService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.requestWithdrawal(
+        { lpWallet: "lpWallet", amount: "100" },
+        "user-1",
+      ),
+    ).rejects.toThrow(ConflictException);
     expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
   });
 

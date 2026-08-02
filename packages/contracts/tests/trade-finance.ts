@@ -589,4 +589,159 @@ describe("trade-finance full lifecycle", () => {
       /ZeroRedeemAmount|Redeem amount/,
     );
   });
+
+  describe("boundary scenarios", () => {
+    const CREATE_ACCOUNTS = (deal: PublicKey, dealTokenAccount: PublicKey) => ({
+      poolState: poolStatePda,
+      buyer: buyer.publicKey,
+      deal,
+      buyerTokenAccount: buyerAta,
+      dealTokenAccount,
+      usdcMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    });
+
+    it("Rejects invalid tenor", async () => {
+      const tradeId = new anchor.BN(10);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(buyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await assert.rejects(
+        program.methods
+          .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(45))
+          .accounts(CREATE_ACCOUNTS(deal, dealTokenAccount))
+          .signers([buyer])
+          .rpc(),
+        /InvalidTenor/,
+      );
+      console.log("Invalid tenor rejected");
+    });
+
+    it("Rejects zero amount", async () => {
+      const tradeId = new anchor.BN(11);
+      const deal = dealPda(buyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await assert.rejects(
+        program.methods
+          .createDeal(tradeId, seller.publicKey, new anchor.BN(0), new anchor.BN(30))
+          .accounts(CREATE_ACCOUNTS(deal, dealTokenAccount))
+          .signers([buyer])
+          .rpc(),
+        /InvalidAmount|greater than zero/,
+      );
+      console.log("Zero amount rejected");
+    });
+
+    it("Rejects a buyer with insufficient down payment", async () => {
+      const poorBuyer = anchor.web3.Keypair.generate();
+      await airdrop(poorBuyer.publicKey);
+      const poorAta = await createAta(poorBuyer.publicKey);
+      await mintTo(
+        connection,
+        payer,
+        usdcMint,
+        poorAta,
+        payer.publicKey,
+        USDC(100),
+      );
+
+      const tradeId = new anchor.BN(12);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(poorBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await assert.rejects(
+        program.methods
+          .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+          .accounts({
+            poolState: poolStatePda,
+            buyer: poorBuyer.publicKey,
+            deal,
+            buyerTokenAccount: poorAta,
+            dealTokenAccount,
+            usdcMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([poorBuyer])
+          .rpc(),
+        /InsufficientFunds|Insufficient funds/,
+      );
+      console.log("Insufficient down payment rejected");
+    });
+
+    it("Rejects a non-admin funder", async () => {
+      const tradeId = new anchor.BN(13);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(buyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(CREATE_ACCOUNTS(deal, dealTokenAccount))
+        .signers([buyer])
+        .rpc();
+
+      await assert.rejects(
+        program.methods
+          .fundDeal(tradeId)
+          .accounts({
+            poolState: poolStatePda,
+            admin: buyer.publicKey,
+            buyer: buyer.publicKey,
+            deal,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
+            dealTokenAccount,
+            usdcMint,
+            lpMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([buyer])
+          .rpc(),
+        /Unauthorized/,
+      );
+      console.log("Non-admin funder rejected");
+    });
+
+    it("Rejects invalid state transition from Settled", async () => {
+      const tradeId = new anchor.BN(1);
+      const deal = dealPda(buyer.publicKey, tradeId);
+      await assert.rejects(
+        program.methods
+          .advanceDeal(tradeId, 2)
+          .accounts({
+            poolState: poolStatePda,
+            admin: admin.publicKey,
+            buyer: buyer.publicKey,
+            deal,
+          })
+          .signers([admin])
+          .rpc(),
+        /InvalidStateTransition|Invalid state transition/,
+      );
+      console.log("Invalid state transition rejected");
+    });
+
+    it("Rejects duplicate deal id", async () => {
+      const tradeId = new anchor.BN(1);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(buyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      let failed = false;
+      try {
+        await program.methods
+          .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+          .accounts(CREATE_ACCOUNTS(deal, dealTokenAccount))
+          .signers([buyer])
+          .rpc();
+      } catch (error) {
+        failed = true;
+        console.log("Duplicate deal error:", String(error));
+        assert.ok(
+          /already in use|seeds constraint|Account|constraint/i.test(String(error)),
+        );
+      }
+      assert.ok(failed, "expected duplicate deal creation to fail");
+    });
+  });
 });

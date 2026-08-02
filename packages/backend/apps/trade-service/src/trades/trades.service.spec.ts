@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
 } from "@nestjs/common";
 import { TradesService } from "./trades.service";
@@ -110,5 +111,108 @@ describe("TradesService", () => {
       ForbiddenException,
     );
     await expect(service.listAllTrades("admin-1")).resolves.toEqual([]);
+  });
+
+  it("returns the existing pending deal instead of building a new transaction", async () => {
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: "user-1",
+          wallet: "CxnwqG86ibkHhmNSrcCCbUTmmWvTTQZZddgb7d5YNxtV",
+          role: "USER",
+        })),
+      },
+      tradeDeal: {
+        findFirst: jest.fn(async () => ({ dealId: "123456789" })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    const result = await service.createTrade(
+      {
+        buyerWallet: "CxnwqG86ibkHhmNSrcCCbUTmmWvTTQZZddgb7d5YNxtV",
+        sellerWallet: "sellerWallet",
+        amount: "100",
+        tenor: "30",
+      },
+      "user-1",
+    );
+    expect(result.duplicate).toBe(true);
+    expect(result.tradeId).toBe("123456789");
+  });
+
+  it("rejects concurrent duplicate confirmations with a lock conflict", async () => {
+    const redis = makeRedis();
+    redis.setNX.mockResolvedValue(false);
+    const service = new TradesService(
+      makePrisma() as never,
+      makeAudit() as never,
+      redis as never,
+    );
+    await expect(
+      service.confirmTrade(
+        "1",
+        {
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: "100",
+          tenor: "30",
+          txSignature: "sig",
+        },
+        "user-1",
+      ),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it("rejects malformed trade ids on confirm", async () => {
+    const service = new TradesService(
+      makePrisma() as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.confirmTrade(
+        "not-a-number",
+        {
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: "100",
+          tenor: "30",
+          txSignature: "sig",
+        },
+        "user-1",
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects zero amount on create", async () => {
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: "user-1",
+          wallet: "buyerWallet",
+          role: "USER",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.createTrade(
+        {
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: "0",
+          tenor: "30",
+        },
+        "user-1",
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 });
