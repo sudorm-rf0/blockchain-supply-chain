@@ -17,7 +17,7 @@
 | 级别 | 数量 | 说明 |
 | --- | --- | --- |
 | Critical | 0 | 已通过移除 Trezor 钱包链消除 protobufjs 远程代码执行 |
-| High | 4 | Next.js 14 已知漏洞、Solana SDK 版本不匹配、合约未审计、生产部署未验证 |
+| High | 4 | Next.js 14 已知漏洞（已升级 15.5.22 修复）、Solana SDK 版本不匹配、合约未审计、生产部署未验证 |
 | Medium | 6 | Token 存储、测试覆盖、Prisma/Node 兼容、文件存储、风控依赖、病毒扫描 |
 | Low | 5 | 限流策略、默认管理员密码、LP 赎回缺失、审计保留策略、备份未演练 |
 

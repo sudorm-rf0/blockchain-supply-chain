@@ -8,7 +8,7 @@ if [ -d "$SOLANA_BIN" ] || [ -d "$CARGO_BIN" ]; then
 fi
 
 # macOS bsdtar writes AppleDouble (._*) entries into genesis.tar.bz2, which
-# solana 1.17.x rejects during its unpack check with a "blockstore error".
+# the validator's ledger unpack check rejects with a "blockstore error".
 export COPYFILE_DISABLE=1
 
 cd "$(dirname "$0")/.."

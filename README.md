@@ -10,7 +10,7 @@ Solana/Anchor 供应链金融演示系统：单据上传审核、Solana 存证�
 - `packages/backend`: NestJS 10 主后端（认证、文件、存证）+ 3 个独立服务：
   `indexer-service`（链上监听与 DB 回写）、`trade-service`（订单预构建与确认）、
   `pool-service`（资金池总览与 LP 提款）。
-- `packages/frontend`: Next.js 14 App Router + Tailwind + shadcn/ui + Solana 钱包。
+- `packages/frontend`: Next.js 15 App Router + Tailwind + shadcn/ui + Solana 钱包。
 
 ## 本地启动
 
