@@ -8,7 +8,7 @@ import {
 
 @Injectable()
 export class MetricsService {
-  private readonly registry = new Registry();
+  readonly registry = new Registry();
   private readonly requests: Counter;
   private readonly duration: Histogram;
 

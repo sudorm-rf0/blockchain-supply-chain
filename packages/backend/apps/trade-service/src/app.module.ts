@@ -5,6 +5,7 @@ import { HealthController } from "./health/health.controller";
 import { MetricsController } from "./observability/metrics.controller";
 import { MetricsMiddleware } from "./observability/metrics.middleware";
 import { MetricsService } from "./observability/metrics.service";
+import { RequestIdMiddleware } from "./observability/request-id.middleware";
 import { TradesModule } from "./trades/trades.module";
 
 @Module({
@@ -28,6 +29,6 @@ import { TradesModule } from "./trades/trades.module";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(MetricsMiddleware).forRoutes("*");
+    consumer.apply(RequestIdMiddleware, MetricsMiddleware).forRoutes("*");
   }
 }
