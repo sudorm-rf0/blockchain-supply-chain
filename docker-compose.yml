@@ -35,7 +35,7 @@ services:
       retries: 10
 
   solana-localnet:
-    image: solanalabs/solana:v1.17.3
+    image: solanalabs/solana:v1.18.26
     container_name: supply-chain-solana-localnet
     command:
       [
