@@ -58,6 +58,20 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
+function handleUnauthorized(url: string, response: Response) {
+  if (
+    response.status === 401 &&
+    !url.includes("/api/auth/login") &&
+    !url.includes("/api/auth/register")
+  ) {
+    useUserStore.getState().logout();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw new Error("登录已过期，请重新登录");
+  }
+}
+
 function authHeaders(): Record<string, string> {
   const token = useUserStore.getState().token;
   return token ? { authorization: `Bearer ${token}` } : {};
@@ -77,6 +91,7 @@ async function request<T>(
     headers["content-type"] = "application/json";
   }
   const response = await fetch(url, { ...init, headers });
+  handleUnauthorized(url, response);
   if (!response.ok) {
     throw new Error(await readError(response));
   }
@@ -141,6 +156,7 @@ export async function fetchFileBlob(id: string): Promise<Blob> {
   const response = await fetch(`${BACKEND_URL}/api/files/${id}/content`, {
     headers: authHeaders(),
   });
+  handleUnauthorized(`${BACKEND_URL}/api/files/${id}/content`, response);
   if (!response.ok) {
     throw new Error(await readError(response));
   }
