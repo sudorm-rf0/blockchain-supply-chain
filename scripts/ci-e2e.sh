@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export PATH="$HOME/.local/share/solana/active_release/bin:$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/active_release/bin:$PATH"
 export COPYFILE_DISABLE=1
 # crates.io sparse index is faster and less likely to hang on CI runners.
 export CARGO_REGISTRIES_CRATES_IO_PROTOCOL="${CARGO_REGISTRIES_CRATES_IO_PROTOCOL:-sparse}"

@@ -129,6 +129,12 @@ jobs:
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
+      - name: Install Rust 1.89 (IDL/SBF build toolchain)
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal --no-self-update
+          rustup default 1.89.0
+      - name: Install standalone cargo-build-sbf
+        run: cargo install cargo-build-sbf --locked
       - name: Anchor Build
         working-directory: packages/contracts
         run: anchor build
@@ -221,6 +227,12 @@ jobs:
           echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
           test -x "$HOME/.local/share/solana/active_release/bin/cargo-build-sbf"
 
+      - name: Install Rust 1.89 (IDL/SBF build toolchain)
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal --no-self-update
+          rustup default 1.89.0
+      - name: Install standalone cargo-build-sbf
+        run: cargo install cargo-build-sbf --locked
       - name: Run End-to-End Smoke
         run: bash scripts/ci-e2e.sh
 
