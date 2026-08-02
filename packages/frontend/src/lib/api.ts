@@ -465,6 +465,28 @@ export async function confirmDefaultTrade(
   });
 }
 
+export async function buildReleaseTrade(
+  tradeId: string,
+  adminWallet: string,
+): Promise<BuiltTransactionResponse> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/release`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ adminWallet }),
+  });
+}
+
+export async function confirmReleaseTrade(
+  tradeId: string,
+  txSignature: string,
+): Promise<{ ok: boolean; tradeId: string; status: string }> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}/release/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ txSignature }),
+  });
+}
+
 export interface PoolTrendPoint {
   capturedAt: string;
   nav: string;

@@ -65,8 +65,15 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleDealSync(payload: DealSyncPayload): Promise<void> {
+    const dealId = BigInt(payload.tradeId);
+    if (dealId > 9_007_199_254_740_991n) {
+      this.logger.warn(
+        `skip deal ${payload.accountKey}: tradeId exceeds Prisma safe BigInt range`,
+      );
+      return;
+    }
     const previous = await this.prisma.tradeDeal.findUnique({
-      where: { dealId: BigInt(payload.tradeId) },
+      where: { dealId },
       select: { status: true, defaultWebhookSentAt: true },
     });
 
@@ -124,8 +131,8 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
         status: data.status,
         createdAt: data.createdAt,
         repaidAt: data.repaidAt,
-        txSignature: data.txSignature,
-        logisticsHash: data.logisticsHash,
+        txSignature: payload.txSignature ?? undefined,
+        logisticsHash: payload.logisticsHash ?? undefined,
         rawData: data.rawData,
       },
     });

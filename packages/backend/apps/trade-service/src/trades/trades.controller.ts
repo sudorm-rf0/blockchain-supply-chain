@@ -173,4 +173,32 @@ export class TradesController {
       req.user!.sub,
     );
   }
+
+  @Post(":tradeId/release")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "预构建释放托管资金交易（管理员）" })
+  release(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: FundTradeDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.buildReleaseTrade(tradeId, dto, req.user!.sub);
+  }
+
+  @Post(":tradeId/release/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "确认释放托管资金交易已上链" })
+  confirmRelease(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: ConfirmSignatureDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.confirmReleaseTrade(
+      tradeId,
+      dto,
+      req.user!.sub,
+    );
+  }
 }

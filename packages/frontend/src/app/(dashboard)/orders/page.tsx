@@ -23,7 +23,9 @@ import {
   confirmAdvanceTrade,
   confirmDefaultTrade,
   confirmFundTrade,
+  confirmReleaseTrade,
   confirmRepayTrade,
+  buildReleaseTrade,
   fetchMyTrades,
   formatUsdc,
   type TradeRecord,
@@ -46,7 +48,6 @@ const NEXT_STATUS: Record<string, { code: number; label: string } | null> = {
   FUNDED: { code: 2, label: "推进至运输中" },
   IN_TRANSIT: { code: 3, label: "推进至清关" },
   CUSTOMS_CLEAR: { code: 4, label: "推进至已交付" },
-  DELIVERED: { code: 5, label: "推进至还款中" },
 };
 
 const CAN_DEFAULT = new Set([
@@ -142,6 +143,13 @@ export default function OrdersPage() {
       (signature) => confirmDefaultTrade(trade.tradeId, signature),
     );
 
+  const onRelease = (trade: TradeRecord) =>
+    void signAndConfirm(
+      trade.tradeId,
+      () => buildReleaseTrade(trade.tradeId, publicKey!.toBase58()),
+      (signature) => confirmReleaseTrade(trade.tradeId, signature),
+    );
+
   const isAdmin = user?.role === "ADMIN";
   const isBuyer = Boolean(user?.wallet);
 
@@ -181,6 +189,7 @@ export default function OrdersPage() {
                   user?.wallet === trade.buyerWallet;
                 const canDefault =
                   isAdmin && CAN_DEFAULT.has(trade.status);
+                const canRelease = isAdmin && trade.status === "DELIVERED";
                 return (
                   <TableRow key={trade.id}>
                     <TableCell className="font-mono text-xs">
@@ -238,10 +247,20 @@ export default function OrdersPage() {
                             标记违约
                           </Button>
                         )}
+                        {canRelease && (
+                          <Button
+                            size="sm"
+                            disabled={busyId === trade.tradeId}
+                            onClick={() => onRelease(trade)}
+                          >
+                            释放资金并还款
+                          </Button>
+                        )}
                         {!canFund &&
                           !canAdvance &&
                           !canRepay &&
                           !canDefault &&
+                          !canRelease &&
                           "-"}
                       </div>
                     </TableCell>

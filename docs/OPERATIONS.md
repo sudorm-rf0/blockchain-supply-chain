@@ -57,3 +57,17 @@ helm upgrade --install supply-chain infra/helm/supply-chain \
   --set image.tag=latest \
   --set ingress.host=your-domain
 ```
+
+## localnet 资金池初始化
+
+```bash
+node scripts/init-localnet.mjs
+```
+
+脚本输出 `USDC_MINT` / `LP_MINT` / `ADMIN`，用输出值启动 trade-service：
+
+```bash
+USDC_MINT=<输出> LP_MINT=<输出> pnpm --filter @supply-chain/backend start:trade
+```
+
+之后即可在浏览器 `/orders` 走通 建单 → 拨款 → 物流推进 → 释放托管 → 还款。

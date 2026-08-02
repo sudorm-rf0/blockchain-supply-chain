@@ -160,6 +160,14 @@ export function buildDefaultDealInstructionData(tradeId: bigint): Buffer {
   return Buffer.concat([discriminator, encodeU64(tradeId)]);
 }
 
+export function buildReleaseToSellerInstructionData(tradeId: bigint): Buffer {
+  const discriminator = createHash("sha256")
+    .update("global:release_to_seller")
+    .digest()
+    .subarray(0, 8);
+  return Buffer.concat([discriminator, encodeU64(tradeId)]);
+}
+
 export interface FundDealTransactionInput {
   tradeId: bigint;
   buyer: PublicKey;
@@ -182,6 +190,13 @@ export interface RepayDealTransactionInput {
 export interface DefaultDealTransactionInput {
   tradeId: bigint;
   buyer: PublicKey;
+  admin: PublicKey;
+}
+
+export interface ReleaseToSellerTransactionInput {
+  tradeId: bigint;
+  buyer: PublicKey;
+  seller: PublicKey;
   admin: PublicKey;
 }
 
@@ -350,6 +365,52 @@ export async function buildDefaultDealTransaction(
   return { transaction, blockhash };
 }
 
+export async function buildReleaseToSellerTransaction(
+  input: ReleaseToSellerTransactionInput,
+  connection: Connection,
+): Promise<{ transaction: Transaction; blockhash: string }> {
+  const programId = new PublicKey(TRADE_ENV.programId);
+  const usdcMint = new PublicKey(TRADE_ENV.usdcMint);
+  const poolState = derivePoolStatePda(programId);
+  const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
+  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, usdcMint);
+  const sellerTokenAccount = deriveAssociatedTokenAccount(input.seller, usdcMint);
+
+  const keys: AccountMeta[] = [
+    { pubkey: poolState, isSigner: false, isWritable: true },
+    { pubkey: input.admin, isSigner: true, isWritable: true },
+    { pubkey: input.buyer, isSigner: false, isWritable: false },
+    { pubkey: dealPda, isSigner: false, isWritable: true },
+    { pubkey: dealTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: sellerTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: usdcMint, isSigner: false, isWritable: false },
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+  ];
+
+  const data = buildReleaseToSellerInstructionData(input.tradeId);
+  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const transaction = new Transaction();
+  transaction.feePayer = input.admin;
+  transaction.recentBlockhash = blockhash;
+
+  const sellerAtaExists = await connection.getAccountInfo(sellerTokenAccount);
+  if (!sellerAtaExists) {
+    transaction.add(
+      createAssociatedTokenAccountIdempotentInstruction(
+        input.admin,
+        sellerTokenAccount,
+        input.seller,
+        usdcMint,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      ),
+    );
+  }
+
+  transaction.add(new TransactionInstruction({ keys, programId, data }));
+  return { transaction, blockhash };
+}
+
 export async function buildCreateDealTransaction(
   input: CreateDealTransactionInput,
   connection: Connection,
@@ -417,9 +478,11 @@ export async function buildCreateDealTransaction(
 }
 
 export function generateTradeId(): bigint {
-  let id: bigint;
-  do {
-    id = randomBytes(8).readBigUInt64LE();
-  } while (id === 0n);
+  // Prisma 5.x on Node 24 fails to query BigInt values above 2^53;
+  // 48-bit ids stay within the safe range while keeping collision risk low.
+  const id = BigInt(`0x${randomBytes(6).toString("hex")}`);
+  if (id === 0n) {
+    return generateTradeId();
+  }
   return id;
 }

@@ -28,6 +28,8 @@ import {
   buildFundDealTransaction,
   buildRepayDealInstructionData,
   buildRepayDealTransaction,
+  buildReleaseToSellerInstructionData,
+  buildReleaseToSellerTransaction,
   deriveAssociatedTokenAccount,
   deriveDealPda,
   generateTradeId,
@@ -472,8 +474,8 @@ export class TradesService {
 
   async confirmRepayTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
     const trade = await this.requireBuyerDeal(tradeId, userId);
-    if (trade.status !== "DELIVERED") {
-      throw new BadRequestException("only DELIVERED deals can be repaid");
+    if (trade.status !== "REPAYING") {
+      throw new BadRequestException("only REPAYING deals can be repaid");
     }
     const buyerPubkey = new PublicKey(trade.buyerWallet);
     const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
@@ -554,6 +556,66 @@ export class TradesService {
     await this.audit.record({
       actorId: userId,
       action: "TRADE_DEFAULTED",
+      targetType: "TRADE",
+      targetId: tradeId,
+    });
+    return { ok: true, tradeId, status: updated.status };
+  }
+
+  async buildReleaseTrade(
+    tradeId: string,
+    body: { adminWallet: string },
+    userId: string,
+  ) {
+    const trade = await this.requireAdminAndDeal(tradeId, userId);
+    let admin: PublicKey;
+    try {
+      admin = new PublicKey(body.adminWallet);
+    } catch {
+      throw new BadRequestException("invalid admin wallet");
+    }
+    const { transaction, blockhash } = await buildReleaseToSellerTransaction(
+      {
+        tradeId: BigInt(tradeId),
+        buyer: new PublicKey(trade.buyerWallet),
+        seller: new PublicKey(trade.sellerWallet),
+        admin,
+      },
+      getConnection(),
+    );
+    return {
+      tradeId,
+      transaction: transaction
+        .serialize({ requireAllSignatures: false, verifySignatures: false })
+        .toString("base64"),
+      blockhash,
+      message: "请确认钱包弹窗，签署释放托管资金交易",
+    };
+  }
+
+  async confirmReleaseTrade(
+    tradeId: string,
+    body: ConfirmSignatureDto,
+    userId: string,
+  ) {
+    const trade = await this.requireAdminAndDeal(tradeId, userId);
+    const dealPda = deriveDealPda(
+      getProgramId(),
+      new PublicKey(trade.buyerWallet),
+      BigInt(tradeId),
+    );
+    await verifyOnChainInstruction(
+      body.txSignature,
+      buildReleaseToSellerInstructionData(BigInt(tradeId)),
+      dealPda,
+    );
+    const updated = await this.prisma.tradeDeal.update({
+      where: { dealId: BigInt(tradeId) },
+      data: { status: "REPAYING", txSignature: body.txSignature },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "TRADE_RELEASED",
       targetType: "TRADE",
       targetId: tradeId,
     });
