@@ -77,19 +77,24 @@ export class FilesService {
     const fileHash = hash.digest("hex");
     const storedName = basename(file.path);
 
-    return this.prisma.file.create({
-      data: {
-        filename: file.originalname,
-        size: file.size,
-        mimeType: ALLOWED_EXTENSIONS[extension],
-        path: `/uploads/${storedName}`,
-        hash: fileHash,
-        tradeId: fields.tradeId ?? null,
-        description: fields.description ?? null,
-        uploaderId,
-      },
-      include: { uploader: true },
-    });
+    try {
+      return await this.prisma.file.create({
+        data: {
+          filename: file.originalname,
+          size: file.size,
+          mimeType: ALLOWED_EXTENSIONS[extension],
+          path: `/uploads/${storedName}`,
+          hash: fileHash,
+          tradeId: fields.tradeId ?? null,
+          description: fields.description ?? null,
+          uploaderId,
+        },
+        include: { uploader: true },
+      });
+    } catch (error) {
+      this.removeUploadedFile(file.path);
+      throw error;
+    }
   }
 
   async list(params: {

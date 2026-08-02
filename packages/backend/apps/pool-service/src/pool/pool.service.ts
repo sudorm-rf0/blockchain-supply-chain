@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
@@ -109,7 +113,20 @@ export class PoolService {
 
   async requestWithdrawal(
     dto: WithdrawRequestDto,
+    userId: string,
   ): Promise<WithdrawRequestResponseDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new ForbiddenException("登录用户不存在");
+    }
+    if (user.wallet !== dto.lpWallet) {
+      throw new ForbiddenException(
+        "lp wallet does not match the signed-in user",
+      );
+    }
+
     const key = `lp:withdraw:${dto.lpWallet}`;
     const existing = await this.redis.get(key);
     const existingDb = await this.prisma.withdrawRequest.findFirst({

@@ -50,6 +50,15 @@ export class AuthService {
       throw new ConflictException("邮箱已被注册");
     }
     const wallet = body.wallet || body.email;
+    if (body.wallet) {
+      const walletOwner = await this.prisma.user.findUnique({
+        where: { wallet: body.wallet },
+        select: { id: true },
+      });
+      if (walletOwner) {
+        throw new ConflictException("该钱包地址已被其他用户绑定");
+      }
+    }
     const salt = randomBytes(16).toString("hex");
     const passwordHash = (await hashPassword(body.password, salt)).toString("hex");
     const user = await this.prisma.user.create({

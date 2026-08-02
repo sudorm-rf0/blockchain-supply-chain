@@ -5,7 +5,9 @@ import {
 } from "node:crypto";
 
 const ALGORITHM = "sha256";
-const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+const HEADER = Buffer.from(
+  JSON.stringify({ alg: "HS256", typ: "JWT" }),
+).toString("base64url");
 const DEV_SECRET = "supply-chain-dev-secret-change-in-production";
 
 function getSecret(): string {
@@ -34,16 +36,6 @@ export interface JwtPayload {
   exp: number;
 }
 
-export function signJwt(payload: Omit<JwtPayload, "iat" | "exp">, expiresInSeconds = 86_400): string {
-  const now = Math.floor(Date.now() / 1000);
-  const claims: JwtPayload = { ...payload, iat: now, exp: now + expiresInSeconds };
-  const payloadB64 = base64urlEncode(Buffer.from(JSON.stringify(claims)));
-  const signature = createHmac(ALGORITHM, getSecret())
-    .update(`${HEADER}.${payloadB64}`)
-    .digest("base64url");
-  return `${HEADER}.${payloadB64}.${signature}`;
-}
-
 export function verifyJwt(token: string): JwtPayload | null {
   try {
     const parts = token.split(".");
@@ -55,13 +47,22 @@ export function verifyJwt(token: string): JwtPayload | null {
       .digest("base64url");
     const actualSig = base64urlDecode(signatureB64);
     const expectedBuf = base64urlDecode(expectedSig);
-    if (actualSig.length !== expectedBuf.length || !timingSafeEqual(actualSig, expectedBuf)) {
+    if (
+      actualSig.length !== expectedBuf.length ||
+      !timingSafeEqual(actualSig, expectedBuf)
+    ) {
       return null;
     }
-    const payload = JSON.parse(base64urlDecode(payloadB64).toString("utf8")) as JwtPayload;
+    const payload = JSON.parse(
+      base64urlDecode(payloadB64).toString("utf8"),
+    ) as JwtPayload;
     if (payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
     return null;
   }
+}
+
+export function randomSecret(): string {
+  return randomBytes(32).toString("hex");
 }

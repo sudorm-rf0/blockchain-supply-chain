@@ -212,14 +212,10 @@ export interface CreateTradeResponse {
 
 export async function createTrade(
   requestBody: CreateTradeRequest,
-  walletAddress: string,
 ): Promise<CreateTradeResponse> {
   return request(`${TRADE_API_URL}/api/trades`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-wallet-address": walletAddress,
-    },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(requestBody),
   });
 }

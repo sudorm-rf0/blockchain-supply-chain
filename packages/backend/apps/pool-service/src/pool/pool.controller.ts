@@ -5,7 +5,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
+  UseGuards,
 } from "@nestjs/common";
+import type { Request } from "express";
 import {
   ApiCreatedResponse,
   ApiOkResponse,
@@ -16,6 +19,7 @@ import { PoolOverviewResponseDto } from "./dto/pool-overview-response.dto";
 import { WithdrawRequestDto } from "./dto/withdraw-request.dto";
 import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto";
 import { PoolService } from "./pool.service";
+import { AuthGuard } from "../auth/auth.guard";
 
 @ApiTags("pool")
 @Controller("api")
@@ -34,6 +38,7 @@ export class PoolController {
 
   @Post("lp/withdraw-request")
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(AuthGuard)
   @ApiOperation({
     summary: "LP 提款请求",
     description: "校验 7 天预告期并写入 Redis（7 天过期）",
@@ -41,7 +46,8 @@ export class PoolController {
   @ApiCreatedResponse({ type: WithdrawRequestResponseDto })
   requestWithdrawal(
     @Body() dto: WithdrawRequestDto,
+    @Req() req: Request,
   ): Promise<WithdrawRequestResponseDto> {
-    return this.poolService.requestWithdrawal(dto);
+    return this.poolService.requestWithdrawal(dto, req.user!.sub);
   }
 }

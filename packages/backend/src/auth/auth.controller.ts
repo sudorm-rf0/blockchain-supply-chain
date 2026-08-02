@@ -14,6 +14,8 @@ import type { Request } from "express";
 import { PublicKey } from "@solana/web3.js";
 import { AuthService } from "./auth.service";
 import { AuthGuard } from "./auth.guard";
+import { LoginDto } from "./dto/login.dto";
+import { RegisterDto } from "./dto/register.dto";
 
 @Controller("api/auth")
 export class AuthController {
@@ -21,20 +23,14 @@ export class AuthController {
 
   @Post("register")
   register(
-    @Body()
-    body: {
-      name: string;
-      email: string;
-      password: string;
-      wallet?: string;
-    },
+    @Body() body: RegisterDto,
   ) {
     return this.authService.register(body);
   }
 
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  login(@Body() body: { email: string; password: string }) {
+  login(@Body() body: LoginDto) {
     return this.authService.login(body);
   }
 

@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  UnauthorizedException,
 } from "@nestjs/common";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { TRADE_ENV } from "../config/env";
@@ -25,17 +24,18 @@ export class TradesService {
 
   async createTrade(
     dto: CreateTradeDto,
-    walletHeader: string | undefined,
+    userId: string,
   ): Promise<CreateTradeResponseDto> {
-    if (!walletHeader || walletHeader !== dto.buyerWallet) {
-      throw new UnauthorizedException("x-wallet-address does not match buyer");
-    }
-
     const buyer = await this.prisma.user.findUnique({
-      where: { wallet: dto.buyerWallet },
+      where: { id: userId },
     });
     if (!buyer) {
-      throw new ForbiddenException("buyer is not registered");
+      throw new ForbiddenException("登录用户不存在");
+    }
+    if (buyer.wallet !== dto.buyerWallet) {
+      throw new ForbiddenException(
+        "buyer wallet does not match the signed-in user",
+      );
     }
 
     const amount = BigInt(dto.amount);

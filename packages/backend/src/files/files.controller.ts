@@ -23,6 +23,8 @@ import type { Request, Response } from "express";
 import { AuthGuard } from "../auth/auth.guard";
 import { AdminGuard } from "../auth/admin.guard";
 import { FilesService } from "./files.service";
+import { ReviewFileDto } from "./dto/review-file.dto";
+import { UploadFileDto } from "./dto/upload-file.dto";
 import type { FileStatus } from "@prisma/client";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -53,7 +55,7 @@ export class FilesController {
   )
   upload(
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { tradeId?: string; description?: string },
+    @Body() body: UploadFileDto,
     @Req() req: Request,
   ) {
     if (!file) {
@@ -115,7 +117,7 @@ export class FilesController {
   @UseGuards(AuthGuard, AdminGuard)
   patch(
     @Param("id") id: string,
-    @Body() body: { status?: "APPROVED" | "REJECTED"; remark?: string },
+    @Body() body: ReviewFileDto,
   ) {
     return this.filesService.patch(id, body);
   }

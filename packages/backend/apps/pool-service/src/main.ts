@@ -20,6 +20,7 @@ async function bootstrap(): Promise<void> {
     .setTitle("pool-service")
     .setDescription("Pool overview and LP withdrawal request API")
     .setVersion("1.0.0")
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);

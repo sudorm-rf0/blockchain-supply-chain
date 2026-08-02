@@ -13,13 +13,14 @@ async function bootstrap(): Promise<void> {
       process.env.ALLOWED_ORIGIN,
     ].filter(Boolean) as (string | RegExp)[],
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-wallet-address"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   });
 
   const config = new DocumentBuilder()
     .setTitle("trade-service")
     .setDescription("Trade finance pre-build transaction API")
     .setVersion("1.0.0")
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);

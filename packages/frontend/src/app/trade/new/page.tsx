@@ -55,7 +55,6 @@ export default function NewTradePage() {
           amount: amountRaw.toString(10),
           tenor: tenorDays,
         },
-        publicKey.toBase58(),
       );
 
       const transaction = Transaction.from(
