@@ -32,6 +32,8 @@ function makeRedis() {
   return {
     get: jest.fn(async () => null),
     setWithExpiry: jest.fn(async () => undefined),
+    setNX: jest.fn(async () => true),
+    del: jest.fn(async () => undefined),
   };
 }
 
@@ -82,6 +84,30 @@ describe("PoolService", () => {
     await expect(
       service.executeWithdrawal("wr-1", {}, "admin-1"),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it("releases the redis lock when the withdrawal DB write fails", async () => {
+    const prisma = makePrisma({
+      withdrawRequest: {
+        findFirst: jest.fn(async () => null),
+        create: jest.fn(async () => {
+          throw new Error("db down");
+        }),
+      },
+    });
+    const redis = makeRedis();
+    const service = new PoolService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.requestWithdrawal(
+        { lpWallet: "lpWallet", amount: "100" },
+        "user-1",
+      ),
+    ).rejects.toThrow("db down");
+    expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
   });
 
   it("only lets admins list withdrawals", async () => {

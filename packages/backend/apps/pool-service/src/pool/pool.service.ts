@@ -14,6 +14,9 @@ import { AuditService } from "../audit/audit.service";
 import {
   buildRedeemLpInstructionData,
   buildRedeemLpTransaction,
+  deriveLpAta,
+  derivePoolStatePda,
+  deriveUsdcAta,
 } from "../lp/redeem-lp.builder";
 import { POOL_ENV } from "../config/env";
 import { PoolOverviewResponseDto } from "./dto/pool-overview-response.dto";
@@ -42,7 +45,13 @@ export class PoolService {
   ) {}
 
   async getOverview(): Promise<PoolOverviewResponseDto> {
-    const cached = await this.redis.get(OVERVIEW_CACHE_KEY);
+    const latest = await this.prisma.poolSnapshot.findFirst({
+      orderBy: { capturedAt: "desc" },
+    });
+    const cacheKey = latest
+      ? `${OVERVIEW_CACHE_KEY}:${latest.capturedAt.toISOString()}`
+      : `${OVERVIEW_CACHE_KEY}:empty`;
+    const cached = await this.redis.get(cacheKey);
     if (cached) {
       try {
         return JSON.parse(cached) as PoolOverviewResponseDto;
@@ -51,10 +60,7 @@ export class PoolService {
       }
     }
 
-    const [latest, recent, dealAgg, dealGroups] = await Promise.all([
-      this.prisma.poolSnapshot.findFirst({
-        orderBy: { capturedAt: "desc" },
-      }),
+    const [recent, dealAgg, dealGroups] = await Promise.all([
       this.prisma.poolSnapshot.findMany({
         orderBy: { capturedAt: "desc" },
         take: 24,
@@ -131,7 +137,7 @@ export class PoolService {
         })),
     };
     await this.redis.setWithExpiry(
-      OVERVIEW_CACHE_KEY,
+      cacheKey,
       JSON.stringify(overview),
       OVERVIEW_CACHE_SECONDS,
     );
@@ -202,16 +208,21 @@ export class PoolService {
       status: "PENDING",
     });
 
-    await this.prisma.withdrawRequest.create({
-      data: {
-        id: queueId,
-        lpAddress: dto.lpWallet,
-        amount: new Prisma.Decimal(dto.amount),
-        requestedAt: now,
-        availableAt: unlockAt,
-        status: "PENDING",
-      },
-    });
+    try {
+      await this.prisma.withdrawRequest.create({
+        data: {
+          id: queueId,
+          lpAddress: dto.lpWallet,
+          amount: new Prisma.Decimal(dto.amount),
+          requestedAt: now,
+          availableAt: unlockAt,
+          status: "PENDING",
+        },
+      });
+    } catch (error) {
+      await this.redis.del(key).catch(() => undefined);
+      throw error;
+    }
     await this.redis.setWithExpiry(key, value, NOTICE_SECONDS);
     await this.audit.record({
       actorId: userId,
@@ -325,20 +336,34 @@ export class PoolService {
       staticAccountKeys?: PublicKey[];
       compiledInstructions: Array<{
         programIdIndex: number;
+        accountKeyIndexes: number[];
         data: Uint8Array;
       }>;
     };
     const accountKeys = message.accountKeys ?? message.staticAccountKeys ?? [];
     const programId = new PublicKey(POOL_ENV.programId);
     const expectedData = buildRedeemLpInstructionData(lpAmount);
+    const lpUser = new PublicKey(user.wallet);
+    const expectedAccounts = [
+      deriveLpAta(lpUser).toBase58(),
+      deriveUsdcAta(lpUser).toBase58(),
+      derivePoolStatePda().toBase58(),
+      new PublicKey(POOL_ENV.lpMint).toBase58(),
+    ];
     const hasRedeem = message.compiledInstructions.some((instruction) => {
+      const instructionKeys = instruction.accountKeyIndexes.map(
+        (index: number) => accountKeys[index],
+      );
       return (
         accountKeys[instruction.programIdIndex]?.equals(programId) &&
-        Buffer.compare(Buffer.from(instruction.data), expectedData) === 0
+        Buffer.compare(Buffer.from(instruction.data), expectedData) === 0 &&
+        expectedAccounts.every((account) =>
+          instructionKeys.some((key: PublicKey | undefined) => key?.toBase58() === account),
+        )
       );
     });
     if (!hasRedeem) {
-      throw new BadRequestException("交易不包含预期的 redeem_lp 指令");
+      throw new BadRequestException("交易不包含预期的 redeem_lp 指令或账户不匹配");
     }
 
     const id = randomUUID();
