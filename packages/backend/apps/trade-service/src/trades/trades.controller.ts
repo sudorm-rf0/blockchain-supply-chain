@@ -145,4 +145,32 @@ export class TradesController {
       req.user!.sub,
     );
   }
+
+  @Post(":tradeId/default")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "预构建违约清算交易（管理员）" })
+  defaultDeal(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: FundTradeDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.buildDefaultTrade(tradeId, dto, req.user!.sub);
+  }
+
+  @Post(":tradeId/default/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "确认违约清算交易已上链" })
+  confirmDefault(
+    @Param("tradeId") tradeId: string,
+    @Body() dto: ConfirmSignatureDto,
+    @Req() req: Request,
+  ) {
+    return this.tradesService.confirmDefaultTrade(
+      tradeId,
+      dto,
+      req.user!.sub,
+    );
+  }
 }

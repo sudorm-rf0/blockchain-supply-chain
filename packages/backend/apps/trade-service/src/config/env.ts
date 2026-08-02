@@ -20,7 +20,7 @@ export const TRADE_ENV = {
   ),
   lpMint: env(
     "LP_MINT",
-    "",
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   ),
   port: envNumber("TRADE_SERVICE_PORT", 3004),
 } as const;

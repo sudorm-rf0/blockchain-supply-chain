@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/table";
 import {
   buildAdvanceTrade,
+  buildDefaultTrade,
   buildFundTrade,
   buildRepayTrade,
   confirmAdvanceTrade,
+  confirmDefaultTrade,
   confirmFundTrade,
   confirmRepayTrade,
   fetchMyTrades,
@@ -45,6 +47,13 @@ const NEXT_STATUS: Record<string, { code: number; label: string } | null> = {
   CUSTOMS_CLEAR: { code: 4, label: "推进至已交付" },
   DELIVERED: { code: 5, label: "推进至还款中" },
 };
+
+const CAN_DEFAULT = new Set([
+  "FUNDED",
+  "IN_TRANSIT",
+  "CUSTOMS_CLEAR",
+  "DELIVERED",
+]);
 
 export default function OrdersPage() {
   const { connection } = useConnection();
@@ -125,6 +134,13 @@ export default function OrdersPage() {
       (signature) => confirmRepayTrade(trade.tradeId, signature),
     );
 
+  const onDefault = (trade: TradeRecord) =>
+    void signAndConfirm(
+      trade.tradeId,
+      () => buildDefaultTrade(trade.tradeId, publicKey!.toBase58()),
+      (signature) => confirmDefaultTrade(trade.tradeId, signature),
+    );
+
   const isAdmin = user?.role === "ADMIN";
   const isBuyer = Boolean(user?.wallet);
 
@@ -162,6 +178,8 @@ export default function OrdersPage() {
                   isBuyer &&
                   trade.status === "REPAYING" &&
                   user?.wallet === trade.buyerWallet;
+                const canDefault =
+                  isAdmin && CAN_DEFAULT.has(trade.status);
                 return (
                   <TableRow key={trade.id}>
                     <TableCell className="font-mono text-xs">
@@ -209,7 +227,21 @@ export default function OrdersPage() {
                             还款
                           </Button>
                         )}
-                        {!canFund && !canAdvance && !canRepay && "-"}
+                        {canDefault && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busyId === trade.tradeId}
+                            onClick={() => onDefault(trade)}
+                          >
+                            标记违约
+                          </Button>
+                        )}
+                        {!canFund &&
+                          !canAdvance &&
+                          !canRepay &&
+                          !canDefault &&
+                          "-"}
                       </div>
                     </TableCell>
                   </TableRow>

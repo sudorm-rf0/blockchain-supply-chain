@@ -99,18 +99,17 @@ export class FilesController {
       req.user!.role,
     );
     const encodedName = encodeURIComponent(file.filename);
-    await new Promise<void>((resolve, reject) => {
-      res.sendFile(
-        file.diskPath,
-        {
-          headers: {
-            "Content-Type": file.mimeType,
-            "Content-Disposition": `inline; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,
-          },
-        },
-        (error) => (error ? reject(error) : resolve()),
-      );
+    res.setHeader("Content-Type", file.mimeType);
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,
+    );
+    file.stream.on("error", () => {
+      if (!res.headersSent) {
+        res.status(500).end();
+      }
     });
+    file.stream.pipe(res);
   }
 
   @Patch(":id")

@@ -4,9 +4,11 @@ import { AttestationController } from "./attestation.controller";
 import { AttestationService } from "./attestation.service";
 import { FilesController } from "./files.controller";
 import { FilesService } from "./files.service";
+import { StorageModule } from "../storage/storage.module";
 
 @Module({
   controllers: [FilesController, AttestationController],
+  imports: [StorageModule],
   providers: [FilesService, AttestationService, PrismaService],
 })
 export class FilesModule {}

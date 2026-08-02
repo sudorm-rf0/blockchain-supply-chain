@@ -21,6 +21,8 @@ import {
   buildAdvanceDealTransaction,
   buildCreateDealInstructionData,
   buildCreateDealTransaction,
+  buildDefaultDealInstructionData,
+  buildDefaultDealTransaction,
   buildFundDealInstructionData,
   buildFundDealTransaction,
   buildRepayDealInstructionData,
@@ -407,6 +409,63 @@ export class TradesService {
     const updated = await this.prisma.tradeDeal.update({
       where: { dealId: BigInt(tradeId) },
       data: { status: "SETTLED", repaidAt: new Date(), txSignature: body.txSignature },
+    });
+    return { ok: true, tradeId, status: updated.status };
+  }
+
+  async buildDefaultTrade(
+    tradeId: string,
+    body: { adminWallet: string },
+    userId: string,
+  ) {
+    const trade = await this.requireAdminAndDeal(tradeId, userId);
+    let admin: PublicKey;
+    try {
+      admin = new PublicKey(body.adminWallet);
+    } catch {
+      throw new BadRequestException("invalid admin wallet");
+    }
+    const { transaction, blockhash } = await buildDefaultDealTransaction(
+      {
+        tradeId: BigInt(tradeId),
+        buyer: new PublicKey(trade.buyerWallet),
+        admin,
+      },
+      getConnection(),
+    );
+    return {
+      tradeId,
+      transaction: transaction
+        .serialize({ requireAllSignatures: false, verifySignatures: false })
+        .toString("base64"),
+      blockhash,
+      message: "请确认钱包弹窗，签署违约清算交易",
+    };
+  }
+
+  async confirmDefaultTrade(
+    tradeId: string,
+    body: ConfirmSignatureDto,
+    userId: string,
+  ) {
+    const trade = await this.requireAdminAndDeal(tradeId, userId);
+    const dealPda = deriveDealPda(
+      getProgramId(),
+      new PublicKey(trade.buyerWallet),
+      BigInt(tradeId),
+    );
+    await verifyOnChainInstruction(
+      body.txSignature,
+      buildDefaultDealInstructionData(BigInt(tradeId)),
+      dealPda,
+    );
+    const updated = await this.prisma.tradeDeal.update({
+      where: { dealId: BigInt(tradeId) },
+      data: {
+        status: "DEFAULTED",
+        repaidAt: new Date(),
+        txSignature: body.txSignature,
+      },
     });
     return { ok: true, tradeId, status: updated.status };
   }

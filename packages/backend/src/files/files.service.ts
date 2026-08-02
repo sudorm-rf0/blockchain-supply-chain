@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -8,9 +9,10 @@ import type { FileStatus, Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync, unlinkSync } from "node:fs";
 import { open } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { extname } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { PrismaService } from "../prisma/prisma.service";
+import type { StorageService } from "../storage/storage.service";
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
   pdf: "application/pdf",
@@ -53,7 +55,10 @@ function detectTypeByMagic(buf: Buffer): string | null {
 
 @Injectable()
 export class FilesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject("STORAGE_SERVICE") private readonly storage: StorageService,
+  ) {}
 
   async upload(
     file: Express.Multer.File,
@@ -82,15 +87,21 @@ export class FilesService {
     const hash = createHash("sha256");
     await pipeline(createReadStream(file.path), hash);
     const fileHash = hash.digest("hex");
-    const storedName = basename(file.path);
+    let persisted;
+    try {
+      persisted = await this.storage.persist(file.path, file.originalname);
+    } catch (error) {
+      this.removeUploadedFile(file.path);
+      throw error;
+    }
 
     try {
       return await this.prisma.file.create({
         data: {
           filename: file.originalname,
-          size: file.size,
+          size: persisted.size || file.size,
           mimeType: ALLOWED_EXTENSIONS[extension],
-          path: `/uploads/${storedName}`,
+          path: persisted.storageKey,
           hash: fileHash,
           tradeId: fields.tradeId ?? null,
           description: fields.description ?? null,
@@ -99,7 +110,7 @@ export class FilesService {
         include: { uploader: true },
       });
     } catch (error) {
-      this.removeUploadedFile(file.path);
+      await this.storage.remove(persisted.storageKey).catch(() => undefined);
       throw error;
     }
   }
@@ -155,10 +166,14 @@ export class FilesService {
     if (role !== "ADMIN" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权查看此文件");
     }
-    const diskPath = this.resolveDiskPath(file.path);
-    if (!existsSync(diskPath)) throw new NotFoundException("文件已丢失");
+    let stream;
+    try {
+      stream = await this.storage.open(file.path);
+    } catch {
+      throw new NotFoundException("文件已丢失");
+    }
     return {
-      diskPath,
+      stream,
       filename: file.filename,
       mimeType: file.mimeType,
     };
@@ -187,18 +202,13 @@ export class FilesService {
     if (role !== "ADMIN" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权删除此文件");
     }
-    const diskPath = this.resolveDiskPath(file.path);
-    if (existsSync(diskPath)) unlinkSync(diskPath);
+    await this.storage.remove(file.path);
     await this.prisma.file.delete({ where: { id } });
     return { ok: true };
   }
 
   private removeUploadedFile(path: string) {
     if (path && existsSync(path)) unlinkSync(path);
-  }
-
-  private resolveDiskPath(relativePath: string): string {
-    return join(process.cwd(), "uploads", basename(relativePath));
   }
 
   private publicFile(file: {

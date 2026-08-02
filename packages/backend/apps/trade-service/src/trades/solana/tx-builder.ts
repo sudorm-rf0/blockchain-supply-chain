@@ -152,6 +152,14 @@ export function buildRepayDealInstructionData(tradeId: bigint): Buffer {
   return Buffer.concat([discriminator, encodeU64(tradeId)]);
 }
 
+export function buildDefaultDealInstructionData(tradeId: bigint): Buffer {
+  const discriminator = createHash("sha256")
+    .update("global:default_deal")
+    .digest()
+    .subarray(0, 8);
+  return Buffer.concat([discriminator, encodeU64(tradeId)]);
+}
+
 export interface FundDealTransactionInput {
   tradeId: bigint;
   buyer: PublicKey;
@@ -169,6 +177,12 @@ export interface RepayDealTransactionInput {
   tradeId: bigint;
   buyer: PublicKey;
   usdcMint: PublicKey;
+}
+
+export interface DefaultDealTransactionInput {
+  tradeId: bigint;
+  buyer: PublicKey;
+  admin: PublicKey;
 }
 
 const POOL_STATE_PLATFORM_WALLET_OFFSET = 80;
@@ -299,6 +313,40 @@ export async function buildRepayDealTransaction(
   }
 
   transaction.add(new TransactionInstruction({ keys, programId: prog, data }));
+  return { transaction, blockhash };
+}
+
+export async function buildDefaultDealTransaction(
+  input: DefaultDealTransactionInput,
+  connection: Connection,
+): Promise<{ transaction: Transaction; blockhash: string }> {
+  const programId = new PublicKey(TRADE_ENV.programId);
+  const usdcMint = new PublicKey(TRADE_ENV.usdcMint);
+  const poolState = derivePoolStatePda(programId);
+  const poolAuthority = derivePoolAuthorityPda(programId);
+  const dealPda = deriveDealPda(programId, input.buyer, input.tradeId);
+  const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, usdcMint);
+  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, usdcMint);
+
+  const keys: AccountMeta[] = [
+    { pubkey: poolState, isSigner: false, isWritable: true },
+    { pubkey: input.admin, isSigner: true, isWritable: true },
+    { pubkey: input.buyer, isSigner: false, isWritable: false },
+    { pubkey: dealPda, isSigner: false, isWritable: true },
+    { pubkey: poolAuthority, isSigner: false, isWritable: false },
+    { pubkey: poolTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: dealTokenAccount, isSigner: false, isWritable: true },
+    { pubkey: usdcMint, isSigner: false, isWritable: false },
+    { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(TRADE_ENV.lpMint), isSigner: false, isWritable: false },
+  ];
+
+  const data = buildDefaultDealInstructionData(input.tradeId);
+  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const transaction = new Transaction();
+  transaction.feePayer = input.admin;
+  transaction.recentBlockhash = blockhash;
+  transaction.add(new TransactionInstruction({ keys, programId, data }));
   return { transaction, blockhash };
 }
 

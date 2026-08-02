@@ -1,9 +1,13 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AppController } from "./app.controller";
 import { AuthModule } from "./auth/auth.module";
 import { FilesModule } from "./files/files.module";
+import { MetricsController } from "./observability/metrics.controller";
+import { MetricsMiddleware } from "./observability/metrics.middleware";
+import { MetricsService } from "./observability/metrics.service";
+import { PrismaService } from "./prisma/prisma.service";
 
 @Module({
   imports: [
@@ -16,12 +20,18 @@ import { FilesModule } from "./files/files.module";
     AuthModule,
     FilesModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, MetricsController],
   providers: [
+    PrismaService,
+    MetricsService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MetricsMiddleware).forRoutes("*");
+  }
+}
