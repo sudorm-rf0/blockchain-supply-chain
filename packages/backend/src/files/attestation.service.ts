@@ -78,6 +78,15 @@ export class AttestationService {
       throw new BadRequestException("file path is too long for on-chain URI");
     }
 
+    const documentPda = deriveDocumentPda(effectiveTradeId, fileHash);
+    const existing = await getConnection().getAccountInfo(
+      documentPda,
+      "confirmed",
+    );
+    if (existing) {
+      throw new ConflictException("该文件哈希已存证，无需重复上链");
+    }
+
     const { transaction, blockhash } = await buildAttestDocumentTransaction({
       owner,
       tradeId: effectiveTradeId,
@@ -96,7 +105,7 @@ export class AttestationService {
     return {
       transaction: serialized,
       blockhash,
-      documentPda: deriveDocumentPda(effectiveTradeId, fileHash).toBase58(),
+      documentPda: documentPda.toBase58(),
       message: "请确认钱包弹窗，签署单据哈希存证交易",
     };
   }

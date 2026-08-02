@@ -125,7 +125,7 @@ export async function buildAttestDocumentTransaction(
     });
   } else {
     keys.push({
-      pubkey: SystemProgram.programId,
+      pubkey: programId,
       isSigner: false,
       isWritable: false,
     });
