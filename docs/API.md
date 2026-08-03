@@ -191,6 +191,11 @@ PNG/JPEG 上传时自动去除 EXIF/GPS 元数据。
 
 审计日志分页，`limit` 最大 100。
 
+### GET /api/admin/audit-logs/export?limit=10000&action=&targetType=
+
+导出审计日志 CSV（带 BOM，兼容 Excel），参数 `action` / `targetType` / `limit`，
+默认最多 10000 条，按时间升序。
+
 ## 4. 贸易订单（trade-service 3004）
 
 订单状态：`PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR →
