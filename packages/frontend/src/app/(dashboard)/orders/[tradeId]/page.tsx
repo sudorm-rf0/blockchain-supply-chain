@@ -66,6 +66,7 @@ const CAN_DEFAULT = new Set([
   "IN_TRANSIT",
   "CUSTOMS_CLEAR",
   "DELIVERED",
+  "REPAYING",
 ]);
 
 export default function TradeDetailPage() {

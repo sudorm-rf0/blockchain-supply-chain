@@ -68,6 +68,15 @@ impl TradeDeal {
         self.status = status;
         Ok(())
     }
+
+    /// 账期是否已到期：当前时间大于等于 created_at + tenor。
+    pub fn is_expired(&self, now: i64) -> Result<bool> {
+        let deadline = self
+            .created_at
+            .checked_add(self.tenor)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        Ok(now >= deadline)
+    }
 }
 
 /// 全局资金池账户。
@@ -129,6 +138,49 @@ impl PoolState {
             .checked_add(outstanding_trade_nav)
             .ok_or(TradeFinanceError::MathOverflow)?;
         Ok(total_value / lp_token_supply)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deal_is_expired_at_deadline() {
+        let deal = TradeDeal {
+            id: 1,
+            buyer: Pubkey::default(),
+            seller: Pubkey::default(),
+            amount: 1_000_000,
+            down_payment: 300_000,
+            pool_portion: 700_000,
+            tenor: 86_400,
+            status: deal_status::REPAYING,
+            created_at: 1_000,
+            repaid_at: 0,
+        };
+        assert_eq!(deal.is_expired(1_086_400).unwrap(), true);
+        assert_eq!(deal.is_expired(1_086_399).unwrap(), false);
+    }
+
+    #[test]
+    fn deal_is_expired_handles_overflow() {
+        let deal = TradeDeal {
+            id: 1,
+            buyer: Pubkey::default(),
+            seller: Pubkey::default(),
+            amount: 1_000_000,
+            down_payment: 300_000,
+            pool_portion: 700_000,
+            tenor: i64::MAX,
+            status: deal_status::REPAYING,
+            created_at: 1,
+            repaid_at: 0,
+        };
+        assert_eq!(
+            deal.is_expired(0).unwrap_err().to_string(),
+            TradeFinanceError::MathOverflow.to_string()
+        );
     }
 }
 

@@ -518,13 +518,22 @@ pub mod trade_finance {
             ctx.accounts.deal.id == trade_id,
             TradeFinanceError::TradeNotFound
         );
-        require!(
-            matches!(
-                ctx.accounts.deal.status,
-                deal_status::FUNDED..=deal_status::DELIVERED
-            ),
-            TradeFinanceError::InvalidStateTransition
-        );
+        let deal_status_value = ctx.accounts.deal.status;
+        if matches!(
+            deal_status_value,
+            deal_status::FUNDED..=deal_status::DELIVERED
+        ) {
+            // 融资与物流阶段可由管理员直接判定违约。
+        } else if deal_status_value == deal_status::REPAYING {
+            // 还款期仅允许账期已到期的订单违约。
+            let now = Clock::get()?.unix_timestamp;
+            require!(
+                ctx.accounts.deal.is_expired(now)?,
+                TradeFinanceError::DealNotExpired
+            );
+        } else {
+            return Err(TradeFinanceError::InvalidStateTransition.into());
+        }
 
         let down_payment = ctx.accounts.deal.down_payment;
         let pool_portion = ctx.accounts.deal.pool_portion;

@@ -34,6 +34,10 @@ pub enum TradeFinanceError {
     #[msg("Insurance fund balance is insufficient for the payout")]
     InsufficientInsuranceFund,
 
+    /// 账期未到期：REPAYING 状态的订单在账期截止前不能标记违约。
+    #[msg("Deal tenor has not expired yet")]
+    DealNotExpired,
+
     /// 订单金额非法：贸易金额必须大于 0。
     #[msg("Deal amount must be greater than zero")]
     InvalidAmount,
