@@ -18,8 +18,17 @@ spec:
         app: supply-chain
         tier: backend
     spec:
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: backend
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           image: ghcr.io/example/supply-chain-backend:latest
           imagePullPolicy: IfNotPresent
           ports:

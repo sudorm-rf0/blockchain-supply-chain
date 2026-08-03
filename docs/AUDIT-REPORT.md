@@ -61,8 +61,9 @@
 14. 审计日志无保留/归档策略，生产需按合规设置。
 15. ~~Postgres 备份未做过恢复演练~~ **已修复**：`scripts/db-backup-restore.sh`
       支持一键 drill，真实备份恢复到临时库并逐表核对，输出 JSON 恢复验证报告。
-16. K8s 清单未配置 `securityContext` / `NetworkPolicy` / PodDisruptionBudget，
-    生产集群部署前建议补齐（镜像已以非 root 运行，基础风险已控制）。
+16. K8s `securityContext` 已补齐（backend/frontend/indexer/trade/pool：
+    `runAsNonRoot`、UID/GID 1000、`fsGroup`、`allowPrivilegeEscalation: false`、
+    drop ALL）；`NetworkPolicy` 与 PodDisruptionBudget 仍需真实集群部署验证。
 17. 前端未启用 CSP：App Router 内联脚本需要 nonce 方案，当前已有
     `X-Content-Type-Options` / `Referrer-Policy` / `Permissions-Policy` 兜底。
 
