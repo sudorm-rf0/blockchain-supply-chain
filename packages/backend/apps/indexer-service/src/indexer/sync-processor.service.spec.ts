@@ -13,6 +13,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
         id: "deal-pda",
         status: create.status,
       })),
+      update: jest.fn(async () => ({})),
       updateMany: jest.fn(async () => ({ count: 0 })),
     },
     user: {
@@ -73,6 +74,7 @@ describe("SyncProcessorService", () => {
           id: "deal-pda",
           status: create.status,
         })),
+        update: jest.fn(async () => ({})),
         updateMany: jest.fn(async () => ({ count: 1 })),
       },
     });
@@ -86,8 +88,9 @@ describe("SyncProcessorService", () => {
     }).handleDealSync(payload("9", 7));
 
     expect(risk.notifyDefaulted).toHaveBeenCalledTimes(1);
-    const marked = (prisma.tradeDeal.updateMany as jest.Mock).mock.calls[0][0];
-    expect(marked.where.dealId).toBe("9");
+    expect(prisma.tradeDeal.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { dealId: "9" } }),
+    );
   });
 
   it("skips a status downgrade to keep the lifecycle monotonic", async () => {

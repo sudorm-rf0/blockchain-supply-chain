@@ -113,21 +113,10 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
       where: { dealId: data.dealId },
       create: data,
       update: {
-        dealId: data.dealId,
-        buyer: data.buyer,
-        seller: data.seller,
-        buyerWallet: data.buyerWallet,
-        sellerWallet: data.sellerWallet,
-        amount: data.amount,
-        downPayment: data.downPayment,
-        poolPortion: data.poolPortion,
-        tenor: data.tenor,
         status: data.status,
-        createdAt: data.createdAt,
-        repaidAt: data.repaidAt,
-        txSignature: payload.txSignature ?? undefined,
-        logisticsHash: payload.logisticsHash ?? undefined,
-        rawData: data.rawData,
+        ...(data.repaidAt ? { repaidAt: data.repaidAt } : {}),
+        ...(payload.txSignature ? { txSignature: payload.txSignature } : {}),
+        ...(payload.logisticsHash ? { logisticsHash: payload.logisticsHash } : {}),
       },
     });
 
@@ -135,15 +124,15 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
       status === "DEFAULTED" &&
       !previous?.defaultWebhookSentAt
     ) {
-      const marked = await this.prisma.tradeDeal.updateMany({
-        where: {
-          dealId: data.dealId,
-          defaultWebhookSentAt: null,
-        },
-        data: { defaultWebhookSentAt: new Date() },
-      });
-      if (marked.count > 0) {
+      try {
         await this.riskWebhook.notifyDefaulted(deal);
+        await this.prisma.tradeDeal.update({
+          where: { dealId: data.dealId },
+          data: { defaultWebhookSentAt: new Date() },
+        });
+      } catch (err) {
+        this.logger.warn(`failed to deliver default webhook for deal ${payload.tradeId}, will retry`);
+        throw err;
       }
     }
   }
