@@ -56,6 +56,49 @@ input{font:inherit}
   display:grid;grid-template-columns:minmax(340px,420px) 1fr;gap:24px;align-items:start;
 }
 
+
+/* 工作流流程图 */
+.flow-section{grid-column:1 / -1;margin-bottom:4px}
+.flow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}
+.flow-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px}
+.flow-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.flow-head h3{font-size:15px;font-weight:700}
+.flow-counter{font-size:12px;color:var(--muted)}
+.flow-controls{display:flex;align-items:center;gap:8px}
+.flow-track{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:18px 4px 8px;position:relative}
+.flow-step{display:flex;flex-direction:column;align-items:center;flex:1 0 96px;min-width:96px;text-align:center;cursor:pointer;position:relative}
+.flow-step .node{
+  width:42px;height:42px;border-radius:50%;background:#eef2f7;border:2px solid #cbd5e1;
+  color:#475569;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;
+  transition:all .35s;position:relative;z-index:2;
+}
+.flow-step:hover .node{border-color:var(--accent);color:var(--accent)}
+.flow-step.active .node{
+  background:var(--accent);border-color:var(--accent);color:#fff;
+  box-shadow:0 0 0 7px rgba(15,118,136,.14);transform:scale(1.12);
+  animation:pulseNode 1.5s ease-in-out infinite;
+}
+.flow-step.done .node{background:#16a34a;border-color:#16a34a;color:#fff}
+.flow-step .cap{margin-top:8px;font-size:12px;font-weight:600;color:#334155;line-height:1.35;padding:0 3px}
+.flow-step .sub{font-size:10px;color:#64748b;margin-top:2px;padding:0 3px}
+.flow-connector{flex:none;width:34px;margin-top:22px;height:3px;background:#e2e8f0;border-radius:2px;overflow:hidden;position:relative;z-index:1}
+.flow-connector .fill{height:100%;width:0;background:var(--accent);transition:width .5s ease}
+.flow-detail{
+  min-height:50px;font-size:13px;color:#334155;background:#f8fafc;border:1px solid var(--line);
+  border-radius:8px;padding:10px 12px;margin-top:12px;display:flex;align-items:center;gap:10px;
+}
+.flow-detail .step-tag{flex:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;border-radius:100px;padding:3px 9px}
+.flow-branch{
+  margin-top:10px;font-size:12px;color:#b45309;background:#fffbeb;border:1px dashed #fcd34d;
+  border-radius:8px;padding:8px 10px;
+}
+@keyframes pulseNode{
+  0%,100%{box-shadow:0 0 0 5px rgba(15,118,136,.14)}
+  50%{box-shadow:0 0 0 11px rgba(15,118,136,.07)}
+}
+.flow-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
+
 .phone-wrap{position:sticky;top:84px}
 .phone{
   width:100%;max-width:400px;margin:0 auto;background:#0b1220;border-radius:36px;
@@ -201,25 +244,35 @@ tr:last-child td{border-bottom:none}
   </ol>
 </header>
 
+
 <section class="flow-section">
   <div class="flow-grid">
     <div class="flow-card">
-      <h3>单据上链流程（当前演示）</h3>
-      <svg id="flowSvgDoc" viewBox="0 0 860 120" role="img" aria-label="单据上链流程图"></svg>
+      <div class="flow-head">
+        <h3>单据上链流程</h3>
+        <div class="flow-controls">
+          <button class="admin-btn ghost" id="playBtn">自动演示</button>
+          <span class="flow-counter" id="flowCounter">步骤 0 / 6</span>
+        </div>
+      </div>
+      <div class="flow-track" id="docTrack"></div>
+      <div class="flow-detail" id="flowDetail"><span class="step-tag">说明</span><span id="flowDetailText">点击节点，或按“自动演示”逐步了解系统如何运行。</span></div>
+      <div class="flow-legend">
+        <span><span class="legend-dot" style="background:#0f766e"></span>当前步骤</span>
+        <span><span class="legend-dot" style="background:#16a34a"></span>已完成</span>
+        <span><span class="legend-dot" style="background:#eef2f7;border:1px solid #94a3b8"></span>未开始</span>
+      </div>
     </div>
     <div class="flow-card">
-      <h3>贸易订单全流程（真实系统）</h3>
-      <svg id="flowSvgTrade" viewBox="0 0 880 170" role="img" aria-label="贸易订单流程图"></svg>
+      <div class="flow-head">
+        <h3>贸易订单全流程</h3>
+        <span class="flow-counter">完整业务状态机</span>
+      </div>
+      <div class="flow-track" id="tradeTrack"></div>
+      <div class="flow-branch">违约分支：已拨款 / 还款期 → 违约清算（触发 30% 抵押清算与保险基金赔付）</div>
     </div>
   </div>
-  <div class="flow-detail" id="flowDetail">点击流程图节点查看说明</div>
-  <div class="flow-legend">
-    <span><span class="legend-dot" style="background:#0f766e"></span>当前步骤</span>
-    <span><span class="legend-dot" style="background:#16a34a"></span>已完成</span>
-    <span><span class="legend-dot" style="background:#f8fafc;border:1px solid #94a3b8"></span>未开始</span>
-  </div>
 </section>
-
 
 <main class="shell">
   <section class="phone-wrap">
@@ -570,103 +623,103 @@ $("resetBtn").addEventListener("click", () => {
 });
 
 
-/* 工作流流程图 */
-const flowSvgDoc = document.getElementById("flowSvgDoc");
-const flowSvgTrade = document.getElementById("flowSvgTrade");
-const flowDetailEl = document.getElementById("flowDetail");
+
+/* 工作流流程图：HTML/CSS 动态示意图 */
+const DOC_FLOW = [
+  { title: "上传图片", sub: "手机 / 拍照", desc: "用户在手机端选择或拍摄贸易单据图片。" },
+  { title: "SHA-256", sub: "文件哈希", desc: "对图片内容计算 SHA-256 哈希，作为链上存证指纹。" },
+  { title: "钱包签名", sub: "Phantom", desc: "用户钱包对存证交易签名，确认上传者归属。" },
+  { title: "提交上链", sub: "Solana RPC", desc: "交易提交到 Solana，生成交易签名与 Slot。" },
+  { title: "管理员审核", sub: "PC 后台", desc: "管理端自动同步单据，人工查看图片并核对哈希。" },
+  { title: "存证完成", sub: "ON-CHAIN", desc: "审核通过后状态变为 ON-CHAIN，形成完整链上存证记录。" }
+];
+
+const TRADE_FLOW = [
+  { title: "已创建", sub: "PENDING", desc: "买方提交 30% 首付并创建贸易订单。" },
+  { title: "已拨款", sub: "FUNDED", desc: "管理员从资金池拨付 70% 垫付资金。" },
+  { title: "运输中", sub: "IN_TRANSIT", desc: "货物运输，物流状态推进。" },
+  { title: "清关", sub: "CUSTOMS_CLEAR", desc: "海关清关完成，状态推进。" },
+  { title: "已交付", sub: "DELIVERED", desc: "货物交付确认，进入还款期。" },
+  { title: "还款期", sub: "REPAYING", desc: "买方归还本金与费用，页面展示还款倒计时。" },
+  { title: "已结清", sub: "SETTLED", desc: "还款完成，费用按平台/返利/LP 分红分配。" },
+  { title: "违约清算", sub: "DEFAULTED", desc: "超期违约触发抵押清算与保险基金赔付。" }
+];
+
 let flowPhase = 0;
+let flowPlaying = false;
+let flowTimer = null;
+const playBtn = document.getElementById("playBtn");
+const docTrack = document.getElementById("docTrack");
+const tradeTrack = document.getElementById("tradeTrack");
+const flowCounter = document.getElementById("flowCounter");
+const flowDetailText = document.getElementById("flowDetailText");
 
-const FLOW_DOC = [
-  { id: "upload", title: "上传图片", sub: "手机/拍照", x: 20, y: 30, w: 112, h: 58, desc: "用户在手机端选择或拍摄贸易单据图片。" },
-  { id: "hash", title: "SHA-256", sub: "文件哈希", x: 165, y: 30, w: 112, h: 58, desc: "对图片内容计算 SHA-256 哈希，作为链上存证指纹。" },
-  { id: "sign", title: "钱包签名", sub: "Phantom", x: 310, y: 30, w: 112, h: 58, desc: "用户钱包对存证交易签名，确认上传者归属。" },
-  { id: "submit", title: "提交上链", sub: "Solana RPC", x: 455, y: 30, w: 112, h: 58, desc: "交易提交到 Solana，生成交易签名与 Slot。" },
-  { id: "review", title: "管理员审核", sub: "PC 后台", x: 600, y: 30, w: 112, h: 58, desc: "管理端自动同步单据，人工查看图片并核对哈希。" },
-  { id: "onchain", title: "存证完成", sub: "ON-CHAIN", x: 745, y: 30, w: 100, h: 58, desc: "审核通过后状态变为 ON-CHAIN，形成完整链上存证记录。" }
-];
-
-const FLOW_TRADE = [
-  { id: "pending", title: "已创建", sub: "PENDING", x: 20, y: 20, w: 108, h: 48, desc: "买方提交 30% 首付并创建贸易订单。" },
-  { id: "funded", title: "已拨款", sub: "FUNDED", x: 170, y: 20, w: 108, h: 48, desc: "管理员从资金池拨付 70% 垫付资金。" },
-  { id: "transit", title: "运输中", sub: "IN_TRANSIT", x: 320, y: 20, w: 108, h: 48, desc: "货物运输，物流状态推进。" },
-  { id: "customs", title: "清关", sub: "CUSTOMS_CLEAR", x: 470, y: 20, w: 108, h: 48, desc: "海关清关完成，状态推进。" },
-  { id: "delivered", title: "已交付", sub: "DELIVERED", x: 620, y: 20, w: 108, h: 48, desc: "货物交付确认，进入还款期。" },
-  { id: "repaying", title: "还款期", sub: "REPAYING", x: 300, y: 100, w: 108, h: 48, desc: "买方归还本金与费用，页面展示还款倒计时。" },
-  { id: "settled", title: "已结清", sub: "SETTLED", x: 470, y: 100, w: 108, h: 48, desc: "还款完成，费用按平台/返利/LP 分红分配。" },
-  { id: "defaulted", title: "违约清算", sub: "DEFAULTED", x: 700, y: 100, w: 140, h: 48, desc: "超期违约触发抵押清算与保险基金赔付。" }
-];
-
-const FLOW_LINKS = {
-  doc: [
-    { from: 0, to: 1 },
-    { from: 1, to: 2 },
-    { from: 2, to: 3 },
-    { from: 3, to: 4 },
-    { from: 4, to: 5 }
-  ],
-  trade: [
-    { from: 0, to: 1 },
-    { from: 1, to: 2 },
-    { from: 2, to: 3 },
-    { from: 3, to: 4 },
-    { from: 4, to: 5 },
-    { from: 5, to: 6 },
-    { from: 1, to: 7, dashed: true },
-    { from: 5, to: 7, dashed: true }
-  ]
-};
-
-function flowArrowPath(a, b) {
-  const ax = a.x + a.w;
-  const ay = a.y + a.h / 2;
-  const bx = b.x;
-  const by = b.y + b.h / 2;
-  if (Math.abs(ay - by) < 2) {
-    return `M ${ax} ${ay} L ${bx - 6} ${by}`;
-  }
-  const midY = ay < by ? by - 12 : ay + 12;
-  return `M ${ax} ${ay} V ${midY} H ${bx - 6} V ${by}`;
-}
-
-function flowDetail(node) {
-  flowDetailEl.textContent = node.desc;
-}
-
-function renderFlow(kind) {
-  const isDoc = kind === "doc";
-  const svg = isDoc ? flowSvgDoc : flowSvgTrade;
-  const nodes = isDoc ? FLOW_DOC : FLOW_TRADE;
-  const links = isDoc ? FLOW_LINKS.doc : FLOW_LINKS.trade;
-  const marker = `arrow-${kind}`;
-  let out = `<defs><marker id="${marker}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker></defs>`;
-
-  links.forEach((link, i) => {
-    const a = nodes[link.from];
-    const b = nodes[link.to];
-    const active = isDoc && i < flowPhase;
-    out += `<path class="flow-arrow ${active ? "active" : ""}" d="${flowArrowPath(a, b)}" marker-end="url(#${marker})" ${link.dashed ? 'stroke-dasharray="5 4"' : ""}></path>`;
-  });
-
-  nodes.forEach((node, idx) => {
-    const state = isDoc ? (idx < flowPhase ? "done" : idx === flowPhase ? "active" : "") : "";
-    out += `<g class="flow-node ${state}" data-idx="${idx}" data-kind="${kind}" transform="translate(${node.x},${node.y})">`;
-    out += `<rect width="${node.w}" height="${node.h}" rx="8"></rect>`;
-    out += `<text x="${node.w / 2}" y="25" text-anchor="middle">${node.title}</text>`;
-    out += `<text class="sub" x="${node.w / 2}" y="43" text-anchor="middle">${node.sub}</text>`;
-    out += `</g>`;
-  });
-
-  svg.innerHTML = out;
-  svg.querySelectorAll(".flow-node").forEach((g) => {
-    g.addEventListener("click", () => {
-      flowDetail(nodes[Number(g.dataset.idx)]);
+function buildFlowTrack(container, steps, phase) {
+  container.innerHTML = "";
+  steps.forEach((step, i) => {
+    const el = document.createElement("div");
+    el.className = "flow-step";
+    if (i < phase) el.classList.add("done");
+    if (i === phase) el.classList.add("active");
+    el.innerHTML = `<div class="node">${i + 1}</div><div class="cap">${step.title}</div><div class="sub">${step.sub}</div>`;
+    el.addEventListener("click", () => {
+      flowDetailText.textContent = step.desc;
+      if (container === docTrack) {
+        flowPhase = i;
+        renderDocFlow();
+      }
     });
+    container.appendChild(el);
+    if (i < steps.length - 1) {
+      const connector = document.createElement("div");
+      connector.className = "flow-connector";
+      connector.innerHTML = '<div class="fill"></div>';
+      const fill = connector.querySelector(".fill");
+      fill.style.width = i < phase ? "100%" : "0%";
+      container.appendChild(connector);
+    }
   });
 }
+
+function renderDocFlow() {
+  buildFlowTrack(docTrack, DOC_FLOW, flowPhase);
+  flowCounter.textContent = `步骤 ${flowPhase} / ${DOC_FLOW.length}`;
+  if (DOC_FLOW[flowPhase]) flowDetailText.textContent = DOC_FLOW[flowPhase].desc;
+}
+
+function renderTradeFlow() {
+  buildFlowTrack(tradeTrack, TRADE_FLOW, -1);
+}
+
+function stopAutoFlow() {
+  flowPlaying = false;
+  if (flowTimer) clearInterval(flowTimer);
+  flowTimer = null;
+  playBtn.textContent = "自动演示";
+}
+
+playBtn.addEventListener("click", () => {
+  if (flowPlaying) {
+    stopAutoFlow();
+    return;
+  }
+  flowPlaying = true;
+  playBtn.textContent = "暂停";
+  flowPhase = 0;
+  renderDocFlow();
+  flowTimer = setInterval(() => {
+    flowPhase += 1;
+    if (flowPhase >= DOC_FLOW.length) {
+      flowPhase = 0;
+    }
+    renderDocFlow();
+  }, 1500);
+});
 
 function setFlowPhase(phase) {
+  stopAutoFlow();
   flowPhase = phase;
-  renderFlow("doc");
+  renderDocFlow();
 }
 
 const _origSetStep = setStep;
@@ -681,8 +734,8 @@ approve = (id) => {
   setFlowPhase(6);
 };
 
-renderFlow("doc");
-renderFlow("trade");
+renderDocFlow();
+renderTradeFlow();
 
 setInterval(() => {
   const pending = records.filter((r) => r.status === "PENDING");
