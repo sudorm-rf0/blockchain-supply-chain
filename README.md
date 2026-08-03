@@ -75,6 +75,7 @@ Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，�
 
 ## 文档
 
+- [演示手册](docs/DEMO.md)：本地 Demo 账号、流程与重置
 - [部署手册](docs/DEPLOYMENT.md)：本地/镜像/K8s/devnet 部署与回滚
 - [操作手册](docs/OPERATIONS.md)：环境变量、巡检、备份、故障处理
 - [接口文档](docs/API.md)：认证、文件、订单、资金池、索引器全部接口
