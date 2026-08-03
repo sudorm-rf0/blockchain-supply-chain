@@ -104,6 +104,9 @@
 - 数据层：Prisma 升级到 6.19.3；连接池 `connection_limit=10`、池等待
   `pool_timeout=20s`、socket 超时 `socket_timeout=30s`，Prisma 客户端开启
   warn/error 日志与 minimal 错误格式。
+- 运维闭环：新增 Prometheus/Grafana/Alertmanager K8s 清单与
+  `DEPLOY_MONITORING=1` 一键部署；新增月度备份恢复演练 CronJob
+  （`postgres-backup-drill-cronjob.yaml`，逐表核对）。
 
 ## 上线前必做
 

@@ -76,3 +76,17 @@ docker run -d --name grafana -p 3300:3000 \
 ```
 
 K8s 部署时把两个目录作为 ConfigMap/Volume 挂载到 Grafana 对应路径。
+
+## 4. Kubernetes 一键部署
+
+```bash
+DEPLOY_MONITORING=1 NAMESPACE=supply-chain \
+REGISTRY=your-registry/supply-chain TAG=latest bash scripts/deploy.sh
+```
+
+- `deploy.sh` 从 `infra/prometheus` / `infra/grafana` 生成 ConfigMap，
+  避免手工复制配置。
+- 同时应用 Prometheus（9090）、Grafana（3000）、Alertmanager（9093）
+  三个 Deployment/Service，并等 rollout 完成。
+- `postgres-backup-drill-cronjob.yaml` 每月自动做备份恢复演练，任一行数
+  不匹配即 Job 失败，便于监控到备份失效。

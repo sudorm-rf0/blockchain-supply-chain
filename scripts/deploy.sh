@@ -14,6 +14,7 @@ NEXT_PUBLIC_POOL_API_URL="${NEXT_PUBLIC_POOL_API_URL:-${PUBLIC_BASE_URL}/api}"
 
 SKIP_BUILD="${SKIP_BUILD:-0}"
 SKIP_MIGRATE="${SKIP_MIGRATE:-0}"
+DEPLOY_MONITORING="${DEPLOY_MONITORING:-0}"
 
 echo "==> [1/5] build and push images"
 if [[ "${SKIP_BUILD}" != "1" ]]; then
@@ -65,6 +66,30 @@ kubectl rollout status deployment/pool-service -n "${NAMESPACE}" --timeout=300s
 
 echo "==> [3.5/5] apply backup cronjob"
 kubectl apply -n "${NAMESPACE}" -f k8s/postgres-backup-cronjob.yaml
+kubectl apply -n "${NAMESPACE}" -f k8s/postgres-backup-drill-cronjob.yaml
+
+if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
+  echo "==> [3.6/5] apply monitoring stack"
+  kubectl -n "${NAMESPACE}" create configmap prometheus-config \
+    --from-file=prometheus.yml=infra/prometheus/prometheus.yml \
+    --from-file=alerts.yml=infra/prometheus/alerts.yml \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl -n "${NAMESPACE}" create configmap grafana-provisioning \
+    --from-file=datasources/prometheus.yml=infra/grafana/provisioning/datasources/prometheus.yml \
+    --from-file=dashboards/dashboards.yml=infra/grafana/provisioning/dashboards/dashboards.yml \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl -n "${NAMESPACE}" create configmap grafana-dashboard \
+    --from-file=supply-chain.json=infra/grafana/dashboards/supply-chain.json \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl apply -n "${NAMESPACE}" \
+    -f k8s/alertmanager-config.yaml \
+    -f k8s/prometheus-deployment.yaml \
+    -f k8s/grafana-deployment.yaml \
+    -f k8s/alertmanager-deployment.yaml
+  kubectl rollout status deployment/prometheus -n "${NAMESPACE}" --timeout=300s
+  kubectl rollout status deployment/grafana -n "${NAMESPACE}" --timeout=300s
+  kubectl rollout status deployment/alertmanager -n "${NAMESPACE}" --timeout=300s
+fi
 
 echo "==> [4/5] prisma migrate deploy"
 if [[ "${SKIP_MIGRATE}" != "1" ]]; then
