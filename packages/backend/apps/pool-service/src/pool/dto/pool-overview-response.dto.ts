@@ -9,6 +9,15 @@ export class PoolTrendPointDto {
 
   @ApiProperty({ example: "10000000000" })
   totalAssets!: string;
+
+  @ApiProperty({ example: "7000000000" })
+  activeCapital!: string;
+
+  @ApiProperty({ example: "3000000000" })
+  idle!: string;
+
+  @ApiProperty({ example: 7000 })
+  utilizationBps!: number;
 }
 
 export class PoolOverviewResponseDto {

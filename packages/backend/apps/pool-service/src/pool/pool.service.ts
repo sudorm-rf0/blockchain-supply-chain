@@ -139,6 +139,13 @@ export class PoolService {
           capturedAt: snapshot.capturedAt.toISOString(),
           nav: snapshot.nav.toString(10),
           totalAssets: snapshot.totalAssets.toString(10),
+          activeCapital: snapshot.activeCapital.toString(10),
+          idle: (
+            snapshot.totalAssets > snapshot.activeCapital
+              ? snapshot.totalAssets - snapshot.activeCapital
+              : 0n
+          ).toString(10),
+          utilizationBps: Number(snapshot.utilization ?? 0n),
         })),
     };
     await this.redis.setWithExpiry(
