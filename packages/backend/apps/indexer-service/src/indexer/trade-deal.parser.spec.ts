@@ -44,4 +44,45 @@ describe("parseTradeDealBuffer", () => {
       /unknown TradeDeal status code/,
     );
   });
+
+  it("decodes buffers longer than the exact account size", () => {
+    const buyer = Keypair.generate().publicKey;
+    const seller = Keypair.generate().publicKey;
+    const buf = Buffer.alloc(TRADE_DEAL_ACCOUNT_SIZE + 16);
+    buf.writeBigUInt64LE(42n, 8);
+    buyer.toBuffer().copy(buf, 16);
+    seller.toBuffer().copy(buf, 48);
+    buf.writeBigUInt64LE(1_000_000n, 80);
+    buf.writeUInt8(1, 112);
+
+    const payload = parseTradeDealBuffer(buf, "deal-pda");
+    expect(payload.tradeId).toBe("42");
+    expect(payload.status).toBe(1);
+  });
+
+  it("decodes a maximum u64 trade id", () => {
+    const buyer = Keypair.generate().publicKey;
+    const seller = Keypair.generate().publicKey;
+    const buf = Buffer.alloc(TRADE_DEAL_ACCOUNT_SIZE);
+    buf.writeBigUInt64LE(18_446_744_073_709_551_615n, 8);
+    buyer.toBuffer().copy(buf, 16);
+    seller.toBuffer().copy(buf, 48);
+    buf.writeBigUInt64LE(1_000_000n, 80);
+    buf.writeUInt8(7, 112);
+
+    const payload = parseTradeDealBuffer(buf, "deal-pda");
+    expect(payload.tradeId).toBe("18446744073709551615");
+  });
+
+  it("decodes negative timestamps as i64 values", () => {
+    const buyer = Keypair.generate().publicKey;
+    const seller = Keypair.generate().publicKey;
+    const buf = Buffer.alloc(TRADE_DEAL_ACCOUNT_SIZE);
+    buyer.toBuffer().copy(buf, 16);
+    seller.toBuffer().copy(buf, 48);
+    buf.writeBigInt64LE(-100n, 113);
+
+    const payload = parseTradeDealBuffer(buf, "deal-pda");
+    expect(payload.createdAt).toBe("-100");
+  });
 });
