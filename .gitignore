@@ -21,3 +21,4 @@ packages/backend/uploads/
 packages/frontend/.next/
 packages/frontend/test-results/
 packages/frontend/playwright-report/
+infra/config/*.rpc.env

@@ -7,6 +7,8 @@
 - [ ] 云厂商账号 + 可用的 Kubernetes 集群（EKS/GKE/AKS/ACK 等）。
 - [ ] 正式域名并完成 DNS 指向；准备 TLS 证书（云证书或 Cert-Manager）。
 - [ ] 正式 Solana RPC（Helius/QuickNode），拿到 API Key。
+- [ ] `bash scripts/check-rpc.sh "https://<网络>.helius-rpc.com/?api-key=<KEY>"`
+      返回 `rpc healthy`（devnet 偶发 SSL 抖动会自动重试 3 次）。
 - [ ] S3/OSS Bucket（含读写权限的 AccessKey）。
 - [ ] 告警渠道：IM/邮件/Slack 的 Webhook。
 - [ ] 第三方合约审计机构（走合同与排期）。

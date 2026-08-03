@@ -90,14 +90,25 @@ docker build --target frontend-runner \
 
 ## 4. 合约部署（devnet）
 
+先配置正式 devnet RPC（Helius/QuickNode）：
+
+```bash
+cp infra/config/rpc.devnet.env.example infra/config/rpc.devnet.env
+# 编辑 infra/config/rpc.devnet.env，填入 SOLANA_RPC_URL=<正式 RPC>
+bash scripts/check-rpc.sh "$(grep '^SOLANA_RPC_URL=' infra/config/rpc.devnet.env | cut -d= -f2-)"
+```
+
+密钥只保存在本地 gitignored 文件，不会提交到仓库。
+
 ```bash
 solana-keygen new -o ~/.config/solana/id.json   # 首次
 solana airdrop 2 $(solana address)              # 缺少 devnet SOL 时
 bash scripts/deploy-devnet.sh
 ```
 
-脚本会 `anchor build && cargo build-sbf --arch v3`，再用固定的
-Program keypair 执行 `solana program deploy`。上线前
+脚本会读取 `infra/config/rpc.devnet.env`（或 `SOLANA_RPC_URL`），执行
+`anchor build && cargo build-sbf --arch v3`，再用固定的 Program keypair
+执行 `solana program deploy`。上线前
 必须完成第三方合约审计并核对 Program ID：
 
 - `trade_finance`: `9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3`
