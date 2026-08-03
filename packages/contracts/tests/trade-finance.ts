@@ -840,6 +840,122 @@ describe("trade-finance full lifecycle", () => {
       console.log("Repayment by wrong buyer account rejected");
     });
 
+    it("Rejects repayment when the buyer has insufficient funds", async () => {
+      const cashBuyer = anchor.web3.Keypair.generate();
+      await airdrop(cashBuyer.publicKey);
+      const cashAta = await createAta(cashBuyer.publicKey);
+      await mintTo(
+        connection,
+        payer,
+        usdcMint,
+        cashAta,
+        payer.publicKey,
+        USDC(400),
+      );
+
+      const tradeId = new anchor.BN(19);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(cashBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts({
+          poolState: poolStatePda,
+          buyer: cashBuyer.publicKey,
+          deal,
+          buyerTokenAccount: cashAta,
+          dealTokenAccount,
+          usdcMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([cashBuyer])
+        .rpc();
+      await program.methods
+        .fundDeal(tradeId)
+        .accounts({
+          poolState: poolStatePda,
+          admin: admin.publicKey,
+          buyer: cashBuyer.publicKey,
+          deal,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+          dealTokenAccount,
+          usdcMint,
+          lpMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc();
+      for (const target of [2, 3, 4]) {
+        await program.methods
+          .advanceDeal(tradeId, target)
+          .accounts({
+            poolState: poolStatePda,
+            admin: admin.publicKey,
+            buyer: cashBuyer.publicKey,
+            deal,
+          })
+          .signers([admin])
+          .rpc();
+      }
+      await program.methods
+        .releaseToSeller(tradeId)
+        .accounts({
+          poolState: poolStatePda,
+          admin: admin.publicKey,
+          buyer: cashBuyer.publicKey,
+          deal,
+          dealTokenAccount,
+          sellerTokenAccount: sellerAta,
+          usdcMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc();
+
+      await assert.rejects(
+        program.methods
+          .repayDeal(tradeId)
+          .accounts(REPAY_ACCOUNTS(deal, cashBuyer.publicKey, cashAta))
+          .signers([cashBuyer])
+          .rpc(),
+        /InsufficientFunds/,
+      );
+      console.log("Repayment with insufficient funds rejected");
+    });
+
+    it("Rejects advancing by a non-admin", async () => {
+      const tradeId = new anchor.BN(20);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(edgeBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(EDGE_CREATE(deal, dealTokenAccount))
+        .signers([edgeBuyer])
+        .rpc();
+      await program.methods
+        .fundDeal(tradeId)
+        .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
+        .signers([admin])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .advanceDeal(tradeId, 2)
+          .accounts({
+            poolState: poolStatePda,
+            admin: edgeBuyer.publicKey,
+            buyer: edgeBuyer.publicKey,
+            deal,
+          })
+          .signers([edgeBuyer])
+          .rpc(),
+        /Unauthorized/,
+      );
+      console.log("Advance by non-admin rejected");
+    });
+
     it("Rejects invalid tenor", async () => {
       const tradeId = new anchor.BN(10);
       const amount = new anchor.BN(USDC(1_000));

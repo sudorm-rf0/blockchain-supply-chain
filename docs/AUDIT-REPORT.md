@@ -78,7 +78,7 @@
 
 ## 验证记录
 
-- 后端/前端/三个独立服务构建通过；Jest 69/69；合约 20/20 测试通过。
+- 后端/前端/三个独立服务构建通过；Jest 71/71；合约 22/22 测试通过。
 - 前端新增 Vitest 组件测试 3/3、Playwright UI e2e 2/2（版本上传、管理员强制改密、
   订单详情），并接入 CI `frontend-e2e` job。
 - Next.js 15.5.22 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`

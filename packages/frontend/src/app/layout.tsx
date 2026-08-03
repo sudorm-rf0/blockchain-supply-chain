@@ -12,6 +12,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Supply Chain Traceability",
   description: "Solana supply chain traceability dashboard",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

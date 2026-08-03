@@ -30,19 +30,34 @@ export class RiskControlWebhookService {
     const signature = createHmac("sha256", INDEXER_ENV.webhookSecret)
       .update(`${timestamp}.${body}`)
       .digest("hex");
-    const response = await fetch(INDEXER_ENV.riskWebhookUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-webhook-signature": signature,
-        "x-webhook-timestamp": String(timestamp),
-      },
-      body,
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!response.ok) {
-      throw new Error(`risk webhook responded ${response.status}`);
+    const maxAttempts = 3;
+    const delayMs = Number(process.env.WEBHOOK_RETRY_DELAY_MS ?? 300);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await fetch(INDEXER_ENV.riskWebhookUrl, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-webhook-signature": signature,
+            "x-webhook-timestamp": String(timestamp),
+          },
+          body,
+          signal: AbortSignal.timeout(5_000),
+        });
+        if (!response.ok) {
+          throw new Error(`risk webhook responded ${response.status}`);
+        }
+        this.logger.log(`defaulted webhook delivered for deal ${deal.id}`);
+        return;
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          throw error;
+        }
+        this.logger.warn(
+          `risk webhook attempt ${attempt}/${maxAttempts} failed: ${String(error)}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+      }
     }
-    this.logger.log(`defaulted webhook delivered for deal ${deal.id}`);
   }
 }

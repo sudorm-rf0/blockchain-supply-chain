@@ -1,4 +1,11 @@
-import { Controller, Get, Query, Req, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Header,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import type { Request } from "express";
 import { AuthGuard } from "../auth/auth.guard";
 import { AdminGuard } from "../auth/admin.guard";
@@ -21,6 +28,24 @@ export class AuditController {
       limit: Math.min(100, Math.max(1, Number(limit) || 20)),
       action,
       targetType,
+    });
+  }
+
+  @Get("export")
+  @Header("Content-Type", "text/csv; charset=utf-8")
+  @Header(
+    "Content-Disposition",
+    'attachment; filename="audit-logs.csv"',
+  )
+  exportCsv(
+    @Query("action") action?: string,
+    @Query("targetType") targetType?: string,
+    @Query("limit") limit = "10000",
+  ) {
+    return this.audit.exportCsv({
+      action,
+      targetType,
+      limit: Math.min(100_000, Math.max(1, Number(limit) || 10_000)),
     });
   }
 }

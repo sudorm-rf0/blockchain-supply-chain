@@ -84,5 +84,6 @@ Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，�
 - [接口文档](docs/API.md)：认证、文件、订单、资金池、索引器全部接口
 - [上线运行手册](docs/GO-LIVE-RUNBOOK.md) 与
   [上线核对清单](docs/LAUNCH-CHECKLIST.md)
+- [应急预案](docs/INCIDENT-RUNBOOK.md)
 - [审计报告](docs/AUDIT-REPORT.md) 与
   [压测报告](docs/LOAD-TEST-REPORT.md)
