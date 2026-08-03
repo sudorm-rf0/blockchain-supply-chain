@@ -66,8 +66,8 @@ ENV NODE_ENV=production PORT=3000
 
 COPY --from=builder /workspace/packages/frontend/.next/standalone ./
 COPY --from=builder /workspace/packages/frontend/.next/static ./.next/static
+COPY --from=builder /workspace/packages/frontend/public ./public
 
-RUN mkdir -p ./public
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]

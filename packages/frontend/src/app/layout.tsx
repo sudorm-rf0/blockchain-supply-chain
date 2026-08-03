@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import AppWalletProvider from "@/components/WalletProvider";
+import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "@solana/wallet-adapter-react-ui/styles.css";
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <AppWalletProvider>{children}</AppWalletProvider>
           <Toaster />
+          <RegisterServiceWorker />
         </ThemeProvider>
       </body>
     </html>
