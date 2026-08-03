@@ -53,6 +53,7 @@ kubectl apply -n "${NAMESPACE}" \
   -f k8s/trade-deployment.yaml \
   -f k8s/pool-deployment.yaml \
   -f k8s/ingress.yaml
+kubectl apply -n "${NAMESPACE}" -f k8s/pod-disruption-budgets.yaml
 kubectl set image deployment/backend backend="${BACKEND_IMAGE}" -n "${NAMESPACE}"
 kubectl set image deployment/frontend frontend="${FRONTEND_IMAGE}" -n "${NAMESPACE}"
 kubectl set image deployment/indexer-service indexer-service="${BACKEND_IMAGE}" -n "${NAMESPACE}"

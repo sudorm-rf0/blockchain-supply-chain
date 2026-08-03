@@ -63,7 +63,10 @@
       支持一键 drill，真实备份恢复到临时库并逐表核对，输出 JSON 恢复验证报告。
 16. K8s `securityContext` 已补齐（backend/frontend/indexer/trade/pool：
     `runAsNonRoot`、UID/GID 1000、`fsGroup`、`allowPrivilegeEscalation: false`、
-    drop ALL）；`NetworkPolicy` 与 PodDisruptionBudget 仍需真实集群部署验证。
+    drop ALL）；`NetworkPolicy` 已补全 egress 内网放行（DNS、内部服务、
+    外部 80/443，7 条策略）；PodDisruptionBudget 已为 10 个工作负载创建
+    （minAvailable 1）；资源配额已复核，两个备份 CronJob 已补 requests/limits。
+    真实集群部署验证仍待执行。
 17. 前端未启用 CSP：App Router 内联脚本需要 nonce 方案，当前已有
     `X-Content-Type-Options` / `Referrer-Policy` / `Permissions-Policy` 兜底。
 
