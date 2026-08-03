@@ -33,7 +33,7 @@ export interface JwtPayload {
   exp: number;
 }
 
-export function signJwt(payload: Omit<JwtPayload, "iat" | "exp">, expiresInSeconds = 86_400): string {
+export function signJwt(payload: Omit<JwtPayload, "iat" | "exp">, expiresInSeconds = 15 * 60): string {
   const now = Math.floor(Date.now() / 1000);
   const claims: JwtPayload = { ...payload, iat: now, exp: now + expiresInSeconds };
   const payloadB64 = base64urlEncode(Buffer.from(JSON.stringify(claims)));

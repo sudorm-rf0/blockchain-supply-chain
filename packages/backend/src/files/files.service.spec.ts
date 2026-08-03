@@ -16,7 +16,11 @@ const PNG_BYTES = Buffer.from(
 function makePrisma() {
   return {
     file: {
-      create: jest.fn(async ({ data }) => ({ id: "f1", ...data })),
+      create: jest.fn(async ({ data }) => ({
+        id: "f1",
+        createdAt: new Date(),
+        ...data,
+      })),
       findUnique: jest.fn(async () => null),
       findFirst: jest.fn(async () => null),
       update: jest.fn(async ({ data }) => ({ id: "f1", ...data })),

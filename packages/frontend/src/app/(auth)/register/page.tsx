@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { register as registerApi } from "@/lib/api";
+import { useUserStore } from "@/stores/user-store";
 
 const schema = z
   .object({
@@ -33,6 +34,7 @@ type RegisterForm = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const setAuth = useUserStore((state) => state.setAuth);
   const {
     register,
     handleSubmit,
@@ -49,14 +51,15 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: RegisterForm) => {
     try {
-      await registerApi({
+      const { user, mustChangePassword } = await registerApi({
         name: values.name,
         email: values.email,
         password: values.password,
         wallet: values.wallet || undefined,
       });
-      toast.success("注册成功，请登录");
-      router.push("/login");
+      setAuth({ ...user, mustChangePassword: mustChangePassword ?? false });
+      toast.success("注册成功");
+      router.push("/user/upload");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "注册失败");
     }

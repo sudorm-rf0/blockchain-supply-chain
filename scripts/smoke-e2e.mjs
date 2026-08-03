@@ -65,40 +65,52 @@ const fd = new FormData();
 fd.append("file", new Blob([png], { type: "image/png" }), "smoke.png");
 const upRes = await fetch(`${BASE}/api/files`, {
   method: "POST",
-  headers: { authorization: `Bearer ${reg.token}` },
+  headers: { authorization: `Bearer ${reg.accessToken}` },
   body: fd,
 });
 if (!upRes.ok) throw new Error(`POST /api/files -> ${upRes.status}: ${await upRes.text()}`);
 const file = await upRes.json();
 results.upload = true;
 
-const built = await api(BASE, `/api/files/${file.id}/attest`, reg.token, "POST", {
+const built = await api(BASE, `/api/files/${file.id}/attest`, reg.accessToken, "POST", {
   walletAddress: wallet.publicKey.toBase58(),
 });
 const sig = await signSend(built.transaction, wallet);
 const confirmed = await api(
   BASE,
   `/api/files/${file.id}/attest/confirm`,
-  reg.token,
+  reg.accessToken,
   "POST",
   { txSignature: sig, documentPda: built.documentPda },
 );
 results.attest = confirmed.ok === true;
 
 if (USDC_MINT) {
-  const adminToken = (
-    await api(BASE, "/api/auth/login", null, "POST", {
+  const adminLogin = await api(BASE, "/api/auth/login", null, "POST", {
       email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
       password: process.env.ADMIN_PASSWORD ?? "Admin123!",
-    })
-  ).token;
+  });
+  let adminPassword = process.env.ADMIN_PASSWORD ?? "Admin123!";
+  let adminToken = adminLogin.accessToken;
+  if (adminLogin.mustChangePassword) {
+    await api(BASE, "/api/auth/change-password", adminToken, "POST", {
+      currentPassword: adminPassword,
+      newPassword: "AdminChanged!1",
+    });
+    adminPassword = "AdminChanged!1";
+    const adminReLogin = await api(BASE, "/api/auth/login", null, "POST", {
+      email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
+      password: adminPassword,
+    });
+    adminToken = adminReLogin.accessToken;
+  }
   const usdc = new PublicKey(USDC_MINT);
   const buyerAta = (
     await getOrCreateAssociatedTokenAccount(conn, wallet, usdc, wallet.publicKey)
   ).address;
   await mintTo(conn, admin, usdc, buyerAta, admin.publicKey, 100_000_000);
 
-  const created = await api(TRADE, "/api/trades", reg.token, "POST", {
+  const created = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
     buyerWallet: wallet.publicKey.toBase58(),
     sellerWallet: wallet.publicKey.toBase58(),
     amount: "50000000",
@@ -107,7 +119,7 @@ if (USDC_MINT) {
   await api(
     TRADE,
     `/api/trades/${created.tradeId}/confirm`,
-    reg.token,
+    reg.accessToken,
     "POST",
     {
       buyerWallet: wallet.publicKey.toBase58(),
@@ -165,11 +177,11 @@ if (USDC_MINT) {
     "POST",
     { txSignature: await signSend(released.transaction, admin) },
   );
-  const repay = await api(TRADE, `/api/trades/${created.tradeId}/repay`, reg.token, "POST");
+  const repay = await api(TRADE, `/api/trades/${created.tradeId}/repay`, reg.accessToken, "POST");
   const repayRes = await api(
     TRADE,
     `/api/trades/${created.tradeId}/repay/confirm`,
-    reg.token,
+    reg.accessToken,
     "POST",
     { txSignature: await signSend(repay.transaction, wallet) },
   );

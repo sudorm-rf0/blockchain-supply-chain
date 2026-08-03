@@ -34,10 +34,19 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginForm) => {
     try {
-      const { token, user } = await login(values.email, values.password);
-      setAuth(user, token);
+      const { user, mustChangePassword } = await login(
+        values.email,
+        values.password,
+      );
+      setAuth({ ...user, mustChangePassword: mustChangePassword ?? false });
       toast.success("登录成功");
-      router.push(user.role === "ADMIN" ? "/admin/files" : "/user/upload");
+      router.push(
+        mustChangePassword
+          ? "/change-password"
+          : user.role === "ADMIN"
+            ? "/admin/files"
+            : "/user/upload",
+      );
     } catch {
       toast.error("邮箱或密码错误");
     }

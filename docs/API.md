@@ -12,8 +12,10 @@
 
 ## 通用约定
 
-- 鉴权：除注册/登录/总览/健康检查外，接口要求
-  `Authorization: Bearer <token>`。
+- 鉴权：登录/注册后服务端设置 httpOnly Cookie（`access_token` 15 分钟、
+  `refresh_token` 30 天自动轮换）；前端浏览器请求自动携带 Cookie。
+  脚本/CLI 客户端也可使用响应中的 `accessToken` 通过
+  `Authorization: Bearer <token>` 调用。
 - 金额：链上金额一律使用字符串，单位是 USDC 原始单位（6 位小数）。
   例如 `1 USDC = "1000000"`。
 - 错误响应统一为：
@@ -52,10 +54,13 @@
 
 ```json
 {
-  "token": "eyJ...",
-  "user": { "id": "u1", "email": "user@example.com", "role": "USER" }
+  "accessToken": "eyJ...",
+  "user": { "id": "u1", "email": "user@example.com", "role": "USER" },
+  "mustChangePassword": false
 }
 ```
+
+同时设置 `access_token` / `refresh_token` 两个 httpOnly Cookie。
 
 ### POST /api/auth/login
 
@@ -63,8 +68,26 @@
 { "email": "user@example.com", "password": "secret123" }
 ```
 
-返回同上。限流与防暴破：单接口 20 次/分钟；同一邮箱 5 次失败锁定
+返回结构与注册一致，并设置登录 Cookie。限流与防暴破：单接口 20 次/分钟；同一邮箱 5 次失败锁定
 15 分钟；同一 IP 20 次失败锁定 15 分钟。
+
+### POST /api/auth/refresh
+
+使用 `refresh_token` Cookie 轮换会话，成功后签发新的 access/refresh Cookie；
+旧 refresh token 一旦复用会撤销该用户全部会话。前端在收到 `401` 时自动调用一次。
+
+### POST /api/auth/logout
+
+撤销当前 refresh token 并清除 Cookie。
+
+### POST /api/auth/change-password
+
+```json
+{ "currentPassword": "old", "newPassword": "new-password" }
+```
+
+管理员使用初始密码登录时 `mustChangePassword=true`，改密前除
+`me` / `change-password` / `logout` 外所有受保护接口返回 `403 请先修改初始密码`。
 
 ### GET /api/auth/me
 

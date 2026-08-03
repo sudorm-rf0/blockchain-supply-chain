@@ -21,6 +21,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { fetchSession, logout as logoutApi } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 
 export default function DashboardLayout({
@@ -30,19 +31,33 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useUserStore();
-  const [hydrated, setHydrated] = useState(false);
+  const { user, hydrated, setHydrated } = useUserStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    setHydrated(useUserStore.persist.hasHydrated());
-    return useUserStore.persist.onFinishHydration(() => setHydrated(true));
-  }, []);
+    let active = true;
+    void (async () => {
+      const session = await fetchSession();
+      if (!active) return;
+      setHydrated(true);
+      if (!session) {
+        // fetchSession 失败时由 api 层完成登出跳转。
+        setHydrated(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [setHydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
     if (!user) {
       router.replace("/login");
+      return;
+    }
+    if (user.mustChangePassword && pathname !== "/change-password") {
+      router.replace("/change-password");
       return;
     }
     if (pathname.startsWith("/admin") && user.role !== "ADMIN") {
@@ -58,8 +73,8 @@ export default function DashboardLayout({
 
   const role = user.role;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logoutApi();
     toast.success("已退出登录");
     router.push("/login");
   };

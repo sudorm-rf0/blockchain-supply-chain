@@ -13,9 +13,15 @@ async function seed() {
     if (existing.role !== "ADMIN") {
       await prisma.user.update({
         where: { id: existing.id },
-        data: { role: "ADMIN" },
+        data: { role: "ADMIN", mustChangePassword: true },
       });
       console.log(`Promoted existing user ${email} to ADMIN`);
+    } else if (!existing.lastPasswordChangeAt) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { mustChangePassword: true },
+      });
+      console.log(`Admin user ${email} must change the initial password.`);
     } else {
       console.log(`Admin user ${email} already exists, skipping.`);
     }
@@ -28,6 +34,7 @@ async function seed() {
         name,
         wallet: email,
         role: "ADMIN",
+        mustChangePassword: true,
         passwordHash: `${salt}:${passwordHash}`,
       },
     });

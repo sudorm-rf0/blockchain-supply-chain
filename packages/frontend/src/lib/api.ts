@@ -17,6 +17,7 @@ export interface AuthUser {
   name: string;
   role: UserRole;
   wallet?: string;
+  mustChangePassword?: boolean;
 }
 
 export type FileStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -58,26 +59,62 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
-function handleUnauthorized(url: string, response: Response) {
-  if (
-    response.status === 401 &&
-    !url.includes("/api/auth/login") &&
-    !url.includes("/api/auth/register")
-  ) {
-    useUserStore.getState().logout();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
-    throw new Error("登录已过期，请重新登录");
+const API_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 15000);
+
+let refreshPromise: Promise<boolean> | null = null;
+
+function isAuthEndpoint(url: string): boolean {
+  return (
+    url.includes("/api/auth/login") ||
+    url.includes("/api/auth/register") ||
+    url.includes("/api/auth/refresh")
+  );
+}
+
+function forceLogout(): void {
+  useUserStore.getState().logout();
+  if (typeof window !== "undefined") {
+    window.location.href = "/login";
   }
 }
 
-function authHeaders(): Record<string, string> {
-  const token = useUserStore.getState().token;
-  return token ? { authorization: `Bearer ${token}` } : {};
+async function tryRefreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const response = await fetchWithTimeout(
+          `${BACKEND_URL}/api/auth/refresh`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "content-type": "application/json" },
+          },
+          API_TIMEOUT_MS,
+        );
+        if (!response.ok) return false;
+        const body = (await response.json()) as {
+          user: AuthUser;
+          mustChangePassword?: boolean;
+        };
+        useUserStore.getState().setAuth({
+          ...body.user,
+          mustChangePassword:
+            body.mustChangePassword ??
+            body.user.mustChangePassword ??
+            false,
+        });
+        return true;
+      } catch {
+        return false;
+      } finally {
+        setTimeout(() => {
+          refreshPromise = null;
+        }, 300);
+      }
+    })();
+  }
+  return refreshPromise;
 }
-
-const API_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 15000);
 
 function isRetryable(error: unknown, method: string): boolean {
   if (method !== "GET" || !(error instanceof Error)) return false;
@@ -106,6 +143,7 @@ async function requestWithRetry(
   url: string,
   init: RequestInit,
   headers: Record<string, string>,
+  allowRefresh = true,
 ): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
   const maxAttempts = method === "GET" ? 3 : 1;
@@ -113,10 +151,34 @@ async function requestWithRetry(
     try {
       const response = await fetchWithTimeout(
         url,
-        { ...init, headers },
+        { ...init, credentials: "include", headers },
         API_TIMEOUT_MS,
       );
-      handleUnauthorized(url, response);
+      if (
+        response.status === 401 &&
+        allowRefresh &&
+        !isAuthEndpoint(url)
+      ) {
+        const refreshed = await tryRefreshSession();
+        if (refreshed) {
+          const retry = await fetchWithTimeout(
+            url,
+            { ...init, credentials: "include", headers },
+            API_TIMEOUT_MS,
+          );
+          if (retry.status === 401) {
+            forceLogout();
+            throw new Error("登录已过期，请重新登录");
+          }
+          if (!retry.ok) {
+            const message = await readError(retry);
+            throw new Error(`HTTP ${retry.status}: ${message}`);
+          }
+          return retry;
+        }
+        forceLogout();
+        throw new Error("登录已过期，请重新登录");
+      }
       if (!response.ok) {
         const message = await readError(response);
         throw new Error(`HTTP ${response.status}: ${message}`);
@@ -137,7 +199,7 @@ async function request<T>(
   url: string,
   init?: RequestInit,
 ): Promise<T> {
-  const headers: Record<string, string> = authHeaders();
+  const headers: Record<string, string> = {};
   if (init?.headers) {
     for (const [k, v] of Object.entries(init.headers as Record<string, string>)) {
       headers[k] = v;
@@ -153,7 +215,7 @@ async function request<T>(
 export async function login(
   email: string,
   password: string,
-): Promise<{ token: string; user: AuthUser }> {
+): Promise<{ accessToken?: string; user: AuthUser; mustChangePassword?: boolean }> {
   return request(`${BACKEND_URL}/api/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -166,7 +228,7 @@ export async function register(input: {
   email: string;
   password: string;
   wallet?: string;
-}): Promise<{ token: string; user: AuthUser }> {
+}): Promise<{ accessToken?: string; user: AuthUser; mustChangePassword?: boolean }> {
   return request(`${BACKEND_URL}/api/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -174,8 +236,46 @@ export async function register(input: {
   });
 }
 
-export async function getMe(): Promise<AuthUser> {
+export async function getMe(): Promise<{
+  user: AuthUser;
+  mustChangePassword: boolean;
+}> {
   return request(`${BACKEND_URL}/api/auth/me`);
+}
+
+export async function fetchSession(): Promise<AuthUser | null> {
+  try {
+    const { user, mustChangePassword } = await getMe();
+    const hydrated = {
+      ...user,
+      mustChangePassword:
+        mustChangePassword ?? user.mustChangePassword ?? false,
+    };
+    useUserStore.getState().setAuth(hydrated);
+    return hydrated;
+  } catch {
+    return null;
+  }
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await request(`${BACKEND_URL}/api/auth/logout`, { method: "POST" });
+  } catch {
+    // 即使服务端会话已过期也继续清理本地状态。
+  }
+  useUserStore.getState().logout();
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; user: AuthUser; mustChangePassword: boolean }> {
+  return request(`${BACKEND_URL}/api/auth/change-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
 }
 
 export async function uploadFile(
@@ -208,7 +308,7 @@ export async function fetchFileBlob(id: string): Promise<Blob> {
   const response = await requestWithRetry(
     `${BACKEND_URL}/api/files/${id}/content`,
     {},
-    authHeaders(),
+    {},
   );
   return response.blob();
 }

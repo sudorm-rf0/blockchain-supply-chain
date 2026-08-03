@@ -12,6 +12,12 @@ import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 import { signJwt } from "./jwt";
+import {
+  ACCESS_TOKEN_TTL_SECONDS,
+  generateRefreshToken,
+  hashRefreshToken,
+  REFRESH_TOKEN_TTL_SECONDS,
+} from "./session";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -21,6 +27,22 @@ const scryptAsync = promisify(scrypt) as (
 
 async function hashPassword(password: string, salt: string): Promise<Buffer> {
   return scryptAsync(password, salt, 64);
+}
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "USER" | "ADMIN";
+  wallet: string;
+  mustChangePassword: boolean;
+}
+
+export interface SessionResult {
+  accessToken: string;
+  refreshToken: string;
+  user: PublicUser;
+  mustChangePassword: boolean;
 }
 
 @Injectable()
@@ -35,7 +57,7 @@ export class AuthService {
     email: string;
     password: string;
     wallet?: string;
-  }) {
+  }): Promise<SessionResult> {
     if (!body.name || !body.email || !body.password) {
       throw new BadRequestException("缺少注册字段");
     }
@@ -84,16 +106,13 @@ export class AuthService {
       }
       throw error;
     }
-    const token = signJwt({
-      sub: user.id,
-      email: user.email ?? "",
-      name: user.name ?? "",
-      role: "USER",
-    });
-    return { token, user: this.publicUser(user) };
+    return this.issueSession(user);
   }
 
-  async login(body: { email: string; password: string }, clientIp?: string) {
+  async login(
+    body: { email: string; password: string },
+    clientIp?: string,
+  ): Promise<SessionResult> {
     const failKey = `login:fail:${body.email}`;
     const fails = await this.redis.incr(failKey);
     if (fails === 1) {
@@ -127,13 +146,132 @@ export class AuthService {
       throw new UnauthorizedException("邮箱或密码错误");
     }
     await this.redis.del(failKey);
-    const token = signJwt({
-      sub: user.id,
-      email: user.email ?? "",
-      name: user.name ?? "",
-      role: user.role === "ADMIN" ? "ADMIN" : "USER",
+    return this.issueSession(user);
+  }
+
+  async refresh(rawRefreshToken: string): Promise<SessionResult> {
+    if (!rawRefreshToken) {
+      throw new UnauthorizedException("登录已过期");
+    }
+    const tokenHash = hashRefreshToken(rawRefreshToken);
+    const record = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
     });
-    return { token, user: this.publicUser(user) };
+    if (
+      !record ||
+      record.revokedAt ||
+      record.expiresAt.getTime() < Date.now()
+    ) {
+      throw new UnauthorizedException("登录已过期");
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: record.userId },
+    });
+    if (!user) {
+      throw new UnauthorizedException("用户不存在");
+    }
+    if (record.replacedByTokenHash) {
+      // A replaced refresh token being reused usually means it was stolen.
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException("检测到令牌重用，请重新登录");
+    }
+
+    const nextRefreshToken = generateRefreshToken();
+    const nextHash = hashRefreshToken(nextRefreshToken);
+    await this.prisma.refreshToken.update({
+      where: { id: record.id },
+      data: {
+        revokedAt: new Date(),
+        replacedByTokenHash: nextHash,
+      },
+    });
+    await this.prisma.refreshToken.create({
+      data: {
+        tokenHash: nextHash,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+      },
+    });
+    await this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+    });
+    return this.issueSession(user, nextRefreshToken);
+  }
+
+  async logout(rawRefreshToken: string): Promise<{ ok: true }> {
+    if (rawRefreshToken) {
+      const tokenHash = hashRefreshToken(rawRefreshToken);
+      await this.prisma.refreshToken.updateMany({
+        where: { tokenHash, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+    return { ok: true };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    currentRefreshToken?: string,
+  ): Promise<PublicUser> {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException("新密码至少 8 位");
+    }
+    if (newPassword === currentPassword) {
+      throw new BadRequestException("新密码不能与当前密码相同");
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.passwordHash) {
+      throw new UnauthorizedException("用户不存在");
+    }
+    const [salt, storedHash] = user.passwordHash.split(":");
+    const hash = await hashPassword(currentPassword, salt);
+    const stored = Buffer.from(storedHash, "hex");
+    if (hash.length !== stored.length || !timingSafeEqual(hash, stored)) {
+      throw new BadRequestException("当前密码不正确");
+    }
+    const nextSalt = randomBytes(16).toString("hex");
+    const nextHash = (await hashPassword(newPassword, nextSalt)).toString("hex");
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: `${nextSalt}:${nextHash}`,
+        mustChangePassword: false,
+        lastPasswordChangeAt: new Date(),
+      },
+    });
+    if (currentRefreshToken) {
+      await this.prisma.refreshToken.updateMany({
+        where: {
+          userId,
+          revokedAt: null,
+          tokenHash: { not: hashRefreshToken(currentRefreshToken) },
+        },
+        data: { revokedAt: new Date() },
+      });
+    } else {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+    return this.publicUser(updated);
+  }
+
+  async getMe(userId: string): Promise<{
+    user: PublicUser;
+    mustChangePassword: boolean;
+  }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException("用户不存在");
+    }
+    const publicUser = this.publicUser(user);
+    return { user: publicUser, mustChangePassword: publicUser.mustChangePassword };
   }
 
   async bindWallet(userId: string, wallet: string) {
@@ -157,19 +295,50 @@ export class AuthService {
     }
   }
 
+  private async issueSession(
+    user: { id: string; email: string | null; name: string | null; role: string; wallet?: string | null; mustChangePassword?: boolean },
+    existingRefreshToken?: string,
+  ): Promise<SessionResult> {
+    const refreshToken = existingRefreshToken ?? generateRefreshToken();
+    if (!existingRefreshToken) {
+      await this.prisma.refreshToken.create({
+        data: {
+          tokenHash: hashRefreshToken(refreshToken),
+          userId: user.id,
+          expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+        },
+      });
+    }
+    const payload = {
+      sub: user.id,
+      email: user.email ?? "",
+      name: user.name ?? "",
+      role: user.role === "ADMIN" ? ("ADMIN" as const) : ("USER" as const),
+    };
+    const publicUser = this.publicUser(user);
+    return {
+      accessToken: signJwt(payload, ACCESS_TOKEN_TTL_SECONDS),
+      refreshToken,
+      user: publicUser,
+      mustChangePassword: publicUser.mustChangePassword,
+    };
+  }
+
   private publicUser(user: {
     id: string;
     email: string | null;
     name: string | null;
     role: string;
     wallet?: string | null;
-  }) {
+    mustChangePassword?: boolean;
+  }): PublicUser {
     return {
       id: user.id,
       email: user.email ?? "",
       name: user.name ?? "",
       role: user.role === "ADMIN" ? ("ADMIN" as const) : ("USER" as const),
       wallet: user.wallet ?? "",
+      mustChangePassword: user.mustChangePassword === true,
     };
   }
 }
