@@ -25,4 +25,23 @@ describe("parseTradeDealBuffer", () => {
     expect(payload.status).toBe(6);
     expect(payload.repaidAt).toBe("1700010000");
   });
+
+  it("rejects buffers shorter than the account layout", () => {
+    expect(() => parseTradeDealBuffer(Buffer.alloc(10), "deal-pda")).toThrow(
+      /invalid TradeDeal buffer length/,
+    );
+  });
+
+  it("rejects unknown status codes", () => {
+    const buyer = Keypair.generate().publicKey;
+    const seller = Keypair.generate().publicKey;
+    const buf = Buffer.alloc(TRADE_DEAL_ACCOUNT_SIZE);
+    buf.writeBigUInt64LE(1n, 8);
+    buyer.toBuffer().copy(buf, 16);
+    seller.toBuffer().copy(buf, 48);
+    buf.writeUInt8(255, 112);
+    expect(() => parseTradeDealBuffer(buf, "deal-pda")).toThrow(
+      /unknown TradeDeal status code/,
+    );
+  });
 });

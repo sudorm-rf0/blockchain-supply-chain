@@ -52,4 +52,12 @@ describe("RiskControlWebhookService", () => {
       "risk webhook responded 500",
     );
   });
+
+  it("propagates network failures when the risk service is unreachable", async () => {
+    fetchMock.mockRejectedValue(new Error("network down"));
+    const service = new RiskControlWebhookService();
+    await expect(service.notifyDefaulted(deal as never)).rejects.toThrow(
+      "network down",
+    );
+  });
 });
