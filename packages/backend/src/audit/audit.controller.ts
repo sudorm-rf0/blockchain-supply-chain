@@ -3,10 +3,8 @@ import {
   Get,
   Header,
   Query,
-  Req,
   UseGuards,
 } from "@nestjs/common";
-import type { Request } from "express";
 import { AuthGuard } from "../auth/auth.guard";
 import { AdminGuard } from "../auth/admin.guard";
 import { AuditService } from "./audit.service";

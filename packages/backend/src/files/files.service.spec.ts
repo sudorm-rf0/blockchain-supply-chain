@@ -46,7 +46,7 @@ function makePrisma() {
 
 function makeStorage() {
   return {
-    persist: jest.fn(async (localPath: string, originalName: string) => ({
+    persist: jest.fn(async (_localPath: string, originalName: string) => ({
       storageKey: `/uploads/${originalName}`,
       size: 0,
     })),

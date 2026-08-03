@@ -13,17 +13,7 @@ import {
 } from "@/components/ui/table";
 import { fetchAllTrades, formatUsdc, type TradeRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-
-const STATUS_STYLE: Record<string, string> = {
-  PENDING: "bg-yellow-200 text-yellow-800",
-  FUNDED: "bg-blue-200 text-blue-800",
-  IN_TRANSIT: "bg-indigo-200 text-indigo-800",
-  CUSTOMS_CLEAR: "bg-cyan-200 text-cyan-800",
-  DELIVERED: "bg-teal-200 text-teal-800",
-  REPAYING: "bg-orange-200 text-orange-800",
-  SETTLED: "bg-green-200 text-green-800",
-  DEFAULTED: "bg-red-200 text-red-800",
-};
+import { TRADE_STATUS_STYLE } from "@/lib/status";
 
 export default function AdminTradesPage() {
   const [trades, setTrades] = useState<TradeRecord[]>([]);
@@ -71,7 +61,7 @@ export default function AdminTradesPage() {
                   </TableCell>
                   <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
                   <TableCell>
-                    <Badge className={STATUS_STYLE[trade.status] ?? ""}>
+                    <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
                       {trade.status}
                     </Badge>
                   </TableCell>

@@ -735,7 +735,7 @@ export class TradesService {
     if (!user || user.role !== "ADMIN") {
       throw new ForbiddenException("仅管理员可执行此操作");
     }
-    const dealId = this.parseTradeId(tradeId);
+    this.parseTradeId(tradeId);
     const trade = await this.prisma.tradeDeal.findUnique({
       where: { dealId: this.normalizeTradeId(tradeId) },
     });
@@ -746,7 +746,7 @@ export class TradesService {
   private async requireBuyerDeal(tradeId: string, userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.wallet) throw new ForbiddenException("登录用户未绑定钱包");
-    const dealId = this.parseTradeId(tradeId);
+    this.parseTradeId(tradeId);
     const trade = await this.prisma.tradeDeal.findUnique({
       where: { dealId: this.normalizeTradeId(tradeId) },
     });

@@ -100,7 +100,8 @@ export class FilesService {
       throw new ForbiddenException("文件内容与扩展名不匹配");
     }
 
-    if (magicType === "image/png" || magicType === "image/jpeg") {
+    const mimeType = ALLOWED_EXTENSIONS[extension];
+    if (mimeType === "image/png" || mimeType === "image/jpeg") {
       try {
         const { default: sharp } = await import("sharp");
         const cleaned = await sharp(file.path)

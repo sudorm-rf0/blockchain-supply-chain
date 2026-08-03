@@ -34,17 +34,9 @@ import {
 } from "@/components/ui/table";
 import { deleteFile, getFiles, type FileRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { fileStatusClass } from "@/lib/status";
 
 const LIMIT = 10;
-
-function statusClass(status: FileRecord["status"]) {
-  const map = {
-    PENDING: "bg-yellow-200 text-yellow-800",
-    APPROVED: "bg-green-200 text-green-800",
-    REJECTED: "bg-red-200 text-red-800",
-  } as const;
-  return map[status];
-}
 
 export default function UserFilesPage() {
   const [files, setFiles] = useState<FileRecord[]>([]);
@@ -142,7 +134,7 @@ export default function UserFilesPage() {
                       </TableCell>
                       <TableCell>{(file.size / 1024).toFixed(0)} KB</TableCell>
                       <TableCell>
-                        <Badge className={statusClass(file.status)}>
+                        <Badge className={fileStatusClass(file.status)}>
                           {file.status}
                         </Badge>
                       </TableCell>

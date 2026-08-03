@@ -35,31 +35,11 @@ import {
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 import { formatDateTime } from "@/lib/format";
-
-const STATUS_STYLE: Record<string, string> = {
-  PENDING: "bg-yellow-200 text-yellow-800",
-  FUNDED: "bg-blue-200 text-blue-800",
-  IN_TRANSIT: "bg-indigo-200 text-indigo-800",
-  CUSTOMS_CLEAR: "bg-cyan-200 text-cyan-800",
-  DELIVERED: "bg-teal-200 text-teal-800",
-  REPAYING: "bg-orange-200 text-orange-800",
-  SETTLED: "bg-green-200 text-green-800",
-  DEFAULTED: "bg-red-200 text-red-800",
-};
-
-const NEXT_STATUS: Record<string, { code: number; label: string } | null> = {
-  FUNDED: { code: 2, label: "推进至运输中" },
-  IN_TRANSIT: { code: 3, label: "推进至清关" },
-  CUSTOMS_CLEAR: { code: 4, label: "推进至已交付" },
-};
-
-const CAN_DEFAULT = new Set([
-  "FUNDED",
-  "IN_TRANSIT",
-  "CUSTOMS_CLEAR",
-  "DELIVERED",
-  "REPAYING",
-]);
+import {
+  CAN_DEFAULT_TRADE,
+  NEXT_TRADE_STATUS,
+  TRADE_STATUS_STYLE,
+} from "@/lib/status";
 
 export default function OrdersPage() {
   const { connection } = useConnection();
@@ -118,7 +98,7 @@ export default function OrdersPage() {
     );
 
   const onAdvance = (trade: TradeRecord) => {
-    const next = NEXT_STATUS[trade.status];
+    const next = NEXT_TRADE_STATUS[trade.status];
     if (!next || !publicKey) return;
     return void signAndConfirm(
       trade.tradeId,
@@ -186,13 +166,13 @@ export default function OrdersPage() {
               {trades.map((trade) => {
                 const canFund = isAdmin && trade.status === "PENDING";
                 const canAdvance =
-                  isAdmin && NEXT_STATUS[trade.status] !== undefined;
+                  isAdmin && NEXT_TRADE_STATUS[trade.status] !== undefined;
                 const canRepay =
                   isBuyer &&
                   trade.status === "REPAYING" &&
                   user?.wallet === trade.buyerWallet;
                 const canDefault =
-                  isAdmin && CAN_DEFAULT.has(trade.status);
+                  isAdmin && CAN_DEFAULT_TRADE.has(trade.status);
                 const canRelease = isAdmin && trade.status === "DELIVERED";
                 return (
                   <TableRow key={trade.id}>
@@ -204,7 +184,7 @@ export default function OrdersPage() {
                     <TableCell>{formatUsdc(trade.poolPortion)}</TableCell>
                     <TableCell>{Math.round(trade.tenor / 86400)} 天</TableCell>
                     <TableCell>
-                      <Badge className={STATUS_STYLE[trade.status] ?? ""}>
+                      <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
                         {trade.status}
                       </Badge>
                       <RepaymentCountdown
@@ -230,14 +210,14 @@ export default function OrdersPage() {
                             拨款
                           </Button>
                         )}
-                        {canAdvance && NEXT_STATUS[trade.status] && (
+                        {canAdvance && NEXT_TRADE_STATUS[trade.status] && (
                           <Button
                             size="sm"
                             variant="outline"
                             disabled={busyId === trade.tradeId}
                             onClick={() => onAdvance(trade)}
                           >
-                            {NEXT_STATUS[trade.status]!.label}
+                            {NEXT_TRADE_STATUS[trade.status]!.label}
                           </Button>
                         )}
                         {canRepay && (

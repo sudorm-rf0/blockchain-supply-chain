@@ -281,7 +281,6 @@ export async function buildRepayDealTransaction(
   const poolAuthority = derivePoolAuthorityPda(prog);
   const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
   const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, input.usdcMint);
-  const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, input.usdcMint);
   const buyerTokenAccount = deriveAssociatedTokenAccount(input.buyer, input.usdcMint);
 
   const poolInfo = await connection.getAccountInfo(poolState, "confirmed");

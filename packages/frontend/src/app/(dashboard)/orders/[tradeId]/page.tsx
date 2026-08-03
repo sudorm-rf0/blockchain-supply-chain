@@ -33,41 +33,12 @@ import {
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { useUserStore } from "@/stores/user-store";
-
-const STATUS_STYLE: Record<string, string> = {
-  PENDING: "bg-yellow-200 text-yellow-800",
-  FUNDED: "bg-blue-200 text-blue-800",
-  IN_TRANSIT: "bg-indigo-200 text-indigo-800",
-  CUSTOMS_CLEAR: "bg-cyan-200 text-cyan-800",
-  DELIVERED: "bg-teal-200 text-teal-800",
-  REPAYING: "bg-orange-200 text-orange-800",
-  SETTLED: "bg-green-200 text-green-800",
-  DEFAULTED: "bg-red-200 text-red-800",
-};
-
-const LIFECYCLE = [
-  "PENDING",
-  "FUNDED",
-  "IN_TRANSIT",
-  "CUSTOMS_CLEAR",
-  "DELIVERED",
-  "REPAYING",
-  "SETTLED",
-];
-
-const NEXT_STATUS: Record<string, { code: number; label: string } | null> = {
-  FUNDED: { code: 2, label: "推进至运输中" },
-  IN_TRANSIT: { code: 3, label: "推进至清关" },
-  CUSTOMS_CLEAR: { code: 4, label: "推进至已交付" },
-};
-
-const CAN_DEFAULT = new Set([
-  "FUNDED",
-  "IN_TRANSIT",
-  "CUSTOMS_CLEAR",
-  "DELIVERED",
-  "REPAYING",
-]);
+import {
+  CAN_DEFAULT_TRADE,
+  NEXT_TRADE_STATUS,
+  TRADE_LIFECYCLE,
+  TRADE_STATUS_STYLE,
+} from "@/lib/status";
 
 export default function TradeDetailPage() {
   const params = useParams<{ tradeId: string }>();
@@ -142,12 +113,12 @@ export default function TradeDetailPage() {
 
   const isAdmin = user?.role === "ADMIN";
   const canFund = isAdmin && trade.status === "PENDING";
-  const canAdvance = isAdmin && NEXT_STATUS[trade.status] !== undefined;
+  const canAdvance = isAdmin && NEXT_TRADE_STATUS[trade.status] !== undefined;
   const canRepay =
     user?.role === "USER" &&
     trade.status === "REPAYING" &&
     user.wallet === trade.buyerWallet;
-  const canDefault = isAdmin && CAN_DEFAULT.has(trade.status);
+  const canDefault = isAdmin && CAN_DEFAULT_TRADE.has(trade.status);
   const canRelease = isAdmin && trade.status === "DELIVERED";
 
   const rows: Array<[string, string]> = [
@@ -163,7 +134,7 @@ export default function TradeDetailPage() {
     ["物流哈希", trade.logisticsHash ?? "-"],
   ];
 
-  const currentIndex = LIFECYCLE.indexOf(trade.status);
+  const currentIndex = TRADE_LIFECYCLE.indexOf(trade.status);
   const isDefaulted = trade.status === "DEFAULTED";
 
   return (
@@ -171,7 +142,7 @@ export default function TradeDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">订单详情</h1>
-          <Badge className={STATUS_STYLE[trade.status] ?? ""}>
+          <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
             {trade.status}
           </Badge>
         </div>
@@ -192,7 +163,7 @@ export default function TradeDetailPage() {
         <CardContent className="space-y-4">
           <div className="overflow-x-auto pb-1">
             <ol className="flex min-w-[560px] items-center gap-1 text-xs">
-              {LIFECYCLE.map((step, index) => {
+              {TRADE_LIFECYCLE.map((step, index) => {
                 const done = !isDefaulted && index <= currentIndex;
                 const current = !isDefaulted && index === currentIndex;
                 return (
@@ -206,7 +177,7 @@ export default function TradeDetailPage() {
                     >
                       {step}
                     </span>
-                    {index < LIFECYCLE.length - 1 && (
+                    {index < TRADE_LIFECYCLE.length - 1 && (
                       <span className="h-px w-4 bg-muted-foreground/30" />
                     )}
                   </li>
@@ -264,7 +235,7 @@ export default function TradeDetailPage() {
                 <Button
                   disabled={busy}
                   onClick={() => {
-                    const next = NEXT_STATUS[trade.status];
+                    const next = NEXT_TRADE_STATUS[trade.status];
                     if (!next) return;
                     void signAndConfirm(
                       () =>
@@ -283,7 +254,7 @@ export default function TradeDetailPage() {
                     );
                   }}
                 >
-                  {NEXT_STATUS[trade.status]?.label ?? "推进状态"}
+                  {NEXT_TRADE_STATUS[trade.status]?.label ?? "推进状态"}
                 </Button>
               )}
               {canRelease && (
