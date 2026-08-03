@@ -1,0 +1,104 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: supply-chain
+      tier: backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: supply-chain
+      tier: frontend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: indexer-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: supply-chain
+      tier: indexer
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: trade-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: supply-chain
+      tier: trade
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pool-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: supply-chain
+      tier: pool
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: prometheus-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: prometheus
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: grafana-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: grafana
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alertmanager-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: alertmanager
