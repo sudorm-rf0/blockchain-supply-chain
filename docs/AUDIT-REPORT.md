@@ -101,6 +101,9 @@
   手机拍照上传与移动端无横向溢出适配均已通过浏览器验证。
 - 文件安全：PNG/JPEG 上传自动去 EXIF/GPS 元数据；病毒扫描支持
   `CLAMAV_HOST`（clamd INSTREAM）与 `SCAN_URL`（HTTP）双通道，失败默认拒绝。
+- 数据层：Prisma 升级到 6.19.3；连接池 `connection_limit=10`、池等待
+  `pool_timeout=20s`、socket 超时 `socket_timeout=30s`，Prisma 客户端开启
+  warn/error 日志与 minimal 错误格式。
 
 ## 上线前必做
 
