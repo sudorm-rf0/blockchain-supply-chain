@@ -1,6 +1,6 @@
 # 项目审计报告
 
-日期：2026-08-02
+日期：2026-08-04（上一版 2026-08-02）
 审计方式：静态代码审查 + 自动化检查（构建、单测、合约测试、依赖审计、压测、链上冒烟）
 范围：Solana/Anchor 合约、NestJS 后端、Next.js 前端、部署与运维配置
 
@@ -21,7 +21,8 @@
 | Medium | 6 | Token 存储、测试覆盖、Prisma/Node 兼容、文件存储、风控依赖、病毒扫描 |
 | Low | 5 | 限流策略、默认管理员密码、LP 赎回缺失、审计保留策略、备份未演练 |
 
-依赖审计（`pnpm audit --prod`）：28 vulnerabilities（1 low / 16 moderate / 11 high）。
+依赖审计（`pnpm audit --prod --registry https://registry.npmjs.org`）：
+6 vulnerabilities（5 moderate / 1 high）。
 
 ## High 发现
 
@@ -59,9 +60,19 @@
     并带单次上限与保险池保护；管理端 7 天提款审批闭环保留。
 14. 审计日志无保留/归档策略，生产需按合规设置。
 15. ~~Postgres 备份未做过恢复演练~~ **已修复**：`scripts/db-backup-restore.sh`
-    支持一键 drill，真实备份恢复到临时库并逐表核对，输出 JSON 恢复验证报告。
+      支持一键 drill，真实备份恢复到临时库并逐表核对，输出 JSON 恢复验证报告。
+16. K8s 清单未配置 `securityContext` / `NetworkPolicy` / PodDisruptionBudget，
+    生产集群部署前建议补齐（镜像已以非 root 运行，基础风险已控制）。
+17. 前端未启用 CSP：App Router 内联脚本需要 nonce 方案，当前已有
+    `X-Content-Type-Options` / `Referrer-Policy` / `Permissions-Policy` 兜底。
 
 ## 已修复项（审计周期内）
+
+- 依赖：新增 `qs` override 至 6.15.2，修复 express/body-parser 传递依赖的
+  远程 DoS（GHSA-q8mj-m7cp-5q26），生产依赖漏洞 7 → 6。
+- 权限纵深：trade-service / pool-service 管理端点（fund/advance/default/release
+  及其 confirm、提款执行、提款列表）在 controller 层补 `AdminGuard`，
+  与 service 层角色校验形成双重防线，并新增 6 个 guard 单测。
 
 - 依赖：移除 `@solana/wallet-adapter-wallets`（Trezor 链），漏洞 70 → 39，critical 归零；
   通过 overrides 升级 `multer` 至 2.1.x；随后升级 Next 15.5.16 与 `@solana/web3.js` 1.98.4，
@@ -78,7 +89,8 @@
 
 ## 验证记录
 
-- 后端/前端/三个独立服务构建通过；Jest 71/71；合约 22/22 测试通过。
+- 后端/前端/三个独立服务构建通过；Jest 77/77（含 6 个 AdminGuard 用例）；
+  合约 22/22 测试通过；前端 Vitest 6/6。
 - 前端新增 Vitest 组件测试 3/3、Playwright UI e2e 2/2（版本上传、管理员强制改密、
   订单详情），并接入 CI `frontend-e2e` job。
 - Next.js 15.5.22 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`

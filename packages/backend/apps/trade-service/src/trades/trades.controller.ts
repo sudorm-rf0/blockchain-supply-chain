@@ -16,6 +16,7 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
+import { AdminGuard } from "../auth/admin.guard";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
 import { ConfirmTradeDto } from "./dto/confirm-trade.dto";
@@ -53,7 +54,7 @@ export class TradesController {
   }
 
   @Get("admin")
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "全部订单列表（管理员）" })
   listAll(@Req() req: Request): Promise<TradeItemDto[]> {
     return this.tradesService.listAllTrades(req.user!.sub);
@@ -83,7 +84,7 @@ export class TradesController {
 
   @Post(":tradeId/fund")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "预构建资金池拨款交易（管理员）" })
   fund(
     @Param("tradeId") tradeId: string,
@@ -95,7 +96,7 @@ export class TradesController {
 
   @Post(":tradeId/fund/confirm")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "确认拨款交易已上链" })
   confirmFund(
     @Param("tradeId") tradeId: string,
@@ -107,7 +108,7 @@ export class TradesController {
 
   @Post(":tradeId/advance")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "预构建物流状态推进交易（管理员）" })
   advance(
     @Param("tradeId") tradeId: string,
@@ -119,7 +120,7 @@ export class TradesController {
 
   @Post(":tradeId/advance/confirm")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "确认物流状态推进交易已上链" })
   confirmAdvance(
     @Param("tradeId") tradeId: string,
@@ -162,7 +163,7 @@ export class TradesController {
 
   @Post(":tradeId/default")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "预构建违约清算交易（管理员）" })
   defaultDeal(
     @Param("tradeId") tradeId: string,
@@ -174,7 +175,7 @@ export class TradesController {
 
   @Post(":tradeId/default/confirm")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "确认违约清算交易已上链" })
   confirmDefault(
     @Param("tradeId") tradeId: string,
@@ -190,7 +191,7 @@ export class TradesController {
 
   @Post(":tradeId/release")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "预构建释放托管资金交易（管理员）" })
   release(
     @Param("tradeId") tradeId: string,
@@ -202,7 +203,7 @@ export class TradesController {
 
   @Post(":tradeId/release/confirm")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "确认释放托管资金交易已上链" })
   confirmRelease(
     @Param("tradeId") tradeId: string,
