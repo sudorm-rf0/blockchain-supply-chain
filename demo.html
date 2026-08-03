@@ -201,6 +201,26 @@ tr:last-child td{border-bottom:none}
   </ol>
 </header>
 
+<section class="flow-section">
+  <div class="flow-grid">
+    <div class="flow-card">
+      <h3>单据上链流程（当前演示）</h3>
+      <svg id="flowSvgDoc" viewBox="0 0 860 120" role="img" aria-label="单据上链流程图"></svg>
+    </div>
+    <div class="flow-card">
+      <h3>贸易订单全流程（真实系统）</h3>
+      <svg id="flowSvgTrade" viewBox="0 0 880 170" role="img" aria-label="贸易订单流程图"></svg>
+    </div>
+  </div>
+  <div class="flow-detail" id="flowDetail">点击流程图节点查看说明</div>
+  <div class="flow-legend">
+    <span><span class="legend-dot" style="background:#0f766e"></span>当前步骤</span>
+    <span><span class="legend-dot" style="background:#16a34a"></span>已完成</span>
+    <span><span class="legend-dot" style="background:#f8fafc;border:1px solid #94a3b8"></span>未开始</span>
+  </div>
+</section>
+
+
 <main class="shell">
   <section class="phone-wrap">
     <div class="phone">
@@ -548,6 +568,121 @@ $("resetBtn").addEventListener("click", () => {
   document.querySelectorAll(".steps li").forEach((li) => li.classList.remove("active", "done"));
   renderAdmin();
 });
+
+
+/* 工作流流程图 */
+const flowSvgDoc = document.getElementById("flowSvgDoc");
+const flowSvgTrade = document.getElementById("flowSvgTrade");
+const flowDetailEl = document.getElementById("flowDetail");
+let flowPhase = 0;
+
+const FLOW_DOC = [
+  { id: "upload", title: "上传图片", sub: "手机/拍照", x: 20, y: 30, w: 112, h: 58, desc: "用户在手机端选择或拍摄贸易单据图片。" },
+  { id: "hash", title: "SHA-256", sub: "文件哈希", x: 165, y: 30, w: 112, h: 58, desc: "对图片内容计算 SHA-256 哈希，作为链上存证指纹。" },
+  { id: "sign", title: "钱包签名", sub: "Phantom", x: 310, y: 30, w: 112, h: 58, desc: "用户钱包对存证交易签名，确认上传者归属。" },
+  { id: "submit", title: "提交上链", sub: "Solana RPC", x: 455, y: 30, w: 112, h: 58, desc: "交易提交到 Solana，生成交易签名与 Slot。" },
+  { id: "review", title: "管理员审核", sub: "PC 后台", x: 600, y: 30, w: 112, h: 58, desc: "管理端自动同步单据，人工查看图片并核对哈希。" },
+  { id: "onchain", title: "存证完成", sub: "ON-CHAIN", x: 745, y: 30, w: 100, h: 58, desc: "审核通过后状态变为 ON-CHAIN，形成完整链上存证记录。" }
+];
+
+const FLOW_TRADE = [
+  { id: "pending", title: "已创建", sub: "PENDING", x: 20, y: 20, w: 108, h: 48, desc: "买方提交 30% 首付并创建贸易订单。" },
+  { id: "funded", title: "已拨款", sub: "FUNDED", x: 170, y: 20, w: 108, h: 48, desc: "管理员从资金池拨付 70% 垫付资金。" },
+  { id: "transit", title: "运输中", sub: "IN_TRANSIT", x: 320, y: 20, w: 108, h: 48, desc: "货物运输，物流状态推进。" },
+  { id: "customs", title: "清关", sub: "CUSTOMS_CLEAR", x: 470, y: 20, w: 108, h: 48, desc: "海关清关完成，状态推进。" },
+  { id: "delivered", title: "已交付", sub: "DELIVERED", x: 620, y: 20, w: 108, h: 48, desc: "货物交付确认，进入还款期。" },
+  { id: "repaying", title: "还款期", sub: "REPAYING", x: 300, y: 100, w: 108, h: 48, desc: "买方归还本金与费用，页面展示还款倒计时。" },
+  { id: "settled", title: "已结清", sub: "SETTLED", x: 470, y: 100, w: 108, h: 48, desc: "还款完成，费用按平台/返利/LP 分红分配。" },
+  { id: "defaulted", title: "违约清算", sub: "DEFAULTED", x: 700, y: 100, w: 140, h: 48, desc: "超期违约触发抵押清算与保险基金赔付。" }
+];
+
+const FLOW_LINKS = {
+  doc: [
+    { from: 0, to: 1 },
+    { from: 1, to: 2 },
+    { from: 2, to: 3 },
+    { from: 3, to: 4 },
+    { from: 4, to: 5 }
+  ],
+  trade: [
+    { from: 0, to: 1 },
+    { from: 1, to: 2 },
+    { from: 2, to: 3 },
+    { from: 3, to: 4 },
+    { from: 4, to: 5 },
+    { from: 5, to: 6 },
+    { from: 1, to: 7, dashed: true },
+    { from: 5, to: 7, dashed: true }
+  ]
+};
+
+function flowArrowPath(a, b) {
+  const ax = a.x + a.w;
+  const ay = a.y + a.h / 2;
+  const bx = b.x;
+  const by = b.y + b.h / 2;
+  if (Math.abs(ay - by) < 2) {
+    return `M ${ax} ${ay} L ${bx - 6} ${by}`;
+  }
+  const midY = ay < by ? by - 12 : ay + 12;
+  return `M ${ax} ${ay} V ${midY} H ${bx - 6} V ${by}`;
+}
+
+function flowDetail(node) {
+  flowDetailEl.textContent = node.desc;
+}
+
+function renderFlow(kind) {
+  const isDoc = kind === "doc";
+  const svg = isDoc ? flowSvgDoc : flowSvgTrade;
+  const nodes = isDoc ? FLOW_DOC : FLOW_TRADE;
+  const links = isDoc ? FLOW_LINKS.doc : FLOW_LINKS.trade;
+  const marker = `arrow-${kind}`;
+  let out = `<defs><marker id="${marker}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker></defs>`;
+
+  links.forEach((link, i) => {
+    const a = nodes[link.from];
+    const b = nodes[link.to];
+    const active = isDoc && i < flowPhase;
+    out += `<path class="flow-arrow ${active ? "active" : ""}" d="${flowArrowPath(a, b)}" marker-end="url(#${marker})" ${link.dashed ? 'stroke-dasharray="5 4"' : ""}></path>`;
+  });
+
+  nodes.forEach((node, idx) => {
+    const state = isDoc ? (idx < flowPhase ? "done" : idx === flowPhase ? "active" : "") : "";
+    out += `<g class="flow-node ${state}" data-idx="${idx}" data-kind="${kind}" transform="translate(${node.x},${node.y})">`;
+    out += `<rect width="${node.w}" height="${node.h}" rx="8"></rect>`;
+    out += `<text x="${node.w / 2}" y="25" text-anchor="middle">${node.title}</text>`;
+    out += `<text class="sub" x="${node.w / 2}" y="43" text-anchor="middle">${node.sub}</text>`;
+    out += `</g>`;
+  });
+
+  svg.innerHTML = out;
+  svg.querySelectorAll(".flow-node").forEach((g) => {
+    g.addEventListener("click", () => {
+      flowDetail(nodes[Number(g.dataset.idx)]);
+    });
+  });
+}
+
+function setFlowPhase(phase) {
+  flowPhase = phase;
+  renderFlow("doc");
+}
+
+const _origSetStep = setStep;
+setStep = (step) => {
+  _origSetStep(step);
+  setFlowPhase(step);
+};
+
+const _origApprove = approve;
+approve = (id) => {
+  _origApprove(id);
+  setFlowPhase(6);
+};
+
+renderFlow("doc");
+renderFlow("trade");
 
 setInterval(() => {
   const pending = records.filter((r) => r.status === "PENDING");
