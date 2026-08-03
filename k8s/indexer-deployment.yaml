@@ -18,8 +18,17 @@ spec:
         app: supply-chain
         tier: indexer
     spec:
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: indexer-service
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           image: ghcr.io/example/supply-chain-backend:latest
           imagePullPolicy: IfNotPresent
           command: ["node", "dist/apps/indexer-service/src/main.js"]

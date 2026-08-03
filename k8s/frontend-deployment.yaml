@@ -18,8 +18,17 @@ spec:
         app: supply-chain
         tier: frontend
     spec:
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: frontend
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           image: ghcr.io/example/supply-chain-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
