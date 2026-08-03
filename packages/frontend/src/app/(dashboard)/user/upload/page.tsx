@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
+import { Camera, FileUp } from "lucide-react";
 import { Transaction } from "@solana/web3.js";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { toast } from "sonner";
@@ -28,21 +29,42 @@ const ACCEPT = {
 };
 const MAX_SIZE = 50 * 1024 * 1024;
 
+function initialTradeId(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("tradeId") ?? "";
+}
+
+function initialDocumentId(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("documentId") ?? "";
+}
+
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [tradeId, setTradeId] = useState("");
+  const [tradeId, setTradeId] = useState(initialTradeId);
+  const [documentId, setDocumentId] = useState(initialDocumentId);
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
   const [hash, setHash] = useState<string | null>(null);
+  const [version, setVersion] = useState<number | null>(null);
   const [uploadedId, setUploadedId] = useState<string | null>(null);
   const [attesting, setAttesting] = useState(false);
   const [txSignature, setTxSignature] = useState<string | null>(null);
   const [documentPda, setDocumentPda] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const { connection, connected, publicKey, sendTransaction } =
     useWalletContext();
 
   const onDrop = useCallback((accepted: File[]) => {
-    if (accepted[0]) setFile(accepted[0]);
+    if (accepted[0]) {
+      setFile(accepted[0]);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(
+        accepted[0].type.startsWith("image/")
+          ? URL.createObjectURL(accepted[0])
+          : null,
+      );
+    }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -62,16 +84,21 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append("file", file);
       if (tradeId) formData.append("tradeId", tradeId);
+      if (documentId) formData.append("documentId", documentId);
       if (description) formData.append("description", description);
       const result = await uploadFile(formData);
       toast.success("上传成功");
       setUploadedId(result.id);
       setHash(result.hash);
+      setVersion(result.version ?? null);
       setTxSignature(null);
       setDocumentPda(null);
       setFile(null);
       setTradeId("");
+      setDocumentId("");
       setDescription("");
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "上传失败");
     } finally {
@@ -129,20 +156,45 @@ export default function UploadPage() {
 
           <div
             {...getRootProps()}
-            className={`cursor-pointer rounded-md border-2 border-dashed p-12 text-center transition-colors ${
+            className={`cursor-pointer rounded-md border-2 border-dashed p-8 text-center transition-colors sm:p-12 ${
               isDragActive ? "border-primary bg-muted/40" : "border-muted"
             }`}
           >
-            <input {...getInputProps({ capture: "environment" })} />
+            <input {...getInputProps()} />
             <p className="text-muted-foreground">
               拖拽文件到这里，或点击选择文件
             </p>
           </div>
 
+          <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted/50 sm:w-auto">
+            <Camera className="h-4 w-4" />
+            拍照上传
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const picked = e.target.files?.[0];
+                if (picked) onDrop([picked]);
+                e.target.value = "";
+              }}
+            />
+          </label>
+
           {file && (
-            <p className="text-sm">
-              {file.name}（{(file.size / 1024).toFixed(0)} KB）
-            </p>
+            <div className="flex items-center gap-3">
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="待上传文件预览"
+                  className="h-16 w-16 rounded-md object-cover"
+                />
+              )}
+              <p className="min-w-0 text-sm">
+                {file.name}（{(file.size / 1024).toFixed(0)} KB）
+              </p>
+            </div>
           )}
 
           <div className="space-y-2">
@@ -151,6 +203,17 @@ export default function UploadPage() {
               id="tradeId"
               value={tradeId}
               onChange={(e) => setTradeId(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="documentId">
+              单据编号（可选，同一编号自动生成新版本）
+            </Label>
+            <Input
+              id="documentId"
+              value={documentId}
+              onChange={(e) => setDocumentId(e.target.value)}
+              placeholder="例如 export-invoice"
             />
           </div>
           <div className="space-y-2">
@@ -169,6 +232,7 @@ export default function UploadPage() {
           {hash && (
             <p className="break-all rounded-md bg-muted p-3 font-mono text-xs">
               文件哈希：{hash}
+              {version ? `（版本 v${version}）` : ""}
             </p>
           )}
 
@@ -200,7 +264,7 @@ export default function UploadPage() {
           )}
 
           <p className="text-xs text-muted-foreground">
-            支持类型：PDF、PNG、JPEG、DOC、DOCX；最大 50MB
+            支持类型：PDF、PNG、JPEG、DOC、DOCX；最大 50MB；手机可拍照上传
           </p>
         </CardContent>
       </Card>

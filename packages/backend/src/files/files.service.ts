@@ -73,7 +73,7 @@ export class FilesService {
 
   async upload(
     file: Express.Multer.File,
-    fields: { tradeId?: string; description?: string },
+    fields: { tradeId?: string; documentId?: string; description?: string },
     uploaderId: string,
   ) {
     const extension = extname(file.originalname).slice(1).toLowerCase();
@@ -162,6 +162,20 @@ export class FilesService {
     }
 
     try {
+      const documentGroupId = fields.documentId?.trim() || null;
+      let version = 1;
+      if (documentGroupId) {
+        const latest = await this.prisma.file.findFirst({
+          where: { documentGroupId, uploaderId },
+          orderBy: { version: "desc" },
+          select: { version: true },
+        });
+        version = (latest?.version ?? 0) + 1;
+        await this.prisma.file.updateMany({
+          where: { documentGroupId, uploaderId, supersededAt: null },
+          data: { supersededAt: new Date() },
+        });
+      }
       const created = await this.prisma.file.create({
         data: {
           filename: file.originalname,
@@ -170,6 +184,9 @@ export class FilesService {
           path: persisted.storageKey,
           hash: fileHash,
           tradeId: fields.tradeId ?? null,
+          documentGroupId,
+          version,
+          supersededAt: null,
           description: fields.description ?? null,
           uploaderId,
         },
@@ -201,9 +218,10 @@ export class FilesService {
     limit: number;
     status?: FileStatus;
     userId?: string;
+    tradeId?: string;
   }) {
     const version = (await this.redis.get("files:list:version")) ?? "0";
-    const cacheKey = `files:list:v${version}:${params.page}:${params.limit}:${params.status ?? "all"}:${params.userId ?? "admin"}`;
+    const cacheKey = `files:list:v${version}:${params.page}:${params.limit}:${params.status ?? "all"}:${params.userId ?? "admin"}:${params.tradeId ?? "all"}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached) as {
@@ -221,6 +239,7 @@ export class FilesService {
       where.status = params.status;
     }
     if (params.userId) where.uploaderId = params.userId;
+    if (params.tradeId) where.tradeId = params.tradeId;
 
     const [items, total] = await Promise.all([
       this.prisma.file.findMany({
@@ -254,6 +273,26 @@ export class FilesService {
       throw new ForbiddenException("无权查看此文件");
     }
     return this.publicFile(file);
+  }
+
+  async getVersions(id: string, userId: string, role: string) {
+    const file = await this.prisma.file.findUnique({ where: { id } });
+    if (!file) throw new NotFoundException("文件不存在");
+    if (role !== "ADMIN" && file.uploaderId !== userId) {
+      throw new ForbiddenException("无权查看此文件");
+    }
+    if (!file.documentGroupId) {
+      return [this.publicFile(file)];
+    }
+    const versions = await this.prisma.file.findMany({
+      where: {
+        documentGroupId: file.documentGroupId,
+        ...(role === "ADMIN" ? {} : { uploaderId: userId }),
+      },
+      orderBy: { version: "desc" },
+      include: { uploader: { select: { name: true } } },
+    });
+    return versions.map((item) => this.publicFile(item));
   }
 
   async getContent(id: string, userId: string, role: string) {
@@ -347,6 +386,9 @@ export class FilesService {
     attestedAt: Date | null;
     status: string;
     tradeId: string | null;
+    documentGroupId: string | null;
+    version: number;
+    supersededAt: Date | null;
     description: string | null;
     remark: string | null;
     createdAt: Date;
@@ -364,6 +406,10 @@ export class FilesService {
       attestedAt: file.attestedAt?.toISOString() ?? null,
       status: file.status,
       tradeId: file.tradeId,
+      documentGroupId: file.documentGroupId,
+      version: file.version,
+      supersededAt: file.supersededAt?.toISOString() ?? null,
+      isLatest: file.supersededAt === null,
       description: file.description,
       remark: file.remark,
       uploaderName: file.uploader?.name ?? null,

@@ -11,7 +11,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { fetchFileBlob, getFile, type FileRecord } from "@/lib/api";
+import {
+  fetchFileBlob,
+  fetchFileVersions,
+  getFile,
+  type FileRecord,
+} from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 
 interface FilePreviewDialogProps {
@@ -35,6 +40,7 @@ export function FilePreviewDialog({
   fileId,
 }: FilePreviewDialogProps) {
   const [file, setFile] = useState<FileRecord | null>(null);
+  const [versions, setVersions] = useState<FileRecord[]>([]);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -45,13 +51,15 @@ export function FilePreviewDialog({
     setObjectUrl(null);
     void (async () => {
       try {
-        const [meta, blob] = await Promise.all([
+        const [meta, blob, versionList] = await Promise.all([
           getFile(fileId),
           fetchFileBlob(fileId),
+          fetchFileVersions(fileId),
         ]);
         if (cancelled) return;
         createdUrl = URL.createObjectURL(blob);
         setFile(meta);
+        setVersions(versionList);
         setObjectUrl(createdUrl);
       } catch (error) {
         if (!cancelled) {
@@ -105,6 +113,13 @@ export function FilePreviewDialog({
                 <Badge className={statusBadge(file.status)}>{file.status}</Badge>
               </div>
               <div>
+                <p className="text-muted-foreground">版本</p>
+                <p>
+                  v{file.version ?? 1}
+                  {file.isLatest === false ? "（已更新）" : "（最新）"}
+                </p>
+              </div>
+              <div>
                 <p className="text-muted-foreground">哈希</p>
                 <button
                   type="button"
@@ -125,6 +140,34 @@ export function FilePreviewDialog({
               <div>
                 <p className="text-muted-foreground">审核备注</p>
                 <p className="text-sm">{file.remark}</p>
+              </div>
+            )}
+
+            {versions.length > 1 && (
+              <div>
+                <p className="mb-2 text-muted-foreground">版本历史</p>
+                <div className="space-y-2">
+                  {versions.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`flex items-center justify-between gap-2 rounded-md border p-2 text-sm ${
+                        item.id === file.id ? "border-primary/50 bg-muted/40" : ""
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-mono text-xs">
+                          v{item.version ?? 1} · {item.filename}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateTime(item.createdAt)} · {item.hash.slice(0, 8)}
+                        </p>
+                      </div>
+                      <Badge className={statusBadge(item.status)}>
+                        {item.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

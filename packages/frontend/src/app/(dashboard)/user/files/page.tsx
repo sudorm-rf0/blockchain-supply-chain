@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -84,7 +85,7 @@ export default function UserFilesPage() {
   };
 
   const groups = files.reduce<Record<string, FileRecord[]>>((acc, file) => {
-    const key = file.tradeId ?? "未关联";
+    const key = file.documentGroupId ?? file.tradeId ?? "未关联";
     (acc[key] ??= []).push(file);
     return acc;
   }, {});
@@ -117,6 +118,7 @@ export default function UserFilesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>文件名</TableHead>
+                    <TableHead>版本</TableHead>
                     <TableHead>大小</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>哈希</TableHead>
@@ -130,6 +132,14 @@ export default function UserFilesPage() {
                       <TableCell className="max-w-[200px] truncate">
                         {file.filename}
                       </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs">v{file.version ?? 1}</span>
+                        {file.isLatest === false && (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            （已更新）
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>{(file.size / 1024).toFixed(0)} KB</TableCell>
                       <TableCell>
                         <Badge className={statusClass(file.status)}>
@@ -141,6 +151,19 @@ export default function UserFilesPage() {
                       </TableCell>
                       <TableCell>{formatDateTime(file.createdAt)}</TableCell>
                       <TableCell className="space-x-2">
+                        {file.documentGroupId && (
+                          <Button variant="outline" size="sm" asChild>
+                            <Link
+                              href={`/user/upload?documentId=${encodeURIComponent(
+                                file.documentGroupId,
+                              )}&tradeId=${encodeURIComponent(
+                                file.tradeId ?? "",
+                              )}`}
+                            >
+                              上传新版
+                            </Link>
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"

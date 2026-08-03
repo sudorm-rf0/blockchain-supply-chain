@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  NotFoundException,
 } from "@nestjs/common";
 import { TradesService } from "./trades.service";
 
@@ -370,5 +371,48 @@ describe("TradesService", () => {
       "user-1",
     );
     expect(result.status).toBe("PENDING");
+  });
+
+  it("returns a trade for an admin and blocks unrelated users", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: 1000n,
+          downPayment: 300n,
+          poolPortion: 700n,
+          tenor: 2592000n,
+          status: "PENDING",
+          txSignature: null,
+          logisticsHash: null,
+          createdAt: new Date(),
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    const result = await service.getTrade("1", "admin-1");
+    expect(result.tradeId).toBe("1");
+    expect(result.status).toBe("PENDING");
+    await expect(service.getTrade("1", "ghost-user")).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it("returns not found for a missing trade detail", async () => {
+    const service = new TradesService(
+      makePrisma() as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(service.getTrade("999", "admin-1")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

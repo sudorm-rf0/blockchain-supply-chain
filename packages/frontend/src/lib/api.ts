@@ -34,6 +34,10 @@ export interface FileRecord {
   attestedAt?: string | null;
   status: FileStatus;
   tradeId?: string | null;
+  documentGroupId?: string | null;
+  version?: number;
+  supersededAt?: string | null;
+  isLatest?: boolean;
   description?: string | null;
   remark?: string | null;
   uploaderName?: string | null;
@@ -291,17 +295,25 @@ export async function getFiles(params: {
   page: number;
   limit: number;
   status?: string;
+  tradeId?: string;
 }): Promise<FilesResponse> {
   const query = new URLSearchParams({
     page: String(params.page),
     limit: String(params.limit),
   });
   if (params.status) query.set("status", params.status);
+  if (params.tradeId) query.set("tradeId", params.tradeId);
   return request(`${BACKEND_URL}/api/files?${query.toString()}`);
 }
 
 export async function getFile(id: string): Promise<FileRecord> {
   return request(`${BACKEND_URL}/api/files/${id}`);
+}
+
+export async function fetchFileVersions(
+  id: string,
+): Promise<FileRecord[]> {
+  return request(`${BACKEND_URL}/api/files/${id}/versions`);
 }
 
 export async function fetchFileBlob(id: string): Promise<Blob> {
@@ -463,6 +475,12 @@ export async function confirmTrade(
 
 export async function fetchMyTrades(): Promise<TradeRecord[]> {
   return request(`${TRADE_API_URL}/api/trades`, { cache: "no-store" });
+}
+
+export async function fetchTrade(tradeId: string): Promise<TradeRecord> {
+  return request(`${TRADE_API_URL}/api/trades/${tradeId}`, {
+    cache: "no-store",
+  });
 }
 
 export interface BuiltTransactionResponse {

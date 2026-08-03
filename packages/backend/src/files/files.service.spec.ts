@@ -21,6 +21,7 @@ function makePrisma() {
         createdAt: new Date(),
         ...data,
       })),
+      updateMany: jest.fn(async () => ({ count: 0 })),
       findUnique: jest.fn(async () => null),
       findFirst: jest.fn(async () => null),
       update: jest.fn(async ({ data }) => ({ id: "f1", ...data })),
@@ -130,6 +131,51 @@ describe("FilesService", () => {
           hash: expect.stringMatching(/^[a-f0-9]{64}$/),
           tradeId: "42",
           uploaderId: "user-1",
+        }),
+      }),
+    );
+  });
+
+  it("creates the next version and supersedes older files in the same document", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findFirst as jest.Mock).mockImplementation(
+      async ({ where }: { where: { documentGroupId?: string } }) =>
+        where.documentGroupId ? { version: 2 } : null,
+    );
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    const path = join(dir, "version.png");
+    writeFileSync(path, PNG_BYTES);
+    const file = {
+      originalname: "version.png",
+      path,
+      size: PNG_BYTES.length,
+      mimetype: "image/png",
+    } as Express.Multer.File;
+    const result = await service.upload(
+      file,
+      { tradeId: "42", documentId: "export-invoice" },
+      "user-1",
+    );
+    expect(result.version).toBe(3);
+    expect(prisma.file.updateMany).toHaveBeenCalledWith({
+      where: {
+        documentGroupId: "export-invoice",
+        uploaderId: "user-1",
+        supersededAt: null,
+      },
+      data: { supersededAt: expect.any(Date) },
+    });
+    expect(prisma.file.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          documentGroupId: "export-invoice",
+          version: 3,
         }),
       }),
     );

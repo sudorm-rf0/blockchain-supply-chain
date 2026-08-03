@@ -200,7 +200,7 @@ export default function OrdersPage() {
                     <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
                     <TableCell>{formatUsdc(trade.downPayment)}</TableCell>
                     <TableCell>{formatUsdc(trade.poolPortion)}</TableCell>
-                    <TableCell>{trade.tenor} 天</TableCell>
+                    <TableCell>{Math.round(trade.tenor / 86400)} 天</TableCell>
                     <TableCell>
                       <Badge className={STATUS_STYLE[trade.status] ?? ""}>
                         {trade.status}
