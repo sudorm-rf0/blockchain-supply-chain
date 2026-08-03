@@ -18,6 +18,7 @@ import {
   type IndexerStatus,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { confirmTransactionWithTimeout } from "@/lib/solana";
 
 const AssetTrendChart = dynamic(
   () => import("@/components/AssetTrendChart").then((m) => m.AssetTrendChart),
@@ -84,7 +85,7 @@ export default function DashboardPage() {
         Buffer.from(built.transaction, "base64"),
       );
       const signature = await sendTransaction(transaction, connection);
-      await connection.confirmTransaction(signature, "confirmed");
+      await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirmRedeemLp(raw.toString(10), signature);
       toast.success(`LP 赎回已执行：${result.status}`);
       await load();

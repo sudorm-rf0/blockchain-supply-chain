@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Camera, FileUp } from "lucide-react";
 import { Transaction } from "@solana/web3.js";
+import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -125,7 +126,7 @@ export default function UploadPage() {
         Buffer.from(built.transaction, "base64"),
       );
       const signature = await sendTransaction(transaction, connection);
-      await connection.confirmTransaction(signature, "confirmed");
+      await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirmDocumentAttest(uploadedId, {
         txSignature: signature,
         documentPda: built.documentPda,

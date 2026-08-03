@@ -25,6 +25,7 @@ describe("RepaymentCountdown", () => {
     expect(screen.getByText(/截止/)).toBeInTheDocument();
   });
 
+
   it("renders nothing for non-REPAYING statuses", () => {
     const { container } = render(
       <RepaymentCountdown

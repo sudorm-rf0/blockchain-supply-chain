@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Connection } from "@solana/web3.js";
+import { confirmTransactionWithTimeout } from "@/lib/solana";
 
 type ToastStatus = "pending" | "confirmed" | "failed";
 
@@ -31,17 +32,13 @@ export function TransactionStatusToast({
 
     void (async () => {
       try {
-        const result = await connection.confirmTransaction(
+        await confirmTransactionWithTimeout(
+          connection,
           signature,
           "confirmed",
         );
         if (cancelled) return;
-        if (result.value.err) {
-          setStatus("failed");
-          setError("Transaction was rejected by the cluster");
-        } else {
-          setStatus("confirmed");
-        }
+        setStatus("confirmed");
       } catch (cause) {
         if (cancelled) return;
         setStatus("failed");
