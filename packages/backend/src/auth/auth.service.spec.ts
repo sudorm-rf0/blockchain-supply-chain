@@ -7,6 +7,10 @@ import {
 import { Keypair } from "@solana/web3.js";
 import { AuthService } from "./auth.service";
 
+function makeAudit() {
+  return { record: jest.fn(async () => undefined) };
+}
+
 function makePrisma() {
   const byEmail = new Map<string, Record<string, unknown>>();
   const byWallet = new Map<string, Record<string, unknown>>();
@@ -51,14 +55,22 @@ function makeRedis() {
 
 describe("AuthService", () => {
   it("rejects short passwords", async () => {
-    const service = new AuthService(makePrisma() as never, makeRedis() as never);
+    const service = new AuthService(
+      makePrisma() as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
     await expect(
       service.register({ name: "A", email: "a@example.com", password: "123" }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it("rejects invalid Solana wallets", async () => {
-    const service = new AuthService(makePrisma() as never, makeRedis() as never);
+    const service = new AuthService(
+      makePrisma() as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
     await expect(
       service.register({
         name: "A",
@@ -71,7 +83,11 @@ describe("AuthService", () => {
 
   it("rejects duplicate emails", async () => {
     const prisma = makePrisma();
-    const service = new AuthService(prisma as never, makeRedis() as never);
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
       name: "A",
@@ -94,7 +110,11 @@ describe("AuthService", () => {
     (redis.incr as jest.Mock).mockImplementation(async (key: string) =>
       key.startsWith("login:fail:ip:") ? 20 : 1,
     );
-    const service = new AuthService(makePrisma() as never, redis as never);
+    const service = new AuthService(
+      makePrisma() as never,
+      redis as never,
+      makeAudit() as never,
+    );
     await expect(
       service.login(
         { email: "ip-lock@example.com", password: "wrong-pass" },
@@ -105,7 +125,11 @@ describe("AuthService", () => {
 
   it("logs in with a matching password and rejects a wrong one", async () => {
     const prisma = makePrisma();
-    const service = new AuthService(prisma as never, makeRedis() as never);
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
       name: "A",
@@ -128,7 +152,11 @@ describe("AuthService", () => {
 
   it("changes password and clears the must-change flag", async () => {
     const prisma = makePrisma();
-    const service = new AuthService(prisma as never, makeRedis() as never);
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
       name: "A",

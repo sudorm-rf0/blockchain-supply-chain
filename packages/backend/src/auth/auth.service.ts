@@ -11,6 +11,7 @@ import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
+import { AuditService } from "../audit/audit.service";
 import { signJwt } from "./jwt";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -50,6 +51,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly audit: AuditService,
   ) {}
 
   async register(body: {
@@ -106,6 +108,13 @@ export class AuthService {
       }
       throw error;
     }
+    await this.audit.record({
+      actorId: user.id,
+      action: "AUTH_REGISTER",
+      targetType: "AUTH",
+      targetId: user.id,
+      metadata: { email: body.email },
+    });
     return this.issueSession(user);
   }
 
@@ -146,6 +155,13 @@ export class AuthService {
       throw new UnauthorizedException("邮箱或密码错误");
     }
     await this.redis.del(failKey);
+    await this.audit.record({
+      actorId: user.id,
+      action: "AUTH_LOGIN",
+      targetType: "AUTH",
+      targetId: user.id,
+      metadata: { clientIp: clientIp ?? null },
+    });
     return this.issueSession(user);
   }
 
@@ -204,9 +220,19 @@ export class AuthService {
   async logout(rawRefreshToken: string): Promise<{ ok: true }> {
     if (rawRefreshToken) {
       const tokenHash = hashRefreshToken(rawRefreshToken);
+      const record = await this.prisma.refreshToken.findUnique({
+        where: { tokenHash },
+        select: { userId: true },
+      });
       await this.prisma.refreshToken.updateMany({
         where: { tokenHash, revokedAt: null },
         data: { revokedAt: new Date() },
+      });
+      await this.audit.record({
+        actorId: record?.userId ?? null,
+        action: "AUTH_LOGOUT",
+        targetType: "AUTH",
+        targetId: record?.userId ?? "anonymous",
       });
     }
     return { ok: true };
@@ -259,6 +285,12 @@ export class AuthService {
         data: { revokedAt: new Date() },
       });
     }
+    await this.audit.record({
+      actorId: userId,
+      action: "AUTH_PASSWORD_CHANGED",
+      targetType: "AUTH",
+      targetId: userId,
+    });
     return this.publicUser(updated);
   }
 
@@ -285,6 +317,13 @@ export class AuthService {
       const user = await this.prisma.user.update({
         where: { id: userId },
         data: { wallet },
+      });
+      await this.audit.record({
+        actorId: userId,
+        action: "WALLET_BOUND",
+        targetType: "AUTH",
+        targetId: userId,
+        metadata: { wallet },
       });
       return this.publicUser(user);
     } catch (error: any) {
