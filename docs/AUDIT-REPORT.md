@@ -58,7 +58,8 @@
 13. ~~LP 赎回没有合约指令~~ **已实现**：`redeem_lp` 支持链上按 NAV 赎回，
     并带单次上限与保险池保护；管理端 7 天提款审批闭环保留。
 14. 审计日志无保留/归档策略，生产需按合规设置。
-15. Postgres 备份有 CronJob，但未做过恢复演练。
+15. ~~Postgres 备份未做过恢复演练~~ **已修复**：`scripts/db-backup-restore.sh`
+    支持一键 drill，真实备份恢复到临时库并逐表核对，输出 JSON 恢复验证报告。
 
 ## 已修复项（审计周期内）
 
@@ -88,6 +89,11 @@
   镜像构建全部通过；新增 `security-audit` 门槛（`pnpm audit --prod` 拦截
   critical）；CI actions 已升级到 Node 24 运行时（checkout v7 / setup-node v7 /
   cache v6 / pnpm v6）；localnet 验证器升级为 Agave 4.1.2（SBFv3）。
+- 备份恢复演练通过：`scripts/db-backup-restore.sh drill` 输出 JSON 报告，
+  7 张核心表源库/恢复库行数一致。
+- 监控验证通过：`promtool check rules` 校验 6 条告警规则，四个服务 `/metrics`
+  均暴露 http/process 指标；Grafana 大盘与 provisioning 配置已加入
+  `infra/grafana`；CI 新增 `monitoring` job 自动校验告警规则与大盘 JSON。
 
 ## 上线前必做
 

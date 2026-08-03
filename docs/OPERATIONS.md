@@ -73,10 +73,22 @@ pnpm --filter @supply-chain/backend start
 
 ## 5. 数据库备份与恢复
 
+一键备份恢复演练（备份 -> 临时库恢复 -> 逐表核对 -> JSON 报告）：
+
 ```bash
-bash scripts/db-backup-restore.sh backup
-bash scripts/db-backup-restore.sh restore <备份文件>
+bash scripts/db-backup-restore.sh drill
 ```
+
+只备份：`bash scripts/db-backup-restore.sh backup`
+用已有 dump 验证：`bash scripts/db-backup-restore.sh restore <备份文件>`
+
+监控与告警验证：
+
+```bash
+bash scripts/verify-monitoring.sh
+```
+
+详见 [docs/MONITORING.md](MONITORING.md)。
 
 K8s 环境每天 02:00 自动 `pg_dump -Fc` 到 `postgres-backups` PVC，保留
 7 天。生产必须把备份同步到对象存储并每季度做恢复演练。
