@@ -1,14 +1,57 @@
 import { Keypair } from "@solana/web3.js";
+import { deflateSync } from "node:zlib";
 
 const BACKEND = process.env.BACKEND_URL ?? "http://localhost:3001";
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 10);
 const TOTAL = Number(process.env.TOTAL ?? 30);
 const EMAIL = `upload-load-${Date.now()}@example.com`;
 
-const PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-  "base64",
-);
+const CRC_TABLE = new Int32Array(256).map((_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k += 1) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  return c;
+});
+
+function crc32(buf) {
+  let crc = 0xffffffff;
+  for (const byte of buf) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([length, body, crc]);
+}
+
+// 每次生成不同像素的 1x1 RGBA PNG，避免触发重复哈希校验。
+function makePng(seed) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const raw = Buffer.from([
+    0,
+    seed % 256,
+    (seed >> 8) % 256,
+    (seed >> 16) % 256,
+    255,
+  ]);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 
 async function register() {
   const wallet = Keypair.generate().publicKey.toBase58();
@@ -30,7 +73,8 @@ async function register() {
 
 async function uploadOne(token, index) {
   const fd = new FormData();
-  fd.append("file", new Blob([PNG], { type: "image/png" }), `load-${index}.png`);
+  const png = makePng(index + 1);
+  fd.append("file", new Blob([png], { type: "image/png" }), `load-${index}.png`);
   const start = performance.now();
   const res = await fetch(`${BACKEND}/api/files`, {
     method: "POST",
