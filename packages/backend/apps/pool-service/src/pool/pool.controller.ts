@@ -24,6 +24,7 @@ import { RedeemLpDto } from "./dto/redeem-lp.dto";
 import { ConfirmRedeemDto } from "./dto/confirm-redeem.dto";
 import { PoolService } from "./pool.service";
 import { AuthGuard } from "../auth/auth.guard";
+import { AdminGuard } from "../auth/admin.guard";
 
 @ApiTags("pool")
 @Controller("api")
@@ -57,7 +58,7 @@ export class PoolController {
 
   @Post("lp/withdraw-request/:id/execute")
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "管理员执行 READY 提款" })
   executeWithdrawal(
     @Param("id") id: string,
@@ -84,7 +85,7 @@ export class PoolController {
   }
 
   @Get("lp/withdraw-requests")
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "全部提款请求列表（管理员）" })
   listWithdrawals(@Req() req: Request) {
     return this.poolService.listWithdrawals(req.user!.sub);
