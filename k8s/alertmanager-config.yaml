@@ -4,6 +4,9 @@ metadata:
   name: alertmanager-config
 data:
   alertmanager.yml: |
+    # 部署前请用 scripts/configure-alertmanager-webhook.sh 生成
+    # alertmanager-config.generated.yaml，把 url 换成真实的
+    # 钉钉/企业微信/Slack Webhook，再 apply，不要直接使用占位地址。
     global:
       resolve_timeout: 5m
     route:
