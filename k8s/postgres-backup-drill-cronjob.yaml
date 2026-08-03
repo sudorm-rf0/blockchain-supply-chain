@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup-drill
+spec:
+  schedule: "0 4 1 * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: backup-drill
+              image: postgres:15
+              env:
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: backend-secrets
+                      key: POSTGRES_USER
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: backend-secrets
+                      key: POSTGRES_PASSWORD
+                - name: POSTGRES_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: backend-secrets
+                      key: POSTGRES_DB
+              command:
+                - /bin/bash
+                - -euo
+                - pipefail
+                - -c
+                - |
+                  export PGPASSWORD="$POSTGRES_PASSWORD"
+                  TEST_DB="supply_chain_drill_$(date +%s)"
+                  DUMP=/tmp/drill.dump
+                  pg_dump -Fc -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$DUMP"
+                  psql -h postgres -U "$POSTGRES_USER" -c "DROP DATABASE IF EXISTS \"$TEST_DB\";"
+                  psql -h postgres -U "$POSTGRES_USER" -c "CREATE DATABASE \"$TEST_DB\";"
+                  pg_restore -h postgres -U "$POSTGRES_USER" -d "$TEST_DB" "$DUMP"
+                  for entry in "User:User" "TradeDeal:TradeDeal" "PoolSnapshot:PoolSnapshot" "WithdrawRequest:withdraw_requests" "File:files" "AuditLog:audit_logs" "RefreshToken:refresh_tokens"; do
+                    name="${entry%%:*}"
+                    table="${entry#*:}"
+                    src=$(psql -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A -c "select count(*) from \"$table\";")
+                    dst=$(psql -h postgres -U "$POSTGRES_USER" -d "$TEST_DB" -t -A -c "select count(*) from \"$table\";")
+                    if [[ "$src" != "$dst" ]]; then
+                      echo "drill FAILED: $name source=$src restored=$dst" >&2
+                      exit 1
+                    fi
+                    echo "drill ok: $name $src rows"
+                  done
+                  psql -h postgres -U "$POSTGRES_USER" -c "DROP DATABASE IF EXISTS \"$TEST_DB\";"
+                  echo "backup drill passed"

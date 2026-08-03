@@ -53,3 +53,6 @@ secrets:
     - REDIS_URL
     - JWT_SECRET
     - SOLANA_RPC_URL
+
+# Monitoring (Prometheus/Grafana/Alertmanager) 由 k8s/ 清单与 deploy.sh 的
+# DEPLOY_MONITORING=1 应用；本 Helm chart 只负责业务应用本身。

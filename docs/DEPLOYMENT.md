@@ -144,6 +144,15 @@ bash scripts/deploy.sh
 SKIP_BUILD=1 SKIP_MIGRATE=1 bash scripts/deploy.sh
 ```
 
+同时部署 Prometheus / Grafana / Alertmanager 与备份演练 CronJob：
+
+```bash
+DEPLOY_MONITORING=1 bash scripts/deploy.sh
+```
+
+监控 ConfigMap 直接从 `infra/prometheus` 与 `infra/grafana` 生成，避免配置漂移；
+`postgres-backup-drill-cronjob.yaml` 每月 1 日 04:00 执行备份恢复到临时库并逐表核对。
+
 ### 5.3 清单
 
 - `postgres-statefulset.yaml`、`redis-deployment.yaml`
@@ -152,6 +161,9 @@ SKIP_BUILD=1 SKIP_MIGRATE=1 bash scripts/deploy.sh
 - `frontend-deployment.yaml`
 - `ingress.yaml`（TLS 引用 `supply-chain-tls` Secret）
 - `postgres-backup-cronjob.yaml`（每日 02:00 `pg_dump -Fc`，保留 7 天）
+- `postgres-backup-drill-cronjob.yaml`（每月 1 日 04:00 一键恢复演练）
+- `prometheus-deployment.yaml` / `grafana-deployment.yaml` /
+  `alertmanager-deployment.yaml`（`DEPLOY_MONITORING=1` 时应用）
 
 ## 6. 数据库迁移与备份
 
