@@ -182,7 +182,7 @@ Ingress 声明 `supply-chain-tls` Secret。可使用
 | `MAX_UPLOADS_PER_DAY` | 默认 200 个/用户/天 |
 | `STORAGE_DRIVER` | 生产建议 `s3` |
 | `SENTRY_DSN` | 配置后 500 自动上报 |
-| `SCAN_URL` | 配置后上传先杀毒 |
+| `CLAMAV_HOST` / `SCAN_URL` | 配置后上传先杀毒（clamd TCP 优先，HTTP 兜底） |
 | `RISK_WEBHOOK_URL` | 违约事件通知地址 |
 
 ## 9. 部署验证

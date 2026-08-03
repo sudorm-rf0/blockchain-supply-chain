@@ -115,7 +115,8 @@
 
 安全规则：扩展名 + 魔数双重校验；同用户同哈希文件不可重复上传；
 每日配额默认 200 个（`MAX_UPLOADS_PER_DAY`），超限返回 `429`；
-配置 `SCAN_URL` 后先杀毒后落库。
+配置 `CLAMAV_HOST`（clamd TCP）或 `SCAN_URL`（HTTP JSON）后先杀毒后落库；
+PNG/JPEG 上传时自动去除 EXIF/GPS 元数据。
 
 返回 `FileRecord`：
 

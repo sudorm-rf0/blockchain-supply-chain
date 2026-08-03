@@ -19,7 +19,8 @@
 | `RISK_WEBHOOK_URL` | 空 | 违约事件通知 |
 | `WEBHOOK_SECRET` | dev 值 | Webhook HMAC 签名密钥 |
 | `SENTRY_DSN` | 空 | 配置后 500 自动上报 |
-| `SCAN_URL` | 空 | 配置后上传先杀毒 |
+| `CLAMAV_HOST` / `CLAMAV_PORT` | 空 / 3310 | clamd TCP 杀毒；生产必须配置 |
+| `SCAN_URL` | 空 | 备选 HTTP 杀毒服务（`{clean: boolean}`） |
 
 ## 2. 安全运行规则
 

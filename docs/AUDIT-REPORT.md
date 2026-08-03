@@ -78,7 +78,7 @@
 
 ## 验证记录
 
-- 后端/前端/三个独立服务构建通过；Jest 66/66；合约 20/20 测试通过。
+- 后端/前端/三个独立服务构建通过；Jest 69/69；合约 20/20 测试通过。
 - Next.js 15.5.22 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`
   浏览器验证 0 hydration 错误。
 - 文件哈希存证真实上链（slot 2518 无错误，后端链上校验通过）。
@@ -97,6 +97,8 @@
 - 功能完善：订单详情页（状态时间线、还款倒计时、关联单据、链上操作）、
   文件多版本（`documentGroupId` + `version` + `supersededAt`，版本历史接口）、
   手机拍照上传与移动端无横向溢出适配均已通过浏览器验证。
+- 文件安全：PNG/JPEG 上传自动去 EXIF/GPS 元数据；病毒扫描支持
+  `CLAMAV_HOST`（clamd INSTREAM）与 `SCAN_URL`（HTTP）双通道，失败默认拒绝。
 
 ## 上线前必做
 
