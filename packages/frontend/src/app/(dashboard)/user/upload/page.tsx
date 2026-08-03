@@ -16,7 +16,7 @@ import { useWalletContext } from "@/hooks/useWalletContext";
 import {
   buildDocumentAttest,
   confirmDocumentAttest,
-  uploadFile,
+  uploadFileWithProgress,
 } from "@/lib/api";
 
 const ACCEPT = {
@@ -46,6 +46,7 @@ export default function UploadPage() {
   const [documentId, setDocumentId] = useState(initialDocumentId);
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [hash, setHash] = useState<string | null>(null);
   const [version, setVersion] = useState<number | null>(null);
   const [uploadedId, setUploadedId] = useState<string | null>(null);
@@ -88,13 +89,13 @@ export default function UploadPage() {
       return;
     }
     setUploading(true);
+    setProgress(0);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      if (tradeId) formData.append("tradeId", tradeId);
-      if (documentId) formData.append("documentId", documentId);
-      if (description) formData.append("description", description);
-      const result = await uploadFile(formData);
+      const result = await uploadFileWithProgress(
+        file,
+        { tradeId, documentId, description },
+        ({ percent }) => setProgress(percent),
+      );
       toast.success("上传成功");
       setUploadedId(result.id);
       setHash(result.hash);
@@ -108,6 +109,7 @@ export default function UploadPage() {
       setAttachedTradeId(tradeId.trim());
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+      setProgress(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "上传失败");
     } finally {
@@ -234,6 +236,21 @@ export default function UploadPage() {
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+
+          {uploading && progress !== null && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>上传中...</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           <Button onClick={() => void handleUpload()} disabled={uploading}>
             {uploading ? "上传中..." : "上传文件"}
