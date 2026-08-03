@@ -230,11 +230,48 @@ tr:last-child td{border-bottom:none}
   .phone{max-width:420px}
   .phone-screen{min-height:640px}
 }
+
+/* 整体优化 */
+body{background:
+  radial-gradient(900px 500px at 12% -5%, rgba(15,118,110,.10), transparent 60%),
+  radial-gradient(700px 400px at 95% 15%, rgba(29,78,216,.08), transparent 60%),
+  linear-gradient(160deg,#eef2f7,#f8fafc 55%,#eef6f5)}
+.topbar{box-shadow:0 2px 12px rgba(15,23,42,.06)}
+.brand-badge{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#0f766e,#134e4a);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;box-shadow:0 4px 10px rgba(15,118,110,.25)}
+.phone{box-shadow:0 24px 70px rgba(15,23,42,.30)}
+.status-bar{display:flex;align-items:center;justify-content:space-between;font-size:11px;opacity:.85;margin-bottom:8px}
+.status-bar .sig{letter-spacing:1px}
+.phone-nav{display:flex;background:#fff;border-top:1px solid var(--line);padding:8px 6px}
+.nav-item{flex:1;background:transparent;border:none;border-radius:8px;padding:8px 4px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .2s}
+.nav-item.active{color:var(--accent);background:#f0fdfa;font-weight:600}
+.nav-item svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+.dropzone{border-radius:10px;transition:all .25s}
+.dropzone:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(13,148,136,.12)}
+.dropzone svg{background:#e0f2ef;border-radius:50%;padding:8px;width:50px;height:50px;stroke-width:1.8}
+.admin{box-shadow:0 24px 70px rgba(15,23,42,.22)}
+.admin-header{background:linear-gradient(135deg,#0f172a,#16233a)}
+.admin-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:transparent;border:1px solid var(--admin-line);color:var(--admin-muted);border-radius:100px;padding:5px 12px;font-size:12px;transition:all .2s}
+.chip:hover{border-color:#64748b;color:var(--admin-text)}
+.chip.active{background:var(--accent-2);border-color:var(--accent-2);color:#fff}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:#16233a}
+.stat{transition:transform .2s}
+.stat:hover{transform:translateY(-2px)}
+.flow-card{box-shadow:0 6px 20px rgba(15,23,42,.06)}
+.flow-step .node{box-shadow:0 3px 8px rgba(15,23,42,.10)}
+.flow-track::-webkit-scrollbar{height:6px}
+.flow-track::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.chain-log::-webkit-scrollbar{width:6px}
+.chain-log::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+@media (max-width:900px){.admin-header{padding:14px 16px}}
+
 </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="title"><span class="dot"></span>供应链单据上链 Demo</div>
+  <div class="title"><span class="brand-badge">链</span>供应链单据上链 Demo</div>
   <ol class="steps">
     <li data-step="0">选择图片</li>
     <li data-step="1">计算哈希</li>
@@ -279,6 +316,7 @@ tr:last-child td{border-bottom:none}
     <div class="phone">
       <div class="phone-screen">
         <div class="phone-header">
+          <div class="status-bar"><span id="phoneTime">09:41</span><span class="sig">5G ▮▮▮</span></div>
           <div class="row">
             <h2>单据助手</h2>
             <span class="wallet">Phantom 已连接</span>
@@ -324,7 +362,14 @@ tr:last-child td{border-bottom:none}
             <span class="status-pill pending" id="userStatus">PENDING</span>
             <div class="hash-line" id="userHash"></div>
           </div>
-        </div>
+
+        <nav class="phone-nav">
+          <button class="nav-item active"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>首页</button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>上传</button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>订单</button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>我的</button>
+        </nav>
+
       </div>
     </div>
   </section>
@@ -332,7 +377,14 @@ tr:last-child td{border-bottom:none}
   <section class="admin">
     <div class="admin-header">
       <h2>管理后台 <span class="tag">PC 端 · 文件审核与链上存证</span></h2>
-      <button class="admin-btn ghost" id="resetBtn">重置演示</button>
+      <div class="admin-tools">
+        <div class="filter-chips" id="filterChips">
+          <button class="chip active" data-filter="ALL">全部</button>
+          <button class="chip" data-filter="PENDING">待审核</button>
+          <button class="chip" data-filter="ON_CHAIN">已上链</button>
+        </div>
+        <button class="admin-btn ghost" id="resetBtn">重置演示</button>
+      </div>
     </div>
     <div class="stats">
       <div class="stat"><div class="num amber" id="statPending">0</div><div class="name">待审核</div></div>
@@ -540,17 +592,18 @@ uploadBtn.addEventListener("click", async () => {
 });
 
 function renderAdmin() {
+  const visible = typeof adminFilter === "undefined" || adminFilter === "ALL" ? records : records.filter((r) => r.status === adminFilter);
   const pending = records.filter((r) => r.status === "PENDING").length;
   const chain = records.filter((r) => r.status === "ON_CHAIN").length;
   statPending.textContent = pending;
   statChain.textContent = chain;
   statTotal.textContent = records.length;
 
-  if (records.length === 0) {
+  if (visible.length === 0) {
     adminRows.innerHTML = '<tr><td colspan="8"><div class="empty">暂无单据，等用户上传后自动出现</div></td></tr>';
     return;
   }
-  adminRows.innerHTML = records.map((r) => `
+  adminRows.innerHTML = visible.map((r) => `
     <tr>
       <td><img class="thumb" src="${r.imageUrl}" alt=""></td>
       <td>${escapeHtml(r.fileName)}</td>
@@ -736,6 +789,32 @@ approve = (id) => {
 
 renderDocFlow();
 renderTradeFlow();
+
+
+/* 页面优化：时间、底部导航、管理端筛选 */
+setInterval(() => {
+  const el = document.getElementById("phoneTime");
+  if (el) {
+    const d = new Date();
+    el.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+}, 30000);
+
+document.querySelectorAll(".nav-item").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+  });
+});
+
+let adminFilter = "ALL";
+document.querySelectorAll("#filterChips .chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    adminFilter = chip.dataset.filter;
+    document.querySelectorAll("#filterChips .chip").forEach((c) => c.classList.toggle("active", c === chip));
+    renderAdmin();
+  });
+});
 
 setInterval(() => {
   const pending = records.filter((r) => r.status === "PENDING");
