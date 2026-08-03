@@ -37,6 +37,9 @@
 ## Medium 发现
 
 5. **JWT 存 localStorage**：XSS 可窃取令牌。建议 httpOnly cookie + refresh token。
+   **已修复**：迁移为 httpOnly Cookie（access 15 分钟 + refresh 30 天轮换），
+   前端不再持久化 token；管理员初始密码强制改密；删除文件/执行提款仍要求
+   显式二次确认并写入审计日志。
 6. **测试覆盖不足**：后端 8 个单测、合约 7 个用例；缺少自动化 e2e（注册→上传→审核→
    存证→订单）与 CI 中的链上冒烟。
 7. **Prisma 5.15 + Node 24 BigInt 限制**：超过 2^53 的查询失败，已通过 48 位订单 ID 与

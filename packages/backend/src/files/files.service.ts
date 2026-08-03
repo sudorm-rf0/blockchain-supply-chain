@@ -173,7 +173,7 @@ export class FilesService {
           description: fields.description ?? null,
           uploaderId,
         },
-        include: { uploader: true },
+        include: { uploader: { select: { name: true } } },
       });
       await this.redis.incr("files:list:version").catch(() => undefined);
       if (usedToday === 0) {
@@ -189,7 +189,7 @@ export class FilesService {
       } else {
         await this.redis.incr(quotaKey).catch(() => undefined);
       }
-      return created;
+      return this.publicFile(created);
     } catch (error) {
       await this.storage.remove(persisted.storageKey).catch(() => undefined);
       throw error;
@@ -228,7 +228,7 @@ export class FilesService {
         orderBy: { createdAt: "desc" },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
-        include: { uploader: true },
+        include: { uploader: { select: { name: true } } },
       }),
       this.prisma.file.count({ where }),
     ]);
@@ -247,7 +247,7 @@ export class FilesService {
   async getOne(id: string, userId: string, role: string) {
     const file = await this.prisma.file.findUnique({
       where: { id },
-      include: { uploader: true },
+      include: { uploader: { select: { name: true } } },
     });
     if (!file) throw new NotFoundException("文件不存在");
     if (role !== "ADMIN" && file.uploaderId !== userId) {
@@ -291,7 +291,7 @@ export class FilesService {
         status: body.status ?? file.status,
         remark: body.remark ?? file.remark,
       },
-      include: { uploader: true },
+      include: { uploader: { select: { name: true } } },
     });
     if (body.status && body.status !== file.status) {
       await this.audit.record({

@@ -11,6 +11,13 @@ function makePrisma() {
   const byEmail = new Map<string, Record<string, unknown>>();
   const byWallet = new Map<string, Record<string, unknown>>();
   return {
+    refreshToken: {
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "rt1", ...data })),
+      findUnique: jest.fn(async () => null),
+      update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "rt1", ...data })),
+      updateMany: jest.fn(async () => ({ count: 0 })),
+      deleteMany: jest.fn(async () => ({ count: 0 })),
+    },
     user: {
       findUnique: jest.fn(
         async ({ where }: { where: { email?: string; wallet?: string } }) => {
@@ -110,9 +117,38 @@ describe("AuthService", () => {
       email: "login@example.com",
       password: "secret123",
     });
-    expect(ok.token).toMatch(/^eyJ/);
+    expect(ok.accessToken).toMatch(/^eyJ/);
+    expect(ok.refreshToken).toHaveLength(64);
+    expect(ok.user.email).toBe("login@example.com");
+    expect(ok.user.mustChangePassword).toBe(false);
     await expect(
       service.login({ email: "login@example.com", password: "wrong-pass" }),
     ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("changes password and clears the must-change flag", async () => {
+    const prisma = makePrisma();
+    const service = new AuthService(prisma as never, makeRedis() as never);
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      name: "A",
+      email: "change@example.com",
+      password: "secret123",
+      wallet,
+    });
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: "u1",
+      email: "change@example.com",
+      name: "A",
+      wallet,
+      role: "USER",
+      passwordHash:
+        "salt:" +
+        Buffer.alloc(64, 1).toString("hex"),
+      mustChangePassword: false,
+    });
+    await expect(
+      service.changePassword("u1", "wrong-pass", "newpass1234"),
+    ).rejects.toThrow(BadRequestException);
   });
 });

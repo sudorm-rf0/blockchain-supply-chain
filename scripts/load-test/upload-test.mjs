@@ -25,7 +25,7 @@ async function register() {
   if (!res.ok) {
     throw new Error(`register failed: ${res.status} ${await res.text()}`);
   }
-  return (await res.json()).token;
+  return (await res.json()).accessToken;
 }
 
 async function uploadOne(token, index) {

@@ -17,7 +17,7 @@ run() {
 if [[ -n "${LOGIN_EMAIL:-}" && -n "${LOGIN_PASSWORD:-}" ]]; then
   TOKEN=$(curl -sS -X POST "${BACKEND_URL:-http://localhost:3001}/api/auth/login" \
     -H 'content-type: application/json' \
-    -d "{\"email\":\"${LOGIN_EMAIL}\",\"password\":\"${LOGIN_PASSWORD}\"}" | jq -r '.token')
+    -d "{\"email\":\"${LOGIN_EMAIL}\",\"password\":\"${LOGIN_PASSWORD}\"}" | jq -r '.accessToken')
   echo "token acquired: ${#TOKEN} chars"
 fi
 
