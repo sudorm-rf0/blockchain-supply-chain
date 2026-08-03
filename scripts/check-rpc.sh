@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # 检查 Solana RPC 连通性。
 # 用法：bash scripts/check-rpc.sh [url]  或  SOLANA_RPC_URL=<url> bash scripts/check-rpc.sh
+# 可选：QUIET=1 不打印 RPC URL，适合 CI 中避免 Secret 出现在日志。
 set -euo pipefail
 
 URL="${1:-${SOLANA_RPC_URL:-}}"
+QUIET="${QUIET:-0}"
 if [[ -z "${URL}" ]]; then
   echo "usage: bash scripts/check-rpc.sh <rpc-url>" >&2
   exit 2
 fi
 
-echo "== RPC: ${URL}"
+if [[ "${QUIET}" != "1" ]]; then
+  echo "== RPC: ${URL}"
+fi
 for i in 1 2 3; do
   if curl -sS --max-time 15 -H 'content-type: application/json' \
     -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' "${URL}" \

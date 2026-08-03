@@ -288,10 +288,18 @@ jobs:
 
       - name: Start backend services
         working-directory: packages/backend
+        env:
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
         run: |
           THROTTLE_LIMIT=100000 pnpm start > /tmp/backend.log 2>&1 &
           REDIS_URL="$REDIS_URL" THROTTLE_LIMIT=100000 pnpm start:pool > /tmp/pool.log 2>&1 &
           THROTTLE_LIMIT=100000 pnpm start:trade > /tmp/trade.log 2>&1 &
+          if [[ -n "${SOLANA_RPC_URL:-}" ]]; then
+            QUIET=1 bash "$GITHUB_WORKSPACE/scripts/check-rpc.sh" "$SOLANA_RPC_URL"
+            echo "rpc connectivity verified"
+          else
+            echo "SOLANA_RPC_URL secret not configured; skipping real RPC check"
+          fi
           for i in $(seq 1 60); do
             curl -sf http://localhost:3001/health >/dev/null &&
               curl -sf http://localhost:3004/health >/dev/null &&
