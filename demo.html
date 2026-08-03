@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>供应链单据上链 Demo</title>
+<style>
+:root{
+  --ink:#1f2937;
+  --muted:#6b7280;
+  --line:#e5e7eb;
+  --bg:#f3f4f6;
+  --card:#ffffff;
+  --accent:#0f766e;
+  --accent-2:#0d9488;
+  --warn:#b45309;
+  --danger:#b91c1c;
+  --ok:#15803d;
+  --admin-bg:#0f172a;
+  --admin-panel:#1e293b;
+  --admin-line:#334155;
+  --admin-text:#e2e8f0;
+  --admin-muted:#94a3b8;
+  --radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:linear-gradient(160deg,#eef2f7,#f8fafc 55%,#eef6f5);
+  color:var(--ink);
+  min-height:100vh;
+}
+button{font:inherit;cursor:pointer}
+input{font:inherit}
+
+.topbar{
+  position:sticky;top:0;z-index:20;
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+  padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.topbar .title{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.topbar .title .dot{width:10px;height:10px;border-radius:50%;background:var(--accent-2)}
+.steps{display:flex;gap:6px;flex-wrap:wrap;list-style:none}
+.steps li{
+  font-size:12px;color:var(--muted);padding:5px 10px;border:1px solid var(--line);
+  border-radius:100px;background:#fff;transition:all .25s;
+}
+.steps li.active{color:#fff;background:var(--accent);border-color:var(--accent)}
+.steps li.done{color:var(--ok);border-color:#a7f3d0;background:#f0fdf4}
+
+.shell{
+  max-width:1280px;margin:0 auto;padding:24px 20px 48px;
+  display:grid;grid-template-columns:minmax(340px,420px) 1fr;gap:24px;align-items:start;
+}
+
+.phone-wrap{position:sticky;top:84px}
+.phone{
+  width:100%;max-width:400px;margin:0 auto;background:#0b1220;border-radius:36px;
+  padding:12px;box-shadow:0 20px 60px rgba(15,23,42,.28);
+}
+.phone-screen{
+  background:var(--bg);border-radius:26px;overflow:hidden;display:flex;flex-direction:column;min-height:720px;
+}
+.phone-header{
+  background:linear-gradient(135deg,#0f766e,#134e4a);color:#fff;padding:18px 16px 14px;
+}
+.phone-header .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.phone-header h2{font-size:16px;font-weight:700}
+.phone-header .wallet{
+  font-size:11px;background:rgba(255,255,255,.14);border-radius:100px;padding:4px 10px;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.phone-header .wallet::before{content:"";width:6px;height:6px;border-radius:50%;background:#4ade80}
+.phone-body{padding:16px;display:flex;flex-direction:column;gap:14px;flex:1}
+.phone-body .label{font-size:12px;color:var(--muted);margin-bottom:6px;display:block}
+.dropzone{
+  border:2px dashed #99c9c4;background:#f8fdfc;border-radius:var(--radius);
+  padding:34px 16px;text-align:center;cursor:pointer;transition:all .2s;
+}
+.dropzone:hover,.dropzone.drag{background:#ecfdf9;border-color:var(--accent)}
+.dropzone svg{width:34px;height:34px;stroke:var(--accent);margin-bottom:8px}
+.dropzone .main{font-size:14px;color:var(--ink)}
+.dropzone .sub{font-size:12px;color:var(--muted);margin-top:4px}
+.field input{
+  width:100%;border:1px solid var(--line);border-radius:var(--radius);padding:11px 12px;font-size:14px;
+}
+.field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
+.btn{
+  border:none;border-radius:var(--radius);padding:13px 16px;font-size:15px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;
+}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#fff;width:100%}
+.btn-primary:hover:not(:disabled){background:var(--accent-2)}
+.btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+
+.preview-card{display:none}
+.preview-card.show{display:block}
+.preview-card img{width:100%;max-height:180px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--line)}
+.preview-card .meta{font-size:12px;color:var(--muted);margin-top:8px;word-break:break-all}
+.hash-line{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;word-break:break-all;background:#eef2f6;border-radius:6px;padding:8px;margin-top:8px}
+.status-pill{
+  display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  border-radius:100px;padding:4px 10px;
+}
+.status-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.status-pill.pending{color:var(--warn);background:#fef3c7}
+.status-pill.chain{color:var(--ok);background:#dcfce7}
+.status-pill.review{color:#1d4ed8;background:#dbeafe}
+.progress-steps{list-style:none;display:flex;flex-direction:column;gap:8px}
+.progress-steps li{display:flex;gap:10px;font-size:13px;color:var(--muted);align-items:flex-start}
+.progress-steps li .num{
+  width:20px;height:20px;border-radius:50%;border:1px solid var(--line);font-size:11px;
+  display:flex;align-items:center;justify-content:center;background:#fff;flex:none;margin-top:1px;
+}
+.progress-steps li.active .num{background:var(--accent);border-color:var(--accent);color:#fff}
+.progress-steps li.done{color:var(--ok)}
+.progress-steps li.done .num{background:var(--ok);border-color:var(--ok);color:#fff}
+
+.admin{
+  background:var(--admin-bg);border-radius:14px;overflow:hidden;color:var(--admin-text);
+  box-shadow:0 20px 60px rgba(15,23,42,.22);min-height:720px;
+}
+.admin-header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:16px 20px;border-bottom:1px solid var(--admin-line);
+}
+.admin-header h2{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.admin-header .tag{font-size:11px;color:var(--admin-muted);border:1px solid var(--admin-line);border-radius:100px;padding:3px 8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:14px 20px}
+.stat{background:var(--admin-panel);border:1px solid var(--admin-line);border-radius:var(--radius);padding:12px 14px}
+.stat .num{font-size:24px;font-weight:700}
+.stat .name{font-size:12px;color:var(--admin-muted);margin-top:2px}
+.stat .num.amber{color:#fbbf24}
+.stat .num.green{color:#34d399}
+
+.panel{padding:0 20px 20px}
+.panel h3{font-size:14px;font-weight:600;margin:16px 0 10px;display:flex;align-items:center;gap:8px}
+.table-wrap{overflow-x:auto;border:1px solid var(--admin-line);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;min-width:760px;background:var(--admin-panel)}
+th,td{text-align:left;padding:11px 12px;font-size:13px;border-bottom:1px solid var(--admin-line);vertical-align:middle}
+th{color:var(--admin-muted);font-weight:500;background:#16233a;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.thumb{width:56px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--admin-line);display:block;background:#0b1626}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#93c5fd}
+.admin-btn{
+  background:var(--accent-2);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;
+}
+.admin-btn:hover{background:#14b8a6}
+.admin-btn.ghost{background:transparent;border:1px solid var(--admin-line);color:var(--admin-text)}
+.admin-btn.ghost:hover{border-color:#64748b}
+.empty{color:var(--admin-muted);font-size:13px;text-align:center;padding:24px 0}
+
+.chain-log{
+  background:#0b1626;border:1px solid var(--admin-line);border-radius:var(--radius);
+  padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  max-height:210px;overflow:auto;
+}
+.chain-log .line{color:#7dd3fc;padding:2px 0}
+.chain-log .line .t{color:#64748b;margin-right:8px}
+
+.demo-guide{
+  grid-column:1 / -1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+}
+.demo-guide h3{font-size:15px;font-weight:700;margin-bottom:12px}
+.guide-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;list-style:none}
+.guide-grid li{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;font-size:13px}
+.guide-grid li b{color:var(--accent)}
+
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.72);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal.show{display:flex}
+.modal-card{background:#fff;border-radius:12px;max-width:720px;width:100%;max-height:90vh;overflow:auto;padding:18px}
+.modal-card h3{font-size:16px;margin-bottom:12px}
+.modal-card img{width:100%;border-radius:var(--radius);border:1px solid var(--line)}
+.modal-card .json{
+  background:#0f172a;color:#a5f3fc;border-radius:var(--radius);padding:12px;margin-top:12px;
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;
+}
+.modal-close{float:right;border:none;background:var(--bg);border-radius:6px;padding:6px 10px;font-size:13px}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr;padding:16px}
+  .phone-wrap{position:static}
+  .phone{max-width:420px}
+  .phone-screen{min-height:640px}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="title"><span class="dot"></span>供应链单据上链 Demo</div>
+  <ol class="steps">
+    <li data-step="0">选择图片</li>
+    <li data-step="1">计算哈希</li>
+    <li data-step="2">钱包签名</li>
+    <li data-step="3">提交上链</li>
+    <li data-step="4">管理员确认</li>
+  </ol>
+</header>
+
+<main class="shell">
+  <section class="phone-wrap">
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="phone-header">
+          <div class="row">
+            <h2>单据助手</h2>
+            <span class="wallet">Phantom 已连接</span>
+          </div>
+        </div>
+        <div class="phone-body">
+          <div>
+            <label class="label">上传贸易单据图片</label>
+            <div class="dropzone" id="dropzone">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+              <div class="main">点击选择或拍照</div>
+              <div class="sub">支持 JPG / PNG，演示环境不上传服务器</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" capture="environment" hidden>
+          </div>
+
+          <div class="field">
+            <label class="label" for="tradeId">贸易订单 ID（可选）</label>
+            <input id="tradeId" placeholder="例如 1688">
+          </div>
+          <div class="field">
+            <label class="label" for="documentId">单据编号（可选）</label>
+            <input id="documentId" placeholder="例如 export-invoice">
+          </div>
+
+          <div class="preview-card" id="previewCard">
+            <img id="previewImg" alt="预览">
+            <div class="meta" id="previewMeta"></div>
+          </div>
+
+          <button class="btn btn-primary" id="uploadBtn" disabled>上传并签名上链</button>
+
+          <div id="progressWrap" style="display:none">
+            <ul class="progress-steps" id="progressSteps">
+              <li data-progress="hash"><span class="num">1</span>计算文件哈希（SHA-256）</li>
+              <li data-progress="sign"><span class="num">2</span>等待钱包签名</li>
+              <li data-progress="submit"><span class="num">3</span>提交链上交易</li>
+              <li data-progress="pending"><span class="num">4</span>等待管理员确认</li>
+            </ul>
+          </div>
+
+          <div id="resultCard" style="display:none">
+            <span class="status-pill pending" id="userStatus">PENDING</span>
+            <div class="hash-line" id="userHash"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin">
+    <div class="admin-header">
+      <h2>管理后台 <span class="tag">PC 端 · 文件审核与链上存证</span></h2>
+      <button class="admin-btn ghost" id="resetBtn">重置演示</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="num amber" id="statPending">0</div><div class="name">待审核</div></div>
+      <div class="stat"><div class="num green" id="statChain">0</div><div class="name">已上链</div></div>
+      <div class="stat"><div class="num" id="statTotal">0</div><div class="name">单据总数</div></div>
+    </div>
+
+    <div class="panel">
+      <h3>单据列表（图片可预览）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>图片</th>
+              <th>文件名</th>
+              <th>订单 ID</th>
+              <th>单据编号</th>
+              <th>哈希</th>
+              <th>交易签名</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="adminRows">
+            <tr><td colspan="8"><div class="empty">暂无单据，等用户上传后自动出现</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>链上存证记录（模拟 RPC）</h3>
+      <div class="chain-log" id="chainLog">
+        <div class="line"><span class="t">[00:00:00]</span>监控已启动，等待用户提交单据…</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-guide">
+    <h3>演示步骤</h3>
+    <ul class="guide-grid">
+      <li><b>1.</b> 用户在手机端选择图片（可拍照）</li>
+      <li><b>2.</b> 填写订单 ID / 单据编号后点“上传并签名上链”</li>
+      <li><b>3.</b> 演示自动计算 SHA-256 哈希并模拟钱包签名</li>
+      <li><b>4.</b> 生成交易签名与 Slot，状态变为 PENDING</li>
+      <li><b>5.</b> PC 管理端自动看到图片与哈希，点“审核通过”</li>
+      <li><b>6.</b> 状态变为 ON-CHAIN，图片可放大查看，流程闭环</li>
+    </ul>
+  </section>
+</main>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <button class="modal-close" id="modalClose">关闭</button>
+    <h3 id="modalTitle">单据图片</h3>
+    <img id="modalImg" alt="单据图片">
+    <div class="json" id="modalJson"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const dropzone = $("dropzone");
+const fileInput = $("fileInput");
+const previewCard = $("previewCard");
+const previewImg = $("previewImg");
+const previewMeta = $("previewMeta");
+const uploadBtn = $("uploadBtn");
+const progressWrap = $("progressWrap");
+const progressSteps = $("progressSteps");
+const resultCard = $("resultCard");
+const userStatus = $("userStatus");
+const userHash = $("userHash");
+const adminRows = $("adminRows");
+const chainLog = $("chainLog");
+const statPending = $("statPending");
+const statChain = $("statChain");
+const statTotal = $("statTotal");
+const modal = $("modal");
+const modalImg = $("modalImg");
+const modalJson = $("modalJson");
+const modalTitle = $("modalTitle");
+
+const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const records = [];
+let currentFile = null;
+let currentObjectUrl = null;
+let slot = 1728000 + Math.floor(Math.random() * 50000);
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const now = () => new Date().toLocaleTimeString("zh-CN", { hour12: false });
+const randomBase58 = (len) => Array.from({ length: len }, () => BASE58[Math.floor(Math.random() * BASE58.length)]).join("");
+
+function logLine(text) {
+  const line = document.createElement("div");
+  line.className = "line";
+  const t = document.createElement("span");
+  t.className = "t";
+  t.textContent = `[${now()}]`;
+  line.appendChild(t);
+  line.appendChild(document.createTextNode(text));
+  chainLog.appendChild(line);
+  chainLog.scrollTop = chainLog.scrollHeight;
+}
+
+function setStep(step) {
+  document.querySelectorAll(".steps li").forEach((li) => {
+    const idx = Number(li.dataset.step);
+    li.classList.toggle("active", idx === step);
+    li.classList.toggle("done", idx < step);
+  });
+}
+
+function setProgress(done) {
+  progressSteps.querySelectorAll("li").forEach((li) => {
+    const key = li.dataset.progress;
+    const idx = key === "hash" ? 0 : key === "sign" ? 1 : key === "submit" ? 2 : 3;
+    li.classList.toggle("done", idx < done);
+    li.classList.toggle("active", idx === done);
+  });
+}
+
+async function sha256Hex(blob) {
+  try {
+    const buf = await blob.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    const str = `${blob.size}-${Date.now()}-demo`;
+    let h1 = 0x811c9dc5, h2 = 0x01000193;
+    for (let i = 0; i < str.length; i += 1) {
+      h1 = Math.imul(h1 ^ str.charCodeAt(i), 0x01000193) >>> 0;
+      h2 = Math.imul(h2 ^ str.charCodeAt(i), 0x85ebca6b) >>> 0;
+    }
+    return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0") + "00000000000000000000000000000000".slice(0, 48);
+  }
+}
+
+dropzone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+  if (!/^image\//.test(file.type)) {
+    alert("请选择 JPG 或 PNG 图片");
+    return;
+  }
+  if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+  currentObjectUrl = URL.createObjectURL(file);
+  currentFile = file;
+  previewImg.src = currentObjectUrl;
+  previewMeta.textContent = `${file.name} · ${(file.size / 1024).toFixed(0)} KB`;
+  previewCard.classList.add("show");
+  uploadBtn.disabled = false;
+  setStep(0);
+});
+
+uploadBtn.addEventListener("click", async () => {
+  if (!currentFile) return;
+  uploadBtn.disabled = true;
+  resultCard.style.display = "none";
+  progressWrap.style.display = "block";
+  setStep(1);
+  setProgress(0);
+  logLine(`收到用户上传：${currentFile.name}`);
+
+  await sleep(700);
+  const hash = await sha256Hex(currentFile);
+  userHash.textContent = `SHA-256: ${hash}`;
+  setProgress(1);
+  logLine(`SHA-256 哈希计算完成：${hash.slice(0, 24)}…`);
+
+  setStep(2);
+  await sleep(900);
+  const txSignature = randomBase58(87);
+  slot += 1;
+  const blockhash = randomBase58(32);
+  logLine(`钱包签名成功：${txSignature.slice(0, 24)}…`);
+
+  setStep(3);
+  setProgress(2);
+  await sleep(900);
+  setProgress(3);
+
+  const record = {
+    id: `doc-${Date.now()}`,
+    fileName: currentFile.name,
+    tradeId: $("tradeId").value.trim() || "-",
+    documentId: $("documentId").value.trim() || "-",
+    hash,
+    txSignature,
+    blockhash,
+    slot,
+    status: "PENDING",
+    createdAt: new Date().toISOString(),
+    imageUrl: currentObjectUrl,
+  };
+  records.unshift(record);
+  currentObjectUrl = null;
+  currentFile = null;
+
+  userStatus.className = "status-pill pending";
+  userStatus.textContent = "PENDING";
+  resultCard.style.display = "block";
+  setStep(4);
+  logLine(`交易已提交，Slot #${record.slot}，等待管理员审核…`);
+  renderAdmin();
+});
+
+function renderAdmin() {
+  const pending = records.filter((r) => r.status === "PENDING").length;
+  const chain = records.filter((r) => r.status === "ON_CHAIN").length;
+  statPending.textContent = pending;
+  statChain.textContent = chain;
+  statTotal.textContent = records.length;
+
+  if (records.length === 0) {
+    adminRows.innerHTML = '<tr><td colspan="8"><div class="empty">暂无单据，等用户上传后自动出现</div></td></tr>';
+    return;
+  }
+  adminRows.innerHTML = records.map((r) => `
+    <tr>
+      <td><img class="thumb" src="${r.imageUrl}" alt=""></td>
+      <td>${escapeHtml(r.fileName)}</td>
+      <td>${escapeHtml(r.tradeId)}</td>
+      <td>${escapeHtml(r.documentId)}</td>
+      <td class="mono">${r.hash.slice(0, 12)}…</td>
+      <td class="mono">${r.txSignature.slice(0, 12)}…</td>
+      <td>${r.status === "ON_CHAIN" ? '<span class="status-pill chain">ON-CHAIN</span>' : '<span class="status-pill review">PENDING</span>'}</td>
+      <td>
+        <button class="admin-btn ghost" onclick="viewImage('${r.id}')">查看</button>
+        ${r.status === "PENDING" ? `<button class="admin-btn" onclick="approve('${r.id}')">审核通过</button>` : ""}
+      </td>
+    </tr>
+  `).join("");
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function approve(id) {
+  const record = records.find((r) => r.id === id);
+  if (!record) return;
+  record.status = "ON_CHAIN";
+  record.verifiedAt = new Date().toISOString();
+  logLine(`管理员审核通过：${record.fileName}，存证确认完成`);
+  userStatus.className = "status-pill chain";
+  userStatus.textContent = "ON-CHAIN";
+  document.querySelectorAll(".steps li").forEach((li) => li.classList.add("done"));
+  renderAdmin();
+}
+
+function viewImage(id) {
+  const record = records.find((r) => r.id === id);
+  if (!record) return;
+  modalImg.src = record.imageUrl;
+  modalTitle.textContent = record.fileName;
+  modalJson.textContent = JSON.stringify({
+    file: record.fileName,
+    tradeId: record.tradeId,
+    documentId: record.documentId,
+    sha256: record.hash,
+    status: record.status,
+    txSignature: record.txSignature,
+    blockhash: record.blockhash,
+    slot: record.slot,
+    verifiedAt: record.verifiedAt ?? null,
+  }, null, 2);
+  modal.classList.add("show");
+}
+
+$("modalClose").addEventListener("click", () => modal.classList.remove("show"));
+modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("show"); });
+
+$("resetBtn").addEventListener("click", () => {
+  records.length = 0;
+  if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+  currentObjectUrl = null;
+  currentFile = null;
+  fileInput.value = "";
+  previewCard.classList.remove("show");
+  resultCard.style.display = "none";
+  progressWrap.style.display = "none";
+  uploadBtn.disabled = true;
+  $("tradeId").value = "";
+  $("documentId").value = "";
+  chainLog.innerHTML = '<div class="line"><span class="t">[00:00:00]</span>监控已启动，等待用户提交单据…</div>';
+  document.querySelectorAll(".steps li").forEach((li) => li.classList.remove("active", "done"));
+  renderAdmin();
+});
+
+setInterval(() => {
+  const pending = records.filter((r) => r.status === "PENDING");
+  if (pending.length > 0) {
+    logLine(`发现 ${pending.length} 条待审核单据，已同步到管理端`);
+  }
+  renderAdmin();
+}, 2500);
+</script>
+</body>
+</html>

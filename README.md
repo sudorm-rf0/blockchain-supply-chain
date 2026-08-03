@@ -60,6 +60,9 @@ FRONTEND_PORT=3100 pnpm dev
 打开 `http://localhost:3100`。种子管理员：`admin@supply-chain.io` /
 `Admin123!`（可用 `pnpm --filter @supply-chain/backend prisma:seed` 重建）。
 
+不想启动后端时，可直接打开根目录 `demo.html` 演示“用户拍照上传 → 链上存证 →
+管理员 PC 审核并查看图片”的完整流程。
+
 ## 测试
 
 ```bash
