@@ -4,18 +4,40 @@ import { confirmTransactionWithTimeout } from "./solana";
 describe("confirmTransactionWithTimeout", () => {
   it("resolves when the transaction confirms", async () => {
     const connection = {
-      confirmTransaction: vi.fn().mockResolvedValue({ value: { err: null } }),
+      getSignatureStatuses: vi.fn().mockResolvedValue({
+        value: [{ confirmationStatus: "confirmed" }],
+      }),
     };
     await expect(
       confirmTransactionWithTimeout(connection as never, "sig" as never),
     ).resolves.toBeUndefined();
   });
 
+  it("waits for finalized when requested", async () => {
+    const statuses = vi
+      .fn()
+      .mockResolvedValueOnce({
+        value: [{ confirmationStatus: "confirmed" }],
+      })
+      .mockResolvedValueOnce({
+        value: [{ confirmationStatus: "finalized" }],
+      });
+    const connection = { getSignatureStatuses: statuses };
+    await expect(
+      confirmTransactionWithTimeout(
+        connection as never,
+        "sig" as never,
+        "finalized",
+      ),
+    ).resolves.toBeUndefined();
+    expect(statuses).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects when the cluster returns an error", async () => {
     const connection = {
-      confirmTransaction: vi
+      getSignatureStatuses: vi
         .fn()
-        .mockResolvedValue({ value: { err: "failed" } }),
+        .mockResolvedValue({ value: [{ err: "failed" }] }),
     };
     await expect(
       confirmTransactionWithTimeout(connection as never, "sig" as never),
@@ -26,16 +48,18 @@ describe("confirmTransactionWithTimeout", () => {
     vi.useFakeTimers();
     try {
       const connection = {
-        confirmTransaction: vi.fn().mockReturnValue(new Promise(() => {})),
+        getSignatureStatuses: vi.fn().mockResolvedValue({
+          value: [{ confirmationStatus: "processed" }],
+        }),
       };
       const pending = confirmTransactionWithTimeout(
         connection as never,
         "sig" as never,
         "confirmed",
-        1_000,
+        60,
       );
       const assertion = expect(pending).rejects.toThrow("timed out");
-      vi.advanceTimersByTime(1_001);
+      await vi.advanceTimersByTimeAsync(2_000);
       await assertion;
     } finally {
       vi.useRealTimers();
