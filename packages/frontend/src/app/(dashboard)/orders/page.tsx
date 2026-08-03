@@ -63,6 +63,11 @@ export default function OrdersPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const timer = setInterval(() => void load(), 15_000);
+    return () => clearInterval(timer);
+  }, [load]);
+
   const signAndConfirm = async (
     tradeId: string,
     build: () => Promise<{ transaction: string }>,

@@ -66,15 +66,25 @@ export default function DashboardPage() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setIndexer(await fetchIndexerStatus());
-      } catch {
-        setIndexer(null);
-      }
-    })();
+  const refreshIndexer = useCallback(async () => {
+    try {
+      setIndexer(await fetchIndexerStatus());
+    } catch {
+      setIndexer(null);
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshIndexer();
+  }, [refreshIndexer]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void load();
+      void refreshIndexer();
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [load, refreshIndexer]);
 
   const handleRedeem = async () => {
     if (!connected || !publicKey) {

@@ -24,7 +24,8 @@ open demo.html
 
 - Node 20+、pnpm、Docker（Postgres/Redis）。
 - 本地 Solana 工具链或 docker localnet（见 README）。
-- 浏览器安装 Phantom（或使用内置 UnsolvedBloom 适配器）。
+- 浏览器安装 Phantom / Backpack / Solflare / Coinbase Wallet 任一钱包
+  （或使用内置 UnsolvedBloom 适配器）。
 
 ## 2. 一键启动
 

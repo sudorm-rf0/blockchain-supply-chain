@@ -70,6 +70,11 @@ export default function TradeDetailPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const timer = setInterval(() => void load(), 15_000);
+    return () => clearInterval(timer);
+  }, [load]);
+
   const signAndConfirm = async (
     build: () => Promise<{ transaction: string }>,
     confirm: (signature: string) => Promise<{ status: string }>,
