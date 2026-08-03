@@ -261,3 +261,14 @@ jobs:
 
       - name: Production dependency audit (block critical)
         run: pnpm audit --prod --audit-level critical --registry https://registry.npmjs.org
+
+  monitoring:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Prometheus alert rules
+        run: docker run --rm -v "$PWD/infra/prometheus/alerts.yml:/alerts.yml:ro" prom/prometheus:latest promtool check rules /alerts.yml
+
+      - name: Validate Grafana dashboard JSON
+        run: python3 -m json.tool infra/grafana/dashboards/supply-chain.json >/dev/null

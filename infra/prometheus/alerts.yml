@@ -11,8 +11,8 @@ groups:
 
       - alert: High5xxRate
         expr: |
-          sum(rate(http_requests_total{status=~"5.."}[5m]))
-            / clamp_min(sum(rate(http_requests_total[5m])), 1)
+          sum by (job, instance) (rate(http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum by (job, instance) (rate(http_requests_total[5m])), 1)
             > 0.05
         for: 5m
         labels:
@@ -39,10 +39,18 @@ groups:
         expr: |
           histogram_quantile(
             0.99,
-            sum by (job) (rate(http_request_duration_seconds_bucket[5m]))
+            sum by (job, instance) (rate(http_request_duration_seconds_bucket[5m]))
           ) > 2
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: "P99 latency above 2s"
+
+      - alert: HighMemoryUsage
+        expr: nodejs_heap_size_used_bytes > 512 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node.js heap above 512 MiB on {{ $labels.instance }}"
