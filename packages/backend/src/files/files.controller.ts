@@ -70,6 +70,7 @@ export class FilesController {
     @Query("page") page = "1",
     @Query("limit") limit = "10",
     @Query("status") status?: string,
+    @Query("tradeId") tradeId?: string,
     @Req() req?: Request,
   ) {
     return this.filesService.list({
@@ -77,6 +78,7 @@ export class FilesController {
       limit: Math.min(100, Math.max(1, Number(limit) || 10)),
       status: status as FileStatus | undefined,
       userId: req!.user!.role === "ADMIN" ? undefined : req!.user!.sub,
+      tradeId: tradeId || undefined,
     });
   }
 
@@ -84,6 +86,12 @@ export class FilesController {
   @UseGuards(AuthGuard)
   getOne(@Param("id") id: string, @Req() req: Request) {
     return this.filesService.getOne(id, req.user!.sub, req.user!.role);
+  }
+
+  @Get(":id/versions")
+  @UseGuards(AuthGuard)
+  versions(@Param("id") id: string, @Req() req: Request) {
+    return this.filesService.getVersions(id, req.user!.sub, req.user!.role);
   }
 
   @Get(":id/content")

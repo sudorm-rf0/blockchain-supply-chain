@@ -124,27 +124,32 @@ enum FileStatus {
 }
 
 model File {
-  id          String     @id @default(cuid())
-  filename    String
-  size        Int
-  mimeType    String
-  path        String
-  hash        String
-  txSignature String?
-  documentPda String?
-  attestedAt  DateTime?
-  status      FileStatus @default(PENDING)
-  tradeId     String?
-  description String?
-  remark      String?
-  uploaderId  String?
-  uploader    User?      @relation(fields: [uploaderId], references: [id])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id               String     @id @default(cuid())
+  filename         String
+  size             Int
+  mimeType         String
+  path             String
+  hash             String
+  txSignature      String?
+  documentPda      String?
+  attestedAt       DateTime?
+  status           FileStatus @default(PENDING)
+  tradeId          String?
+  documentGroupId  String?
+  version          Int        @default(1)
+  supersededAt     DateTime?
+  description      String?
+  remark           String?
+  uploaderId       String?
+  uploader         User?      @relation(fields: [uploaderId], references: [id])
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@index([status])
   @@index([createdAt])
   @@index([tradeId])
+  @@index([documentGroupId])
+  @@index([tradeId, documentGroupId])
   @@map("files")
 }
 

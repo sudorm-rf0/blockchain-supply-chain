@@ -8,6 +8,11 @@ export class UploadFileDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  documentId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(500)
   description?: string;
 }

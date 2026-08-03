@@ -59,6 +59,13 @@ export class TradesController {
     return this.tradesService.listAllTrades(req.user!.sub);
   }
 
+  @Get(":tradeId")
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: "订单详情（管理员或订单参与方）" })
+  getOne(@Param("tradeId") tradeId: string, @Req() req: Request) {
+    return this.tradesService.getTrade(tradeId, req.user!.sub);
+  }
+
   @Post(":tradeId/confirm")
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)

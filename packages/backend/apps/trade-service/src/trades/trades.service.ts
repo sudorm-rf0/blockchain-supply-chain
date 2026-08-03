@@ -264,6 +264,39 @@ export class TradesService {
     }));
   }
 
+  async getTrade(tradeId: string, userId: string): Promise<TradeItemDto> {
+    const id = this.parseTradeId(tradeId);
+    const trade = await this.prisma.tradeDeal.findUnique({
+      where: { dealId: id.toString(10) },
+    });
+    if (!trade) throw new NotFoundException("trade not found");
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) throw new ForbiddenException("登录用户不存在");
+    if (
+      user.role !== "ADMIN" &&
+      user.wallet !== trade.buyerWallet &&
+      user.wallet !== trade.sellerWallet
+    ) {
+      throw new ForbiddenException("无权查看此订单");
+    }
+    return {
+      id: trade.id,
+      tradeId: trade.dealId,
+      buyerWallet: trade.buyerWallet,
+      sellerWallet: trade.sellerWallet,
+      amount: trade.amount.toString(10),
+      downPayment: trade.downPayment.toString(10),
+      poolPortion: trade.poolPortion.toString(10),
+      tenor: Number(trade.tenor),
+      status: trade.status,
+      txSignature: trade.txSignature,
+      logisticsHash: trade.logisticsHash,
+      createdAt: trade.createdAt.toISOString(),
+    };
+  }
+
   async confirmTrade(tradeId: string, dto: ConfirmTradeDto, userId: string) {
     return this.withConfirmLock(tradeId, async () => {
         let id: bigint;
