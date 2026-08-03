@@ -112,6 +112,49 @@ describe("PoolService", () => {
     expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
   });
 
+  it("releases the redis lock after an admin executes a withdrawal", async () => {
+    const prisma = makePrisma({
+      withdrawRequest: {
+        findUnique: jest.fn(async () => ({
+          id: "wr-1",
+          lpAddress: "lpWallet",
+          status: "READY",
+        })),
+        update: jest.fn(async ({ data }) => ({
+          id: "wr-1",
+          status: data.status,
+        })),
+      },
+    });
+    const redis = makeRedis();
+    const service = new PoolService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+    );
+    const result = await service.executeWithdrawal(
+      "wr-1",
+      { confirm: true },
+      "admin-1",
+    );
+    expect(result.status).toBe("EXECUTED");
+    expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
+  });
+
+  it("rejects LP redeem amounts outside the u64 range", async () => {
+    const service = new PoolService(
+      makePrisma() as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.buildRedeemLp(
+        { lpWallet: "lpWallet", lpAmount: "18446744073709551616" },
+        "user-1",
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it("serves the cached overview from a snapshot-scoped key", async () => {
     const capturedAt = new Date("2026-08-02T15:00:00.000Z");
     const prisma = makePrisma({

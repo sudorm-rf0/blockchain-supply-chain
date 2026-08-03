@@ -211,18 +211,15 @@ export class FilesService {
         include: { uploader: { select: { name: true } } },
       });
       await this.redis.incr("files:list:version").catch(() => undefined);
-      if (usedToday === 0) {
+      const used = await this.redis.incr(quotaKey);
+      if (used === 1) {
         const endOfDay = new Date();
         endOfDay.setUTCHours(24, 0, 0, 0);
         const ttl = Math.max(
           60,
           Math.floor((endOfDay.getTime() - Date.now()) / 1000),
         );
-        await this.redis
-          .setEx(quotaKey, ttl, String(usedToday + 1))
-          .catch(() => undefined);
-      } else {
-        await this.redis.incr(quotaKey).catch(() => undefined);
+        await this.redis.expire(quotaKey, ttl);
       }
       return this.publicFile(created);
     } catch (error) {

@@ -19,6 +19,14 @@ export class AttestDocumentDto {
 }
 
 export class ConfirmAttestDocumentDto {
+  @ApiPropertyOptional({
+    description: "关联贸易订单 ID（上传时未关联、存证时补填时使用）",
+    example: "1722537600000",
+  })
+  @IsOptional()
+  @IsString()
+  tradeId?: string;
+
   @ApiProperty({
     description: "存证交易签名",
     example: "5xYJ...",

@@ -53,12 +53,19 @@ export default function UploadPage() {
   const [txSignature, setTxSignature] = useState<string | null>(null);
   const [documentPda, setDocumentPda] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [attachedTradeId, setAttachedTradeId] = useState("");
   const { connection, connected, publicKey, sendTransaction } =
     useWalletContext();
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted[0]) {
       setFile(accepted[0]);
+      setUploadedId(null);
+      setHash(null);
+      setVersion(null);
+      setTxSignature(null);
+      setDocumentPda(null);
+      setAttachedTradeId("");
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(
         accepted[0].type.startsWith("image/")
@@ -66,7 +73,7 @@ export default function UploadPage() {
           : null,
       );
     }
-  }, []);
+  }, [previewUrl]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -98,6 +105,7 @@ export default function UploadPage() {
       setTradeId("");
       setDocumentId("");
       setDescription("");
+      setAttachedTradeId(tradeId.trim());
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     } catch (error) {
@@ -120,7 +128,7 @@ export default function UploadPage() {
     try {
       const built = await buildDocumentAttest(uploadedId, {
         walletAddress: publicKey.toBase58(),
-        tradeId: tradeId || undefined,
+        tradeId: attachedTradeId || tradeId || undefined,
       });
       const transaction = Transaction.from(
         Buffer.from(built.transaction, "base64"),
@@ -130,6 +138,7 @@ export default function UploadPage() {
       const result = await confirmDocumentAttest(uploadedId, {
         txSignature: signature,
         documentPda: built.documentPda,
+        tradeId: attachedTradeId || tradeId || undefined,
       });
       setTxSignature(result.txSignature);
       setDocumentPda(result.documentPda);

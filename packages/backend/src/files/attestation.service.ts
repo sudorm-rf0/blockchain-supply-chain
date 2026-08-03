@@ -130,7 +130,9 @@ export class AttestationService {
     }
 
     const fileHash = this.parseFileHash(file.hash);
-    const tradeId = this.parseTradeId(file.tradeId);
+    const tradeId = body.tradeId
+      ? this.parseTradeId(body.tradeId)
+      : this.parseTradeId(file.tradeId);
     const expectedDocumentPda = deriveDocumentPda(tradeId, fileHash);
     if (
       body.documentPda &&
