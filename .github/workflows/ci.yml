@@ -10,7 +10,7 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql://user:pass@localhost:5432/supply_chain
+      DATABASE_URL: postgresql://user:pass@localhost:5432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
 
     steps:
       - uses: actions/checkout@v7
@@ -170,7 +170,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=5&schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
       REDIS_URL: redis://localhost:6379
 
     steps:
@@ -256,7 +256,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=5&schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
       REDIS_URL: redis://localhost:6379
 
     steps:
