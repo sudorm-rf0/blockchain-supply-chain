@@ -291,6 +291,68 @@ export async function uploadFile(
   });
 }
 
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface UploadFields {
+  tradeId?: string;
+  documentId?: string;
+  description?: string;
+}
+
+/** XHR 上传并回报进度，兼容 50MB 大文件与 httpOnly Cookie 认证。 */
+export function uploadFileWithProgress(
+  file: File,
+  fields: UploadFields,
+  onProgress: (progress: UploadProgress) => void,
+): Promise<FileRecord> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (fields.tradeId) form.append("tradeId", fields.tradeId);
+    if (fields.documentId) form.append("documentId", fields.documentId);
+    if (fields.description) form.append("description", fields.description);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BACKEND_URL}/api/files`);
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress({
+          loaded: event.loaded,
+          total: event.total,
+          percent: Math.round((event.loaded / event.total) * 100),
+        });
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as FileRecord);
+        } catch {
+          reject(new Error("上传响应解析失败"));
+        }
+        return;
+      }
+      let message = `HTTP ${xhr.status}`;
+      try {
+        const body = JSON.parse(xhr.responseText) as { message?: string | string[] };
+        message = Array.isArray(body.message)
+          ? body.message.join(", ")
+          : body.message ?? message;
+      } catch {
+        // 保留 HTTP 状态作为错误信息。
+      }
+      reject(new Error(message));
+    };
+    xhr.onerror = () => reject(new Error("网络错误，上传失败"));
+    xhr.send(form);
+  });
+}
+
 export async function getFiles(params: {
   page: number;
   limit: number;

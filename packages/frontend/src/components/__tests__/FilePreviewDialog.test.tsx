@@ -76,8 +76,32 @@ describe("FilePreviewDialog", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText("该文件类型不支持预览"),
+        screen.getByText("该文件类型无法在线预览"),
       ).toBeInTheDocument(),
+    );
+  });
+
+  it("renders other image mime types as previewable images", async () => {
+    mockedGetFile.mockResolvedValue({
+      id: "f3",
+      filename: "photo.webp",
+      size: 2048,
+      mimeType: "image/webp",
+      hash: "ef01",
+      status: "APPROVED",
+      version: 1,
+      isLatest: true,
+      createdAt: "2026-08-01T00:00:00.000Z",
+    } as never);
+    mockedFetchBlob.mockResolvedValue(new Blob(["webp"]));
+    mockedFetchVersions.mockResolvedValue([]);
+
+    render(
+      <FilePreviewDialog open onOpenChange={() => undefined} fileId="f3" />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByAltText("photo.webp")).toBeInTheDocument(),
     );
   });
 });

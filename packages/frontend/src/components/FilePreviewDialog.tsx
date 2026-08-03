@@ -80,7 +80,7 @@ export function FilePreviewDialog({
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const isImage = file?.mimeType === "image/png" || file?.mimeType === "image/jpeg";
+  const isImage = file?.mimeType.startsWith("image/") ?? false;
   const isPdf = file?.mimeType === "application/pdf";
 
   return (
@@ -185,9 +185,14 @@ export function FilePreviewDialog({
                   className="h-96 w-full"
                 />
               ) : (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  该文件类型不支持预览
-                </p>
+                <div className="py-8 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    该文件类型无法在线预览
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground/70">
+                    请点击下方下载按钮查看文档内容
+                  </p>
+                </div>
               )}
             </div>
 
