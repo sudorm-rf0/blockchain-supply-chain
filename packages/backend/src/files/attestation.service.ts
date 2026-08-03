@@ -113,7 +113,7 @@ export class AttestationService {
   async confirm(
     fileId: string,
     userId: string,
-    body: { txSignature?: string; documentPda?: string },
+    body: { txSignature?: string; documentPda?: string; tradeId?: string },
   ) {
     if (!body.txSignature) {
       throw new BadRequestException("txSignature is required");
