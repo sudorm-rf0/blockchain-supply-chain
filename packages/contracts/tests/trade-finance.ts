@@ -602,6 +602,244 @@ describe("trade-finance full lifecycle", () => {
       systemProgram: SystemProgram.programId,
     });
 
+    let edgeBuyer: anchor.web3.Keypair;
+    let edgeBuyerAta: PublicKey;
+    before(async () => {
+      edgeBuyer = anchor.web3.Keypair.generate();
+      await airdrop(edgeBuyer.publicKey);
+      edgeBuyerAta = await createAta(edgeBuyer.publicKey);
+      await mintTo(
+        connection,
+        payer,
+        usdcMint,
+        edgeBuyerAta,
+        payer.publicKey,
+        USDC(10_000),
+      );
+    });
+
+    const EDGE_CREATE = (deal: PublicKey, dealTokenAccount: PublicKey) => ({
+      poolState: poolStatePda,
+      buyer: edgeBuyer.publicKey,
+      deal,
+      buyerTokenAccount: edgeBuyerAta,
+      dealTokenAccount,
+      usdcMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    });
+
+    const FUND_ACCOUNTS = (deal: PublicKey, dealTokenAccount: PublicKey) => ({
+      poolState: poolStatePda,
+      admin: admin.publicKey,
+      buyer: edgeBuyer.publicKey,
+      deal,
+      poolAuthority: poolAuthorityPda,
+      poolTokenAccount,
+      dealTokenAccount,
+      usdcMint,
+      lpMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+
+    const REPAY_ACCOUNTS = (
+      deal: PublicKey,
+      repayer: PublicKey,
+      repayerTokenAccount: PublicKey,
+    ) => ({
+      poolState: poolStatePda,
+      buyer: repayer,
+      deal,
+      buyerTokenAccount: repayerTokenAccount,
+      platformTokenAccount: platformAta,
+      poolAuthority: poolAuthorityPda,
+      poolTokenAccount,
+      usdcMint,
+      lpMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+
+    it("Rejects funding an already funded deal", async () => {
+      const tradeId = new anchor.BN(14);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(edgeBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(EDGE_CREATE(deal, dealTokenAccount))
+        .signers([edgeBuyer])
+        .rpc();
+      await program.methods
+        .fundDeal(tradeId)
+        .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
+        .signers([admin])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .fundDeal(tradeId)
+          .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
+          .signers([admin])
+          .rpc(),
+        /DealNotPending/,
+      );
+      console.log("Double funding rejected");
+    });
+
+    it("Rejects repaying a deal that is not in Repaying", async () => {
+      const tradeId = new anchor.BN(15);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(edgeBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(EDGE_CREATE(deal, dealTokenAccount))
+        .signers([edgeBuyer])
+        .rpc();
+      await program.methods
+        .fundDeal(tradeId)
+        .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
+        .signers([admin])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .repayDeal(tradeId)
+          .accounts(REPAY_ACCOUNTS(deal, edgeBuyer.publicKey, edgeBuyerAta))
+          .signers([edgeBuyer])
+          .rpc(),
+        /DealNotRepaying/,
+      );
+      console.log("Repay before release rejected");
+    });
+
+    it("Rejects duplicate repayment after settlement", async () => {
+      const tradeId = new anchor.BN(1);
+      const deal = dealPda(buyer.publicKey, tradeId);
+      await assert.rejects(
+        program.methods
+          .repayDeal(tradeId)
+          .accounts(REPAY_ACCOUNTS(deal, buyer.publicKey, buyerAta))
+          .signers([buyer])
+          .rpc(),
+        /DealNotRepaying/,
+      );
+      console.log("Duplicate repayment rejected");
+    });
+
+    it("Rejects skipping logistics states", async () => {
+      const tradeId = new anchor.BN(16);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(edgeBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(EDGE_CREATE(deal, dealTokenAccount))
+        .signers([edgeBuyer])
+        .rpc();
+      await program.methods
+        .fundDeal(tradeId)
+        .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
+        .signers([admin])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .advanceDeal(tradeId, 4)
+          .accounts({
+            poolState: poolStatePda,
+            admin: admin.publicKey,
+            buyer: edgeBuyer.publicKey,
+            deal,
+          })
+          .signers([admin])
+          .rpc(),
+        /InvalidStateTransition/,
+      );
+      console.log("Skipped logistics state rejected");
+    });
+
+    it("Rejects defaulting a Pending deal", async () => {
+      const tradeId = new anchor.BN(17);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(edgeBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(EDGE_CREATE(deal, dealTokenAccount))
+        .signers([edgeBuyer])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .defaultDeal(tradeId)
+          .accounts({
+            poolState: poolStatePda,
+            admin: admin.publicKey,
+            buyer: edgeBuyer.publicKey,
+            deal,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
+            dealTokenAccount,
+            usdcMint,
+            lpMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc(),
+        /InvalidStateTransition/,
+      );
+      console.log("Default on Pending rejected");
+    });
+
+    it("Rejects repayment when the buyer account is not the deal buyer", async () => {
+      const tradeId = new anchor.BN(18);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(edgeBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(EDGE_CREATE(deal, dealTokenAccount))
+        .signers([edgeBuyer])
+        .rpc();
+      await program.methods
+        .fundDeal(tradeId)
+        .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
+        .signers([admin])
+        .rpc();
+      for (const target of [2, 3, 4]) {
+        await program.methods
+          .advanceDeal(tradeId, target)
+          .accounts({
+            poolState: poolStatePda,
+            admin: admin.publicKey,
+            buyer: edgeBuyer.publicKey,
+            deal,
+          })
+          .signers([admin])
+          .rpc();
+      }
+      await program.methods
+        .releaseToSeller(tradeId)
+        .accounts({
+          poolState: poolStatePda,
+          admin: admin.publicKey,
+          buyer: edgeBuyer.publicKey,
+          deal,
+          dealTokenAccount,
+          sellerTokenAccount: sellerAta,
+          usdcMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .repayDeal(tradeId)
+          .accounts(REPAY_ACCOUNTS(deal, seller.publicKey, sellerAta))
+          .signers([seller])
+          .rpc(),
+        /Unauthorized|ConstraintSeeds/,
+      );
+      console.log("Repayment by wrong buyer account rejected");
+    });
+
     it("Rejects invalid tenor", async () => {
       const tradeId = new anchor.BN(10);
       const amount = new anchor.BN(USDC(1_000));

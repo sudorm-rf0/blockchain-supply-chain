@@ -215,4 +215,160 @@ describe("TradesService", () => {
       ),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it("rejects create when the signed-in user does not exist", async () => {
+    const service = new TradesService(
+      makePrisma() as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.createTrade(
+        {
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: "100",
+          tenor: "30",
+        },
+        "ghost-user",
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("rejects confirm fund when the deal is not PENDING", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "FUNDED",
+          buyerWallet: "buyerWallet",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.confirmFundTrade("1", { txSignature: "sig" }, "admin-1"),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects repay when the deal is not REPAYING", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "FUNDED",
+          buyerWallet: "buyerWallet",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.confirmRepayTrade("1", { txSignature: "sig" }, "user-1"),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects advancing from an unsupported status", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "SETTLED",
+          buyerWallet: "buyerWallet",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.confirmAdvanceTrade(
+        "1",
+        { txSignature: "sig", targetStatus: "2", adminWallet: "adminWallet" },
+        "admin-1",
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects building a fund transaction with an invalid admin wallet", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "PENDING",
+          buyerWallet: "buyerWallet",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.buildFundTrade("1", { adminWallet: "not-a-wallet" }, "admin-1"),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects confirm with a negative trade id", async () => {
+    const service = new TradesService(
+      makePrisma() as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.confirmTrade(
+        "-1",
+        {
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: "100",
+          tenor: "30",
+          txSignature: "sig",
+        },
+        "user-1",
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("returns an existing PENDING deal idempotently on confirm", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          status: "PENDING",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    const result = await service.confirmTrade(
+      "1",
+      {
+        buyerWallet: "buyerWallet",
+        sellerWallet: "sellerWallet",
+        amount: "100",
+        tenor: "30",
+        txSignature: "sig",
+      },
+      "user-1",
+    );
+    expect(result.status).toBe("PENDING");
+  });
 });

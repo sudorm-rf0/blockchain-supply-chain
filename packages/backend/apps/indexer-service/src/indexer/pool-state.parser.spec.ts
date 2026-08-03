@@ -19,4 +19,17 @@ describe("parsePoolStateBuffer", () => {
     expect(payload.nav).toBe("98000000");
     expect(payload.utilizationBps).toBe(4000);
   });
+
+  it("rejects buffers shorter than the account layout", () => {
+    expect(() => parsePoolStateBuffer(Buffer.alloc(8), "pool-pda")).toThrow(
+      /invalid PoolState buffer length/,
+    );
+  });
+
+  it("returns zero utilization when total assets is zero", () => {
+    const buf = Buffer.alloc(POOL_STATE_ACCOUNT_SIZE);
+    const payload = parsePoolStateBuffer(buf, "pool-pda");
+    expect(payload.totalAssets).toBe("0");
+    expect(payload.utilizationBps).toBe(0);
+  });
 });

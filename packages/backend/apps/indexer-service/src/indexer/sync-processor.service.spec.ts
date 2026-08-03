@@ -3,6 +3,9 @@ import type { DealSyncPayload } from "./payloads";
 
 function makePrisma(overrides: Record<string, unknown> = {}) {
   return {
+    poolSnapshot: {
+      upsert: jest.fn(async ({ create }) => ({ ...create })),
+    },
     tradeDeal: {
       findUnique: jest.fn(async () => null),
       upsert: jest.fn(async ({ create }) => ({
@@ -109,5 +112,47 @@ describe("SyncProcessorService", () => {
 
     expect(prisma.tradeDeal.upsert).not.toHaveBeenCalled();
     expect(risk.notifyDefaulted).not.toHaveBeenCalled();
+  });
+
+  it("normalizes pool snapshots to the hour start", async () => {
+    const prisma = makePrisma({
+      poolSnapshot: {
+        upsert: jest.fn(async ({ create }) => ({ ...create })),
+      },
+    });
+    const risk = makeRisk();
+    const service = new SyncProcessorService(
+      prisma as never,
+      risk as never,
+    );
+    await (service as unknown as {
+      handlePoolSnapshot: (p: {
+        poolAddress: string;
+        capturedAt: string;
+        nav: string;
+        utilizationBps: number;
+        totalAssets: string;
+        activeCapital: string;
+        reserveFund: string;
+        insuranceFund: string;
+        pendingDividends: string;
+      }) => Promise<void>;
+    }).handlePoolSnapshot({
+      poolAddress: "pool-pda",
+      capturedAt: "2026-08-02T14:37:12.000Z",
+      nav: "100",
+      utilizationBps: 4000,
+      totalAssets: "1000",
+      activeCapital: "400",
+      reserveFund: "500",
+      insuranceFund: "100",
+      pendingDividends: "10",
+    });
+
+    const call = (prisma.poolSnapshot.upsert as jest.Mock).mock.calls[0][0];
+    expect(call.where.poolAddress_capturedAt.poolAddress).toBe("pool-pda");
+    expect(call.create.capturedAt.toISOString()).toBe(
+      "2026-08-02T14:00:00.000Z",
+    );
   });
 });
