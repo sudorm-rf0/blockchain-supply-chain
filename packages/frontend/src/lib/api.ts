@@ -673,6 +673,9 @@ export interface PoolTrendPoint {
   capturedAt: string;
   nav: string;
   totalAssets: string;
+  activeCapital: string;
+  idle: string;
+  utilizationBps: number;
 }
 
 export interface PoolOverview {

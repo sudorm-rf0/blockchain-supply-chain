@@ -38,6 +38,19 @@ const AssetTrendChart = dynamic(
   },
 );
 
+const LiquidityUtilizationChart = dynamic(
+  () =>
+    import("@/components/LiquidityUtilizationChart").then(
+      (m) => m.LiquidityUtilizationChart,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-72 w-full animate-pulse rounded-lg bg-muted" />
+    ),
+  },
+);
+
 
 // ==== 分段标识: 页面组件 ====
 export default function DashboardPage() {
@@ -263,6 +276,39 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
             <AssetTrendChart trend={overview.trend} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="text-base">流动性 / 利用率</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  闲置流动性 = 总资产 - 活跃资本
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">闲置流动性</p>
+                  <p className="mt-1 text-xl font-semibold text-violet-600 dark:text-violet-300">
+                    ${formatUsdc(
+                      (
+                        BigInt(overview.totalAssets) -
+                        BigInt(overview.activeCapital)
+                      ).toString(10),
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">当前利用率</p>
+                  <p className="mt-1 text-xl font-semibold text-amber-600 dark:text-amber-300">
+                    {((overview.utilizationBps / 10_000) * 100).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+              <LiquidityUtilizationChart trend={overview.trend} />
             </CardContent>
           </Card>
 
