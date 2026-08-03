@@ -13,13 +13,13 @@ jobs:
       DATABASE_URL: postgresql://user:pass@localhost:5432/supply_chain
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -54,13 +54,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -79,13 +79,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -94,7 +94,7 @@ jobs:
 
       - name: Install Anchor CLI
         id: cache-anchor
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/anchor
           key: anchor-0.31.1-${{ runner.os }}
@@ -107,7 +107,7 @@ jobs:
 
       - name: Cache Solana CLI
         id: cache-solana
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/solana
           key: agave-4.1.2-${{ runner.os }}
@@ -170,13 +170,13 @@ jobs:
       REDIS_URL: redis://localhost:6379
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -189,7 +189,7 @@ jobs:
 
       - name: Cache Anchor CLI
         id: cache-anchor
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/anchor
           key: anchor-0.31.1-e2e-${{ runner.os }}
@@ -202,7 +202,7 @@ jobs:
 
       - name: Cache Solana CLI
         id: cache-solana
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/solana
           key: agave-4.1.2-e2e-${{ runner.os }}
@@ -235,10 +235,29 @@ jobs:
     needs: [backend, frontend, contracts]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build backend image
         run: docker build --target backend-runner -f Dockerfile.multistage .
 
       - name: Build frontend image
         run: docker build --target frontend-runner -f Dockerfile.multistage .
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Production dependency audit (block critical)
+        run: pnpm audit --prod --audit-level critical --registry https://registry.npmjs.org

@@ -85,7 +85,9 @@
   DELIVERED → REPAYING → SETTLED。
 - 压测：files 4.5k req/s、trades 6.3k req/s、login p99 81ms、上传 532 文件/s。
 - CI 全绿：backend / frontend / contracts / e2e（localnet 全链路冒烟）/ docker
-  镜像构建 5 个 job 全部通过；localnet 验证器升级为 Agave 4.1.2（SBFv3）。
+  镜像构建全部通过；新增 `security-audit` 门槛（`pnpm audit --prod` 拦截
+  critical）；CI actions 已升级到 Node 24 运行时（checkout v7 / setup-node v7 /
+  cache v6 / pnpm v6）；localnet 验证器升级为 Agave 4.1.2（SBFv3）。
 
 ## 上线前必做
 
