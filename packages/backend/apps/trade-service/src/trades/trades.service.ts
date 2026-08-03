@@ -637,7 +637,7 @@ export class TradesService {
   ) {
     return this.withConfirmLock(tradeId, async () => {
         const trade = await this.requireAdminAndDeal(tradeId, userId);
-        if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
+        if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED", "REPAYING"].includes(trade.status)) {
           throw new BadRequestException(`cannot default deal from status ${trade.status}`);
         }
         const dealPda = deriveDealPda(

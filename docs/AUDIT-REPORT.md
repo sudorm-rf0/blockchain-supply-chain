@@ -68,6 +68,10 @@
 
 ## 已修复项（审计周期内）
 
+- 状态机补全：`default_deal` 允许 REPAYING 且账期已到期的订单违约
+  （`created_at + tenor` 超时判断），新增 `DealNotExpired` 错误码与
+  Rust 单元测试；未到期 REPAYING 违约被拒绝，合约测试增至 23 个。
+
 - 依赖：新增 `qs` override 至 6.15.2，修复 express/body-parser 传递依赖的
   远程 DoS（GHSA-q8mj-m7cp-5q26），生产依赖漏洞 7 → 6。
 - 权限纵深：trade-service / pool-service 管理端点（fund/advance/default/release
