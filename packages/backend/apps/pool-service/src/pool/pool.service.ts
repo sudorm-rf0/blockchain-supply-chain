@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { DealStatus, Prisma } from "@prisma/client";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
@@ -25,6 +25,7 @@ import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto"
 
 const NOTICE_DAYS = 7;
 const NOTICE_SECONDS = NOTICE_DAYS * 24 * 60 * 60;
+const U64_MAX = (1n << 64n) - 1n;
 const OVERVIEW_CACHE_KEY = "pool:overview:v1";
 const OVERVIEW_CACHE_SECONDS = 30;
 const ACTIVE_STATUSES = new Set([
@@ -60,7 +61,7 @@ export class PoolService {
       }
     }
 
-    const [recent, dealAgg, dealGroups] = await Promise.all([
+    const [recent, dealAgg, dealGroups, activeAgg] = await Promise.all([
       this.prisma.poolSnapshot.findMany({
         orderBy: { capturedAt: "desc" },
         take: 24,
@@ -76,6 +77,10 @@ export class PoolService {
       this.prisma.tradeDeal.groupBy({
         by: ["status"],
         _count: true,
+      }),
+      this.prisma.tradeDeal.aggregate({
+        where: { status: { in: [...ACTIVE_STATUSES] as DealStatus[] } },
+        _sum: { amount: true },
       }),
     ]);
 
@@ -127,7 +132,7 @@ export class PoolService {
       activeDeals,
       settledDeals,
       defaultedDeals,
-      outstandingAmount: (dealAgg._sum.amount ?? 0n).toString(10),
+      outstandingAmount: (activeAgg._sum?.amount ?? 0n).toString(10),
       trend: [...recent]
         .reverse()
         .map((snapshot) => ({
@@ -265,6 +270,9 @@ export class PoolService {
       where: { id },
       data: { status: "EXECUTED" },
     });
+    await this.redis
+      .del(`lp:withdraw:${request.lpAddress}`)
+      .catch(() => undefined);
     await this.audit.record({
       actorId: userId,
       action: "WITHDRAW_EXECUTED",
@@ -286,7 +294,9 @@ export class PoolService {
     let lpAmount: bigint;
     try {
       lpAmount = BigInt(dto.lpAmount);
-      if (lpAmount <= 0n) throw new Error("non-positive");
+      if (lpAmount <= 0n || lpAmount > U64_MAX) {
+        throw new Error("out of range");
+      }
     } catch {
       throw new BadRequestException("invalid lpAmount");
     }
@@ -316,7 +326,9 @@ export class PoolService {
     let lpAmount: bigint;
     try {
       lpAmount = BigInt(dto.lpAmount);
-      if (lpAmount <= 0n) throw new Error("non-positive");
+      if (lpAmount <= 0n || lpAmount > U64_MAX) {
+        throw new Error("out of range");
+      }
     } catch {
       throw new BadRequestException("invalid lpAmount");
     }

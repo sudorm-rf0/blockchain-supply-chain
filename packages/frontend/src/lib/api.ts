@@ -395,7 +395,7 @@ export async function buildDocumentAttest(
 
 export async function confirmDocumentAttest(
   fileId: string,
-  body: { txSignature: string; documentPda: string },
+  body: { txSignature: string; documentPda: string; tradeId?: string },
 ): Promise<{
   ok: boolean;
   txSignature: string | null;
