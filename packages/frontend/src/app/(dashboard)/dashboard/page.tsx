@@ -9,6 +9,14 @@ import dynamic from "next/dynamic";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
   buildRedeemLp,
   confirmRedeemLp,
   fetchIndexerStatus,
@@ -25,7 +33,7 @@ const AssetTrendChart = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-80 w-full animate-pulse rounded-lg bg-zinc-900/60" />
+      <div className="h-80 w-full animate-pulse rounded-lg bg-muted" />
     ),
   },
 );
@@ -101,90 +109,93 @@ export default function DashboardPage() {
         {
           label: "Pool Size",
           value: `$${formatUsdc(overview.totalAssets)}`,
-          accent: "text-sky-300",
+          accent: "text-sky-600 dark:text-sky-300",
         },
         {
           label: "Current NAV",
           value: `$${formatUsdc(overview.nav)}`,
-          accent: "text-emerald-300",
+          accent: "text-emerald-600 dark:text-emerald-300",
         },
         {
           label: "30 / 70 Position",
           value: `${overview.downPaymentSharePct.toFixed(1)}% / ${overview.poolPortionSharePct.toFixed(1)}%`,
-          accent: "text-amber-300",
+          accent: "text-amber-600 dark:text-amber-300",
         },
         {
           label: "Realtime APR",
           value: `${overview.aprPct.toFixed(2)}%`,
-          accent: "text-fuchsia-300",
+          accent: "text-fuchsia-600 dark:text-fuchsia-300",
         },
       ]
     : [];
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10">
-      <header className="flex items-center justify-between gap-4">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold text-emerald-400">SOLANA SUPPLY CHAIN</p>
-          <h1 className="mt-2 text-3xl font-bold text-zinc-100">Pool Dashboard</h1>
+          <p className="text-xs font-semibold text-primary">SOLANA SUPPLY CHAIN</p>
+          <h1 className="mt-2 text-2xl font-bold text-foreground">资金池看板</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <nav className="flex gap-2 text-sm">
-            <Link
-              href="/trade/new"
-              className="rounded-lg border border-zinc-700 px-3 py-2 text-zinc-300 transition hover:border-emerald-500 hover:text-emerald-300"
-            >
-              New Trade
-            </Link>
-          </nav>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/trade/new">创建订单</Link>
+          </Button>
           <WalletConnectButton />
         </div>
       </header>
 
-      <section className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
-        <h2 className="text-sm font-semibold text-zinc-200">LP 链上赎回</h2>
-        <p className="mt-1 text-xs text-zinc-500">
-          按当前 NAV 换算，单次赎回不超过闲置资金 50%
-        </p>
-        <div className="mt-3 flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex-1">
-            <span className="text-xs text-zinc-400">LP 数量</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={lpAmount}
-              onChange={(event) => setLpAmount(event.target.value)}
-              placeholder="1000"
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500"
-            />
-          </label>
-          <Button
-            type="button"
-            disabled={redeeming || !connected}
-            onClick={() => void handleRedeem()}
-          >
-            {redeeming ? "赎回中..." : "链上赎回"}
-          </Button>
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">LP 链上赎回</CardTitle>
+          <CardDescription>
+            按当前 NAV 换算，单次赎回不超过闲置资金 50%
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-1">
+              <label htmlFor="lp-amount" className="text-xs text-muted-foreground">
+                LP 数量
+              </label>
+              <Input
+                id="lp-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={lpAmount}
+                onChange={(event) => setLpAmount(event.target.value)}
+                placeholder="1000"
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={redeeming || !connected}
+              onClick={() => void handleRedeem()}
+            >
+              {redeeming ? "赎回中..." : "链上赎回"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="flex items-center justify-between text-xs text-zinc-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <p>
           Indexer{" "}
           {indexer ? (
-            <span className="text-emerald-400">
+            <span className="text-emerald-600 dark:text-emerald-400">
               synced · last snapshot{" "}
               {indexer.lastPoolSnapshotAt
                 ? formatDateTime(indexer.lastPoolSnapshotAt)
                 : "n/a"}
             </span>
           ) : (
-            <span className="text-red-400">unreachable</span>
+            <span className="text-red-600 dark:text-red-400">unreachable</span>
           )}
         </p>
         {indexer && indexer.queue.failed > 0 && (
-          <p className="text-amber-400">{indexer.queue.failed} failed jobs</p>
+          <p className="text-amber-600 dark:text-amber-400">
+            {indexer.queue.failed} failed jobs
+          </p>
         )}
       </div>
 
@@ -193,14 +204,14 @@ export default function DashboardPage() {
           {[0, 1, 2, 3].map((item) => (
             <div
               key={item}
-              className="h-28 animate-pulse rounded-lg border border-zinc-800 bg-zinc-900/60"
+              className="h-28 animate-pulse rounded-lg border bg-muted"
             />
           ))}
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-500/50 bg-red-950/40 p-4 text-sm text-red-200">
+        <div className="rounded-lg border border-red-500/50 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-200">
           {error}
           <button
             type="button"
@@ -216,49 +227,66 @@ export default function DashboardPage() {
         <>
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
-              <div
+              <Card
                 key={stat.label}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5"
               >
-                <p className="text-sm text-zinc-400">{stat.label}</p>
-                <p className={`mt-2 text-2xl font-semibold ${stat.accent}`}>
-                  {stat.value}
-                </p>
-              </div>
+                <CardHeader>
+                  <CardDescription>{stat.label}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className={`text-2xl font-semibold ${stat.accent}`}>
+                    {stat.value}
+                  </p>
+                </CardContent>
+              </Card>
             ))}
           </section>
 
-          <section className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5">
+          <Card>
+            <CardHeader>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-zinc-200">
-                Asset Trend
-              </h2>
-              <p className="text-xs text-zinc-500">
+              <CardTitle className="text-base">资产趋势</CardTitle>
+              <p className="text-xs text-muted-foreground">
                 Utilization {((overview.utilizationBps / 10_000) * 100).toFixed(1)}%
               </p>
             </div>
+            </CardHeader>
+            <CardContent>
             <AssetTrendChart trend={overview.trend} />
-          </section>
+            </CardContent>
+          </Card>
 
           <section className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-              <p className="text-sm text-zinc-400">Active Deals</p>
-              <p className="mt-1 text-xl font-semibold text-zinc-100">
+            <Card>
+              <CardHeader>
+                <CardDescription>Active Deals</CardDescription>
+              </CardHeader>
+              <CardContent>
+              <p className="text-xl font-semibold">
                 {overview.activeDeals}
               </p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-              <p className="text-sm text-zinc-400">Settled</p>
-              <p className="mt-1 text-xl font-semibold text-emerald-300">
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardDescription>Settled</CardDescription>
+              </CardHeader>
+              <CardContent>
+              <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-300">
                 {overview.settledDeals}
               </p>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-              <p className="text-sm text-zinc-400">Defaulted</p>
-              <p className="mt-1 text-xl font-semibold text-red-300">
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardDescription>Defaulted</CardDescription>
+              </CardHeader>
+              <CardContent>
+              <p className="text-xl font-semibold text-red-600 dark:text-red-300">
                 {overview.defaultedDeals}
               </p>
-            </div>
+              </CardContent>
+            </Card>
           </section>
         </>
       )}

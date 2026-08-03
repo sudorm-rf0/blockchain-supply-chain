@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useTheme } from "next-themes";
 
 export interface AssetTrendChartProps {
   trend: Array<{
@@ -33,6 +34,13 @@ function toChartPoints(
 
 export function AssetTrendChart({ trend }: AssetTrendChartProps) {
   const data = toChartPoints(trend);
+  const { resolvedTheme } = useTheme();
+  const dark = resolvedTheme === "dark";
+  const gridColor = dark ? "#27272a" : "#e4e4e7";
+  const axisColor = dark ? "#71717a" : "#a1a1aa";
+  const tooltipBg = dark ? "#18181b" : "#ffffff";
+  const tooltipBorder = dark ? "#3f3f46" : "#d4d4d8";
+  const tooltipColor = dark ? "#f4f4f5" : "#18181b";
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -43,20 +51,20 @@ export function AssetTrendChart({ trend }: AssetTrendChartProps) {
               <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
           <XAxis
             dataKey="time"
-            stroke="#71717a"
+            stroke={axisColor}
             fontSize={12}
             tickLine={false}
           />
-          <YAxis stroke="#71717a" fontSize={12} tickLine={false} width={70} />
+          <YAxis stroke={axisColor} fontSize={12} tickLine={false} width={70} />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#18181b",
-              border: "1px solid #3f3f46",
+              backgroundColor: tooltipBg,
+              border: `1px solid ${tooltipBorder}`,
               borderRadius: 8,
-              color: "#f4f4f5",
+              color: tooltipColor,
             }}
             formatter={(value) => `$${Number(value).toLocaleString()}`}
           />

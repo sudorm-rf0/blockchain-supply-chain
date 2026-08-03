@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma, type DealStatus } from "@prisma/client";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, MessageV0, PublicKey } from "@solana/web3.js";
 import { TRADE_ENV } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -64,8 +64,9 @@ type ParsedTxMessage = {
   }>;
 };
 
-function getAccountKeys(message: ParsedTxMessage): PublicKey[] {
-  return message.accountKeys ?? message.staticAccountKeys ?? [];
+function getAccountKeys(message: MessageV0 | { accountKeys: PublicKey[] }): PublicKey[] {
+  if ("accountKeys" in message) return message.accountKeys;
+  return message.staticAccountKeys;
 }
 
 function instructionMatchesTransaction(
@@ -100,7 +101,7 @@ async function verifyOnChainInstruction(
   if (!tx || tx.meta?.err) {
     throw new BadRequestException("交易未在链上确认");
   }
-  const message = tx.transaction.message as ParsedTxMessage;
+  const message = tx.transaction.message as MessageV0 | { accountKeys: PublicKey[]; compiledInstructions: Array<{ programIdIndex: number; accountKeyIndexes: number[]; data: Uint8Array }> };
   const keys = getAccountKeys(message);
   const found = message.compiledInstructions.some((ix) =>
     instructionMatchesTransaction(ix, keys, expectedData, progId, dealPda),
@@ -360,7 +361,7 @@ export class TradesService {
         }
 
         const message = tx.transaction.message as ParsedTxMessage;
-        const keys = getAccountKeys(message);
+        const keys = getAccountKeys(message as unknown as MessageV0 | { accountKeys: PublicKey[] });
         const hasCreateDeal = message.compiledInstructions.some((ix) =>
           instructionMatchesTransaction(ix, keys, expectedData, progId, dealPda),
         );

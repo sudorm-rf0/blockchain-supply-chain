@@ -7,6 +7,16 @@ import { FilePreviewDialog } from "@/components/FilePreviewDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -61,6 +71,7 @@ export default function AdminFilesPage({
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState(resolvedParams.status ?? "PENDING");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [approveId, setApproveId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -94,6 +105,11 @@ export default function AdminFilesPage({
     } finally {
       setBusy(false);
     }
+  };
+
+  const confirmApprove = async (id: string) => {
+    setApproveId(null);
+    await approve(id);
   };
 
   const reject = async () => {
@@ -175,7 +191,7 @@ export default function AdminFilesPage({
                       <Button
                         size="sm"
                         disabled={busy}
-                        onClick={() => void approve(file.id)}
+                        onClick={() => setApproveId(file.id)}
                       >
                         通过
                       </Button>
@@ -221,6 +237,30 @@ export default function AdminFilesPage({
         onOpenChange={(open) => !open && setPreviewId(null)}
         fileId={previewId}
       />
+
+      <AlertDialog
+        open={approveId !== null}
+        onOpenChange={(open) => !open && setApproveId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认审核通过？</AlertDialogTitle>
+            <AlertDialogDescription>
+              通过后该文件状态将更新为 APPROVED，操作会写入审计日志。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setApproveId(null)}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => approveId && void confirmApprove(approveId)}
+            >
+              确认通过
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={rejectId !== null} onOpenChange={(open) => !open && setRejectId(null)}>
         <DialogContent>
