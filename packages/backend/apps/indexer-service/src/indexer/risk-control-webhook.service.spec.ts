@@ -19,6 +19,11 @@ describe("RiskControlWebhookService", () => {
   beforeEach(() => {
     fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
+    process.env.WEBHOOK_RETRY_DELAY_MS = "1";
+  });
+
+  afterEach(() => {
+    delete process.env.WEBHOOK_RETRY_DELAY_MS;
   });
 
   it("delivers a signed defaulted webhook", async () => {
@@ -59,5 +64,16 @@ describe("RiskControlWebhookService", () => {
     await expect(service.notifyDefaulted(deal as never)).rejects.toThrow(
       "network down",
     );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries transient failures and succeeds on a later attempt", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new Error("temporary outage"))
+      .mockRejectedValueOnce(new Error("still down"))
+      .mockResolvedValue({ ok: true, status: 200 });
+    const service = new RiskControlWebhookService();
+    await expect(service.notifyDefaulted(deal as never)).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

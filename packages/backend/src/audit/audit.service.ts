@@ -70,4 +70,35 @@ export class AuditService {
       limit: params.limit,
     };
   }
+
+  async exportCsv(params: { action?: string; targetType?: string; limit?: number }) {
+    const where: Prisma.AuditLogWhereInput = {};
+    if (params.action) where.action = params.action;
+    if (params.targetType) where.targetType = params.targetType;
+    const items = await this.prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      take: params.limit ?? 10_000,
+    });
+    const escape = (value: unknown): string => {
+      const text = value === null || value === undefined ? "" : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const header = ["id", "createdAt", "actorId", "actorEmail", "action", "targetType", "targetId", "metadata"];
+    const rows = items.map((item) =>
+      [
+        item.id,
+        item.createdAt.toISOString(),
+        item.actorId,
+        item.actorEmail,
+        item.action,
+        item.targetType,
+        item.targetId,
+        JSON.stringify(item.metadata ?? {}),
+      ]
+        .map(escape)
+        .join(","),
+    );
+    return "\uFEFF" + [header.map((h) => `"${h}"`).join(","), ...rows].join("\n");
+  }
 }

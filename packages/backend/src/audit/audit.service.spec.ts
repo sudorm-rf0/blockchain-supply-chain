@@ -5,7 +5,7 @@ function makePrisma() {
     auditLog: {
       create: jest.fn(async () => ({ id: "log-1" })),
       count: jest.fn(async () => 0),
-      findMany: jest.fn(async () => []),
+      findMany: jest.fn(async () => [] as unknown[]),
     },
   };
 }
@@ -55,5 +55,26 @@ describe("AuditService", () => {
     expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 0, take: 20 }),
     );
+  });
+
+  it("exports audit entries as escaped CSV", async () => {
+    const prisma = makePrisma();
+    prisma.auditLog.findMany.mockResolvedValue([
+      {
+        id: "log-1",
+        createdAt: new Date("2026-08-03T00:00:00.000Z"),
+        actorId: "user-1",
+        actorEmail: 'a"b@example.com',
+        action: "FILE_APPROVED",
+        targetType: "FILE",
+        targetId: "file-1",
+        metadata: { from: "PENDING,REVIEW" },
+      },
+    ]);
+    const service = new AuditService(prisma as never);
+    const csv = await service.exportCsv({});
+    expect(csv.startsWith('\uFEFF"id","createdAt"')).toBe(true);
+    expect(csv).toContain('"a""b@example.com"');
+    expect(csv).toContain('"PENDING,REVIEW"');
   });
 });
