@@ -12,14 +12,23 @@ export function RepaymentCountdown({
   tenorSeconds: number;
   status: string;
 }) {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   if (status !== "REPAYING") return null;
+  if (now === null) {
+    return (
+      <div className="space-y-1">
+        <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-1.5 w-full animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
 
   const deadline = new Date(createdAt).getTime() + tenorSeconds * 1000;
   const total = tenorSeconds * 1000;

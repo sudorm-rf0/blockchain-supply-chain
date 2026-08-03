@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
+import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { TransactionStatusToast } from "@/components/TransactionStatusToast";
 import {
@@ -64,7 +65,7 @@ export default function NewTradePage() {
         Buffer.from(response.transaction, "base64"),
       );
       const txSignature = await sendTransaction(transaction, connection);
-      await connection.confirmTransaction(txSignature, "confirmed");
+      await confirmTransactionWithTimeout(connection, txSignature, "confirmed");
       await confirmTrade(response.tradeId, {
         buyerWallet: publicKey.toBase58(),
         sellerWallet: sellerWallet.trim() || publicKey.toBase58(),

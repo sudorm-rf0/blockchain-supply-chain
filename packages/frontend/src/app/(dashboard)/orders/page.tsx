@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { Transaction } from "@solana/web3.js";
+import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,7 @@ export default function OrdersPage() {
         Buffer.from(built.transaction, "base64"),
       );
       const signature = await sendTransaction(transaction, connection);
-      await connection.confirmTransaction(signature, "confirmed");
+      await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirm(signature);
       toast.success(`订单状态已更新：${result.status}`);
       await load();
