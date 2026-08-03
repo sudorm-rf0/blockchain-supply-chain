@@ -22,7 +22,7 @@
 | Low | 5 | 限流策略、默认管理员密码、LP 赎回缺失、审计保留策略、备份未演练 |
 
 依赖审计（`pnpm audit --prod --registry https://registry.npmjs.org`）：
-6 vulnerabilities（5 moderate / 1 high）。
+4 vulnerabilities（3 moderate / 1 high）。
 
 ## High 发现
 
@@ -75,6 +75,12 @@
 
 - 依赖：新增 `qs` override 至 6.15.2，修复 express/body-parser 传递依赖的
   远程 DoS（GHSA-q8mj-m7cp-5q26），生产依赖漏洞 7 → 6。
+- 依赖：新增 `uuid` override 至 11.1.1，修复 uuid v3/v5/v6 越界检查
+  （GHSA-w5hq-g745-h8pq），生产依赖漏洞 6 → 4。
+- 运维：K8s 提供 `k8s/network-policies.yaml`（默认拒绝 + 网关/内部/DNS/
+  外部出口放行），部署开关 `DEPLOY_NETWORK_POLICIES=1`。
+- 功能：trade-service 新增还款到期通知（每 10 分钟扫描 REPAYING 超时订单，
+  Redis 7 天去重，写入 `TRADE_REPAYMENT_DUE` 审计日志），2 个单测覆盖。
 - 权限纵深：trade-service / pool-service 管理端点（fund/advance/default/release
   及其 confirm、提款执行、提款列表）在 controller 层补 `AdminGuard`，
   与 service 层角色校验形成双重防线，并新增 6 个 guard 单测。

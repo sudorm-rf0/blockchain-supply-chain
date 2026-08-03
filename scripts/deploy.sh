@@ -91,6 +91,11 @@ if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
   kubectl rollout status deployment/alertmanager -n "${NAMESPACE}" --timeout=300s
 fi
 
+if [[ "${DEPLOY_NETWORK_POLICIES}" == "1" ]]; then
+  echo "==> [3.7/5] apply network policies"
+  kubectl apply -n "${NAMESPACE}" -f k8s/network-policies.yaml
+fi
+
 echo "==> [4/5] prisma migrate deploy"
 if [[ "${SKIP_MIGRATE}" != "1" ]]; then
   kubectl exec deployment/backend -n "${NAMESPACE}" -- npm run prisma:deploy
