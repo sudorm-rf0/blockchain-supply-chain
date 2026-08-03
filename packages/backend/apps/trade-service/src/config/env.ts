@@ -3,12 +3,6 @@ function env(name: string, fallback: string): string {
   return value !== undefined && value !== "" ? value : fallback;
 }
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} must be set`);
-  return value;
-}
-
 function envNumber(name: string, fallback: number): number {
   const raw = Number(process.env[name]);
   return Number.isFinite(raw) ? raw : fallback;

@@ -18,12 +18,7 @@ import {
   type WithdrawRequestRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-
-const STATUS_STYLE: Record<string, string> = {
-  PENDING: "bg-yellow-200 text-yellow-800",
-  READY: "bg-blue-200 text-blue-800",
-  EXECUTED: "bg-green-200 text-green-800",
-};
+import { WITHDRAW_STATUS_STYLE } from "@/lib/status";
 
 export default function AdminWithdrawalsPage() {
   const [requests, setRequests] = useState<WithdrawRequestRecord[]>([]);
@@ -87,7 +82,7 @@ export default function AdminWithdrawalsPage() {
                   <TableCell>{formatDateTime(request.requestedAt)}</TableCell>
                   <TableCell>{formatDateTime(request.availableAt)}</TableCell>
                   <TableCell>
-                    <Badge className={STATUS_STYLE[request.status] ?? ""}>
+                    <Badge className={WITHDRAW_STATUS_STYLE[request.status] ?? ""}>
                       {request.status}
                     </Badge>
                   </TableCell>

@@ -12,9 +12,7 @@ import {
   derivePoolStatePda,
   derivePoolAuthorityPda,
   deriveDealPda,
-  deriveAssociatedTokenAccount,
   TOKEN_PROGRAM_ID,
-  SYSTEM_PROGRAM_ID,
 } from "./tx-builder";
 
 // Discriminators

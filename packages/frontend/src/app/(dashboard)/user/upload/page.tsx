@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { Camera, FileUp } from "lucide-react";
+import { Camera } from "lucide-react";
 import { Transaction } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { WalletConnectButton } from "@/components/WalletConnectButton";

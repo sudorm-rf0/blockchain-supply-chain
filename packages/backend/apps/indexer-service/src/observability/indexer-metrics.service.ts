@@ -1,5 +1,4 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { Cron, CronExpression } from "@nestjs/schedule";
 import { Gauge } from "prom-client";
 import { PrismaService } from "../prisma/prisma.service";
 import { SyncQueueService } from "../indexer/sync-queue.service";
