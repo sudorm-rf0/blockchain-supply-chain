@@ -21,6 +21,7 @@
 | `SENTRY_DSN` | 空 | 配置后 500 自动上报 |
 | `CLAMAV_HOST` / `CLAMAV_PORT` | 空 / 3310 | clamd TCP 杀毒；生产必须配置 |
 | `SCAN_URL` | 空 | 备选 HTTP 杀毒服务（`{clean: boolean}`） |
+| `AUDIT_RETENTION_DAYS` | `90` | 审计日志保留天数；每天 04:00 自动清理，`0` 表示关闭清理 |
 
 ## 2. 安全运行规则
 
@@ -55,6 +56,8 @@ curl -sf http://localhost:3001/metrics
 - `lastPoolSnapshotAt` 超过 1 小时未更新：链上 RPC 或订阅异常。
 - `lastDealSyncedAt` 长时间不变：确认 localnet/devnet 是否有新交易。
 - 审计日志：`GET /api/admin/audit-logs`，前端 `/admin/audit`。
+  敏感操作均已落审计：注册/登录/登出/改密/绑定钱包、文件上传/审核/驳回/删除/
+  存证、订单创建/拨款/推进/还款/违约/释放、提款申请/执行、LP 赎回、还款到期。
 
 ## 4. 文件存储
 

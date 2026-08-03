@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { PublicKey } from "@solana/web3.js";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
 import {
   buildAttestDocumentInstructionData,
   buildAttestDocumentTransaction,
@@ -18,7 +19,10 @@ import {
 
 @Injectable()
 export class AttestationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async build(
     fileId: string,
@@ -199,6 +203,17 @@ export class AttestationService {
         txSignature: body.txSignature,
         documentPda: expectedDocumentPda.toBase58(),
         attestedAt: new Date(),
+      },
+    });
+
+    await this.audit.record({
+      actorId: userId,
+      action: "FILE_ATTESTED",
+      targetType: "FILE",
+      targetId: fileId,
+      metadata: {
+        txSignature: body.txSignature,
+        documentPda: expectedDocumentPda.toBase58(),
       },
     });
 

@@ -58,7 +58,10 @@
 12. 管理员种子密码 `Admin123!` 仅限本地，生产必须更换。
 13. ~~LP 赎回没有合约指令~~ **已实现**：`redeem_lp` 支持链上按 NAV 赎回，
     并带单次上限与保险池保护；管理端 7 天提款审批闭环保留。
-14. 审计日志无保留/归档策略，生产需按合规设置。
+14. ~~审计日志无保留/归档策略~~ **已实现**：新增 `AuditRetentionService`
+    （每天 04:00 清理，`AUDIT_RETENTION_DAYS` 默认 90 天，`0` 关闭）；
+    敏感操作审计已覆盖认证（注册/登录/登出/改密/绑定钱包）、文件上传与存证、
+    订单全生命周期、提款与 LP 赎回。
 15. ~~Postgres 备份未做过恢复演练~~ **已修复**：`scripts/db-backup-restore.sh`
       支持一键 drill，真实备份恢复到临时库并逐表核对，输出 JSON 恢复验证报告。
 16. K8s `securityContext` 已补齐（backend/frontend/indexer/trade/pool：

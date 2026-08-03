@@ -222,6 +222,18 @@ export class FilesService {
         );
         await this.redis.expire(quotaKey, ttl);
       }
+      await this.audit.record({
+        actorId: uploaderId,
+        action: "FILE_UPLOADED",
+        targetType: "FILE",
+        targetId: created.id,
+        metadata: {
+          filename: file.originalname,
+          size: persisted.size,
+          hash: fileHash,
+          tradeId: fields.tradeId ?? null,
+        },
+      });
       return this.publicFile(created);
     } catch (error) {
       await this.storage.remove(persisted.storageKey).catch(() => undefined);

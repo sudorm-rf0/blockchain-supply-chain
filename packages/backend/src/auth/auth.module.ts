@@ -4,8 +4,10 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { AuthGuard } from "./auth.guard";
 import { RedisService } from "../redis/redis.service";
+import { AuditModule } from "../audit/audit.module";
 
 @Module({
+  imports: [AuditModule],
   controllers: [AuthController],
   providers: [AuthService, AuthGuard, PrismaService, RedisService],
   exports: [AuthService, AuthGuard, PrismaService, RedisService],
