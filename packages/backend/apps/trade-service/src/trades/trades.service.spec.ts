@@ -415,4 +415,96 @@ describe("TradesService", () => {
       NotFoundException,
     );
   });
+
+  it("rejects building a default transaction for a non-admin", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "FUNDED",
+          buyerWallet: "buyerWallet",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.buildDefaultTrade(
+        "1",
+        { adminWallet: "adminWallet" },
+        "user-1",
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("rejects defaulting a settled deal", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "SETTLED",
+          buyerWallet: "buyerWallet",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.buildDefaultTrade(
+        "1",
+        { adminWallet: "adminWallet" },
+        "admin-1",
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects building a repay transaction for a non-buyer", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "REPAYING",
+          buyerWallet: "someone-else",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(service.buildRepayTrade("1", "user-1")).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it("rejects confirming a fund for a non-admin", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "deal-pda",
+          dealId: "1",
+          status: "PENDING",
+          buyerWallet: "buyerWallet",
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.confirmFundTrade("1", { txSignature: "sig" }, "user-1"),
+    ).rejects.toThrow(ForbiddenException);
+  });
 });

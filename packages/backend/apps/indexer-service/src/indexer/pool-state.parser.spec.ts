@@ -32,4 +32,22 @@ describe("parsePoolStateBuffer", () => {
     expect(payload.totalAssets).toBe("0");
     expect(payload.utilizationBps).toBe(0);
   });
+
+  it("caps utilization at 10000 bps when fully deployed", () => {
+    const admin = Keypair.generate().publicKey;
+    const buf = Buffer.alloc(POOL_STATE_ACCOUNT_SIZE);
+    admin.toBuffer().copy(buf, 8);
+    buf.writeBigUInt64LE(100_000_000_000n, 40);
+    buf.writeBigUInt64LE(100_000_000_000n, 48);
+
+    const payload = parsePoolStateBuffer(buf, "pool-pda");
+    expect(payload.utilizationBps).toBe(10000);
+  });
+
+  it("tolerates buffers longer than the expected layout", () => {
+    const buf = Buffer.alloc(POOL_STATE_ACCOUNT_SIZE + 8);
+    const payload = parsePoolStateBuffer(buf, "pool-pda");
+    expect(payload.totalAssets).toBe("0");
+    expect(payload.nav).toBe("0");
+  });
 });

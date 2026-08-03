@@ -252,4 +252,126 @@ describe("FilesService", () => {
       service.upload(file, {}, "user-1"),
     ).rejects.toThrow(HttpException);
   });
+
+  it("blocks non-owners from viewing file versions", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
+      id: "f1",
+      uploaderId: "owner-1",
+    });
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    await expect(service.getVersions("f1", "user-1", "USER")).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it("returns a single-item version list when the file has no document group", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
+      id: "f1",
+      uploaderId: "user-1",
+      documentGroupId: null,
+      supersededAt: null,
+      createdAt: new Date(),
+    });
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    const result = await service.getVersions("f1", "user-1", "USER");
+    expect(result).toHaveLength(1);
+  });
+
+  it("scopes version history to the owner for non-admin users", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
+      id: "f1",
+      uploaderId: "user-1",
+      documentGroupId: "group-1",
+      supersededAt: null,
+      createdAt: new Date(),
+    });
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([]);
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    await service.getVersions("f1", "user-1", "USER");
+    expect(prisma.file.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ uploaderId: "user-1" }),
+      }),
+    );
+  });
+
+  it("rejects deleting an attested file", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
+      id: "f1",
+      uploaderId: "user-1",
+      txSignature: "sig",
+      path: "/uploads/f1.png",
+    });
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    await expect(
+      service.remove("f1", "user-1", "USER", "true"),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("blocks non-owners from deleting files", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
+      id: "f1",
+      uploaderId: "owner-1",
+      txSignature: null,
+      path: "/uploads/f1.png",
+    });
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    await expect(
+      service.remove("f1", "user-1", "USER", "true"),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("scopes file lists to the requesting user", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.file.count as jest.Mock).mockResolvedValue(0);
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    await service.list({ page: 1, limit: 10, userId: "user-1" });
+    expect(prisma.file.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ uploaderId: "user-1" }),
+      }),
+    );
+  });
 });

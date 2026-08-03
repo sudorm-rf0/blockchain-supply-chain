@@ -285,6 +285,49 @@ describe("PoolService", () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
+  it("creates a withdrawal request and keeps the 7-day redis lock", async () => {
+    const prisma = makePrisma({
+      withdrawRequest: {
+        findFirst: jest.fn(async () => null),
+        create: jest.fn(async ({ data }) => ({ ...data, id: "wr-1" })),
+      },
+    });
+    const redis = makeRedis();
+    const audit = makeAudit();
+    const service = new PoolService(
+      prisma as never,
+      redis as never,
+      audit as never,
+    );
+
+    const result = await service.requestWithdrawal(
+      { lpWallet: "lpWallet", amount: "100" },
+      "user-1",
+    );
+
+    expect(result.queueId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+    expect(prisma.withdrawRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lpAddress: "lpWallet",
+          amount: expect.any(Object),
+          status: "PENDING",
+        }),
+      }),
+    );
+    expect(redis.setWithExpiry).toHaveBeenCalledWith(
+      "lp:withdraw:lpWallet",
+      expect.stringContaining("queueId"),
+      7 * 24 * 60 * 60,
+    );
+    expect(redis.del).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "WITHDRAW_REQUESTED" }),
+    );
+  });
+
   it("rejects withdrawal amounts above the per-request limit", async () => {
     const service = new PoolService(
       makePrisma() as never,

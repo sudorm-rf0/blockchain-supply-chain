@@ -100,8 +100,9 @@
 
 ## 验证记录
 
-- 后端/前端/三个独立服务构建通过；Jest 77/77（含 6 个 AdminGuard 用例）；
-  合约 22/22 测试通过；前端 Vitest 6/6。
+- 后端/前端/三个独立服务构建通过；Jest 97/97（覆盖订单状态机权限与非法跳转、
+  文件版本/删除权限、提款成功路径、indexer 解码异常边界）；合约 23/23 测试通过；
+  前端 Vitest 11/11（新增交易状态 Toast、文件预览组件）。
 - 前端新增 Vitest 组件测试 3/3、Playwright UI e2e 2/2（版本上传、管理员强制改密、
   订单详情），并接入 CI `frontend-e2e` job。
 - Next.js 15.5.22 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`
