@@ -68,6 +68,20 @@ services:
       - solana_ledger:/var/solana/ledger
       - solana_config:/root/.config/solana
 
+  clamav:
+    image: clamav/clamav:stable
+    container_name: supply-chain-clamav
+    restart: unless-stopped
+    profiles: ["security"]
+    ports:
+      - "3310:3310"
+    healthcheck:
+      test: ["CMD-SHELL", "test -S /run/clamav/clamd.sock"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 volumes:
   postgres_data:
   redis_data:

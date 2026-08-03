@@ -10,7 +10,12 @@ import {
 } from "@nestjs/common";
 import type { FileStatus, Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync, unlinkSync } from "node:fs";
+import {
+  createReadStream,
+  existsSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { open } from "node:fs/promises";
 import { extname } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -93,6 +98,19 @@ export class FilesService {
     if (!magicType || EXTENSION_TO_MAGIC[extension] !== magicType) {
       this.removeUploadedFile(file.path);
       throw new ForbiddenException("文件内容与扩展名不匹配");
+    }
+
+    if (magicType === "image/png" || magicType === "image/jpeg") {
+      try {
+        const { default: sharp } = await import("sharp");
+        const cleaned = await sharp(file.path)
+          .rotate()
+          .toBuffer();
+        writeFileSync(file.path, cleaned);
+      } catch (error) {
+        this.removeUploadedFile(file.path);
+        throw new BadRequestException("图片元数据处理失败");
+      }
     }
 
     if (fields.tradeId && (!/^\d+$/.test(fields.tradeId) || BigInt(fields.tradeId) < 0n)) {
