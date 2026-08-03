@@ -9,6 +9,9 @@
 - [ ] 正式 Solana RPC（Helius/QuickNode），拿到 API Key。
 - [ ] `bash scripts/check-rpc.sh "https://<网络>.helius-rpc.com/?api-key=<KEY>"`
       返回 `rpc healthy`（devnet 偶发 SSL 抖动会自动重试 3 次）。
+- [ ] 在 GitHub 仓库 Settings -> Secrets and variables -> Actions 中新增
+      `SOLANA_RPC_URL`（值填 RPC URL）。CI 的 `frontend-e2e` 会用该 Secret
+      做真实 RPC 健康检查，并在后端服务启动时注入；未配置时自动跳过。
 - [ ] S3/OSS Bucket（含读写权限的 AccessKey）。
 - [ ] 告警渠道：IM/邮件/Slack 的 Webhook。
 - [ ] 第三方合约审计机构（走合同与排期）。
