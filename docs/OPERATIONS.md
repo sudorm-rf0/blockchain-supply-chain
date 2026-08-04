@@ -17,6 +17,7 @@
 | `TRADE_FINANCE_PROGRAM_ID` | 9c8eND... | 合约 Program ID |
 | `USDC_MINT` / `LP_MINT` | dev 占位 | 正式代币 |
 | `RISK_WEBHOOK_URL` | 空 | 违约事件通知 |
+| `REPAYMENT_NOTIFY_URL` | 空 | 还款到期通知（IM/邮件 Webhook，HMAC 签名同 `WEBHOOK_SECRET`） |
 | `WEBHOOK_SECRET` | dev 值 | Webhook HMAC 签名密钥 |
 | `SENTRY_DSN` | 空 | 配置后 500 自动上报 |
 | `CLAMAV_HOST` / `CLAMAV_PORT` | 空 / 3310 | clamd TCP 杀毒；生产必须配置 |
