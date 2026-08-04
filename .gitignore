@@ -17,6 +17,8 @@ packages/contracts/target/deploy/*
 !packages/contracts/target/deploy/*-keypair.json
 packages/contracts/.anchor/
 packages/backend/dist/
+packages/backend/src/shared/*.js
+packages/backend/src/shared/*.js.map
 packages/backend/uploads/
 packages/frontend/.next/
 packages/frontend/test-results/
