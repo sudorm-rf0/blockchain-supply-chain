@@ -451,19 +451,21 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build backend image
-        run: docker build --target backend-runner -f Dockerfile.multistage \
-          --build-arg ALPINE_MIRROR=https://mirrors.aliyun.com \
-          --build-arg HTTP_PROXY=http://host.docker.internal:7897 \
-          --build-arg HTTPS_PROXY=http://host.docker.internal:7897 .
+        run: |
+          docker build --target backend-runner -f Dockerfile.multistage \
+            --build-arg ALPINE_MIRROR=https://mirrors.aliyun.com \
+            --build-arg HTTP_PROXY=http://host.docker.internal:7897 \
+            --build-arg HTTPS_PROXY=http://host.docker.internal:7897 .
 
       - name: Build frontend image
-        run: docker build --build-arg ALPINE_MIRROR=https://mirrors.aliyun.com \
-          --build-arg HTTP_PROXY=http://host.docker.internal:7897 \
-          --build-arg HTTPS_PROXY=http://host.docker.internal:7897 \
-          --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.example.com \
-          --build-arg NEXT_PUBLIC_TRADE_API_URL=https://api.example.com \
-          --build-arg NEXT_PUBLIC_POOL_API_URL=https://api.example.com \
-          --target frontend-runner -f Dockerfile.multistage .
+        run: |
+          docker build --build-arg ALPINE_MIRROR=https://mirrors.aliyun.com \
+            --build-arg HTTP_PROXY=http://host.docker.internal:7897 \
+            --build-arg HTTPS_PROXY=http://host.docker.internal:7897 \
+            --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.example.com \
+            --build-arg NEXT_PUBLIC_TRADE_API_URL=https://api.example.com \
+            --build-arg NEXT_PUBLIC_POOL_API_URL=https://api.example.com \
+            --target frontend-runner -f Dockerfile.multistage .
 
   security-audit:
     runs-on: [self-hosted, macOS, ARM64]
