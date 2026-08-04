@@ -233,6 +233,12 @@ jobs:
         working-directory: packages/contracts
         run: pnpm test
 
+      - name: Cargo Unit Tests
+        working-directory: packages/contracts
+        run: |
+          cargo test --manifest-path programs/supply-chain/Cargo.toml
+          cargo test --manifest-path programs/trade-finance/Cargo.toml
+
   e2e:
     runs-on: [self-hosted, macOS, ARM64]
     needs: changes
