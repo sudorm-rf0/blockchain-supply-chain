@@ -199,6 +199,45 @@ describe("PoolService", () => {
     );
   });
 
+  it("falls back to the database when the overview cache is corrupted", async () => {
+    const capturedAt = new Date("2026-08-02T15:00:00.000Z");
+    const prisma = makePrisma({
+      poolSnapshot: {
+        findFirst: jest.fn(async () => ({
+          capturedAt,
+          totalAssets: 1000n,
+          nav: 2n,
+          activeCapital: 200n,
+          reserveFund: 700n,
+          insuranceFund: 100n,
+          pendingDividends: 50n,
+          utilization: 30n,
+          poolAddress: "pool-pda",
+        })),
+        findMany: jest.fn(async () => []),
+      },
+      tradeDeal: {
+        aggregate: jest.fn(async () => ({
+          _count: 0,
+          _sum: { amount: 0n, downPayment: 0n, poolPortion: 0n },
+        })),
+        groupBy: jest.fn(async () => []),
+      },
+    });
+    const redis = makeRedis();
+    (redis.get as jest.Mock).mockImplementation(async (key: string) =>
+      key.includes("2026-08-02") ? "not-json" : null,
+    );
+    const service = new PoolService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+    );
+    const result = await service.getOverview();
+    expect(result.totalAssets).toBe("1000");
+    expect(result.poolAddress).toBe("pool-pda");
+  });
+
   it("rejects a withdrawal when the redis notice lock is already held", async () => {
     const redis = makeRedis();
     redis.setNX.mockResolvedValue(false);
@@ -337,6 +376,32 @@ describe("PoolService", () => {
     await expect(
       service.requestWithdrawal(
         { lpWallet: "lpWallet", amount: "2000000" },
+        "user-1",
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("accepts micro-precision amounts and rejects scientific notation", async () => {
+    const prisma = makePrisma({
+      withdrawRequest: {
+        findFirst: jest.fn(async () => null),
+        create: jest.fn(async ({ data }) => ({ ...data, id: "wr-1" })),
+      },
+    });
+    const service = new PoolService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.requestWithdrawal(
+        { lpWallet: "lpWallet", amount: "0.000001" },
+        "user-1",
+      ),
+    ).resolves.toMatchObject({ status: "PENDING" });
+    await expect(
+      service.requestWithdrawal(
+        { lpWallet: "lpWallet", amount: "1e3" },
         "user-1",
       ),
     ).rejects.toThrow(BadRequestException);

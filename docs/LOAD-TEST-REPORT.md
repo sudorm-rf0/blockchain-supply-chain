@@ -41,6 +41,25 @@ Nest 11.1.28 迁移后本地重测（同一台机器，含 dev server 与后台�
 后台服务与 GitHub self-hosted runner 占用的 CPU；相对容量（无错误、P99
 稳定）满足演示与中小规模使用。
 
+### Nest 11 + ClamAV 复测（2026-08-04 晚）
+
+在共享代码重构、dotenv/JWT 加固与 ClamAV 真扫描接入后的新一轮压测
+（本机空闲、无 runner 任务）：
+
+| 场景 | 并发 | 吞吐 | 平均延迟 | P99 | 错误 |
+| --- | --- | --- | --- | --- | --- |
+| `/health` | 50 | 8.3k req/s | 5.5ms | 12ms | 0 |
+| `/api/indexer/status` | 50 | 7.4k req/s | 6.2ms | 17ms | 0 |
+| `/api/pool/overview` | 50 | 7.5k req/s | 6.2ms | 13ms | 0 |
+| `/api/files` 列表 | 50 | 2.8k req/s | 17.1ms | 43ms | 0 |
+| `/api/trades` 列表 | 50 | 5.1k req/s | 9.2ms | 19ms | 0 |
+| `/api/trades` POST | 5 | 508 req/s | - | 16ms | 0 |
+| 文件上传（含 ClamAV 扫描） | 10 | 284 文件/s | 34ms | 60ms | 0 |
+| `/api/auth/login` | 10 | 全 429 | - | - | 限流保护（20/min） |
+
+结论：读接口恢复到数千 req/s，交易预构建 508 req/s，上传在真实 ClamAV
+逐文件扫描下仍有 284 文件/s，均无错误。上传吞吐相比无扫描版本略低属预期。
+
 ### 历史数据（2026-08-02）
 
 | 场景 | 并发 | 时长 | 请求量 | 吞吐 | 平均延迟 | P99 | 错误 |

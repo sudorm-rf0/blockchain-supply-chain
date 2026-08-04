@@ -9,7 +9,12 @@ vi.mock("@/lib/api", () => ({
   fetchFileVersions: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
+
 import { fetchFileBlob, fetchFileVersions, getFile } from "@/lib/api";
+import { toast } from "sonner";
 
 const mockedGetFile = vi.mocked(getFile);
 const mockedFetchBlob = vi.mocked(fetchFileBlob);
@@ -103,5 +108,13 @@ describe("FilePreviewDialog", () => {
     await waitFor(() =>
       expect(screen.getByAltText("photo.webp")).toBeInTheDocument(),
     );
+  });
+
+  it("shows an error toast when loading fails", async () => {
+    mockedGetFile.mockRejectedValue(new Error("network down"));
+    render(
+      <FilePreviewDialog open onOpenChange={() => undefined} fileId="f1" />,
+    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
   });
 });

@@ -85,4 +85,14 @@ describe("AttestationService", () => {
       }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it("rejects an invalid wallet address", async () => {
+    const service = new AttestationService(
+      makePrisma({ id: "f1", uploaderId: "user-1" }) as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.build("f1", "user-1", { walletAddress: "not-a-wallet" }),
+    ).rejects.toThrow(BadRequestException);
+  });
 });

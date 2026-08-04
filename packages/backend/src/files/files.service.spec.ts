@@ -469,4 +469,26 @@ describe("FilesService", () => {
       }),
     );
   });
+
+  it("serves the cached file list when present", async () => {
+    const redis = makeRedisFiles();
+    const cached = {
+      items: [{ id: "f1", filename: "cached.png" }],
+      total: 1,
+      page: 1,
+      limit: 10,
+    };
+    (redis.get as jest.Mock).mockResolvedValue(JSON.stringify(cached));
+    const prisma = makePrisma();
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      redis as never,
+      makeScan() as never,
+    );
+    const result = await service.list({ page: 1, limit: 10, userId: "user-1" });
+    expect(result.total).toBe(1);
+    expect(prisma.file.findMany).not.toHaveBeenCalled();
+  });
 });
