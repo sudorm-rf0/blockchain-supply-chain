@@ -54,7 +54,7 @@ input{font:inherit}
 
 .shell{
   max-width:1280px;margin:0 auto;padding:24px 20px 48px;
-  display:grid;grid-template-columns:minmax(280px,340px) 1fr;gap:24px;align-items:start;
+  display:grid;grid-template-columns:minmax(240px,300px) 1fr;gap:24px;align-items:start;
 }
 
 
@@ -131,13 +131,13 @@ input{font:inherit}
 .flow-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
 
-.phone-wrap{position:sticky;top:24px}
+.phone-wrap{position:static}
 .phone{
-  width:100%;max-width:320px;margin:0 auto;background:#0b1220;border-radius:30px;
+  width:100%;max-width:280px;margin:0 auto;background:#0b1220;border-radius:26px;
   padding:10px;box-shadow:0 20px 60px rgba(15,23,42,.28);
 }
 .phone-screen{
-  background:var(--bg);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;min-height:600px;
+  background:var(--bg);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;min-height:520px;
 }
 .phone-header{
   background:linear-gradient(135deg,#0f766e,#134e4a);color:#fff;padding:18px 16px 14px;
@@ -149,18 +149,18 @@ input{font:inherit}
   display:inline-flex;align-items:center;gap:6px;
 }
 .phone-header .wallet::before{content:"";width:6px;height:6px;border-radius:50%;background:#4ade80}
-.phone-body{padding:16px;display:flex;flex-direction:column;gap:14px;flex:1}
+.phone-body{padding:12px;display:flex;flex-direction:column;gap:10px;flex:1}
 .phone-body .label{font-size:12px;color:var(--muted);margin-bottom:6px;display:block}
 .dropzone{
   border:2px dashed #99c9c4;background:#f8fdfc;border-radius:var(--radius);
-  padding:34px 16px;text-align:center;cursor:pointer;transition:all .2s;
+  padding:26px 12px;text-align:center;cursor:pointer;transition:all .2s;
 }
 .dropzone:hover,.dropzone.drag{background:#ecfdf9;border-color:var(--accent)}
 .dropzone svg{width:34px;height:34px;stroke:var(--accent);margin-bottom:8px}
 .dropzone .main{font-size:14px;color:var(--ink)}
 .dropzone .sub{font-size:12px;color:var(--muted);margin-top:4px}
 .field input{
-  width:100%;border:1px solid var(--line);border-radius:var(--radius);padding:11px 12px;font-size:14px;
+  width:100%;border:1px solid var(--line);border-radius:var(--radius);padding:9px 10px;font-size:14px;
 }
 .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(13,148,136,.12)}
 .btn{
@@ -174,7 +174,7 @@ input{font:inherit}
 
 .preview-card{display:none}
 .preview-card.show{display:block}
-.preview-card img{width:100%;max-height:180px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--line)}
+.preview-card img{width:100%;max-height:120px;object-fit:cover;border-radius:var(--radius);border:1px solid var(--line)}
 .preview-card .meta{font-size:12px;color:var(--muted);margin-top:8px;word-break:break-all}
 .hash-line{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;word-break:break-all;background:#eef2f6;border-radius:6px;padding:8px;margin-top:8px}
 .status-pill{
@@ -259,8 +259,8 @@ tr:last-child td{border-bottom:none}
 @media (max-width:900px){
   .shell{grid-template-columns:1fr;padding:16px}
   .phone-wrap{position:static}
-  .phone{max-width:360px}
-  .phone-screen{min-height:560px}
+  .phone{max-width:320px}
+  .phone-screen{min-height:520px}
 }
 
 /* 整体优化 */
