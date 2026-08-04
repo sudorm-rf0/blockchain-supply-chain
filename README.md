@@ -7,11 +7,44 @@ Solana/Anchor 供应链金融演示系统：单据上传审核、Solana 存证�
 
 - `packages/contracts`: Anchor 0.31.1 合约（`trade-finance` 全生命周期 + `supply-chain`），
   工具链为 Agave 4.1.2 + SBFv3。
-- `packages/backend`: NestJS 10 主后端（认证、文件、存证）+ 3 个独立服务：
+- `packages/backend`: NestJS 11 主后端（认证、文件、存证）+ 3 个独立服务：
   `indexer-service`（链上监听与 DB 回写）、`trade-service`（订单预构建与确认）、
   `pool-service`（资金池总览与 LP 提款）。
 - `packages/frontend`: Next.js 15 App Router + Tailwind + shadcn/ui + Solana 钱包。
   支持 Phantom / Backpack / Solflare / Coinbase Wallet / UnsolvedBloom。
+
+## 系统架构
+
+```mermaid
+flowchart LR
+  subgraph Users["用户端"]
+    M["用户移动端<br/>拍照上传 / 钱包签名"]
+    P["管理端 PC<br/>文件审核 / 订单 / 看板"]
+  end
+  subgraph Services["后端服务"]
+    B["主后端 3001<br/>auth / files / audit"]
+    T["trade-service 3004"]
+    PL["pool-service 3005"]
+    I["indexer-service 3003"]
+  end
+  subgraph Data["数据层"]
+    PG[("Postgres 5432")]
+    RD[("Redis 6380")]
+  end
+  subgraph Chain["Solana"]
+    S["localnet 8899 / devnet"]
+  end
+  M -->|上传 / 存证| B
+  P -->|审核 / 建单| B
+  B --> PG
+  B --> RD
+  T -->|预构建 / 确认交易| S
+  PL -->|NAV / LP 赎回| S
+  I -->|监听账户变更| S
+  I -->|回写快照| PG
+  T -->|订单落库| PG
+  PL -->|资金池快照| PG
+```
 
 ## 本地启动
 
@@ -91,12 +124,13 @@ Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，�
 ## 文档
 
 - [演示手册](docs/DEMO.md)：本地 Demo 账号、流程与重置
-- [部署手册](docs/DEPLOYMENT.md)：本地/镜像/K8s/devnet 部署与回滚
-- [操作手册](docs/OPERATIONS.md)：环境变量、巡检、备份、故障处理
+- [部署手册](docs/DEPLOYMENT.md)（中文）/[DEPLOYMENT.en.md](docs/DEPLOYMENT.en.md)（English）
+- [操作手册](docs/OPERATIONS.md)（中文）/[OPERATIONS.en.md](docs/OPERATIONS.en.md)（English）
+- [演示视频脚本](docs/VIDEO-SCRIPT.md)：8 个分镜的中英文旁白与录屏建议
 - [接口文档](docs/API.md)：认证、文件、订单、资金池、索引器全部接口
 - [上线运行手册](docs/GO-LIVE-RUNBOOK.md) 与
   [上线核对清单](docs/LAUNCH-CHECKLIST.md)
 - [技术成本估算](docs/COSTS.md)（不含审计）
 - [应急预案](docs/INCIDENT-RUNBOOK.md)
 - [审计报告](docs/AUDIT-REPORT.md) 与
-  [压测报告](docs/LOAD-TEST-REPORT.md)
+  [压测报告](docs/LOAD-TEST-REPORT.md)、[NEST-11-UPGRADE.md](docs/NEST-11-UPGRADE.md)
