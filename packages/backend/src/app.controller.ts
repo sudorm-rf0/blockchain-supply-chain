@@ -31,4 +31,5 @@ export class AppController {
       throw new ServiceUnavailableException("database unavailable");
     }
   }
+
 }

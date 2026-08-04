@@ -8,7 +8,7 @@ function generateNonce(): string {
 
 function buildCsp(nonce: string): string {
   const isDev = process.env.NODE_ENV !== "production";
-  return [
+  const directives = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
@@ -21,7 +21,12 @@ function buildCsp(nonce: string): string {
     "form-action 'self'",
     "frame-ancestors 'self'",
     "worker-src 'self' blob:",
-  ].join("; ");
+  ];
+  const reportUri = process.env.NEXT_PUBLIC_CSP_REPORT_URI;
+  if (reportUri) {
+    directives.push(`report-uri ${reportUri}`);
+  }
+  return directives.join("; ");
 }
 
 export function middleware(request: NextRequest) {
