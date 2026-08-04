@@ -1,7 +1,10 @@
 {
   "uid": "supply-chain-overview",
   "title": "Supply Chain Overview",
-  "tags": ["supply-chain", "solana"],
+  "tags": [
+    "supply-chain",
+    "solana"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
@@ -12,7 +15,10 @@
         "name": "datasource",
         "type": "datasource",
         "query": "prometheus",
-        "current": { "text": "Prometheus", "value": "prometheus" }
+        "current": {
+          "text": "Prometheus",
+          "value": "prometheus"
+        }
       }
     ]
   },
@@ -21,8 +27,16 @@
       "id": 1,
       "type": "stat",
       "title": "Service Uptime",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
           "expr": "up",
@@ -34,8 +48,16 @@
       "id": 2,
       "type": "timeseries",
       "title": "Request Rate",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
       "targets": [
         {
           "expr": "sum by (job) (rate(http_requests_total[5m]))",
@@ -47,8 +69,16 @@
       "id": 3,
       "type": "timeseries",
       "title": "5xx Rate %",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
       "targets": [
         {
           "expr": "sum by (job) (rate(http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum by (job) (rate(http_requests_total[5m])), 1) * 100",
@@ -60,8 +90,16 @@
       "id": 4,
       "type": "timeseries",
       "title": "P99 Latency",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))",
@@ -73,8 +111,16 @@
       "id": 5,
       "type": "timeseries",
       "title": "Node.js Heap Used",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
       "targets": [
         {
           "expr": "nodejs_heap_size_used_bytes",
@@ -87,8 +133,16 @@
       "id": 6,
       "type": "timeseries",
       "title": "Event Loop Lag",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
       "targets": [
         {
           "expr": "nodejs_eventloop_lag_seconds",
@@ -100,8 +154,16 @@
       "id": 7,
       "type": "stat",
       "title": "Indexer Failed Jobs",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 20 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 20
+      },
       "targets": [
         {
           "expr": "max(indexer_queue_jobs{status=\"failed\"})",
@@ -113,14 +175,78 @@
       "id": 8,
       "type": "timeseries",
       "title": "Indexer Queue",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
       "targets": [
         {
           "expr": "indexer_queue_jobs",
           "legendFormat": "{{status}}"
         }
       ]
+    },
+    {
+      "id": 101,
+      "type": "bargauge",
+      "title": "Trade Deals by Status",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (trade_deals_total{status!=\"TOTAL\"})",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 102,
+      "type": "stat",
+      "title": "Upload Success Rate (5m)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{path=\"/api/files\",method=\"POST\",status=~\"2..\"}[5m])) / sum(rate(http_requests_total{path=\"/api/files\",method=\"POST\"}[5m]))",
+          "legendFormat": "success"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "max": 1,
+          "min": 0
+        }
+      }
     }
   ]
 }

@@ -6,6 +6,8 @@ import { AuditService } from "../audit/audit.service";
 import { RedisService } from "../redis/redis.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { RepaymentDueNotifierService } from "./repayment-due-notifier.service";
+import { TradeMetricsService } from "./trade-metrics.service";
+import { MetricsService } from "../observability/metrics.service";
 
 @Module({
   controllers: [TradesController],
@@ -16,6 +18,8 @@ import { RepaymentDueNotifierService } from "./repayment-due-notifier.service";
     PrismaService,
     RedisService,
     RepaymentDueNotifierService,
+    TradeMetricsService,
+    MetricsService,
   ],
   exports: [PrismaService],
 })
