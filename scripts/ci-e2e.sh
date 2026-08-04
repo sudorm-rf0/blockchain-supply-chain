@@ -111,7 +111,7 @@ pnpm build:indexer >/dev/null
 pnpm exec prisma migrate deploy >/dev/null
 pnpm exec prisma db seed >/dev/null
 
-THROTTLE_LIMIT=100000 PORT="${CI_BACKEND_PORT}" pnpm start >/tmp/backend.log 2>&1 &
+THROTTLE_LIMIT=100000 SOLANA_RPC_URL="${CI_RPC_URL}" PORT="${CI_BACKEND_PORT}" pnpm start >/tmp/backend.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
 THROTTLE_LIMIT=100000 TRADE_SERVICE_PORT="${CI_TRADE_PORT}" SOLANA_RPC_URL="${CI_RPC_URL}" \
   USDC_MINT="$USDC_MINT" LP_MINT="$LP_MINT" pnpm start:trade >/tmp/trade.log 2>&1 &
