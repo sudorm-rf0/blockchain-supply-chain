@@ -8,6 +8,10 @@ const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
   "base64",
 );
+const TINY_PNG_V2 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 // 注：CI 自托管 runner 使用独立 JWT_SECRET，注册接口不会传 confirmPassword。
 
@@ -60,7 +64,7 @@ test("user can upload versioned documents and sees the camera entry", async ({
   await expect(page.getByText("拍照上传", { exact: true })).toBeVisible();
 
   await uploadPng(page, "invoice-v1.png", TINY_PNG, "ui-invoice");
-  await uploadPng(page, "invoice-v2.png", Buffer.concat([TINY_PNG, Buffer.from([1])]), "ui-invoice");
+  await uploadPng(page, "invoice-v2.png", TINY_PNG_V2, "ui-invoice");
 
   await page.goto(`${BASE}/user/files`);
   await expect(page.getByText("v2", { exact: true })).toBeVisible();
