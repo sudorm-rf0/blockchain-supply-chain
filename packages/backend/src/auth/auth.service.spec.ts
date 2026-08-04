@@ -205,4 +205,40 @@ describe("AuthService", () => {
       service.changePassword("u1", "wrong-pass", "newpass1234"),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it("records AUTH_PASSWORD_CHANGED after a password change", async () => {
+    const prisma = makePrisma();
+    const audit = makeAudit();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      audit as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    const reg = await service.register({
+      name: "A",
+      email: "audit-pass@example.com",
+      password: "secret123",
+      wallet,
+    });
+    const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
+    (prisma.user.findUnique as jest.Mock).mockImplementation(
+      async ({ where }: { where: { id?: string } }) =>
+        where.id
+          ? {
+              id: "u1",
+              email: created.email,
+              name: created.name,
+              wallet,
+              role: "USER",
+              passwordHash: created.passwordHash,
+              mustChangePassword: false,
+            }
+          : null,
+    );
+    await service.changePassword(reg.user.id, "secret123", "secret1234");
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "AUTH_PASSWORD_CHANGED" }),
+    );
+  });
 });
