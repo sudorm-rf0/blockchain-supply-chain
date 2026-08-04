@@ -25,6 +25,14 @@ describe("ScanService", () => {
     });
   });
 
+  it("allows unscanned uploads only when explicitly opted in", async () => {
+    delete process.env.CLAMAV_HOST;
+    delete process.env.SCAN_URL;
+    process.env.ALLOW_UNSCANNED_UPLOADS = "true";
+    const service = new ScanService();
+    await expect(service.scan(filePath)).resolves.toEqual({ clean: true });
+  });
+
   it("fails closed when the HTTP scan service is unreachable", async () => {
     delete process.env.CLAMAV_HOST;
     process.env.SCAN_URL = "http://scan.example.com/check";
