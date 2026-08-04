@@ -252,7 +252,7 @@ export class TradesService {
     if (!user || user.role !== "ADMIN") {
       throw new ForbiddenException("仅管理员可查看全部订单");
     }
-    let where: Prisma.TradeDealWhereInput = this.applyTradeFilters({}, params);
+    const where: Prisma.TradeDealWhereInput = this.applyTradeFilters({}, params);
     const trades = await this.prisma.tradeDeal.findMany({
       where,
       orderBy: { createdAt: "desc" },
