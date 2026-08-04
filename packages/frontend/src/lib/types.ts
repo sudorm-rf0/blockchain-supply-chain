@@ -1,0 +1,170 @@
+type UserRole = "USER" | "ADMIN";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  wallet?: string;
+  mustChangePassword?: boolean;
+}
+
+export type FileStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface FileRecord {
+  id: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+  path: string;
+  hash: string;
+  txSignature?: string | null;
+  documentPda?: string | null;
+  attestedAt?: string | null;
+  status: FileStatus;
+  tradeId?: string | null;
+  documentGroupId?: string | null;
+  version?: number;
+  supersededAt?: string | null;
+  isLatest?: boolean;
+  description?: string | null;
+  remark?: string | null;
+  uploaderName?: string | null;
+  createdAt: string;
+}
+
+export interface FilesResponse {
+  items: FileRecord[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface BuiltTransactionResponse {
+  tradeId: string;
+  transaction: string;
+  blockhash: string;
+  message: string;
+  targetStatus?: number;
+}
+
+export interface CreateTradeRequest {
+  buyerWallet: string;
+  sellerWallet: string;
+  amount: string;
+  tenor: string;
+  logisticsHash?: string | null;
+}
+
+export interface CreateTradeResponse {
+  tradeId: string;
+  transaction: string;
+  blockhash: string;
+  dealPda: string;
+  downPayment: string;
+  poolPortion: string;
+}
+
+export interface TradeRecord {
+  id: string;
+  tradeId: string;
+  buyerWallet: string;
+  sellerWallet: string;
+  amount: string;
+  downPayment: string;
+  poolPortion: string;
+  tenor: number;
+  status: string;
+  txSignature?: string | null;
+  logisticsHash?: string | null;
+  createdAt: string;
+}
+
+export interface AttestDocumentResponse {
+  transaction: string;
+  blockhash: string;
+  documentPda: string;
+  message: string;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  actorId: string | null;
+  actorEmail: string | null;
+  action: string;
+  targetType: string;
+  targetId: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AuditLogsResponse {
+  items: AuditLogRecord[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface UploadFields {
+  tradeId?: string;
+  documentId?: string;
+  description?: string;
+}
+
+export interface PoolTrendPoint {
+  capturedAt: string;
+  nav: string;
+  totalAssets: string;
+  activeCapital: string;
+  idle: string;
+  utilizationBps: number;
+}
+
+export interface PoolOverview {
+  poolAddress: string;
+  nav: string;
+  totalAssets: string;
+  activeCapital: string;
+  reserveFund: string;
+  insuranceFund: string;
+  pendingDividends: string;
+  utilizationBps: number;
+  aprPct: number;
+  downPaymentSharePct: number;
+  poolPortionSharePct: number;
+  totalDeals: number;
+  activeDeals: number;
+  settledDeals: number;
+  defaultedDeals: number;
+  outstandingAmount: string;
+  trend: PoolTrendPoint[];
+}
+
+export interface WithdrawRequestRecord {
+  id: string;
+  lpAddress: string;
+  amount: string;
+  requestedAt: string;
+  availableAt: string;
+  status: string;
+}
+
+export interface IndexerStatus {
+  service: string;
+  queue: {
+    wait: number;
+    active: number;
+    delayed: number;
+    failed: number;
+  };
+  lastPoolSnapshotAt: string | null;
+  lastDealSyncedAt: string | null;
+  totalDeals: number;
+  now: string;
+}
