@@ -45,12 +45,18 @@ PY
 CI_GOSSIP_PORT="${CI_GOSSIP_PORT:-$(pick_free_port 8031)}"
 # 端口与密钥目录均可通过 CI_* 环境变量隔离，避免与本地服务冲突
 CI_RPC_URL="http://127.0.0.1:${CI_RPC_PORT}"
+echo "CI validator ports: rpc=${CI_RPC_PORT} faucet=${CI_FAUCET_PORT} gossip=${CI_GOSSIP_PORT}" >&2
 cd "$ROOT"
 
 mkdir -p "${CI_SOLANA_HOME}"
 solana-keygen new --force --no-bip39-passphrase -o "${CI_SOLANA_HOME}/id.json" >/dev/null
 solana config set --url "${CI_RPC_URL}" >/dev/null
 export HOME_CONFIG_DIR="${CI_SOLANA_HOME}"
+
+# 清理可能残留的同 ledger CI validator，避免 ledger 锁冲突。
+if command -v pgrep >/dev/null 2>&1; then
+  pgrep -f "solana-test-validator.*${LEDGER_DIR}" | xargs kill 2>/dev/null || true
+fi
 
 if command -v lsof >/dev/null 2>&1; then
   for port in "${CI_RPC_PORT}" "${CI_FAUCET_PORT}" "${CI_GOSSIP_PORT}"; do
