@@ -7,6 +7,7 @@ import { RedisService } from "../redis/redis.service";
 import { AuthGuard } from "../auth/auth.guard";
 import { RepaymentDueNotifierService } from "./repayment-due-notifier.service";
 import { TradeMetricsService } from "./trade-metrics.service";
+import { NotifierService } from "./notifier.service";
 import { MetricsService } from "../../../../src/shared/metrics.service";
 
 @Module({
@@ -19,6 +20,7 @@ import { MetricsService } from "../../../../src/shared/metrics.service";
     RedisService,
     RepaymentDueNotifierService,
     TradeMetricsService,
+    NotifierService,
     MetricsService,
   ],
   exports: [PrismaService],

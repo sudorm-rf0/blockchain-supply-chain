@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FileCompareDialog } from "@/components/FileCompareDialog";
 import {
   fetchFileBlob,
   fetchFileVersions,
@@ -43,6 +44,10 @@ export function FilePreviewDialog({
   const [versions, setVersions] = useState<FileRecord[]>([]);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [comparePair, setComparePair] = useState<{
+    a: FileRecord;
+    b: FileRecord;
+  } | null>(null);
 
   useEffect(() => {
     if (!open || !fileId) return;
@@ -84,8 +89,9 @@ export function FilePreviewDialog({
   const isPdf = file?.mimeType === "application/pdf";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>文件预览</DialogTitle>
         </DialogHeader>
@@ -165,6 +171,15 @@ export function FilePreviewDialog({
                       <Badge className={statusBadge(item.status)}>
                         {item.status}
                       </Badge>
+                      {item.id !== file.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setComparePair({ a: file, b: item })}
+                        >
+                          对比
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -210,7 +225,14 @@ export function FilePreviewDialog({
             加载中...
           </p>
         )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      <FileCompareDialog
+        open={comparePair !== null}
+        onOpenChange={(open) => !open && setComparePair(null)}
+        fileA={comparePair?.a ?? null}
+        fileB={comparePair?.b ?? null}
+      />
+    </>
   );
 }

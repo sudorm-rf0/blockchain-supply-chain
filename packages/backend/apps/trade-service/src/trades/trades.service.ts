@@ -210,7 +210,10 @@ export class TradesService {
     };
   }
 
-  async listMyTrades(userId: string): Promise<TradeItemDto[]> {
+  async listMyTrades(
+    userId: string,
+    params: { search?: string; status?: string } = {},
+  ): Promise<TradeItemDto[]> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const wallet = user?.wallet;
     let where: Prisma.TradeDealWhereInput;
@@ -219,10 +222,11 @@ export class TradesService {
     } else {
       where = { buyer: { id: userId } };
     }
+    where = this.applyTradeFilters(where, params);
     const trades = await this.prisma.tradeDeal.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 200,
     });
     return trades.map((trade) => ({
       id: trade.id,
@@ -240,12 +244,17 @@ export class TradesService {
     }));
   }
 
-  async listAllTrades(userId: string): Promise<TradeItemDto[]> {
+  async listAllTrades(
+    userId: string,
+    params: { search?: string; status?: string } = {},
+  ): Promise<TradeItemDto[]> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.role !== "ADMIN") {
       throw new ForbiddenException("仅管理员可查看全部订单");
     }
+    let where: Prisma.TradeDealWhereInput = this.applyTradeFilters({}, params);
     const trades = await this.prisma.tradeDeal.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       take: 200,
     });
@@ -296,6 +305,28 @@ export class TradesService {
       logisticsHash: trade.logisticsHash,
       createdAt: trade.createdAt.toISOString(),
     };
+  }
+
+  private applyTradeFilters(
+    where: Prisma.TradeDealWhereInput,
+    params: { search?: string; status?: string },
+  ): Prisma.TradeDealWhereInput {
+    const filters: Prisma.TradeDealWhereInput = {};
+    const search = params.search?.trim();
+    if (search) {
+      filters.OR = [
+        { dealId: { contains: search } },
+        { buyerWallet: { contains: search } },
+        { sellerWallet: { contains: search } },
+      ];
+    }
+    const status = params.status?.trim().toUpperCase();
+    if (status) {
+      filters.status = status as DealStatus;
+    }
+    if (Object.keys(filters).length === 0) return where;
+    if (Object.keys(where).length === 0) return filters;
+    return { AND: [where, filters] };
   }
 
   async confirmTrade(tradeId: string, dto: ConfirmTradeDto, userId: string) {

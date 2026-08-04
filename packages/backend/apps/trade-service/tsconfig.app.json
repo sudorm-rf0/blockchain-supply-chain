@@ -9,5 +9,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "../../src/shared/**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "../../src/shared/**/*.spec.ts"]
 }

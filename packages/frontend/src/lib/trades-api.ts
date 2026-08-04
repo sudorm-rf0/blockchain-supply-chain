@@ -31,16 +31,34 @@ export async function confirmTrade(
   });
 }
 
-export async function fetchMyTrades(): Promise<TradeRecord[]> {
-  return request(`${TRADE_API_URL}/api/trades`, { cache: "no-store" });
+export interface TradeListParams {
+  search?: string;
+  status?: string;
+}
+
+function tradeQuery(params?: TradeListParams): string {
+  if (!params) return "";
+  const query = new URLSearchParams();
+  if (params.search) query.set("search", params.search);
+  if (params.status && params.status !== "ALL") query.set("status", params.status);
+  const qs = query.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export async function fetchMyTrades(params?: TradeListParams): Promise<TradeRecord[]> {
+  return request(`${TRADE_API_URL}/api/trades${tradeQuery(params)}`, {
+    cache: "no-store",
+  });
 }
 
 export async function fetchTrade(tradeId: string): Promise<TradeRecord> {
   return request(`${TRADE_API_URL}/api/trades/${tradeId}`, { cache: "no-store" });
 }
 
-export async function fetchAllTrades(): Promise<TradeRecord[]> {
-  return request(`${TRADE_API_URL}/api/trades/admin`, { cache: "no-store" });
+export async function fetchAllTrades(params?: TradeListParams): Promise<TradeRecord[]> {
+  return request(`${TRADE_API_URL}/api/trades/admin${tradeQuery(params)}`, {
+    cache: "no-store",
+  });
 }
 
 export async function buildFundTrade(
