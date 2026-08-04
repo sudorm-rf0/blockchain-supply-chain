@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Boxes,
   ClipboardCheck,
   Banknote,
   Files,
@@ -29,6 +30,7 @@ export function Sidebar({ role }: SidebarProps) {
           },
           { href: "/admin/audit", label: "审计日志", icon: ScrollText },
           { href: "/admin/trades", label: "全部订单", icon: ReceiptText },
+          { href: "/admin/supply-chain", label: "供应链管理", icon: Boxes },
           { href: "/admin/withdrawals", label: "提款管理", icon: Banknote },
           { href: "/orders", label: "我的订单", icon: ReceiptText },
           {

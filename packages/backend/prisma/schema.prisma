@@ -153,6 +153,35 @@ model File {
   @@map("files")
 }
 
+model Supplier {
+  id           String    @id @default(cuid())
+  address      String    @unique
+  pda          String    @unique
+  authorizedAt DateTime
+  revokedAt    DateTime?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([revokedAt])
+  @@map("supply_chain_suppliers")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  owner       String
+  sku         String
+  units       BigInt
+  pda         String   @unique
+  txSignature String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([owner, sku])
+  @@index([owner])
+  @@map("supply_chain_products")
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?
