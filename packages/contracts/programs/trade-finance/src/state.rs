@@ -159,8 +159,108 @@ mod tests {
             created_at: 1_000,
             repaid_at: 0,
         };
+        // deadline = created_at + tenor = 1_000 + 86_400 = 87_400
+        assert_eq!(deal.is_expired(87_399).unwrap(), false);
+        assert_eq!(deal.is_expired(87_400).unwrap(), true);
         assert_eq!(deal.is_expired(1_086_400).unwrap(), true);
-        assert_eq!(deal.is_expired(1_086_399).unwrap(), false);
+    }
+
+    #[test]
+    fn deal_set_status_accepts_legal_transitions() {
+        let mut deal = TradeDeal {
+            id: 1,
+            buyer: Pubkey::default(),
+            seller: Pubkey::default(),
+            amount: 1_000_000,
+            down_payment: 300_000,
+            pool_portion: 700_000,
+            tenor: 86_400,
+            status: deal_status::FUNDED,
+            created_at: 1_000,
+            repaid_at: 0,
+        };
+        deal.set_status(deal_status::IN_TRANSIT).unwrap();
+        assert_eq!(deal.status, deal_status::IN_TRANSIT);
+        deal.set_status(deal_status::CUSTOMS_CLEAR).unwrap();
+        deal.set_status(deal_status::DELIVERED).unwrap();
+        deal.set_status(deal_status::REPAYING).unwrap();
+        deal.set_status(deal_status::SETTLED).unwrap();
+        assert_eq!(deal.status, deal_status::SETTLED);
+    }
+
+    #[test]
+    fn deal_set_status_rejects_unknown_codes() {
+        let mut deal = TradeDeal {
+            id: 1,
+            buyer: Pubkey::default(),
+            seller: Pubkey::default(),
+            amount: 1_000_000,
+            down_payment: 300_000,
+            pool_portion: 700_000,
+            tenor: 86_400,
+            status: deal_status::PENDING,
+            created_at: 1_000,
+            repaid_at: 0,
+        };
+        assert!(deal.set_status(99).is_err());
+        assert!(deal.set_status(255).is_err());
+    }
+
+    #[test]
+    fn deal_set_status_locks_settled() {
+        let mut deal = TradeDeal {
+            id: 1,
+            buyer: Pubkey::default(),
+            seller: Pubkey::default(),
+            amount: 1_000_000,
+            down_payment: 300_000,
+            pool_portion: 700_000,
+            tenor: 86_400,
+            status: deal_status::SETTLED,
+            created_at: 1_000,
+            repaid_at: 0,
+        };
+        assert!(deal.set_status(deal_status::FUNDED).is_err());
+        assert!(deal.set_status(deal_status::DEFAULTED).is_err());
+    }
+
+    #[test]
+    fn pool_nav_requires_supply_and_handles_overflow() {
+        let pool = PoolState {
+            admin: Pubkey::default(),
+            total_assets: 1_000,
+            active_capital: 0,
+            reserve_fund: 0,
+            insurance_fund: 0,
+            pending_dividends: 0,
+            platform_wallet: Pubkey::default(),
+            nav: 0,
+        };
+        assert!(pool.calculate_nav(1_000, 0, 0).is_err());
+        let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
+        assert_eq!(nav, 1_000);
+        // 溢出：idle + outstanding 超过 u64
+        assert!(pool
+            .calculate_nav(u64::MAX, u64::MAX, 1)
+            .is_err());
+    }
+
+    #[test]
+    fn pool_add_pending_dividends_rejects_overflow() {
+        let mut pool = PoolState {
+            admin: Pubkey::default(),
+            total_assets: 0,
+            active_capital: 0,
+            reserve_fund: 0,
+            insurance_fund: 0,
+            pending_dividends: u64::MAX,
+            platform_wallet: Pubkey::default(),
+            nav: 0,
+        };
+        assert!(pool.add_pending_dividends(1).is_err());
+        pool.pending_dividends = 100;
+        pool.add_pending_dividends(50).unwrap();
+        assert_eq!(pool.pending_dividends, 150);
     }
 
     #[test]
@@ -177,10 +277,8 @@ mod tests {
             created_at: 1,
             repaid_at: 0,
         };
-        assert_eq!(
-            deal.is_expired(0).unwrap_err().to_string(),
-            TradeFinanceError::MathOverflow.to_string()
-        );
+        let error = deal.is_expired(0).unwrap_err();
+        assert!(error.to_string().contains("MathOverflow"));
     }
 }
 
