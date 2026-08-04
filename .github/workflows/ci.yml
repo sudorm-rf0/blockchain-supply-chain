@@ -9,6 +9,16 @@ on:
 jobs:
   changes:
     runs-on: [self-hosted, macOS, ARM64]
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      contracts: ${{ steps.changes.outputs.contracts }}
+      e2e: ${{ steps.changes.outputs.e2e }}
+      frontend-e2e: ${{ steps.changes.outputs.frontend-e2e }}
+      docker: ${{ steps.changes.outputs.docker }}
+      security: ${{ steps.changes.outputs.security }}
+      backup: ${{ steps.changes.outputs.backup }}
+      monitoring: ${{ steps.changes.outputs.monitoring }}
     steps:
       - uses: actions/checkout@v4
         with:
