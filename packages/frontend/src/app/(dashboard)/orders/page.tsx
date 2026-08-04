@@ -9,7 +9,15 @@ import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { RepaymentCountdown } from "@/components/RepaymentCountdown";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -48,16 +56,23 @@ export default function OrdersPage() {
   const [trades, setTrades] = useState<TradeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const load = useCallback(async () => {
     try {
-      setTrades(await fetchMyTrades());
+      setTrades(
+        await fetchMyTrades({
+          search: search.trim() || undefined,
+          status: statusFilter,
+        }),
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "加载订单失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, statusFilter]);
 
   useEffect(() => {
     void load();
@@ -147,6 +162,30 @@ export default function OrdersPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">我的订单</h1>
         <WalletConnectButton />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="搜索订单 ID / 钱包地址"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">全部状态</SelectItem>
+            <SelectItem value="PENDING">PENDING</SelectItem>
+            <SelectItem value="FUNDED">FUNDED</SelectItem>
+            <SelectItem value="IN_TRANSIT">IN_TRANSIT</SelectItem>
+            <SelectItem value="CUSTOMS_CLEAR">CUSTOMS_CLEAR</SelectItem>
+            <SelectItem value="DELIVERED">DELIVERED</SelectItem>
+            <SelectItem value="REPAYING">REPAYING</SelectItem>
+            <SelectItem value="SETTLED">SETTLED</SelectItem>
+            <SelectItem value="DEFAULTED">DEFAULTED</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {loading ? (
         <p className="text-sm text-muted-foreground">加载中...</p>

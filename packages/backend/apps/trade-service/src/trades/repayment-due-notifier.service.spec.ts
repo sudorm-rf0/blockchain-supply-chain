@@ -18,6 +18,10 @@ function makeAudit() {
   return { record: jest.fn(async () => undefined) };
 }
 
+function makeNotifier() {
+  return { send: jest.fn(async () => undefined) };
+}
+
 describe("RepaymentDueNotifierService", () => {
   it("notifies only overdue REPAYING deals", async () => {
     const now = Date.now();
@@ -43,6 +47,7 @@ describe("RepaymentDueNotifierService", () => {
       ]) as never,
       audit as never,
       makeRedis(true) as never,
+      makeNotifier() as never,
     );
 
     await service.notifyRepaymentDue();
@@ -69,6 +74,7 @@ describe("RepaymentDueNotifierService", () => {
       ]) as never,
       audit as never,
       makeRedis(false) as never,
+      makeNotifier() as never,
     );
 
     await service.notifyRepaymentDue();

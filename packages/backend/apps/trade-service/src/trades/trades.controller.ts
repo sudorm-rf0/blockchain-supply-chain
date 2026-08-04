@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -49,15 +50,23 @@ export class TradesController {
   @Get()
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: "当前用户相关订单列表" })
-  list(@Req() req: Request): Promise<TradeItemDto[]> {
-    return this.tradesService.listMyTrades(req.user!.sub);
+  list(
+    @Req() req: Request,
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+  ): Promise<TradeItemDto[]> {
+    return this.tradesService.listMyTrades(req.user!.sub, { search, status });
   }
 
   @Get("admin")
   @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({ summary: "全部订单列表（管理员）" })
-  listAll(@Req() req: Request): Promise<TradeItemDto[]> {
-    return this.tradesService.listAllTrades(req.user!.sub);
+  listAll(
+    @Req() req: Request,
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+  ): Promise<TradeItemDto[]> {
+    return this.tradesService.listAllTrades(req.user!.sub, { search, status });
   }
 
   @Get(":tradeId")

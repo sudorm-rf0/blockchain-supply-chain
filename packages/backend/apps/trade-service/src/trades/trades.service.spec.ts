@@ -507,4 +507,29 @@ describe("TradesService", () => {
       service.confirmFundTrade("1", { txSignature: "sig" }, "user-1"),
     ).rejects.toThrow(ForbiddenException);
   });
+
+  it("filters admin trade lists by status and search", async () => {
+    const prisma = makePrisma();
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await service.listAllTrades("admin-1", {
+      status: "SETTLED",
+      search: "wallet",
+    });
+    expect(prisma.tradeDeal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { dealId: { contains: "wallet" } },
+            { buyerWallet: { contains: "wallet" } },
+            { sellerWallet: { contains: "wallet" } },
+          ],
+          status: "SETTLED",
+        },
+      }),
+    );
+  });
 });

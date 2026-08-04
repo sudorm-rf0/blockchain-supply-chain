@@ -3,6 +3,7 @@ import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { RedisService } from "../redis/redis.service";
+import { NotifierService } from "./notifier.service";
 
 const NOTIFY_DEDUP_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -14,6 +15,7 @@ export class RepaymentDueNotifierService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly redis: RedisService,
+    private readonly notifier: NotifierService,
   ) {}
 
   @Cron(CronExpression.EVERY_10_MINUTES)
@@ -50,6 +52,13 @@ export class RepaymentDueNotifierService {
           amount: deal.amount.toString(10),
           dueAt: new Date(dueAt).toISOString(),
         },
+      });
+      await this.notifier.send("repayment.due", {
+        dealId: deal.dealId,
+        buyerWallet: deal.buyerWallet,
+        sellerWallet: deal.sellerWallet,
+        amount: deal.amount.toString(10),
+        dueAt: new Date(dueAt).toISOString(),
       });
       this.logger.warn(
         `repayment due for deal ${deal.dealId} (buyer ${deal.buyerWallet})`,
