@@ -43,6 +43,16 @@ scripts/deploy-devnet.sh
 `fund_deal` → `advance_deal` → `repay_deal`，并用索引器确认 DB 同步。
 确认 USDC/LP Mint 为 devnet 正式地址（不是本地测试地址）。
 
+⚠️ 新版 `supply-chain` 采用权限化注册：必须先初始化注册中心并授权供应商，
+否则任何账户（含管理员）都无法注册商品：
+
+```bash
+node scripts/init-supply-chain.mjs <供应商公钥...>
+```
+
+脚本幂等（Registry/供应商已存在则跳过），输出 `REGISTRY_ADMIN` 与
+`AUTHORIZED_SUPPLIERS` 供核对；撤销供应商用链上 `revoke_supplier`。
+
 ## 3. 基础设施
 
 ```bash

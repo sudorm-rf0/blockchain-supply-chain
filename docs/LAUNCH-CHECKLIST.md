@@ -3,6 +3,10 @@
 ## 合约与链
 
 - [ ] 在 devnet 部署 `trade-finance` 与 `supply-chain`，验证 Program ID 与本地一致。
+- [ ] 部署后运行 `scripts/init-supply-chain.mjs <供应商公钥...>` 初始化 `Registry`
+      并授权真实供应商（幂等，可重复执行）。
+- [ ] 核对 `Registry.admin` 与供应商授权记录（脚本输出 `REGISTRY_ADMIN` 与
+      `AUTHORIZED_SUPPLIERS`）。
 - [ ] 由独立审计方完成合约审计，修复后再部署主网。
 - [ ] 保管 upgrade authority 私钥，主网部署后考虑冻结升级权限。
 - [ ] 配置正式 RPC（如 Helius/QuickNode），不要用公共限流端点。
