@@ -11,12 +11,37 @@ export CARGO_HTTP_TIMEOUT="${CARGO_HTTP_TIMEOUT:-60}"
 LEDGER_DIR="${LEDGER_DIR:-/tmp/solana-ci-ledger}"
 CI_RPC_PORT="${CI_RPC_PORT:-8901}"
 CI_FAUCET_PORT="${CI_FAUCET_PORT:-9901}"
-CI_GOSSIP_PORT="${CI_GOSSIP_PORT:-8011}"
 CI_BACKEND_PORT="${CI_BACKEND_PORT:-3001}"
 CI_INDEXER_PORT="${CI_INDEXER_PORT:-3003}"
 CI_TRADE_PORT="${CI_TRADE_PORT:-3004}"
 CI_POOL_PORT="${CI_POOL_PORT:-3005}"
 CI_SOLANA_HOME="${CI_SOLANA_HOME:-$HOME/.config/solana}"
+
+pick_free_port() {
+  python3 - "$1" <<'PY'
+import socket, sys
+start = int(sys.argv[1]) if len(sys.argv) > 1 else 8031
+for port in range(start, start + 256):
+    t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        t.bind(("127.0.0.1", port))
+    except OSError:
+        t.close()
+        continue
+    t.close()
+    u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        u.bind(("0.0.0.0", port))
+    except OSError:
+        u.close()
+        continue
+    u.close()
+    print(port)
+    sys.exit(0)
+sys.exit(1)
+PY
+}
+CI_GOSSIP_PORT="${CI_GOSSIP_PORT:-$(pick_free_port 8031)}"
 # 端口与密钥目录均可通过 CI_* 环境变量隔离，避免与本地服务冲突
 CI_RPC_URL="http://127.0.0.1:${CI_RPC_PORT}"
 cd "$ROOT"
@@ -48,6 +73,8 @@ done
 if ! curl -sf "${CI_RPC_URL}" >/dev/null 2>&1; then
   echo "validator failed to start; log:" >&2
   tail -30 /tmp/solana-test-validator.log >&2
+  echo "validator ledger log:" >&2
+  tail -50 "$LEDGER_DIR/validator.log" >&2 2>/dev/null || true
   exit 1
 fi
 solana airdrop 100 >/dev/null
