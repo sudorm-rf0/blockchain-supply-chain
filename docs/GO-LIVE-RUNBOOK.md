@@ -13,7 +13,10 @@
       `SOLANA_RPC_URL`（值填 RPC URL）。CI 的 `frontend-e2e` 会用该 Secret
       做真实 RPC 健康检查，并在后端服务启动时注入；未配置时自动跳过。
 - [ ] S3/OSS Bucket（含读写权限的 AccessKey）。
-- [ ] 告警渠道：IM/邮件/Slack 的 Webhook。
+- [ ] 告警渠道：用 `scripts/configure-alertmanager-webhook.sh` 接入
+      钉钉/企业微信/Slack/SMTP，并确认 Prometheus -> Alertmanager 联通。
+- [ ] 前端构建时确认 `NEXT_PUBLIC_BACKEND_URL` 正确，CSP `report-uri`
+      自动指向 `{BACKEND_URL}/api/csp-report`，违规会上报 `csp_violations_total`。
 - [ ] 第三方合约审计机构（走合同与排期）。
 - [ ] 业务所需 KYC/AML/隐私合规评审。
 
