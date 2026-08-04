@@ -80,8 +80,11 @@ services:
       - NO_PROXY=localhost,127.0.0.1,*.local
     ports:
       - "3310:3310"
+    volumes:
+      - clamav_db:/var/lib/clamav
     healthcheck:
-      test: ["CMD-SHELL", "test -S /run/clamav/clamd.sock"]
+      # clamav 镜像实际 socket 在 /tmp/clamd.sock；用 clamdscan --ping 验证服务真实响应。
+      test: ["CMD-SHELL", "clamdscan --ping 5 >/dev/null 2>&1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -92,3 +95,4 @@ volumes:
   redis_data:
   solana_ledger:
   solana_config:
+  clamav_db:

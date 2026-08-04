@@ -62,7 +62,9 @@ export class ScanService {
         for (let offset = 0; offset < data.length; offset += INSTREAM_CHUNK) {
           const slice = data.subarray(offset, offset + INSTREAM_CHUNK);
           const header = Buffer.alloc(4);
-          header.writeUInt32LE(slice.length, 0);
+          // clamd INSTREAM 协议长度头为网络字节序（大端）；小端会被误读为超大
+          // 请求并触发 "INSTREAM size limit exceeded"，导致扫描静默放行。
+          header.writeUInt32BE(slice.length, 0);
           socket.write(Buffer.concat([header, slice]));
         }
         socket.write(Buffer.alloc(4));
