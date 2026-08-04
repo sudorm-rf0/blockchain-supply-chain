@@ -9,7 +9,9 @@ export CARGO_REGISTRIES_CRATES_IO_PROTOCOL="${CARGO_REGISTRIES_CRATES_IO_PROTOCO
 export CARGO_NET_RETRY="${CARGO_NET_RETRY:-3}"
 export CARGO_HTTP_TIMEOUT="${CARGO_HTTP_TIMEOUT:-60}"
 LEDGER_DIR="${LEDGER_DIR:-/tmp/solana-ci-ledger}"
-CI_RPC_PORT="${CI_RPC_PORT:-8899}"
+CI_RPC_PORT="${CI_RPC_PORT:-8901}"
+CI_FAUCET_PORT="${CI_FAUCET_PORT:-9901}"
+CI_GOSSIP_PORT="${CI_GOSSIP_PORT:-8011}"
 CI_BACKEND_PORT="${CI_BACKEND_PORT:-3001}"
 CI_INDEXER_PORT="${CI_INDEXER_PORT:-3003}"
 CI_TRADE_PORT="${CI_TRADE_PORT:-3004}"
@@ -25,9 +27,12 @@ solana config set --url "${CI_RPC_URL}" >/dev/null
 export HOME_CONFIG_DIR="${CI_SOLANA_HOME}"
 
 if command -v lsof >/dev/null 2>&1; then
-  lsof -nP -iTCP:"${CI_RPC_PORT}" -sTCP:LISTEN -t 2>/dev/null | xargs kill 2>/dev/null || true
+  for port in "${CI_RPC_PORT}" "${CI_FAUCET_PORT}" "${CI_GOSSIP_PORT}"; do
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null | xargs kill 2>/dev/null || true
+  done
 fi
 solana-test-validator --quiet --ledger "$LEDGER_DIR" --reset --rpc-port "${CI_RPC_PORT}" \
+  --faucet-port "${CI_FAUCET_PORT}" --gossip-port "${CI_GOSSIP_PORT}" \
   >/tmp/solana-test-validator.log 2>&1 &
 VALIDATOR_PID=$!
 cleanup() {

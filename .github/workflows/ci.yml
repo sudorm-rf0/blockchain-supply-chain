@@ -241,7 +241,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:15432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
       REDIS_URL: redis://localhost:16379
       JWT_SECRET: ci-secret-for-tests-0123456789abcdef
-      CI_RPC_PORT: "8898"
+      CI_RPC_PORT: "8901"
       CI_BACKEND_PORT: "3101"
       CI_INDEXER_PORT: "3103"
       CI_TRADE_PORT: "3104"
