@@ -220,3 +220,109 @@ pub enum SupplyChainError {
     #[msg("Unauthorized caller: admin or authorized supplier required")]
     Unauthorized,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn program_id() -> Pubkey {
+        ID
+    }
+
+    #[test]
+    fn sku_seed_is_8_bytes_deterministic_and_distinct() {
+        let a = sku_seed("SKU-ADMIN-001");
+        let b = sku_seed("SKU-ADMIN-001");
+        let c = sku_seed("SKU-SUPPLIER-002");
+        assert_eq!(a.len(), 8);
+        assert_eq!(a, b, "同一 SKU 必须推导出相同种子");
+        assert_ne!(a, c, "不同 SKU 必须推导出不同种子");
+    }
+
+    #[test]
+    fn sku_seed_matches_sha256_prefix() {
+        let sku = "SKU-ADMIN-001";
+        let digest = hash(sku.as_bytes());
+        let mut expected = [0u8; 8];
+        expected.copy_from_slice(&digest.to_bytes()[..8]);
+        assert_eq!(sku_seed(sku), expected);
+    }
+
+    #[test]
+    fn registry_pda_is_stable_and_program_derived() {
+        let (pda, bump) = Pubkey::find_program_address(
+            &[b"supply_chain", b"registry"],
+            &program_id(),
+        );
+        let (pda2, bump2) = Pubkey::find_program_address(
+            &[b"supply_chain", b"registry"],
+            &program_id(),
+        );
+        assert_eq!(pda, pda2);
+        assert_eq!(bump, bump2);
+        assert_ne!(pda, program_id(), "PDA 不能等于程序地址");
+    }
+
+    #[test]
+    fn supplier_pda_differs_by_address() {
+        let owner_a = Pubkey::new_unique();
+        let owner_b = Pubkey::new_unique();
+        let (pda_a, bump_a) = Pubkey::find_program_address(
+            &[b"supply_chain", b"supplier", owner_a.as_ref()],
+            &program_id(),
+        );
+        let (pda_b, _) = Pubkey::find_program_address(
+            &[b"supply_chain", b"supplier", owner_b.as_ref()],
+            &program_id(),
+        );
+        assert_ne!(pda_a, pda_b, "不同供应商必须推导出不同 PDA");
+        assert!(bump_a < 255);
+    }
+
+    #[test]
+    fn product_pda_differs_by_owner_and_sku() {
+        let owner = Pubkey::new_unique();
+        let other = Pubkey::new_unique();
+        let (pda_a, _) = Pubkey::find_program_address(
+            &[b"supply_chain", b"product", owner.as_ref(), &sku_seed("A")],
+            &program_id(),
+        );
+        let (pda_b, _) = Pubkey::find_program_address(
+            &[b"supply_chain", b"product", owner.as_ref(), &sku_seed("B")],
+            &program_id(),
+        );
+        let (pda_c, _) = Pubkey::find_program_address(
+            &[b"supply_chain", b"product", other.as_ref(), &sku_seed("A")],
+            &program_id(),
+        );
+        assert_ne!(pda_a, pda_b, "同 owner 不同 SKU 必须不同");
+        assert_ne!(pda_a, pda_c, "不同 owner 同 SKU 必须不同");
+    }
+
+    #[test]
+    fn account_spaces_accommodate_fields() {
+        // Anchor 账户空间 = 8 字节 discriminator + InitSpace。
+        // Registry: admin(32) + initialized_at(8)
+        assert!(8 + Registry::INIT_SPACE >= 8 + 32 + 8);
+        // Supplier: supplier(32) + authorized_at(8)
+        assert!(8 + Supplier::INIT_SPACE >= 8 + 32 + 8);
+        // Product: owner(32) + sku(String 4 前缀 + 最大 64) + units(8) + created_at(8)
+        assert!(8 + Product::INIT_SPACE >= 8 + 32 + 4 + 64 + 8 + 8);
+    }
+
+    #[test]
+    fn error_messages_are_stable() {
+        assert_eq!(
+            SupplyChainError::Unauthorized.to_string(),
+            "Unauthorized caller: admin or authorized supplier required"
+        );
+        assert_eq!(
+            SupplyChainError::EmptySku.to_string(),
+            "SKU must not be empty"
+        );
+        assert_eq!(
+            SupplyChainError::InvalidUnits.to_string(),
+            "Units must be greater than zero"
+        );
+    }
+}
