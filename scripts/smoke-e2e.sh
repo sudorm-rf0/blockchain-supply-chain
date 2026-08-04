@@ -8,9 +8,9 @@ TOKEN=""
 # ============================================================
 
 BACKEND="${BACKEND_URL:-http://localhost:3001}"
-TRADE="${TRADE_API_URL:-http://localhost:3004}"
-POOL="${POOL_API_URL:-http://localhost:3005}"
-INDEXER="${INDEXER_API_URL:-http://localhost:3003}"
+TRADE="${TRADE_URL:-${TRADE_API_URL:-http://localhost:3004}}"
+POOL="${POOL_URL:-${POOL_API_URL:-http://localhost:3005}}"
+INDEXER="${INDEXER_URL:-${INDEXER_API_URL:-http://localhost:3003}}"
 PASS=0
 FAIL=0
 
