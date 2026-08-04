@@ -98,6 +98,12 @@ solana program deploy "$ROOT/packages/contracts/target/deploy/trade_finance.so" 
   --program-id "$ROOT/packages/contracts/target/deploy/trade_finance-keypair.json" \
   --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >/dev/null
 
+echo "PHASE anchor-build-supply-chain" >&2
+cargo build-sbf --manifest-path programs/supply-chain/Cargo.toml --arch v3 >/dev/null
+solana program deploy "$ROOT/packages/contracts/target/deploy/supply_chain.so" \
+  --program-id "$ROOT/packages/contracts/target/deploy/supply_chain-keypair.json" \
+  --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >/dev/null
+
 cd "$ROOT"
 echo "PHASE init-localnet" >&2
 ENV_OUT="$(SOLANA_RPC_URL="${CI_RPC_URL}" node scripts/init-localnet.mjs)"
