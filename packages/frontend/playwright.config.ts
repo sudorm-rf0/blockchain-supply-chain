@@ -16,8 +16,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "FRONTEND_PORT=3100 pnpm dev",
-    url: "http://localhost:3100",
+    command: `FRONTEND_PORT=${process.env.E2E_FRONTEND_PORT ?? "3100"} pnpm dev`,
+    url: `http://localhost:${process.env.E2E_FRONTEND_PORT ?? "3100"}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

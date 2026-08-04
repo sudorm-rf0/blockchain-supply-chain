@@ -12,9 +12,10 @@ const TRADE = process.env.TRADE_URL ?? "http://localhost:3004";
 const USDC_MINT = process.env.USDC_MINT;
 
 const conn = new Connection(RPC, "confirmed");
-const adminSecret = JSON.parse(
-  readFileSync(`${homedir()}/.config/solana/id.json`, "utf8"),
-);
+const keypairPath =
+  process.env.SOLANA_KEYPAIR_PATH ??
+  `${homedir()}/.config/solana/id.json`;
+const adminSecret = JSON.parse(readFileSync(keypairPath, "utf8"));
 const admin = Keypair.fromSecretKey(Uint8Array.from(adminSecret));
 const results = {};
 

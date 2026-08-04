@@ -222,7 +222,7 @@ jobs:
         run: pnpm test
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS, ARM64]
     needs: changes
     if: needs.changes.outputs.e2e == 'true' || github.event_name == 'pull_request'
     services:
@@ -233,20 +233,26 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: supply_chain
         ports:
-          - 5432:5432
+          - 15432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
         image: redis:7
         ports:
-          - 6379:6379
+          - 16379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
-      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgresql://postgres:postgres@localhost:15432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
+      REDIS_URL: redis://localhost:16379
+      CI_RPC_PORT: "8898"
+      CI_BACKEND_PORT: "3101"
+      CI_INDEXER_PORT: "3103"
+      CI_TRADE_PORT: "3104"
+      CI_POOL_PORT: "3105"
+      CI_SOLANA_HOME: "${{ runner.temp }}/solana-ci"
 
     steps:
       - uses: actions/checkout@v4
@@ -289,7 +295,12 @@ jobs:
         if: steps.cache-solana.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          URL="https://github.com/anza-xyz/agave/releases/download/v4.1.2/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          case "$(uname -s)" in
+            Linux) ASSET="solana-release-x86_64-unknown-linux-gnu.tar.bz2" ;;
+            Darwin) ASSET="solana-release-aarch64-apple-darwin.tar.bz2" ;;
+            *) echo "unsupported OS"; exit 1 ;;
+          esac
+          URL="https://github.com/anza-xyz/agave/releases/download/v4.1.2/${ASSET}"
           for i in 1 2 3; do
             if curl -sSfL --retry 3 --retry-all-errors --retry-delay 5 -o /tmp/solana-release.tar.bz2 "$URL"; then
               break
@@ -310,7 +321,7 @@ jobs:
         run: bash scripts/ci-e2e.sh
 
   frontend-e2e:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS, ARM64]
     needs: changes
     if: needs.changes.outputs.frontend-e2e == 'true' || github.event_name == 'pull_request'
     services:
@@ -321,20 +332,25 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: supply_chain
         ports:
-          - 5432:5432
+          - 15432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
         image: redis:7
         ports:
-          - 6379:6379
+          - 16379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
-      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgresql://postgres:postgres@localhost:15432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
+      REDIS_URL: redis://localhost:16379
+      CI_BACKEND_PORT: "3101"
+      CI_TRADE_PORT: "3104"
+      CI_POOL_PORT: "3105"
+      E2E_FRONTEND_PORT: "3110"
+      E2E_BASE_URL: "http://localhost:3110"
 
     steps:
       - uses: actions/checkout@v4
@@ -368,9 +384,9 @@ jobs:
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
         run: |
-          THROTTLE_LIMIT=100000 pnpm start > /tmp/backend.log 2>&1 &
-          REDIS_URL="$REDIS_URL" THROTTLE_LIMIT=100000 pnpm start:pool > /tmp/pool.log 2>&1 &
-          THROTTLE_LIMIT=100000 pnpm start:trade > /tmp/trade.log 2>&1 &
+          THROTTLE_LIMIT=100000 PORT="$CI_BACKEND_PORT" pnpm start > /tmp/backend.log 2>&1 &
+          REDIS_URL="$REDIS_URL" THROTTLE_LIMIT=100000 PORT="$CI_POOL_PORT" pnpm start:pool > /tmp/pool.log 2>&1 &
+          THROTTLE_LIMIT=100000 PORT="$CI_TRADE_PORT" pnpm start:trade > /tmp/trade.log 2>&1 &
           if [[ -n "${SOLANA_RPC_URL:-}" ]]; then
             QUIET=1 bash "$GITHUB_WORKSPACE/scripts/check-rpc.sh" "$SOLANA_RPC_URL"
             echo "rpc connectivity verified"
@@ -378,14 +394,14 @@ jobs:
             echo "SOLANA_RPC_URL secret not configured; skipping real RPC check"
           fi
           for i in $(seq 1 60); do
-            curl -sf http://localhost:3001/health >/dev/null &&
-              curl -sf http://localhost:3004/health >/dev/null &&
-              curl -sf http://localhost:3005/health >/dev/null && break
+            curl -sf "http://localhost:${CI_BACKEND_PORT}/health" >/dev/null &&
+              curl -sf "http://localhost:${CI_TRADE_PORT}/health" >/dev/null &&
+              curl -sf "http://localhost:${CI_POOL_PORT}/health" >/dev/null && break
             sleep 1
           done
-          curl -sf http://localhost:3001/health >/dev/null
-          curl -sf http://localhost:3004/health >/dev/null
-          curl -sf http://localhost:3005/health >/dev/null
+          curl -sf "http://localhost:${CI_BACKEND_PORT}/health" >/dev/null
+          curl -sf "http://localhost:${CI_TRADE_PORT}/health" >/dev/null
+          curl -sf "http://localhost:${CI_POOL_PORT}/health" >/dev/null
 
       - name: Seed UI e2e trade
         working-directory: packages/backend
@@ -419,7 +435,7 @@ jobs:
         run: pnpm test:e2e
 
   docker:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS, ARM64]
     needs: [changes]
     if: needs.changes.outputs.docker == 'true' || github.event_name == 'pull_request'
 
@@ -457,11 +473,12 @@ jobs:
         run: bash scripts/scan-secrets.sh
 
   backup-drill:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS, ARM64]
     needs: changes
     if: needs.changes.outputs.backup == 'true' || github.event_name == 'pull_request'
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=5&schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:15432/supply_chain?connection_limit=5&schema=public
+      CONTAINER: supply-chain-postgres-ci
     steps:
       - uses: actions/checkout@v4
 
@@ -478,14 +495,16 @@ jobs:
 
       - name: Start Postgres container
         run: |
-          docker run -d --name supply-chain-postgres \
+          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
+          docker run -d --name supply-chain-postgres-ci \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
-            -e POSTGRES_DB=supply_chain -p 5432:5432 postgres:15
+            -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
           for i in $(seq 1 30); do
-            docker exec supply-chain-postgres pg_isready -U postgres >/dev/null 2>&1 && break
+            docker exec supply-chain-postgres-ci pg_isready -U postgres >/dev/null 2>&1 && break
             sleep 1
           done
-          docker exec supply-chain-postgres pg_isready -U postgres >/dev/null
+          docker exec supply-chain-postgres-ci pg_isready -U postgres >/dev/null
+          echo "::add-mask::supply-chain-postgres-ci"
 
       - name: Create schema and seed
         working-directory: packages/backend
@@ -495,20 +514,27 @@ jobs:
           pnpm exec prisma db seed
 
       - name: Run backup restore drill
-        run: bash scripts/db-backup-restore.sh drill
+        run: |
+          CONTAINER="${CONTAINER}" bash scripts/db-backup-restore.sh drill
+          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
 
   monitoring:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS, ARM64]
     needs: changes
     if: needs.changes.outputs.monitoring == 'true' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - name: Install promtool
         run: |
+          case "$(uname -s)" in
+            Linux) ASSET="prometheus-3.13.2.linux-amd64.tar.gz"; DIR="prometheus-3.13.2.linux-amd64" ;;
+            Darwin) ASSET="prometheus-3.13.2.darwin-arm64.tar.gz"; DIR="prometheus-3.13.2.darwin-arm64" ;;
+            *) echo "unsupported OS"; exit 1 ;;
+          esac
           curl -sSfL --retry 3 --retry-all-errors -o /tmp/prometheus.tar.gz \
-            https://github.com/prometheus/prometheus/releases/download/v3.13.2/prometheus-3.13.2.linux-amd64.tar.gz
+            "https://github.com/prometheus/prometheus/releases/download/v3.13.2/${ASSET}"
           tar -xzf /tmp/prometheus.tar.gz -C /tmp
-          echo "/tmp/prometheus-3.13.2.linux-amd64" >> "$GITHUB_PATH"
+          echo "/tmp/${DIR}" >> "$GITHUB_PATH"
 
       - name: Validate Prometheus alert rules
         run: promtool check rules infra/prometheus/alerts.yml

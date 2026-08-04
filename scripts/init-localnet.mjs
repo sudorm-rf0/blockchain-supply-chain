@@ -12,7 +12,10 @@ const PROGRAM_ID = process.env.TRADE_FINANCE_PROGRAM_ID ?? "9c8eND94LxNZgDbhvApG
 const DEPOSIT_USDC = BigInt(process.env.DEPOSIT_USDC ?? 5_000_000_000);
 
 const conn = new Connection(RPC, "confirmed");
-const adminSecret = JSON.parse(readFileSync(`${homedir()}/.config/solana/id.json`, "utf8"));
+const keypairPath =
+  process.env.SOLANA_KEYPAIR_PATH ??
+  `${homedir()}/.config/solana/id.json`;
+const adminSecret = JSON.parse(readFileSync(keypairPath, "utf8"));
 const admin = Keypair.fromSecretKey(Uint8Array.from(adminSecret));
 const programId = new PublicKey(PROGRAM_ID);
 
