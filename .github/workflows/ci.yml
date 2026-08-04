@@ -254,6 +254,7 @@ jobs:
       - name: Start isolated Postgres and Redis
         run: |
           docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1 || true
+          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
           docker run -d --name supply-chain-pg-ci \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
@@ -351,6 +352,7 @@ jobs:
       - name: Start isolated Postgres and Redis
         run: |
           docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1 || true
+          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
           docker run -d --name supply-chain-pg-ci \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
@@ -500,7 +502,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backup == 'true' || github.event_name == 'pull_request'
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:15432/supply_chain?connection_limit=5&schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:15632/supply_chain?connection_limit=5&schema=public
       CONTAINER: supply-chain-postgres-ci
     steps:
       - uses: actions/checkout@v4
@@ -520,10 +522,10 @@ jobs:
 
       - name: Start Postgres container
         run: |
-          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
+          docker rm -f supply-chain-postgres-ci supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1 || true
           docker run -d --name supply-chain-postgres-ci \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
-            -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
+            -e POSTGRES_DB=supply_chain -p 15632:5432 postgres:15
           for i in $(seq 1 30); do
             docker exec supply-chain-postgres-ci pg_isready -U postgres >/dev/null 2>&1 && break
             sleep 1
