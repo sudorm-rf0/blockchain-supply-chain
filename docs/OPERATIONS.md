@@ -95,6 +95,23 @@ bash scripts/verify-monitoring.sh
 
 详见 [docs/MONITORING.md](MONITORING.md)。
 
+### NetworkPolicy 外部出口收紧密级
+
+默认 `k8s/network-policies.yaml` 的外部出口为 `0.0.0.0/0` 兜底宽放。上线前
+按用途收紧密级：
+
+```bash
+cp infra/config/network-policy.env.example infra/config/network-policy.env
+# 编辑 infra/config/network-policy.env，填入实际 CIDR
+set -a; source infra/config/network-policy.env; set +a
+bash scripts/generate-network-policies.sh
+kubectl apply -f k8s/network-policies.generated.yaml -n supply-chain
+```
+
+生成后删除 `k8s/network-policies.yaml` 中的宽放段（`allow-egress-external`），
+实现最小化出口。三个用途可分别配置：`SOLANA_RPC_CIDR`、
+`RISK_WEBHOOK_CIDR`、`S3_CIDR`；未配置的用途保持宽放。
+
 K8s 环境每天 02:00 自动 `pg_dump -Fc` 到 `postgres-backups` PVC，保留
 7 天。生产必须把备份同步到对象存储并每季度做恢复演练。
 

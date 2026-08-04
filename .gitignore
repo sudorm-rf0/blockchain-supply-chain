@@ -23,3 +23,4 @@ packages/frontend/test-results/
 packages/frontend/playwright-report/
 infra/config/*.env
 k8s/alertmanager-config.generated.yaml
+k8s/network-policies.generated.yaml

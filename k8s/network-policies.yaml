@@ -143,7 +143,11 @@ spec:
       app: supply-chain
   policyTypes: ["Egress"]
   egress:
-    # TODO: 替换为 Solana RPC / 风控 Webhook / 对象存储的实际 CIDR。
+    # 兜底宽放：默认允许全部外部 80/443。
+    # 上线前用 scripts/generate-network-policies.sh 按用途收紧密级：
+    #   SOLANA_RPC_CIDR / RISK_WEBHOOK_CIDR / S3_CIDR
+    # 生成 k8s/network-policies.generated.yaml（gitignored）后 apply，
+    # 再把本兜底段删除，实现最小化出口。
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
