@@ -4,6 +4,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { ScheduleModule } from "@nestjs/schedule";
 import { OriginGuard } from "./common/origin.guard";
 import { AppController } from "./app.controller";
+import { CspReportController } from "./csp-report.controller";
 import { AdminStatsController } from "./admin/admin.controller";
 import { AuthModule } from "./auth/auth.module";
 import { AuditModule } from "./audit/audit.module";
@@ -28,7 +29,12 @@ import { RedisService } from "./redis/redis.service";
     AuditModule,
     FilesModule,
   ],
-  controllers: [AppController, MetricsController, AdminStatsController],
+  controllers: [
+    AppController,
+    CspReportController,
+    MetricsController,
+    AdminStatsController,
+  ],
   providers: [
     PrismaService,
     RedisService,

@@ -22,6 +22,7 @@
 | `CLAMAV_HOST` / `CLAMAV_PORT` | 空 / 3310 | clamd TCP 杀毒；生产必须配置 |
 | `SCAN_URL` | 空 | 备选 HTTP 杀毒服务（`{clean: boolean}`） |
 | `AUDIT_RETENTION_DAYS` | `90` | 审计日志保留天数；每天 04:00 自动清理，`0` 表示关闭清理 |
+| `NEXT_PUBLIC_CSP_REPORT_URI` | 空 | 前端 CSP `report-uri`；配置后浏览器把违规上报到该地址（默认指向主后端 `/api/csp-report`） |
 
 ## 2. 安全运行规则
 
