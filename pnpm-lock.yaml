@@ -27,9 +27,6 @@ importers:
       '@solana/web3.js':
         specifier: ^1.98.4
         version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)
-      '@types/express':
-        specifier: ^5.0.6
-        version: 5.0.6
       eslint:
         specifier: ^10.8.0
         version: 10.8.0(jiti@2.7.0)
@@ -83,10 +80,10 @@ importers:
         version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))
       '@solana/spl-token':
         specifier: ^0.4.6
-        version: 0.4.15(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.3)(utf-8-validate@5.0.10)
+        version: 0.4.15(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.3)(utf-8-validate@6.0.6)
       '@solana/web3.js':
         specifier: ^1.98.4
-        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)
+        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6)
       bullmq:
         specifier: ^5.5.1
         version: 5.81.3
@@ -183,16 +180,16 @@ importers:
     devDependencies:
       '@coral-xyz/anchor':
         specifier: 0.31.1
-        version: 0.31.1(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6)
+        version: 0.31.1(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.8.0(jiti@2.7.0))
       '@solana/spl-token':
         specifier: ^0.4.6
-        version: 0.4.15(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.3)(utf-8-validate@6.0.6)
+        version: 0.4.15(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.3)(utf-8-validate@5.0.10)
       '@solana/web3.js':
         specifier: ^1.98.4
-        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6)
+        version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)
       '@types/mocha':
         specifier: ^10.0.6
         version: 10.0.10
@@ -352,7 +349,7 @@ importers:
         version: 10.8.0(jiti@1.21.7)
       eslint-config-next:
         specifier: ^16.3.0
-        version: 16.3.0(@typescript-eslint/parser@8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3))(eslint@10.8.0(jiti@1.21.7))(typescript@5.5.3)
+        version: 16.3.0(eslint@10.8.0(jiti@1.21.7))(typescript@5.5.3)
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
@@ -7997,12 +7994,12 @@ snapshots:
 
   '@coral-xyz/anchor-errors@0.31.1': {}
 
-  '@coral-xyz/anchor@0.31.1(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6)':
+  '@coral-xyz/anchor@0.31.1(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)':
     dependencies:
       '@coral-xyz/anchor-errors': 0.31.1
-      '@coral-xyz/borsh': 0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6))
+      '@coral-xyz/borsh': 0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10))
       '@noble/hashes': 1.8.0
-      '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6)
+      '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)
       bn.js: 5.2.5
       bs58: 4.0.1
       buffer-layout: 1.2.2
@@ -8018,9 +8015,9 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@coral-xyz/borsh@0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6))':
+  '@coral-xyz/borsh@0.31.1(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10))':
     dependencies:
-      '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6)
+      '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)
       bn.js: 5.2.5
       buffer-layout: 1.2.2
 
@@ -12206,13 +12203,13 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-config-next@16.3.0(@typescript-eslint/parser@8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3))(eslint@10.8.0(jiti@1.21.7))(typescript@5.5.3):
+  eslint-config-next@16.3.0(eslint@10.8.0(jiti@1.21.7))(typescript@5.5.3):
     dependencies:
       '@next/eslint-plugin-next': 16.3.0(eslint@10.8.0(jiti@1.21.7))
       eslint: 10.8.0(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@10.8.0(jiti@1.21.7))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3))(eslint-import-resolver-typescript@3.10.1)(eslint@10.8.0(jiti@1.21.7))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@10.8.0(jiti@1.21.7))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@10.8.0(jiti@1.21.7))
       eslint-plugin-react: 7.37.5(eslint@10.8.0(jiti@1.21.7))
       eslint-plugin-react-hooks: 7.1.1(eslint@10.8.0(jiti@1.21.7))
@@ -12249,22 +12246,21 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3))(eslint-import-resolver-typescript@3.10.1)(eslint@10.8.0(jiti@1.21.7))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@10.8.0(jiti@1.21.7))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@10.8.0(jiti@1.21.7)))(eslint@10.8.0(jiti@1.21.7)):
+  eslint-module-utils@2.14.0(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@10.8.0(jiti@1.21.7)))(eslint@10.8.0(jiti@1.21.7)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
-      '@typescript-eslint/parser': 8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3)
       eslint: 10.8.0(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@10.8.0(jiti@1.21.7))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3))(eslint-import-resolver-typescript@3.10.1)(eslint@10.8.0(jiti@1.21.7)):
+  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@10.8.0(jiti@1.21.7)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -12275,7 +12271,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 10.8.0(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@10.8.0(jiti@1.21.7)))(eslint@10.8.0(jiti@1.21.7))
+      eslint-module-utils: 2.14.0(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@10.8.0(jiti@1.21.7)))(eslint@10.8.0(jiti@1.21.7))
       hasown: 2.0.4
       is-core-module: 2.16.2
       is-glob: 4.0.3
@@ -12286,8 +12282,6 @@ snapshots:
       semver: 6.3.1
       string.prototype.trimend: 1.0.10
       tsconfig-paths: 3.15.0
-    optionalDependencies:
-      '@typescript-eslint/parser': 8.66.0(eslint@10.8.0(jiti@2.7.0))(typescript@5.5.3)
     transitivePeerDependencies:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack

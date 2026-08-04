@@ -15,7 +15,7 @@ export const INDEXER_ENV = {
     "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3",
   ),
   poolStateAddress: env("POOL_STATE_ADDRESS", ""),
-  redisUrl: env("REDIS_URL", "redis://localhost:6379"),
+  redisUrl: env("REDIS_URL", "redis://localhost:6380"),
   riskWebhookUrl: env(
     "RISK_WEBHOOK_URL",
     "http://localhost:8080/risk/defaulted",

@@ -51,6 +51,7 @@ COPY --from=builder /workspace/packages/backend/dist ./dist
 COPY --from=builder /workspace/packages/backend/prisma ./prisma
 
 RUN mkdir -p /app/uploads && chown -R node:node /app
+RUN node -e "require('sharp')" || (echo "ERROR: sharp native module missing" && exit 1)
 USER node
 EXPOSE 3001
 CMD ["node", "dist/src/main.js"]

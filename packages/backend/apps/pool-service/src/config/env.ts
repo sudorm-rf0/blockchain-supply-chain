@@ -9,7 +9,7 @@ function envNumber(name: string, fallback: number): number {
 }
 
 export const POOL_ENV = {
-  redisUrl: env("REDIS_URL", "redis://localhost:6379"),
+  redisUrl: env("REDIS_URL", "redis://localhost:6380"),
   port: envNumber("POOL_SERVICE_PORT", 3005),
   rpcUrl: env("SOLANA_RPC_URL", "http://localhost:8899"),
   programId: env(
