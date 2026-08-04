@@ -9,6 +9,8 @@ const TINY_PNG = Buffer.from(
   "base64",
 );
 
+// 注：CI 自托管 runner 使用独立 JWT_SECRET，注册接口不会传 confirmPassword。
+
 async function seedAdmin(): Promise<{ email: string; password: string }> {
   const email = `e2e-admin-${Date.now()}@example.com`;
   const password = "E2eAdmin!";
