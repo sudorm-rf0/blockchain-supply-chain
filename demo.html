@@ -54,7 +54,7 @@ input{font:inherit}
 
 .shell{
   max-width:1280px;margin:0 auto;padding:24px 20px 48px;
-  display:grid;grid-template-columns:minmax(340px,420px) 1fr;gap:24px;align-items:start;
+  display:grid;grid-template-columns:minmax(280px,340px) 1fr;gap:24px;align-items:start;
 }
 
 
@@ -131,13 +131,13 @@ input{font:inherit}
 .flow-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
 
-.phone-wrap{position:sticky;top:84px}
+.phone-wrap{position:sticky;top:24px}
 .phone{
-  width:100%;max-width:400px;margin:0 auto;background:#0b1220;border-radius:36px;
-  padding:12px;box-shadow:0 20px 60px rgba(15,23,42,.28);
+  width:100%;max-width:320px;margin:0 auto;background:#0b1220;border-radius:30px;
+  padding:10px;box-shadow:0 20px 60px rgba(15,23,42,.28);
 }
 .phone-screen{
-  background:var(--bg);border-radius:26px;overflow:hidden;display:flex;flex-direction:column;min-height:720px;
+  background:var(--bg);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;min-height:600px;
 }
 .phone-header{
   background:linear-gradient(135deg,#0f766e,#134e4a);color:#fff;padding:18px 16px 14px;
@@ -259,8 +259,8 @@ tr:last-child td{border-bottom:none}
 @media (max-width:900px){
   .shell{grid-template-columns:1fr;padding:16px}
   .phone-wrap{position:static}
-  .phone{max-width:420px}
-  .phone-screen{min-height:640px}
+  .phone{max-width:360px}
+  .phone-screen{min-height:560px}
 }
 
 /* 整体优化 */
