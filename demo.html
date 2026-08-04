@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>供应链单据上链 Demo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Cpath d='M10 21V11m6 10V7m6 10v4' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root{
   --ink:#1f2937;
@@ -260,12 +261,43 @@ tbody tr:hover{background:#16233a}
 .stat{transition:transform .2s}
 .stat:hover{transform:translateY(-2px)}
 .flow-card{box-shadow:0 6px 20px rgba(15,23,42,.06)}
+.flow-card{transition:box-shadow .25s,transform .25s}
+.flow-card:hover{box-shadow:0 10px 28px rgba(15,23,42,.10);transform:translateY(-1px)}
 .flow-step .node{box-shadow:0 3px 8px rgba(15,23,42,.10)}
 .flow-track::-webkit-scrollbar{height:6px}
 .flow-track::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
 .chain-log::-webkit-scrollbar{width:6px}
 .chain-log::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+
+/* 三端架构全景 */
+.arch-section{margin-top:16px}
+.arch-grid{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:12px;align-items:stretch}
+.arch-card{
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;
+  box-shadow:0 6px 18px rgba(15,23,42,.05);transition:box-shadow .25s,transform .25s;
+}
+.arch-card:hover{box-shadow:0 10px 26px rgba(15,23,42,.10);transform:translateY(-2px)}
+.arch-card .arch-role{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.arch-card h4{font-size:15px;font-weight:700;margin:6px 0 4px}
+.arch-card p{font-size:12px;color:var(--muted);line-height:1.5}
+.arch-card .arch-dot{width:8px;height:8px;border-radius:50%;background:var(--accent-2);display:inline-block;margin-right:5px}
+.arch-card.chain .arch-role{color:#7c3aed}
+.arch-card.chain .arch-dot{background:#7c3aed}
+.arch-card.admin .arch-role{color:#1d4ed8}
+.arch-card.admin .arch-dot{background:#1d4ed8}
+.arch-arrow{display:flex;align-items:center;justify-content:center;color:#94a3b8;min-width:18px;user-select:none}
+.arch-arrow svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+button:focus-visible,.flow-step:focus-visible,.chip:focus-visible,.nav-item:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;border-radius:6px;
+}
+.flow-step{outline:none}
+
 @media (max-width:900px){.admin-header{padding:14px 16px}}
+@media (max-width:760px){
+  .arch-grid{grid-template-columns:1fr;gap:8px}
+  .arch-arrow{transform:rotate(90deg);padding:0}
+}
 
 </style>
 </head>
@@ -307,6 +339,28 @@ tbody tr:hover{background:#16233a}
       </div>
       <div class="flow-track" id="tradeTrack"></div>
       <div class="flow-branch">违约分支：已拨款 / 还款期 → 违约清算（触发 30% 抵押清算与保险基金赔付）</div>
+    </div>
+  </div>
+</section>
+
+<section class="arch-section">
+  <div class="arch-grid">
+    <div class="arch-card">
+      <span class="arch-role"><span class="arch-dot"></span>用户端 · 移动</span>
+      <h4>拍照 / 选图上传</h4>
+      <p>用户拍摄或选择贸易单据图片，填写订单与单据编号，发起存证。</p>
+    </div>
+    <div class="arch-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+    <div class="arch-card chain">
+      <span class="arch-role"><span class="arch-dot"></span>Solana 链 · 合约</span>
+      <h4>哈希 · 签名 · 上链</h4>
+      <p>计算 SHA-256 指纹，钱包签名后提交交易，生成交易签名与 Slot。</p>
+    </div>
+    <div class="arch-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+    <div class="arch-card admin">
+      <span class="arch-role"><span class="arch-dot"></span>管理端 · PC</span>
+      <h4>查看 · 审核 · 确认</h4>
+      <p>管理员实时查看图片与哈希，审核通过后完成链上存证闭环。</p>
     </div>
   </div>
 </section>
@@ -712,6 +766,9 @@ function buildFlowTrack(container, steps, phase) {
   steps.forEach((step, i) => {
     const el = document.createElement("div");
     el.className = "flow-step";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("aria-label", `${step.title}：${step.desc}`);
     if (i < phase) el.classList.add("done");
     if (i === phase) el.classList.add("active");
     el.innerHTML = `<div class="node">${i + 1}</div><div class="cap">${step.title}</div><div class="sub">${step.sub}</div>`;
@@ -720,6 +777,12 @@ function buildFlowTrack(container, steps, phase) {
       if (container === docTrack) {
         flowPhase = i;
         renderDocFlow();
+      }
+    });
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        el.click();
       }
     });
     container.appendChild(el);
