@@ -453,6 +453,9 @@ jobs:
       - name: Production dependency audit (block critical)
         run: pnpm audit --prod --audit-level critical --registry https://registry.npmjs.org
 
+      - name: Secret scan (workspace + git history)
+        run: bash scripts/scan-secrets.sh
+
   backup-drill:
     runs-on: ubuntu-latest
     needs: changes

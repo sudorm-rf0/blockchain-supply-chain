@@ -11,6 +11,7 @@ Solana/Anchor 供应链金融演示系统：单据上传审核、Solana 存证�
   `indexer-service`（链上监听与 DB 回写）、`trade-service`（订单预构建与确认）、
   `pool-service`（资金池总览与 LP 提款）。
 - `packages/frontend`: Next.js 15 App Router + Tailwind + shadcn/ui + Solana 钱包。
+  支持 Phantom / Backpack / Solflare / Coinbase Wallet / UnsolvedBloom。
 
 ## 本地启动
 
@@ -60,6 +61,12 @@ FRONTEND_PORT=3100 pnpm dev
 打开 `http://localhost:3100`。种子管理员：`admin@supply-chain.io` /
 `Admin123!`（可用 `pnpm --filter @supply-chain/backend prisma:seed` 重建）。
 
+一键健康检查（后端、RPC、前端）：
+
+```bash
+bash scripts/health-check.sh
+```
+
 不想启动后端时，可直接打开根目录 `demo.html` 演示“用户拍照上传 → 链上存证 →
 管理员 PC 审核并查看图片”的完整流程。
 
@@ -70,6 +77,11 @@ pnpm --filter @supply-chain/backend exec jest --runInBand
 cd packages/contracts && pnpm test
 cd packages/frontend && pnpm build
 ```
+
+CI 说明：`changes` 前置 job 按路径过滤，backend/frontend/security-audit 可跑在
+本地 self-hosted runner（`codex-mac`，macOS ARM64，不计费）；合约/e2e/监控/
+备份 job 使用 GitHub 托管 runner。密钥扫描由 `scripts/scan-secrets.sh` 执行
+（工作区 + Git 历史），发现疑似凭据即失败。
 
 ## 部署
 
