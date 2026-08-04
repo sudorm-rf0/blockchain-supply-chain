@@ -10,6 +10,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { verifyJwt, type JwtPayload } from "./jwt";
 import { ACCESS_TOKEN_COOKIE } from "./session";
 
+export {};
+
 declare global {
   namespace Express {
     interface Request {

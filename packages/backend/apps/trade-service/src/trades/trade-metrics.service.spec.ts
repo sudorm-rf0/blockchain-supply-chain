@@ -2,7 +2,7 @@ import { TradeMetricsService } from "./trade-metrics.service";
 import { Registry } from "prom-client";
 
 function makeMetrics() {
-  return { registryRef: new Registry() };
+  return { registry: new Registry() };
 }
 
 describe("TradeMetricsService", () => {

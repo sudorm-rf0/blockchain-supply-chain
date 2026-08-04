@@ -7,7 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { captureException } from "../observability/sentry";
+import { captureException } from "../shared/sentry";
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {

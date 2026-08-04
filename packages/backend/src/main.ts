@@ -6,9 +6,9 @@ import compression from "compression";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
-import { AllExceptionsFilter } from "./common/all-exceptions.filter";
-import { initSentry } from "./observability/sentry";
-import { assertStartupEnv, validateStartupEnv } from "./config/env-check";
+import { AllExceptionsFilter } from "./shared/all-exceptions.filter";
+import { initSentry } from "./shared/sentry";
+import { assertStartupEnv, validateStartupEnv } from "./shared/env-check";
 
 async function bootstrap() {
   assertStartupEnv(validateStartupEnv({ required: ["DATABASE_URL"], secrets: ["JWT_SECRET"], redisRequired: true, rpcRequired: true }));

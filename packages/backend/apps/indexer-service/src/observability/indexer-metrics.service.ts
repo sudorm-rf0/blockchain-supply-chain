@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Gauge } from "prom-client";
 import { PrismaService } from "../prisma/prisma.service";
 import { SyncQueueService } from "../indexer/sync-queue.service";
-import { MetricsService } from "./metrics.service";
+import { MetricsService } from "../../../../src/shared/metrics.service";
 
 @Injectable()
 export class IndexerMetricsService implements OnModuleInit, OnModuleDestroy {

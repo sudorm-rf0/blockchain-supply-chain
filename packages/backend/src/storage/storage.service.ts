@@ -30,7 +30,7 @@ export class LocalStorageService implements StorageService {
 
   async persist(localPath: string, originalName: string): Promise<PersistedFile> {
     mkdirSync(this.uploadDir, { recursive: true });
-    const safeName = originalName.replace(/[^\w.\-]/g, "_");
+    const safeName = originalName.replace(/[^\w.-]/g, "_");
     const filename = `${Date.now()}_${randomUUID()}_${safeName}`;
     renameSync(localPath, join(this.uploadDir, filename));
     return {
@@ -75,7 +75,7 @@ export class S3StorageService implements StorageService {
   }
 
   async persist(localPath: string, originalName: string): Promise<PersistedFile> {
-    const safeName = originalName.replace(/[^\w.\-]/g, "_");
+    const safeName = originalName.replace(/[^\w.-]/g, "_");
     const key = `files/${Date.now()}_${randomUUID()}_${safeName}`;
     const upload = new Upload({
       client: this.client,

@@ -58,7 +58,7 @@ export class AttestationService {
     });
     await this.ensureWalletBound(user, owner);
 
-    let tradeId = this.parseTradeId(body.tradeId);
+    const tradeId = this.parseTradeId(body.tradeId);
     if (file.tradeId && this.parseTradeId(file.tradeId) !== 0n && tradeId !== this.parseTradeId(file.tradeId)) {
       throw new BadRequestException("tradeId does not match the tradeId associated with the file");
     }

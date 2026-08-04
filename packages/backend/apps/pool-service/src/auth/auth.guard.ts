@@ -9,6 +9,8 @@ import type { Request } from "express";
 import { PrismaService } from "../prisma/prisma.service";
 import { verifyJwt, type JwtPayload } from "./jwt";
 
+export {};
+
 declare global {
   namespace Express {
     interface Request {

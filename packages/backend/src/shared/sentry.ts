@@ -25,4 +25,3 @@ export function captureException(error: unknown): void {
   if (!enabled) return;
   Sentry.captureException(error);
 }
-

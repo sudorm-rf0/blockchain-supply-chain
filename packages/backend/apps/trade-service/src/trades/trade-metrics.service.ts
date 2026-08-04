@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Gauge } from "prom-client";
 import { PrismaService } from "../prisma/prisma.service";
-import { MetricsService } from "../observability/metrics.service";
+import { MetricsService } from "../../../../src/shared/metrics.service";
 
 @Injectable()
 export class TradeMetricsService implements OnModuleInit, OnModuleDestroy {
@@ -16,7 +16,7 @@ export class TradeMetricsService implements OnModuleInit, OnModuleDestroy {
       name: "trade_deals_total",
       help: "Trade deals by status",
       labelNames: ["status"],
-      registers: [this.metrics.registryRef],
+      registers: [this.metrics.registry],
     });
   }
 
