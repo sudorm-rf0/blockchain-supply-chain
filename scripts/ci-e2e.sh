@@ -73,11 +73,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for _ in $(seq 1 60); do
-  curl -sf "${CI_RPC_URL}" >/dev/null 2>&1 && break
+for _ in $(seq 1 180); do
+  curl -sf "${CI_RPC_URL}/health" >/dev/null 2>&1 && break
   sleep 1
 done
-if ! curl -sf "${CI_RPC_URL}" >/dev/null 2>&1; then
+if ! curl -sf "${CI_RPC_URL}/health" >/dev/null 2>&1; then
   echo "validator failed to start; log:" >&2
   tail -30 /tmp/solana-test-validator.log >&2
   echo "validator ledger log:" >&2
