@@ -52,6 +52,7 @@ mkdir -p "${CI_SOLANA_HOME}"
 solana-keygen new --force --no-bip39-passphrase -o "${CI_SOLANA_HOME}/id.json" >/dev/null
 solana config set --url "${CI_RPC_URL}" >/dev/null
 export HOME_CONFIG_DIR="${CI_SOLANA_HOME}"
+export SOLANA_KEYPAIR_PATH="${CI_SOLANA_HOME}/id.json"
 
 # 清理可能残留的同 ledger CI validator，避免 ledger 锁冲突。
 if command -v pgrep >/dev/null 2>&1; then
@@ -84,7 +85,7 @@ if ! curl -sf "${CI_RPC_URL}/health" >/dev/null 2>&1; then
   tail -50 "$LEDGER_DIR/validator.log" >&2 2>/dev/null || true
   exit 1
 fi
-solana airdrop 100 >/dev/null
+solana airdrop 100 --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >/dev/null
 
 cd "$ROOT/packages/contracts"
 echo "PHASE anchor-build" >&2
@@ -95,7 +96,7 @@ cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 >/de
 echo "PHASE anchor-deploy" >&2
 solana program deploy "$ROOT/packages/contracts/target/deploy/trade_finance.so" \
   --program-id "$ROOT/packages/contracts/target/deploy/trade_finance-keypair.json" \
-  --url "${CI_RPC_URL}" >/dev/null
+  --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >/dev/null
 
 cd "$ROOT"
 echo "PHASE init-localnet" >&2
