@@ -71,6 +71,7 @@ services:
   clamav:
     image: clamav/clamav:stable
     container_name: supply-chain-clamav
+    platform: linux/amd64
     restart: unless-stopped
     profiles: ["security"]
     ports:
