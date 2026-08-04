@@ -26,7 +26,8 @@
     "keygen": "node scripts/keygen.cjs",
     "setup": "bash ./init-monorepo.sh",
     "infra:up": "docker compose up -d",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "health": "bash scripts/health-check.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
