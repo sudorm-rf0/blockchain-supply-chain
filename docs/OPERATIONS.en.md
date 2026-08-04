@@ -150,6 +150,11 @@ quarterly in production.
   `cargo build-sbf --arch v3 && solana program deploy --program-id <keypair> target/deploy/*.so`.
 - Initialize the pool: `node scripts/init-localnet.mjs`, which prints
   `USDC_MINT` / `LP_MINT` / `ADMIN`.
+- supply-chain permissioned registration:
+  `node scripts/init-supply-chain.mjs <supplier-pubkeys...>` initializes the
+  Registry and authorizes suppliers (idempotent); the admin UI page
+  (`/admin/supply-chain`) covers init / authorize / revoke / register with
+  wallet signing.
 - Defaulted deals call `RISK_WEBHOOK_URL` with `x-webhook-signature`
   (HMAC-SHA256) and `x-webhook-timestamp`.
 - After a contract upgrade, update the indexer parsers and run

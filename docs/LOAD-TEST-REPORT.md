@@ -20,7 +20,8 @@ Postgres/Redis/Solana localnet 使用 Docker。
 | 文件上传（小 PNG，不同内容） | 10 | 50 个 | 431 文件/s | 22ms | 31ms | 0 |
 | `/api/auth/login` | 10 | 5s | 全 429 | - | - | 限流保护（20/min） |
 
-全链路冒烟 `scripts/smoke-e2e.mjs`：register / upload / attest / tradeLifecycle
+全链路冒烟 `scripts/smoke-e2e.mjs`：register / upload / attest / tradeLifecycle /
+supplyChainRegister / supplyChainRejectUnauthorized
 全部通过（真实 localnet 上链）。
 
 ### Nest 11 复测（2026-08-04）

@@ -114,6 +114,16 @@ bash scripts/deploy-devnet.sh
 - `trade_finance`: `9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3`
 - `supply_chain`: `Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk`
 
+部署 `supply_chain` 后，上线前需初始化权限化注册中心并授权真实供应商
+（否则任何账户都无法注册商品）：
+
+```bash
+node scripts/init-supply-chain.mjs <供应商公钥...>
+```
+
+幂等，可重复执行；输出 `REGISTRY_ADMIN` / `AUTHORIZED_SUPPLIERS` 供核对，
+详见 [GO-LIVE-RUNBOOK.md](GO-LIVE-RUNBOOK.md) 第 2 节。
+
 ## 5. Kubernetes 部署
 
 ### 5.1 准备密钥

@@ -8,7 +8,9 @@
   `packages/contracts/programs/supply-chain/src/`
 - IDL：`packages/contracts/target/idl/trade_finance.json`、
   `packages/contracts/target/idl/supply_chain.json`
-- 测试：`packages/contracts/tests/trade-finance.ts`（7 个用例）
+- 测试：`packages/contracts/tests/trade-finance.ts`（23 个用例）、
+  `packages/contracts/tests/supply-chain.ts`（13 个用例）；另有
+  `cargo test` Rust 单测（trade-finance 8、supply-chain 8）
 - 部署信息：Program ID 见 `Anchor.toml`；localnet 部署见
   `scripts/deploy-devnet.sh` 与 `scripts/init-localnet.mjs`
 - 合约状态机：`PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED →
@@ -33,4 +35,6 @@
 
 - `redeem_lp` 已实现：LP 按 NAV 赎回，受单次 50% 上限与保险池最低余额保护；
   管理端 7 天提款审批闭环仍然保留。
-- `supply-chain` program 目前为文档存证用途，逻辑简单。
+- `supply-chain` program 为权限化注册：`Registry`（唯一管理员）可授权/撤销
+  供应商，仅管理员或已授权供应商可注册商品（Product PDA 按 owner + SKU 哈希
+  派生）；`Option<Account<Supplier>>` 的 None 占位使用程序 ID（Anchor 约定）。

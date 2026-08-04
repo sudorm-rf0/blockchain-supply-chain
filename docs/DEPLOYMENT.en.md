@@ -116,6 +116,17 @@ and these Program IDs must be verified:
 - `trade_finance`: `9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3`
 - `supply_chain`: `Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk`
 
+After deploying `supply_chain`, initialize the permissioned registry and
+authorize real suppliers before going live (otherwise no account can register
+products):
+
+```bash
+node scripts/init-supply-chain.mjs <supplier-pubkeys...>
+```
+
+Idempotent and re-runnable; prints `REGISTRY_ADMIN` / `AUTHORIZED_SUPPLIERS`
+for verification. See GO-LIVE-RUNBOOK.md section 2.
+
 ## 5. Kubernetes Deployment
 
 ### 5.1 Secrets
