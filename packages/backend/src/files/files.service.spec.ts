@@ -137,6 +137,30 @@ describe("FilesService", () => {
     );
   });
 
+  it("rejects a file that fails the virus scan", async () => {
+    const prisma = makePrisma();
+    const scan = { scan: jest.fn(async () => ({ clean: false })) };
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      scan as never,
+    );
+    const path = join(dir, "ok.png");
+    writeFileSync(path, PNG_BYTES);
+    const file = {
+      originalname: "ok.png",
+      path,
+      size: PNG_BYTES.length,
+      mimetype: "image/png",
+    } as Express.Multer.File;
+    await expect(service.upload(file, {}, "user-1")).rejects.toThrow(
+      "文件未通过安全扫描",
+    );
+    expect(prisma.file.create).not.toHaveBeenCalled();
+  });
+
   it("creates the next version and supersedes older files in the same document", async () => {
     const prisma = makePrisma();
     (prisma.file.findFirst as jest.Mock).mockImplementation(
