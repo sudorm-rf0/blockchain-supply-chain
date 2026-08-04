@@ -24,6 +24,9 @@ solana-keygen new --force --no-bip39-passphrase -o "${CI_SOLANA_HOME}/id.json" >
 solana config set --url "${CI_RPC_URL}" >/dev/null
 export HOME_CONFIG_DIR="${CI_SOLANA_HOME}"
 
+if command -v lsof >/dev/null 2>&1; then
+  lsof -nP -iTCP:"${CI_RPC_PORT}" -sTCP:LISTEN -t 2>/dev/null | xargs kill 2>/dev/null || true
+fi
 solana-test-validator --quiet --ledger "$LEDGER_DIR" --reset --rpc-port "${CI_RPC_PORT}" \
   >/tmp/solana-test-validator.log 2>&1 &
 VALIDATOR_PID=$!
@@ -37,6 +40,11 @@ for _ in $(seq 1 60); do
   curl -sf "${CI_RPC_URL}" >/dev/null 2>&1 && break
   sleep 1
 done
+if ! curl -sf "${CI_RPC_URL}" >/dev/null 2>&1; then
+  echo "validator failed to start; log:" >&2
+  tail -30 /tmp/solana-test-validator.log >&2
+  exit 1
+fi
 solana airdrop 100 >/dev/null
 
 cd "$ROOT/packages/contracts"
