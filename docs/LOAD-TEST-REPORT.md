@@ -23,6 +23,24 @@ Postgres/Redis/Solana localnet 使用 Docker。
 全链路冒烟 `scripts/smoke-e2e.mjs`：register / upload / attest / tradeLifecycle
 全部通过（真实 localnet 上链）。
 
+### Nest 11 复测（2026-08-04）
+
+Nest 11.1.28 迁移后本地重测（同一台机器，含 dev server 与后台任务负载）：
+
+| 场景 | 并发 | 吞吐 | 平均延迟 | P99 | 错误 |
+| --- | --- | --- | --- | --- | --- |
+| `/health` | 50 | 3.2k req/s | 15.3ms | 63ms | 0 |
+| `/api/indexer/status` | 50 | 3.7k req/s | 12.9ms | 40ms | 0 |
+| `/api/pool/overview` | 50 | 3.8k req/s | 12.7ms | 35ms | 0 |
+| `/api/files` 列表 | 50 | 1.0k req/s | 48.0ms | 109ms | 0 |
+| `/api/trades` 列表 | 50 | 2.7k req/s | 18.0ms | 49ms | 0 |
+| `/api/trades` POST | 5 | 305 req/s | - | 35ms | 0 |
+| 文件上传 | 10 | 212 文件/s | 45ms | 102ms | 0 |
+
+说明：本轮绝对数值低于 8-02 历史峰值，主要因本机同时运行 dev server、
+后台服务与 GitHub self-hosted runner 占用的 CPU；相对容量（无错误、P99
+稳定）满足演示与中小规模使用。
+
 ### 历史数据（2026-08-02）
 
 | 场景 | 并发 | 时长 | 请求量 | 吞吐 | 平均延迟 | P99 | 错误 |

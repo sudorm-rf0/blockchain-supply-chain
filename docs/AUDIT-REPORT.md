@@ -22,7 +22,7 @@
 | Low | 5 | 限流策略、默认管理员密码、LP 赎回缺失、审计保留策略、备份未演练 |
 
 依赖审计（`pnpm audit --prod --registry https://registry.npmjs.org`）：
-2 vulnerabilities（1 moderate / 1 high）。
+1 vulnerability（1 high，`bigint-buffer` 无补丁）。
 
 ## High 发现
 
@@ -92,10 +92,8 @@
   `@solana/buffer-layout-utils`。使用路径为 `Buffer.from(src)` 完整拷贝后
   解析，长度恒为 8/16 字节，不接收攻击者可控越界输入；等待上游移除或
   发布修复版本，不建议自行 fork override。
-- `@nestjs/core`（moderate）：修复仅存在于 Nest 11.1.18+。升级 Nest 11 需
-  同步升级 `@nestjs/common/platform-express/schedule` 并适配 Express 5
-  （`path-to-regexp` v8、multer 2 等），涉及 4 个服务与全部 controller，
-  回归风险高；建议作为独立升级项规划，不应在功能迭代中夹带。
+- `@nestjs/core`（moderate）：**已修复**（Nest 11.1.28 升级完成，
+  见 `docs/NEST-11-UPGRADE.md`），生产依赖漏洞降至 1 个。
 - 运维：K8s 提供 `k8s/network-policies.yaml`（默认拒绝 + 网关/内部/DNS/
   外部出口放行），部署开关 `DEPLOY_NETWORK_POLICIES=1`。
 - 功能：trade-service 新增还款到期通知（每 10 分钟扫描 REPAYING 超时订单，
