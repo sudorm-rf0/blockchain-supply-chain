@@ -16,7 +16,63 @@ spec:
     - host: supply-chain.example.com
       http:
         paths:
-          - path: /api
+          - path: /api/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3001
+          - path: /api/files
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3001
+          - path: /api/admin
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3001
+          - path: /api/pool
+            pathType: Prefix
+            backend:
+              service:
+                name: pool-service
+                port:
+                  number: 3005
+          - path: /api/trades
+            pathType: Prefix
+            backend:
+              service:
+                name: trade-service
+                port:
+                  number: 3004
+          - path: /api/lp
+            pathType: Prefix
+            backend:
+              service:
+                name: pool-service
+                port:
+                  number: 3005
+          - path: /api/indexer
+            pathType: Prefix
+            backend:
+              service:
+                name: indexer-service
+                port:
+                  number: 3003
+          - path: /api/csp-report
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 3001
+          - path: /health
             pathType: Prefix
             backend:
               service:

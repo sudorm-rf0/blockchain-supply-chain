@@ -9,6 +9,8 @@ ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org
 ARG NEXT_PUBLIC_BACKEND_URL=https://supply-chain.example.com/api
 ARG NEXT_PUBLIC_TRADE_API_URL=https://supply-chain.example.com/api
 ARG NEXT_PUBLIC_POOL_API_URL=https://supply-chain.example.com/api
+ARG NEXT_PUBLIC_INDEXER_API_URL=https://supply-chain.example.com/api
+ARG NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
 ARG NEXT_PUBLIC_CSP_REPORT_URI=
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -36,6 +38,8 @@ COPY packages/frontend packages/frontend
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 ENV NEXT_PUBLIC_TRADE_API_URL=${NEXT_PUBLIC_TRADE_API_URL}
 ENV NEXT_PUBLIC_POOL_API_URL=${NEXT_PUBLIC_POOL_API_URL}
+ENV NEXT_PUBLIC_INDEXER_API_URL=${NEXT_PUBLIC_INDEXER_API_URL}
+ENV NEXT_PUBLIC_RPC_URL=${NEXT_PUBLIC_RPC_URL}
 ENV NEXT_PUBLIC_CSP_REPORT_URI=${NEXT_PUBLIC_CSP_REPORT_URI}
 RUN mkdir -p packages/frontend/public
 RUN pnpm --filter @supply-chain/frontend run build
@@ -69,9 +73,7 @@ RUN sed -i "s#https://dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#g" /etc/apk/reposi
 ENV NODE_ENV=production PORT=3000
 
 COPY --from=builder /workspace/packages/frontend/.next/standalone ./
-COPY --from=builder /workspace/packages/frontend/.next/static ./.next/static
-COPY --from=builder /workspace/packages/frontend/public ./public
 
 USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "packages/frontend/server.js"]

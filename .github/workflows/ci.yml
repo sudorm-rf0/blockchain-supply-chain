@@ -481,6 +481,8 @@ jobs:
             --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.example.com \
             --build-arg NEXT_PUBLIC_TRADE_API_URL=https://api.example.com \
             --build-arg NEXT_PUBLIC_POOL_API_URL=https://api.example.com \
+            --build-arg NEXT_PUBLIC_INDEXER_API_URL=https://api.example.com \
+            --build-arg NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com \
             --target frontend-runner -f Dockerfile.multistage .
 
   security-audit:

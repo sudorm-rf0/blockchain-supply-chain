@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   title: "Supply Chain Traceability",
   description: "Solana supply chain traceability dashboard",
   manifest: "/manifest.webmanifest",
+  other: {
+    // 阻止浏览器/翻译扩展自动翻译本站，避免注入 DOM 破坏 React 水合
+    google: "notranslate",
+  },
 };
 
 export default async function RootLayout({
@@ -24,7 +28,7 @@ export default async function RootLayout({
 }) {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="zh-CN" translate="no" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider nonce={nonce}>
           <AppWalletProvider>{children}</AppWalletProvider>

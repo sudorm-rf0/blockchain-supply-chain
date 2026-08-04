@@ -17,6 +17,8 @@ LP_MINT="${LP_MINT:-4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU}"
 RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL:-}"
 WEBHOOK_SECRET="${WEBHOOK_SECRET:-$(openssl rand -hex 32)}"
 POOL_STATE_ADDRESS="${POOL_STATE_ADDRESS:-}"
+REPAYMENT_NOTIFY_URL="${REPAYMENT_NOTIFY_URL:-}"
+GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-admin}"
 
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
@@ -35,6 +37,7 @@ kubectl -n "${NAMESPACE}" create secret generic backend-secrets \
   --from-literal=WEBHOOK_SECRET="${WEBHOOK_SECRET}" \
   --from-literal=POOL_STATE_ADDRESS="${POOL_STATE_ADDRESS}" \
   ${RISK_WEBHOOK_URL:+--from-literal=RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL}"} \
+  ${REPAYMENT_NOTIFY_URL:+--from-literal=REPAYMENT_NOTIFY_URL="${REPAYMENT_NOTIFY_URL}"} \
   ${ALLOWED_ORIGIN:+--from-literal=ALLOWED_ORIGIN="${ALLOWED_ORIGIN}"} \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
@@ -53,5 +56,9 @@ if [[ -f "${CERT_DIR}/redis/redis.crt" ]]; then
     --from-file="${CERT_DIR}/redis/ca.crt" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 fi
+
+kubectl -n "${NAMESPACE}" create secret generic grafana-secrets \
+  --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+  --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
 echo "secrets created in namespace ${NAMESPACE}"
