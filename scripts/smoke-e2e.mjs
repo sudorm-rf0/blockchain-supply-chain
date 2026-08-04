@@ -1,7 +1,15 @@
 // 全链路冒烟：注册 → 上传 → 存证上链 → （若配置 USDC_MINT）订单全流程。
 // 运行：node scripts/smoke-e2e.mjs
 // 可选：USDC_MINT=<mint> LP_MINT=<mint> 启用订单资金流（需先跑 init-localnet.mjs）。
-import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction,
+} from "@solana/web3.js";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
@@ -187,6 +195,146 @@ if (USDC_MINT) {
     { txSignature: await signSend(repay.transaction, wallet) },
   );
   results.tradeLifecycle = repayRes.status === "SETTLED";
+}
+
+// ---- supply-chain 权限化注册冒烟（默认启用；SKIP_SUPPLY_CHAIN=1 跳过）----
+if (!process.env.SKIP_SUPPLY_CHAIN) {
+  const SC_PROGRAM_ID = new PublicKey(
+    process.env.SUPPLY_CHAIN_PROGRAM_ID ??
+      "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk",
+  );
+  if (!(await conn.getAccountInfo(SC_PROGRAM_ID))) {
+    throw new Error(
+      `supply_chain program not deployed at ${SC_PROGRAM_ID.toBase58()}; ` +
+        "deploy it first or set SKIP_SUPPLY_CHAIN=1",
+    );
+  }
+  const scDisc = (name) =>
+    createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
+  const scU64 = (v) => {
+    const b = Buffer.alloc(8);
+    b.writeBigUInt64LE(BigInt(v));
+    return b;
+  };
+  const scStr = (str) => {
+    const b = Buffer.from(str, "utf8");
+    const len = Buffer.alloc(4);
+    len.writeUInt32LE(b.length);
+    return Buffer.concat([len, b]);
+  };
+  const registryPda = PublicKey.findProgramAddressSync(
+    [Buffer.from("supply_chain"), Buffer.from("registry")],
+    SC_PROGRAM_ID,
+  )[0];
+  const supplierPda = (key) =>
+    PublicKey.findProgramAddressSync(
+      [Buffer.from("supply_chain"), Buffer.from("supplier"), key.toBuffer()],
+      SC_PROGRAM_ID,
+    )[0];
+  const productPda = (owner, sku) =>
+    PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("supply_chain"),
+        Buffer.from("product"),
+        owner.toBuffer(),
+        createHash("sha256").update(sku).digest().subarray(0, 8),
+      ],
+      SC_PROGRAM_ID,
+    )[0];
+
+  async function scSend(signer, keys, data) {
+    const tx = new Transaction();
+    tx.feePayer = signer.publicKey;
+    tx.recentBlockhash = (await conn.getLatestBlockhash("confirmed")).blockhash;
+    tx.add(new TransactionInstruction({ keys, programId: SC_PROGRAM_ID, data }));
+    tx.sign(signer);
+    await conn.confirmTransaction(await conn.sendRawTransaction(tx.serialize()), "confirmed");
+  }
+
+  // 1) Registry：不存在则由 admin 初始化；已存在则校验 admin 一致。
+  if (!(await conn.getAccountInfo(registryPda))) {
+    await scSend(
+      admin,
+      [
+        { pubkey: registryPda, isSigner: false, isWritable: true },
+        { pubkey: admin.publicKey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      scDisc("initialize_registry"),
+    );
+  }
+  const regInfo = await conn.getAccountInfo(registryPda);
+  if (!regInfo) throw new Error("supply_chain registry missing after init");
+  const regAdmin = new PublicKey(regInfo.data.subarray(8, 40));
+  if (regAdmin.toBase58() !== admin.publicKey.toBase58()) {
+    throw new Error(
+      `supply_chain registry admin mismatch: ${regAdmin.toBase58()} != ${admin.publicKey.toBase58()}`,
+    );
+  }
+
+  // 2) 授权一个临时供应商（幂等）。
+  const supplier = Keypair.generate();
+  await conn.requestAirdrop(supplier.publicKey, 5_000_000_000);
+  await new Promise((r) => setTimeout(r, 1200));
+  const supPda = supplierPda(supplier.publicKey);
+  if (!(await conn.getAccountInfo(supPda))) {
+    await scSend(
+      admin,
+      [
+        { pubkey: registryPda, isSigner: false, isWritable: false },
+        { pubkey: admin.publicKey, isSigner: true, isWritable: true },
+        { pubkey: supPda, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      Buffer.concat([scDisc("authorize_supplier"), supplier.publicKey.toBuffer()]),
+    );
+  }
+
+  // 3) 供应商注册商品并校验链上账户。
+  const sku = `SMOKE-${Date.now()}`;
+  const units = 100;
+  const prodPda = productPda(supplier.publicKey, sku);
+  await scSend(
+    supplier,
+    [
+      { pubkey: registryPda, isSigner: false, isWritable: false },
+      { pubkey: prodPda, isSigner: false, isWritable: true },
+      { pubkey: supplier.publicKey, isSigner: true, isWritable: true },
+      { pubkey: supPda, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    Buffer.concat([scDisc("register_product"), scStr(sku), scU64(units)]),
+  );
+  const prodInfo = await conn.getAccountInfo(prodPda);
+  if (!prodInfo) throw new Error("supply_chain product account missing after register");
+  const prodOwner = new PublicKey(prodInfo.data.subarray(8, 40));
+  if (prodOwner.toBase58() !== supplier.publicKey.toBase58()) {
+    throw new Error(`supply_chain product owner mismatch: ${prodOwner.toBase58()}`);
+  }
+  results.supplyChainRegister = true;
+
+  // 4) 负面用例：未授权钱包注册必须被拒绝。
+  const stranger = Keypair.generate();
+  await conn.requestAirdrop(stranger.publicKey, 5_000_000_000);
+  await new Promise((r) => setTimeout(r, 1200));
+  const badSku = `BLOCKED-${Date.now()}`;
+  const badProd = productPda(stranger.publicKey, badSku);
+  try {
+    await scSend(
+      stranger,
+      [
+        { pubkey: registryPda, isSigner: false, isWritable: false },
+        { pubkey: badProd, isSigner: false, isWritable: true },
+        { pubkey: stranger.publicKey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // supplier: None
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      Buffer.concat([scDisc("register_product"), scStr(badSku), scU64(1)]),
+    );
+    results.supplyChainRejectUnauthorized = false; // 不应成功
+  } catch {
+    results.supplyChainRejectUnauthorized = true;
+  }
 }
 
 console.log(JSON.stringify(results, null, 2));
