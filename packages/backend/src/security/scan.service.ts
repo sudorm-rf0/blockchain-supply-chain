@@ -23,6 +23,12 @@ export class ScanService {
       if (process.env.NODE_ENV === "production") {
         throw new Error("CLAMAV_HOST or SCAN_URL must be set in production");
       }
+      if (process.env.ALLOW_UNSCANNED_UPLOADS === "true") {
+        this.logger.warn(
+          "virus scan disabled; ALLOW_UNSCANNED_UPLOADS=true permits uploads in non-production",
+        );
+        return { clean: true };
+      }
       this.logger.warn("virus scan disabled: set CLAMAV_HOST or SCAN_URL");
       return { clean: false };
     }

@@ -349,6 +349,7 @@ jobs:
       NEXT_PUBLIC_BACKEND_URL: "http://localhost:3101"
       NEXT_PUBLIC_TRADE_API_URL: "http://localhost:3104"
       NEXT_PUBLIC_POOL_API_URL: "http://localhost:3105"
+      ALLOW_UNSCANNED_UPLOADS: "true"
       E2E_FRONTEND_PORT: "3110"
       E2E_BASE_URL: "http://localhost:3110"
 
