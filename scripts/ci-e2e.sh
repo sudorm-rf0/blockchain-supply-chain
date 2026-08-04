@@ -65,14 +65,14 @@ pnpm exec prisma db seed >/dev/null
 
 THROTTLE_LIMIT=100000 PORT="${CI_BACKEND_PORT}" pnpm start >/tmp/backend.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
-THROTTLE_LIMIT=100000 PORT="${CI_TRADE_PORT}" SOLANA_RPC_URL="${CI_RPC_URL}" \
+THROTTLE_LIMIT=100000 TRADE_SERVICE_PORT="${CI_TRADE_PORT}" SOLANA_RPC_URL="${CI_RPC_URL}" \
   USDC_MINT="$USDC_MINT" LP_MINT="$LP_MINT" pnpm start:trade >/tmp/trade.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
-REDIS_URL="${REDIS_URL:-redis://localhost:6379}" THROTTLE_LIMIT=100000 PORT="${CI_POOL_PORT}" \
+REDIS_URL="${REDIS_URL:-redis://localhost:6380}" THROTTLE_LIMIT=100000 POOL_SERVICE_PORT="${CI_POOL_PORT}" \
   SOLANA_RPC_URL="${CI_RPC_URL}" USDC_MINT="$USDC_MINT" LP_MINT="$LP_MINT" \
   pnpm start:pool >/tmp/pool.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
-REDIS_URL="${REDIS_URL:-redis://localhost:6379}" PORT="${CI_INDEXER_PORT}" \
+REDIS_URL="${REDIS_URL:-redis://localhost:6380}" INDEXER_PORT="${CI_INDEXER_PORT}" \
   SOLANA_RPC_URL="${CI_RPC_URL}" pnpm start:indexer >/tmp/indexer.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
 

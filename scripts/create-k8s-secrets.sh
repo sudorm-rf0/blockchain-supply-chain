@@ -15,6 +15,8 @@ TRADE_FINANCE_PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID:-9c8eND94LxNZgDbhvApGsRKojH
 USDC_MINT="${USDC_MINT:-4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU}"
 LP_MINT="${LP_MINT:-4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU}"
 RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL:-}"
+WEBHOOK_SECRET="${WEBHOOK_SECRET:-$(openssl rand -hex 32)}"
+POOL_STATE_ADDRESS="${POOL_STATE_ADDRESS:-}"
 
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
@@ -30,6 +32,8 @@ kubectl -n "${NAMESPACE}" create secret generic backend-secrets \
   --from-literal=TRADE_FINANCE_PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID}" \
   --from-literal=USDC_MINT="${USDC_MINT}" \
   --from-literal=LP_MINT="${LP_MINT}" \
+  --from-literal=WEBHOOK_SECRET="${WEBHOOK_SECRET}" \
+  --from-literal=POOL_STATE_ADDRESS="${POOL_STATE_ADDRESS}" \
   ${RISK_WEBHOOK_URL:+--from-literal=RISK_WEBHOOK_URL="${RISK_WEBHOOK_URL}"} \
   ${ALLOWED_ORIGIN:+--from-literal=ALLOWED_ORIGIN="${ALLOWED_ORIGIN}"} \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null

@@ -61,6 +61,26 @@ spec:
                   name: backend-secrets
                   key: ALLOWED_ORIGIN
                   optional: true
+            - name: SOLANA_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: SOLANA_RPC_URL
+            - name: TRADE_FINANCE_PROGRAM_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: TRADE_FINANCE_PROGRAM_ID
+            - name: USDC_MINT
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: USDC_MINT
+            - name: LP_MINT
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: LP_MINT
           livenessProbe:
             httpGet:
               path: /health

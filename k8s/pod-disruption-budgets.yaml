@@ -2,6 +2,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: backend-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -13,6 +14,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: frontend-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -24,6 +26,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: indexer-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -35,6 +38,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: trade-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -46,6 +50,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: pool-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -57,6 +62,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: postgres-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -67,6 +73,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: redis-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -77,6 +84,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: prometheus-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -87,6 +95,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: grafana-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:
@@ -97,6 +106,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: alertmanager-pdb
+  namespace: supply-chain
 spec:
   minAvailable: 1
   selector:

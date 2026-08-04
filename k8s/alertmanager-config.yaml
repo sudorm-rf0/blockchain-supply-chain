@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: alertmanager-config
+  namespace: supply-chain
 data:
   alertmanager.yml: |
     # 部署前请用 scripts/configure-alertmanager-webhook.sh 生成
