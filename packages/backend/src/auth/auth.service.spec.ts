@@ -7,6 +7,8 @@ import {
 import { Keypair } from "@solana/web3.js";
 import { AuthService } from "./auth.service";
 
+process.env.JWT_SECRET = "test-secret-at-least-32-chars-long!";
+
 function makeAudit() {
   return { record: jest.fn(async () => undefined) };
 }

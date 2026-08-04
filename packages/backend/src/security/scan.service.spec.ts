@@ -16,12 +16,12 @@ describe("ScanService", () => {
     process.env = { ...originalEnv };
   });
 
-  it("passes uploads when virus scanning is not configured", async () => {
+  it("returns clean=false when virus scanning is not configured", async () => {
     delete process.env.CLAMAV_HOST;
     delete process.env.SCAN_URL;
     const service = new ScanService();
     await expect(service.scan(filePath)).resolves.toEqual({
-      clean: true,
+      clean: false,
     });
   });
 

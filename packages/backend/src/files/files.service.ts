@@ -121,6 +121,7 @@ export class FilesService {
     const quotaKey = `upload:quota:${uploaderId}:${uploadDay}`;
     const usedToday = Number((await this.redis.get(quotaKey)) ?? 0);
     if (usedToday >= MAX_UPLOADS_PER_DAY) {
+      this.removeUploadedFile(file.path);
       throw new HttpException(
         "今日上传次数已达上限，请明天再试",
         HttpStatus.TOO_MANY_REQUESTS,
@@ -133,6 +134,7 @@ export class FilesService {
         select: { wallet: true },
       });
       if (!uploader?.wallet) {
+        this.removeUploadedFile(file.path);
         throw new ForbiddenException("请先绑定钱包再上传单据");
       }
       const trade = await this.prisma.tradeDeal.findUnique({
@@ -140,12 +142,14 @@ export class FilesService {
         select: { buyerWallet: true, sellerWallet: true },
       });
       if (!trade) {
+        this.removeUploadedFile(file.path);
         throw new BadRequestException("关联订单不存在");
       }
       if (
         trade.buyerWallet !== uploader.wallet &&
         trade.sellerWallet !== uploader.wallet
       ) {
+        this.removeUploadedFile(file.path);
         throw new ForbiddenException("只能上传与本人相关的贸易订单单据");
       }
     }
