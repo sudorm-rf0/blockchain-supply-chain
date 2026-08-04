@@ -412,6 +412,22 @@ LP 链上赎回预构建交易。
 | `attest_document(trade_id, file_hash, uri)` | 单据哈希存证 |
 | `refresh_nav` | 刷新 NAV |
 
+| `redeem_lp(amount)` | LP 赎回 |
+| `attest_document(trade_id, file_hash, uri)` | 单据哈希存证 |
+| `refresh_nav` | 刷新 NAV |
+
+## 链上指令（Anchor `supply-chain`）
+
+权限模型：`initialize_registry` 记录唯一管理员；只有管理员或已被管理员授权的
+供应商可以调用 `register_product` 注册商品，授权记录可撤销（`revoke_supplier`）。
+
+| 指令 | 说明 |
+| --- | --- |
+| `initialize_registry` | 初始化供应链注册中心，记录管理员 |
+| `authorize_supplier(supplier_key)` | 管理员授权供应商（可注册商品） |
+| `revoke_supplier(supplier_key)` | 管理员撤销供应商并关闭其授权账户 |
+| `register_product(sku, units)` | 管理员或已授权供应商注册商品（SKU 非空、数量>0） |
+
 Swagger 页面：主后端 `http://localhost:3001/api-docs`、
 trade-service `http://localhost:3004/docs`、
 pool-service `http://localhost:3005/docs`。
