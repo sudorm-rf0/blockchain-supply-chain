@@ -20,8 +20,11 @@ export class ScanService {
     }
     const url = process.env.SCAN_URL;
     if (!url) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("CLAMAV_HOST or SCAN_URL must be set in production");
+      }
       this.logger.warn("virus scan disabled: set CLAMAV_HOST or SCAN_URL");
-      return { clean: true };
+      return { clean: false };
     }
     return this.scanHttp(filePath, url);
   }

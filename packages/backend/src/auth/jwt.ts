@@ -5,15 +5,13 @@ import {
 
 const ALGORITHM = "sha256";
 const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-const DEV_SECRET = "supply-chain-dev-secret-change-in-production";
 
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
-  if (secret) return secret;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET must be set in production");
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET must be set (>= 32 chars)");
   }
-  return DEV_SECRET;
+  return secret;
 }
 
 function base64urlEncode(data: Buffer): string {
