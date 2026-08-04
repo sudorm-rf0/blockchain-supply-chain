@@ -15,7 +15,7 @@ async function seedAdmin(): Promise<{ email: string; password: string }> {
   const res = await fetch(`${BACKEND}/api/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, name: "E2E Admin", password, confirmPassword: password }),
+    body: JSON.stringify({ email, name: "E2E Admin", password }),
   });
   if (!res.ok) throw new Error(`seed admin failed: ${res.status}`);
   return { email, password };
