@@ -20,6 +20,7 @@ fi
 
 SERVICES=(
   "backend|3001|packages/backend|pnpm dev"
+  "scan-stub|3311|.|PORT=3311 node scripts/dev-scan-stub.mjs"
   "indexer|3003|packages/backend|REDIS_URL=redis://localhost:6380 pnpm dev:indexer"
   "trade|3004|packages/backend|${ENV_PREFIX} pnpm dev:trade"
   "pool|3005|packages/backend|REDIS_URL=redis://localhost:6380 ${ENV_PREFIX} pnpm dev:pool"

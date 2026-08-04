@@ -149,6 +149,18 @@ K8s 环境每天 02:00 自动 `pg_dump -Fc` 到 `postgres-backups` PVC，保留
 - 409：同哈希重复上传。
 - 429：每日配额超限，检查 `MAX_UPLOADS_PER_DAY`。
 
+### 本地病毒扫描
+
+病毒扫描默认 fail-closed：无 `CLAMAV_HOST` / `SCAN_URL` 时上传会被拒绝。
+生产必须配置真实 ClamAV 或云扫描。本地开发（无病毒库网络）可显式使用
+stub 放行：
+
+```bash
+PORT=3311 node scripts/dev-scan-stub.mjs   # 或由 scripts/dev-all.sh 自动启动
+```
+
+并设置 `SCAN_URL=http://localhost:3311/scan`。生产禁止使用 stub。
+
 ## 7. 合约运维
 
 - 重新部署合约：`bash scripts/deploy-devnet.sh`（devnet）或 localnet

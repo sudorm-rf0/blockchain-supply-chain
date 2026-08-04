@@ -31,7 +31,7 @@ spec:
               drop: ["ALL"]
           image: ghcr.io/example/supply-chain-backend:latest
           imagePullPolicy: IfNotPresent
-          command: ["node", "dist/apps/pool-service/src/main.js"]
+          command: ["node", "dist/apps/pool-service/apps/pool-service/src/main.js"]
           ports:
             - containerPort: 3005
               name: http
