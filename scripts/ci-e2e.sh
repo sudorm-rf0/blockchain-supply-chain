@@ -15,6 +15,7 @@ CI_INDEXER_PORT="${CI_INDEXER_PORT:-3003}"
 CI_TRADE_PORT="${CI_TRADE_PORT:-3004}"
 CI_POOL_PORT="${CI_POOL_PORT:-3005}"
 CI_SOLANA_HOME="${CI_SOLANA_HOME:-$HOME/.config/solana}"
+# 端口与密钥目录均可通过 CI_* 环境变量隔离，避免与本地服务冲突
 CI_RPC_URL="http://127.0.0.1:${CI_RPC_PORT}"
 cd "$ROOT"
 

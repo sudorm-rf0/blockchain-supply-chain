@@ -17,6 +17,7 @@
 set -euo pipefail
 
 CONTAINER="${CONTAINER:-supply-chain-postgres}"
+# 可通过 CONTAINER 指定独立容器，便于 CI 并行运行不冲突
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 DB="${DB:-supply_chain}"
 TEST_DB="${TEST_DB:-supply_chain_drill_$(date +%Y%m%d_%H%M%S)}"
