@@ -5,12 +5,25 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_DIR="${LOG_DIR:-$ROOT/.dev-logs}"
 mkdir -p "${LOG_DIR}"
 
-declare -A SERVICES=(
-  ["backend"]="3001|packages/backend|pnpm dev"
-  ["indexer"]="3003|packages/backend|REDIS_URL=redis://localhost:6380 pnpm dev:indexer"
-  ["trade"]="3004|packages/backend|pnpm dev:trade"
-  ["pool"]="3005|packages/backend|REDIS_URL=redis://localhost:6380 pnpm dev:pool"
-  ["frontend"]="3100|packages/frontend|FRONTEND_PORT=3100 pnpm dev"
+# 本地代币/合约配置：运行 init-localnet 后保存为 infra/config/localnet.env
+#   node scripts/init-localnet.mjs | tee infra/config/localnet.env
+LOCALNET_ENV="${LOCALNET_ENV:-$ROOT/infra/config/localnet.env}"
+ENV_PREFIX=""
+if [[ -f "${LOCALNET_ENV}" ]]; then
+  set -a
+  source "${LOCALNET_ENV}"
+  set +a
+  ENV_PREFIX="USDC_MINT=${USDC_MINT:-} LP_MINT=${LP_MINT:-}"
+else
+  echo "warning: ${LOCALNET_ENV} not found; trade/pool will use dev placeholder mints" >&2
+fi
+
+SERVICES=(
+  "backend|3001|packages/backend|pnpm dev"
+  "indexer|3003|packages/backend|REDIS_URL=redis://localhost:6380 pnpm dev:indexer"
+  "trade|3004|packages/backend|${ENV_PREFIX} pnpm dev:trade"
+  "pool|3005|packages/backend|REDIS_URL=redis://localhost:6380 ${ENV_PREFIX} pnpm dev:pool"
+  "frontend|3100|packages/frontend|FRONTEND_PORT=3100 pnpm dev"
 )
 
 PIDS=()
@@ -38,10 +51,11 @@ is_port_free() {
   ! lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
 }
 
-for name in "${!SERVICES[@]}"; do
-  entry="${SERVICES[$name]}"
-  port="${entry%%|*}"
+for entry in "${SERVICES[@]}"; do
+  name="${entry%%|*}"
   rest="${entry#*|}"
+  port="${rest%%|*}"
+  rest="${rest#*|}"
   dir="${rest%%|*}"
   command="${rest#*|}"
   if ! is_port_free "${port}"; then
