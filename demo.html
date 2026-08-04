@@ -97,6 +97,37 @@ input{font:inherit}
   0%,100%{box-shadow:0 0 0 5px rgba(15,118,136,.14)}
   50%{box-shadow:0 0 0 11px rgba(15,118,136,.07)}
 }
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(18px)}
+  to{opacity:1;transform:none}
+}
+@keyframes fadeIn{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes popIn{
+  0%{transform:scale(.82);opacity:0}
+  60%{transform:scale(1.06)}
+  100%{transform:scale(1);opacity:1}
+}
+@keyframes countPulse{
+  0%{transform:scale(1)}
+  40%{transform:scale(1.12)}
+  100%{transform:scale(1)}
+}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.22,.61,.36,1),transform .7s cubic-bezier(.22,.61,.36,1)}
+.reveal.in{opacity:1;transform:none}
+.fade-in{opacity:0;transition:opacity .9s ease}
+.fade-in.in{opacity:1}
+.chain-log .line{animation:fadeIn .45s ease}
+.stat .num{transition:transform .3s}
+.stat.pop .num{animation:countPulse .5s ease}
+.flow-step.active .node{animation:pulseNode 1.5s ease-in-out infinite,popIn .45s ease}
+.topbar{animation:fadeUp .6s ease}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .reveal,.fade-in{opacity:1;transform:none}
+}
 .flow-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
 .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
 
@@ -649,9 +680,13 @@ function renderAdmin() {
   const visible = typeof adminFilter === "undefined" || adminFilter === "ALL" ? records : records.filter((r) => r.status === adminFilter);
   const pending = records.filter((r) => r.status === "PENDING").length;
   const chain = records.filter((r) => r.status === "ON_CHAIN").length;
-  statPending.textContent = pending;
-  statChain.textContent = chain;
-  statTotal.textContent = records.length;
+  animateValue(statPending, pending);
+  animateValue(statChain, chain);
+  animateValue(statTotal, records.length);
+  const statBox = document.querySelector(".stats");
+  statBox.classList.remove("pop");
+  void statBox.offsetWidth;
+  statBox.classList.add("pop");
 
   if (visible.length === 0) {
     adminRows.innerHTML = '<tr><td colspan="8"><div class="empty">暂无单据，等用户上传后自动出现</div></td></tr>';
@@ -886,6 +921,51 @@ setInterval(() => {
   }
   renderAdmin();
 }, 2500);
+
+/* 入场与滚动显现动效 */
+function animateValue(el, to) {
+  const from = Number(el.textContent) || 0;
+  if (from === to) return;
+  const duration = 650;
+  const start = performance.now();
+  function tick(now) {
+    const p = Math.min(1, (now - start) / duration);
+    el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(tick);
+    else el.textContent = to;
+  }
+  requestAnimationFrame(tick);
+}
+
+const revealTargets = [
+  ".flow-section",
+  ".arch-section",
+  ".phone-wrap",
+  ".admin",
+  ".demo-guide",
+];
+revealTargets.forEach((selector) => {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  el.classList.add(selector === ".phone-wrap" ? "fade-in" : "reveal");
+});
+
+if ("IntersectionObserver" in window) {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.12 },
+  );
+  document.querySelectorAll(".reveal, .fade-in").forEach((el) => observer.observe(el));
+} else {
+  document.querySelectorAll(".reveal, .fade-in").forEach((el) => el.classList.add("in"));
+}
 </script>
 </body>
 </html>
