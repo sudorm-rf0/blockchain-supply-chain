@@ -6,7 +6,8 @@ Solana/Anchor 供应链金融演示系统：单据上传审核、Solana 存证�
 ## 包结构
 
 - `packages/contracts`: Anchor 0.31.1 合约（`trade-finance` 全生命周期 + `supply-chain`），
-  工具链为 Agave 4.1.2 + SBFv3。
+  工具链为 Agave 4.1.2 + SBFv3。`supply-chain` 采用权限化注册：管理员（Registry）可
+  授权/撤销供应商，仅管理员或已授权供应商可注册商品（详见 `docs/API.md`）。
 - `packages/backend`: NestJS 11 主后端（认证、文件、存证）+ 3 个独立服务：
   `indexer-service`（链上监听与 DB 回写）、`trade-service`（订单预构建与确认）、
   `pool-service`（资金池总览与 LP 提款）。
