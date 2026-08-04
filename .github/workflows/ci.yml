@@ -252,7 +252,7 @@ jobs:
       CI_INDEXER_PORT: "3103"
       CI_TRADE_PORT: "3104"
       CI_POOL_PORT: "3105"
-      CI_SOLANA_HOME: "${{ runner.temp }}/solana-ci"
+      CI_SOLANA_HOME: "/tmp/solana-ci"
 
     steps:
       - uses: actions/checkout@v4
