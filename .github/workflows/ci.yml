@@ -373,6 +373,45 @@ jobs:
       - name: Production dependency audit (block critical)
         run: pnpm audit --prod --audit-level critical --registry https://registry.npmjs.org
 
+  backup-drill:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/supply_chain?connection_limit=5&schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start Postgres container
+        run: |
+          docker run -d --name supply-chain-postgres \
+            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=supply_chain -p 5432:5432 postgres:15
+          for i in $(seq 1 30); do
+            docker exec supply-chain-postgres pg_isready -U postgres >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec supply-chain-postgres pg_isready -U postgres >/dev/null
+
+      - name: Create schema and seed
+        working-directory: packages/backend
+        run: |
+          pnpm exec prisma generate
+          pnpm exec prisma migrate deploy
+          pnpm exec prisma db seed
+
+      - name: Run backup restore drill
+        run: bash scripts/db-backup-restore.sh drill
+
   monitoring:
     runs-on: ubuntu-latest
     steps:

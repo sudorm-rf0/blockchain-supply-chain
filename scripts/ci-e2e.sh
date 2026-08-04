@@ -70,4 +70,6 @@ done
 cd "$ROOT"
 echo "PHASE smoke" >&2
 USDC_MINT="$USDC_MINT" node scripts/smoke-e2e.mjs
+echo "PHASE api-smoke" >&2
+bash "$ROOT/scripts/smoke-e2e.sh"
 echo "ci e2e passed"

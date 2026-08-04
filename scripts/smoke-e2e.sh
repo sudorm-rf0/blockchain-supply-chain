@@ -53,15 +53,7 @@ TOKEN="$REG_TOKEN"
 
 # --------------- 3. Upload ---------------
 echo "--- Upload ---"
-PNG=$(node -e "
-const zlib=require('zlib');
-const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(1,0);ihdr.writeUInt32BE(1,4);ihdr[8]=8;ihdr[9]=6;
-const raw=Buffer.from([0,255,0,0,255]);
-const idat=zlib.deflateSync(raw);
-function crc(b){let c=0xffffffff;for(const x of b)c=(c>>>8)^((c^x)&0xff?0xedb88320^(c>>>1):0);return(c^0xffffffff)>>>0}
-function chunk(t,d){const l=Buffer.alloc(4);l.writeUInt32BE(d.length);const b=Buffer.concat([Buffer.from(t),d]);const c2=Buffer.alloc(4);c2.writeUInt32BE(crc(b));return Buffer.concat([l,b,c2])}
-console.log(Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',idat),chunk('IEND',Buffer.alloc(0))]).toString('base64'))
-")
+PNG="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
 UPLOAD_RESP=$(base64 -d <<< "$PNG" | curl -sS -X POST "$BACKEND/api/files" \
   -H "authorization: Bearer ${TOKEN:-}" \
   -F "file=@-;filename=smoke.png;type=image/png")

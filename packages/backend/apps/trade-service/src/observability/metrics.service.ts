@@ -29,6 +29,10 @@ export class MetricsService {
     });
   }
 
+  get registryRef() {
+    return this.registry;
+  }
+
   record(method: string, path: string, status: number, seconds: number) {
     const labels = { method, path, status: String(status) };
     this.requests.inc(labels);
