@@ -1,6 +1,6 @@
 # NestJS 11 升级评估
 
-日期：2026-08-04
+日期：2026-08-04（已执行）
 
 ## 背景
 
@@ -63,3 +63,15 @@
 
 风险中等、工作量集中在 Express 5 路由与类型适配。建议作为独立升级项
 （1-2 天），不与其他功能迭代混用；升级后可消除剩余 1 个 moderate 漏洞。
+
+## 执行结果
+
+- 已升级：`@nestjs/common/core/platform-express/testing` 11.1.28、
+  `@nestjs/schedule` 6.1.3、`@nestjs/swagger` 11.4.6、`@nestjs/throttler` 6.5.0、
+  `@nestjs/cli/schematics` 11.0.24、`@types/express` 5。
+- 移除根 overrides 中与 Express 5 冲突的 `path-to-regexp@3` 与
+  `body-parser@1`，Express 5 使用自带依赖。
+- 验证：后端 Jest 101/101、四个服务构建通过、`scripts/smoke-e2e.sh` 10/10、
+  本地四服务健康检查通过。
+- 依赖审计：`@nestjs/core` moderate 告警消失，生产依赖漏洞降至
+  1 个（`bigint-buffer`，无补丁）。

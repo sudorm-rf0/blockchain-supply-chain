@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   HttpException,
@@ -251,6 +252,51 @@ describe("FilesService", () => {
     await expect(
       service.upload(file, {}, "user-1"),
     ).rejects.toThrow(HttpException);
+  });
+
+  it("records FILE_UPLOADED audit after a successful upload", async () => {
+    const prisma = makePrisma();
+    const audit = makeAudit();
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      audit as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    const path = join(dir, "audit.png");
+    writeFileSync(path, PNG_BYTES);
+    const file = {
+      originalname: "audit.png",
+      path,
+      size: PNG_BYTES.length,
+      mimetype: "image/png",
+    } as Express.Multer.File;
+    await service.upload(file, {}, "user-1");
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FILE_UPLOADED",
+        actorId: "user-1",
+      }),
+    );
+  });
+
+  it("rejects review without an explicit confirmation", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findUnique as jest.Mock).mockResolvedValue({
+      id: "f1",
+      status: "PENDING",
+    });
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    await expect(
+      service.patch("f1", { status: "APPROVED" }, { id: "admin-1" }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it("blocks non-owners from viewing file versions", async () => {

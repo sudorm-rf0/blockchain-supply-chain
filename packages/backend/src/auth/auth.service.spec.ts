@@ -150,6 +150,30 @@ describe("AuthService", () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
+  it("records AUTH_LOGIN on successful login", async () => {
+    const prisma = makePrisma();
+    const audit = makeAudit();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      audit as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      name: "A",
+      email: "audit-login@example.com",
+      password: "secret123",
+      wallet,
+    });
+    await service.login({
+      email: "audit-login@example.com",
+      password: "secret123",
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "AUTH_LOGIN" }),
+    );
+  });
+
   it("changes password and clears the must-change flag", async () => {
     const prisma = makePrisma();
     const service = new AuthService(
