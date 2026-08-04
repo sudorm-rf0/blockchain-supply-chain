@@ -73,6 +73,7 @@ test("admin is forced to change the password and can open order detail", async (
 }) => {
   const { email, password: seedPassword } = await seedAdmin();
   let password = seedPassword;
+  let newPassword = seedPassword;
 
   await page.goto(`${BASE}/login`);
   await page.fill("#email", email);
@@ -81,7 +82,7 @@ test("admin is forced to change the password and can open order detail", async (
   await page.waitForURL(/\/change-password|\/admin\/files/, { timeout: 10_000 });
   if (page.url().includes("change-password")) {
     await page.fill("#currentPassword", password);
-    const newPassword = "E2eAdmin2!";
+    newPassword = "E2eAdmin2!";
     await page.fill("#newPassword", newPassword);
     await page.fill("#confirmPassword", newPassword);
     await page.click('button[type="submit"]');
@@ -90,7 +91,7 @@ test("admin is forced to change the password and can open order detail", async (
   }
 
   const loginRes = await request.post(`${BACKEND}/api/auth/login`, {
-    data: { email, password: newPassword },
+    data: { email, password },
   });
   expect(loginRes.ok()).toBe(true);
   const login = (await loginRes.json()) as { accessToken: string };
