@@ -119,6 +119,11 @@ cd packages/contracts && pnpm test
 cd packages/frontend && pnpm build
 ```
 
+合约测试（`packages/contracts` 的 `pnpm test`）会自动管理一个隔离的
+`solana-test-validator`：随机空闲端口（不占用 8899 等开发端口）、以
+`cargo build-sbf --arch v3`（SBFv3/eBPF，Agave 4.1.2 要求）构建并部署两个合约，
+跑完自动清理账本与验证器进程。
+
 CI 说明：`changes` 前置 job 按路径过滤，backend/frontend/security-audit 可跑在
 本地 self-hosted runner（`codex-mac`，macOS ARM64，不计费）；合约/e2e/监控/
 备份 job 使用 GitHub 托管 runner。密钥扫描由 `scripts/scan-secrets.sh` 执行
