@@ -237,25 +237,6 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     needs: changes
     if: needs.changes.outputs.e2e == 'true' || github.event_name == 'pull_request'
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: supply_chain
-        ports:
-          - 15432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-      redis:
-        image: redis:7
-        ports:
-          - 16379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:15432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
       REDIS_URL: redis://localhost:16379
@@ -268,6 +249,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start isolated Postgres and Redis
+        run: |
+          docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1 || true
+          docker run -d --name supply-chain-pg-ci \
+            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
+          docker run -d --name supply-chain-redis-ci -p 16379:6379 redis:7
+          for i in $(seq 1 30); do
+            docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null 2>&1 &&
+              docker exec supply-chain-redis-ci redis-cli ping >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null
+          docker exec supply-chain-redis-ci redis-cli ping >/dev/null
 
       - uses: pnpm/action-setup@v4
         if: runner.os == 'Linux'
@@ -338,25 +334,6 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     needs: changes
     if: needs.changes.outputs.frontend-e2e == 'true' || github.event_name == 'pull_request'
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: supply_chain
-        ports:
-          - 15432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-      redis:
-        image: redis:7
-        ports:
-          - 16379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:15432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
       REDIS_URL: redis://localhost:16379
@@ -368,6 +345,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start isolated Postgres and Redis
+        run: |
+          docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1 || true
+          docker run -d --name supply-chain-pg-ci \
+            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
+          docker run -d --name supply-chain-redis-ci -p 16379:6379 redis:7
+          for i in $(seq 1 30); do
+            docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null 2>&1 &&
+              docker exec supply-chain-redis-ci redis-cli ping >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null
+          docker exec supply-chain-redis-ci redis-cli ping >/dev/null
 
       - uses: pnpm/action-setup@v4
         if: runner.os == 'Linux'
