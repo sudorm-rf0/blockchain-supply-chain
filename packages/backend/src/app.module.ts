@@ -9,6 +9,7 @@ import { AdminStatsController } from "./admin/admin.controller";
 import { AuthModule } from "./auth/auth.module";
 import { AuditModule } from "./audit/audit.module";
 import { FilesModule } from "./files/files.module";
+import { SupplyChainModule } from "./supply-chain/supply-chain.module";
 import { MetricsController } from "./shared/metrics.controller";
 import { MetricsMiddleware } from "./shared/metrics.middleware";
 import { MetricsService } from "./shared/metrics.service";
@@ -28,6 +29,7 @@ import { RedisService } from "./redis/redis.service";
     AuthModule,
     AuditModule,
     FilesModule,
+    SupplyChainModule,
   ],
   controllers: [
     AppController,

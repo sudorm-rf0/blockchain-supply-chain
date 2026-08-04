@@ -326,7 +326,7 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
         { pubkey: registryPda, isSigner: false, isWritable: false },
         { pubkey: badProd, isSigner: false, isWritable: true },
         { pubkey: stranger.publicKey, isSigner: true, isWritable: true },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // supplier: None
+        { pubkey: SC_PROGRAM_ID, isSigner: false, isWritable: false }, // supplier: None（Anchor 约定：key == program_id 视为 None）
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       Buffer.concat([scDisc("register_product"), scStr(badSku), scU64(1)]),

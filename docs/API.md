@@ -395,6 +395,28 @@ LP 链上赎回预构建交易。
 - `GET /health/ready`：K8s readiness 探针，数据库不可用时返回 503。
 - `GET /metrics`：Prometheus 指标。
 
+## 供应链管理（主后端 3001，管理员）
+
+`supply-chain` 权限化注册：初始化注册中心后，仅管理员或已授权供应商可注册商品。
+所有写操作走「预构建交易 → 管理员钱包签名 → 上链 → confirm 校验」流程。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/supply-chain/registry` | 注册中心状态（admin/是否初始化） |
+| POST | `/api/supply-chain/registry/init` | 预构建 `initialize_registry` 交易 |
+| POST | `/api/supply-chain/registry/init/confirm` | 校验并确认初始化（写审计日志） |
+| GET | `/api/supply-chain/suppliers` | 已授权供应商列表（数据库） |
+| POST | `/api/supply-chain/suppliers` | 预构建 `authorize_supplier` 交易 |
+| POST | `/api/supply-chain/suppliers/confirm` | 确认授权并落库 |
+| POST | `/api/supply-chain/suppliers/:address/revoke` | 预构建 `revoke_supplier` 交易 |
+| POST | `/api/supply-chain/suppliers/:address/revoke/confirm` | 确认撤销（链上关闭账户 + 落库） |
+| GET | `/api/supply-chain/products` | 商品列表（数据库） |
+| POST | `/api/supply-chain/products` | 预构建 `register_product` 交易 |
+| POST | `/api/supply-chain/products/confirm` | 确认注册并落库 |
+
+所有接口需 `Authorization: Bearer <管理员 JWT>`。预构建接口入参含
+`adminWallet`（签名钱包）；confirm 接口入参含 `txSignature`。
+
 ## 链上指令（Anchor `trade-finance`）
 
 | 指令 | 说明 |
