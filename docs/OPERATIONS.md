@@ -166,6 +166,16 @@ PORT=3311 node scripts/dev-scan-stub.mjs   # 或由 scripts/dev-all.sh 自动启
 
 并设置 `SCAN_URL=http://localhost:3311/scan`。生产禁止使用 stub。
 
+存量文件批量核查（历史上传未经过杀毒、或上线前复核）：
+
+```bash
+node scripts/scan-uploads.mjs            # 默认扫描 packages/backend/uploads
+node scripts/scan-uploads.mjs <目录>     # 指定其他目录
+```
+
+脚本通过 clamd INSTREAM（TCP）逐文件扫描，输出 `clean/found/sizelimit/error` 统计，
+存在病毒或错误时退出码为 1 并列出问题文件。
+
 ## 7. 合约运维
 
 - 重新部署合约：`bash scripts/deploy-devnet.sh`（devnet）或 localnet
