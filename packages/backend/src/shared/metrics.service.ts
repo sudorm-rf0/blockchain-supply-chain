@@ -11,6 +11,7 @@ export class MetricsService {
   readonly registry = new Registry();
   private readonly requests: Counter;
   private readonly duration: Histogram;
+  private readonly cspViolations: Counter;
 
   constructor() {
     collectDefaultMetrics({ register: this.registry });
@@ -27,12 +28,22 @@ export class MetricsService {
       buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
       registers: [this.registry],
     });
+    this.cspViolations = new Counter({
+      name: "csp_violations_total",
+      help: "Total CSP violation reports received from browsers",
+      labelNames: ["directive", "disposition"],
+      registers: [this.registry],
+    });
   }
 
   record(method: string, path: string, status: number, seconds: number) {
     const labels = { method, path, status: String(status) };
     this.requests.inc(labels);
     this.duration.observe(labels, seconds);
+  }
+
+  recordCspViolation(directive: string, disposition: string) {
+    this.cspViolations.inc({ directive, disposition });
   }
 
   async metrics(): Promise<string> {

@@ -82,8 +82,26 @@ if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
   kubectl -n "${NAMESPACE}" create configmap grafana-dashboard \
     --from-file=supply-chain.json=infra/grafana/dashboards/supply-chain.json \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  ALERTMANAGER_CONFIG="k8s/alertmanager-config.yaml"
+  if [[ -f "k8s/alertmanager-config.generated.yaml" ]]; then
+    ALERTMANAGER_CONFIG="k8s/alertmanager-config.generated.yaml"
+    echo "==> using generated Alertmanager config: ${ALERTMANAGER_CONFIG}"
+  elif [[ -n "${ALERTMANAGER_WEBHOOK_URL:-}" || -n "${ALERTMANAGER_SLACK_URL:-}" || -n "${ALERTMANAGER_EMAIL_TO:-}" ]]; then
+    ALERTMANAGER_CONFIG="$(mktemp /tmp/alertmanager-config.XXXXXX.yaml)"
+    OUT="${ALERTMANAGER_CONFIG}" \
+      ALERTMANAGER_WEBHOOK_URL="${ALERTMANAGER_WEBHOOK_URL:-}" \
+      ALERTMANAGER_SLACK_URL="${ALERTMANAGER_SLACK_URL:-}" \
+      ALERTMANAGER_SLACK_CHANNEL="${ALERTMANAGER_SLACK_CHANNEL:-#alerts}" \
+      ALERTMANAGER_EMAIL_TO="${ALERTMANAGER_EMAIL_TO:-}" \
+      ALERTMANAGER_SMTP_SMARTHOST="${ALERTMANAGER_SMTP_SMARTHOST:-}" \
+      ALERTMANAGER_SMTP_FROM="${ALERTMANAGER_SMTP_FROM:-}" \
+      bash scripts/configure-alertmanager-webhook.sh >/dev/null
+    echo "==> generated Alertmanager config from env: ${ALERTMANAGER_CONFIG}"
+  else
+    echo "WARN: Alertmanager channel not configured; deploying placeholder config. Run scripts/configure-alertmanager-webhook.sh first." >&2
+  fi
   kubectl apply -n "${NAMESPACE}" \
-    -f k8s/alertmanager-config.yaml \
+    -f "${ALERTMANAGER_CONFIG}" \
     -f k8s/prometheus-deployment.yaml \
     -f k8s/grafana-deployment.yaml \
     -f k8s/alertmanager-deployment.yaml

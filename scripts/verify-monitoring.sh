@@ -63,11 +63,24 @@ check_service_metrics() {
     if printf '%s' "${body}" | rg -q '^# HELP http_requests_total ' && \
        printf '%s' "${body}" | rg -q '^# HELP http_request_duration_seconds ' && \
        printf '%s' "${body}" | rg -q '^# HELP process_start_time_seconds '; then
-      add_check "metrics:${name}" "PASS" "${url} exposes http/process metrics"
+      if [[ "${name}" == "backend" ]] && ! printf '%s' "${body}" | rg -q '^# HELP csp_violations_total '; then
+        add_check "metrics:${name}" "FAIL" "${url} missing csp_violations_total metric"
+        continue
+      fi
+      add_check "metrics:${name}" "PASS" "${url} exposes http/process/csp metrics"
     else
       add_check "metrics:${name}" "FAIL" "${url} missing expected metric families"
     fi
   done
+}
+
+check_prometheus_config() {
+  local cfg="${PROMETHEUS_CONFIG:-infra/prometheus/prometheus.yml}"
+  if rg -q "alertmanager:9093" "${cfg}"; then
+    add_check "prometheus-alertmanager-link" "PASS" "${cfg} routes alerts to alertmanager:9093"
+  else
+    add_check "prometheus-alertmanager-link" "FAIL" "${cfg} missing alertmanager:9093 target"
+  fi
 }
 
 check_prometheus() {
@@ -101,6 +114,7 @@ check_grafana() {
 start_ts="$(date +%s)"
 validate_alerts
 check_service_metrics
+check_prometheus_config
 check_prometheus
 check_grafana
 duration="$(( $(date +%s) - start_ts ))"

@@ -54,3 +54,12 @@ groups:
           severity: warning
         annotations:
           summary: "Node.js heap above 512 MiB on {{ $labels.instance }}"
+
+      - alert: CspViolationDetected
+        expr: increase(csp_violations_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CSP violation reported ({{ $labels.directive }})"
+          description: "Browser reported a {{ $labels.directive }} violation (disposition={{ $labels.disposition }}) in the last 5 minutes."

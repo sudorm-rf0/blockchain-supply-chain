@@ -6,8 +6,9 @@ metadata:
 data:
   alertmanager.yml: |
     # 部署前请用 scripts/configure-alertmanager-webhook.sh 生成
-    # alertmanager-config.generated.yaml，把 url 换成真实的
-    # 钉钉/企业微信/Slack Webhook，再 apply，不要直接使用占位地址。
+    # k8s/alertmanager-config.generated.yaml，并配置真实的
+    # 钉钉/企业微信 Webhook、Slack Incoming Webhook 或 SMTP 邮件渠道。
+    # deploy.sh 会优先使用 generated 配置；本文件只是占位模板。
     global:
       resolve_timeout: 5m
     route:

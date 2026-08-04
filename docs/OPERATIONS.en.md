@@ -22,7 +22,10 @@
 | `CLAMAV_HOST` / `CLAMAV_PORT` | empty / 3310 | clamd TCP scan; required in production |
 | `SCAN_URL` | empty | HTTP scan fallback (`{clean: boolean}`) |
 | `AUDIT_RETENTION_DAYS` | `90` | Audit retention days; purged daily at 04:00; `0` disables |
-| `NEXT_PUBLIC_CSP_REPORT_URI` | empty | CSP `report-uri`; browser sends violations here (defaults to `/api/csp-report`) |
+| `NEXT_PUBLIC_CSP_REPORT_URI` | empty | Overrides CSP `report-uri`; defaults to `NEXT_PUBLIC_BACKEND_URL/api/csp-report` |
+| `ALERTMANAGER_WEBHOOK_URL` | empty | Alertmanager DingTalk/WeCom/generic webhook URL |
+| `ALERTMANAGER_SLACK_URL` | empty | Alertmanager Slack Incoming Webhook URL |
+| `ALERTMANAGER_EMAIL_TO` / `ALERTMANAGER_SMTP_SMARTHOST` / `ALERTMANAGER_SMTP_FROM` | empty | Alertmanager SMTP email channel |
 
 ## 2. Security Rules
 

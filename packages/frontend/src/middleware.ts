@@ -22,10 +22,13 @@ function buildCsp(nonce: string): string {
     "frame-ancestors 'self'",
     "worker-src 'self' blob:",
   ];
-  const reportUri = process.env.NEXT_PUBLIC_CSP_REPORT_URI;
-  if (reportUri) {
-    directives.push(`report-uri ${reportUri}`);
-  }
+  const explicitReportUri = process.env.NEXT_PUBLIC_CSP_REPORT_URI;
+  const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(
+    /\/+$/,
+    "",
+  );
+  const reportUri = explicitReportUri || (backendUrl ? `${backendUrl}/api/csp-report` : "");
+  if (reportUri) directives.push(`report-uri ${reportUri}`);
   return directives.join("; ");
 }
 
