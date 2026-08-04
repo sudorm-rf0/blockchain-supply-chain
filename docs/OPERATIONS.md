@@ -152,8 +152,9 @@ K8s 环境每天 02:00 自动 `pg_dump -Fc` 到 `postgres-backups` PVC，保留
 ### 本地病毒扫描
 
 病毒扫描默认 fail-closed：无 `CLAMAV_HOST` / `SCAN_URL` 时上传会被拒绝。
-生产必须配置真实 ClamAV 或云扫描。本地开发（无病毒库网络）可显式使用
-stub 放行：
+生产必须配置真实 ClamAV 或云扫描。本地开发默认使用
+`docker compose --profile security up -d clamav`（镜像自带病毒库），后端设
+`CLAMAV_HOST=localhost`。仅在无法运行 Docker ClamAV 的环境显式使用 stub 放行：
 
 ```bash
 PORT=3311 node scripts/dev-scan-stub.mjs   # 或由 scripts/dev-all.sh 自动启动

@@ -74,6 +74,10 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     profiles: ["security"]
+    environment:
+      - HTTP_PROXY=http://host.docker.internal:7897
+      - HTTPS_PROXY=http://host.docker.internal:7897
+      - NO_PROXY=localhost,127.0.0.1,*.local
     ports:
       - "3310:3310"
     healthcheck:
