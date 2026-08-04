@@ -48,4 +48,29 @@ describe("RepaymentCountdown", () => {
     );
     expect(screen.getByText("还款已到期")).toBeInTheDocument();
   });
+
+  it("marks a deal as urgent within three days", () => {
+    const createdAt = new Date(Date.now() - 86_400_000).toISOString();
+    render(
+      <RepaymentCountdown
+        createdAt={createdAt}
+        tenorSeconds={2 * 86_400}
+        status="REPAYING"
+      />,
+    );
+    expect(screen.getByText(/即将到期/)).toBeInTheDocument();
+  });
+
+  it("uses normal styling for distant deadlines", () => {
+    const createdAt = new Date().toISOString();
+    const { container } = render(
+      <RepaymentCountdown
+        createdAt={createdAt}
+        tenorSeconds={30 * 86_400}
+        status="REPAYING"
+      />,
+    );
+    expect(screen.queryByText(/即将到期/)).not.toBeInTheDocument();
+    expect(container.querySelector(".bg-emerald-500")).not.toBeNull();
+  });
 });

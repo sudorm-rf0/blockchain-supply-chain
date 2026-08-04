@@ -35,6 +35,8 @@ export function RepaymentCountdown({
   const diff = deadline - now;
   const elapsedPct = total > 0 ? Math.min(100, Math.max(0, (1 - diff / total) * 100)) : 100;
   const expired = diff <= 0;
+  const urgent = !expired && diff < 3 * 86_400_000;
+  const overdueDays = Math.floor(Math.abs(diff) / 86_400_000);
 
   const days = Math.max(0, Math.floor(diff / 86_400_000));
   const hours = Math.max(0, Math.floor((diff % 86_400_000) / 3_600_000));
@@ -45,10 +47,19 @@ export function RepaymentCountdown({
     <div className="space-y-1">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         {expired ? (
-          <span className="font-medium text-red-600">还款已到期</span>
+          <span className="font-medium text-red-600">
+            还款已到期{overdueDays > 0 ? `（逾期 ${overdueDays} 天）` : ""}
+          </span>
         ) : (
-          <span className="font-medium text-orange-600">
-            剩余 {days}天 {hours}时 {minutes}分 {seconds}秒
+          <span
+            className={`font-medium ${
+              urgent ? "text-red-600" : "text-emerald-600"
+            }`}
+          >
+            {urgent && <span className="mr-1.5">即将到期</span>}
+            <span>
+              剩余 {days}天 {hours}时 {minutes}分 {seconds}秒
+            </span>
           </span>
         )}
         <span className="text-muted-foreground">
@@ -58,7 +69,7 @@ export function RepaymentCountdown({
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full transition-all ${
-            expired ? "bg-red-500" : "bg-orange-500"
+            expired ? "bg-red-500" : urgent ? "bg-orange-500" : "bg-emerald-500"
           }`}
           style={{ width: `${elapsedPct}%` }}
         />

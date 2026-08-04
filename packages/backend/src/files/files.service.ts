@@ -374,6 +374,50 @@ export class FilesService {
     return this.publicFile(updated);
   }
 
+  async batchReview(
+    ids: string[],
+    body: {
+      status: "APPROVED" | "REJECTED";
+      remark?: string;
+      confirm?: boolean;
+    },
+    actor?: { id: string; email?: string },
+  ) {
+    if (body.confirm !== true) {
+      throw new BadRequestException("请二次确认后执行批量审核");
+    }
+    const uniqueIds = [...new Set(ids)].slice(0, 100);
+    const files = await this.prisma.file.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, status: true },
+    });
+    const toUpdate = files.filter((file) => file.status !== body.status);
+    let updated = 0;
+    if (toUpdate.length > 0) {
+      await this.prisma.file.updateMany({
+        where: { id: { in: toUpdate.map((file) => file.id) } },
+        data: {
+          status: body.status,
+          remark: body.remark ?? null,
+        },
+      });
+      for (const file of toUpdate) {
+        await this.audit.record({
+          actorId: actor?.id,
+          actorEmail: actor?.email,
+          action:
+            body.status === "APPROVED" ? "FILE_APPROVED" : "FILE_REJECTED",
+          targetType: "FILE",
+          targetId: file.id,
+          metadata: { from: file.status, remark: body.remark ?? null },
+        });
+      }
+      updated = toUpdate.length;
+    }
+    await this.redis.incr("files:list:version").catch(() => undefined);
+    return { ok: true, updated, skipped: uniqueIds.length - updated };
+  }
+
   async remove(id: string, userId: string, role: string, confirm?: string) {
     if (confirm !== "true") {
       throw new BadRequestException("请二次确认后删除文件");
