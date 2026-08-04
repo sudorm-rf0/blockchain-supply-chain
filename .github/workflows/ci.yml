@@ -117,6 +117,10 @@ jobs:
         working-directory: packages/backend
         run: pnpm exec tsc -p apps/trade-service/tsconfig.app.json --noEmit
 
+      - name: Lint
+        working-directory: packages/backend
+        run: pnpm lint
+
       - name: Tests
         working-directory: packages/backend
         run: pnpm exec jest --runInBand
@@ -145,6 +149,10 @@ jobs:
       - name: TypeScript Check
         working-directory: packages/frontend
         run: pnpm exec tsc --noEmit
+
+      - name: Lint
+        working-directory: packages/frontend
+        run: pnpm lint
 
       - name: Component Tests
         working-directory: packages/frontend
@@ -393,8 +401,8 @@ jobs:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
         run: |
           THROTTLE_LIMIT=100000 PORT="$CI_BACKEND_PORT" pnpm start > /tmp/backend.log 2>&1 &
-          REDIS_URL="$REDIS_URL" THROTTLE_LIMIT=100000 PORT="$CI_POOL_PORT" pnpm start:pool > /tmp/pool.log 2>&1 &
-          THROTTLE_LIMIT=100000 PORT="$CI_TRADE_PORT" pnpm start:trade > /tmp/trade.log 2>&1 &
+          REDIS_URL="$REDIS_URL" THROTTLE_LIMIT=100000 POOL_SERVICE_PORT="$CI_POOL_PORT" pnpm start:pool > /tmp/pool.log 2>&1 &
+          THROTTLE_LIMIT=100000 TRADE_SERVICE_PORT="$CI_TRADE_PORT" pnpm start:trade > /tmp/trade.log 2>&1 &
           if [[ -n "${SOLANA_RPC_URL:-}" ]]; then
             QUIET=1 bash "$GITHUB_WORKSPACE/scripts/check-rpc.sh" "$SOLANA_RPC_URL"
             echo "rpc connectivity verified"
@@ -454,7 +462,7 @@ jobs:
         run: docker build --target backend-runner -f Dockerfile.multistage .
 
       - name: Build frontend image
-        run: docker build --target frontend-runner -f Dockerfile.multistage .
+        run: docker build --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.example.com --build-arg NEXT_PUBLIC_TRADE_API_URL=https://api.example.com --build-arg NEXT_PUBLIC_POOL_API_URL=https://api.example.com --target frontend-runner -f Dockerfile.multistage .
 
   security-audit:
     runs-on: [self-hosted, macOS, ARM64]

@@ -15,4 +15,3 @@ packages/contracts/.anchor/
 packages/backend/dist/
 packages/backend/uploads/
 packages/frontend/.next/
-packages/frontend/public/

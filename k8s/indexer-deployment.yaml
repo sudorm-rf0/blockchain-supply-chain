@@ -67,6 +67,11 @@ spec:
                   name: backend-secrets
                   key: POOL_STATE_ADDRESS
                   optional: true
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: WEBHOOK_SECRET
           livenessProbe:
             httpGet:
               path: /health

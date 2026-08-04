@@ -31,7 +31,6 @@
     "@solana/web3.js": "^1.98.4",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "date-fns": "^4.4.0",
     "lucide-react": "^0.400.0",
     "next": "^15.5.16",
     "next-themes": "^0.3.0",
