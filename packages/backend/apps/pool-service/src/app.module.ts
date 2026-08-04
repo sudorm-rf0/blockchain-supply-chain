@@ -2,12 +2,12 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import { OriginGuard } from "./common/origin.guard";
+import { OriginGuard } from "../../../src/shared/origin.guard";
 import { HealthController } from "./health/health.controller";
-import { MetricsController } from "./observability/metrics.controller";
-import { MetricsMiddleware } from "./observability/metrics.middleware";
-import { MetricsService } from "./observability/metrics.service";
-import { RequestIdMiddleware } from "./observability/request-id.middleware";
+import { MetricsController } from "../../../src/shared/metrics.controller";
+import { MetricsMiddleware } from "../../../src/shared/metrics.middleware";
+import { MetricsService } from "../../../src/shared/metrics.service";
+import { RequestIdMiddleware } from "../../../src/shared/request-id.middleware";
 import { PoolModule } from "./pool/pool.module";
 
 @Module({

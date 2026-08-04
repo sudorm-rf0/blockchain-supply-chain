@@ -1,9 +1,9 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
 import { HealthController } from "./health/health.controller";
-import { MetricsMiddleware } from "./observability/metrics.middleware";
-import { MetricsService } from "./observability/metrics.service";
-import { RequestIdMiddleware } from "./observability/request-id.middleware";
+import { MetricsMiddleware } from "../../../src/shared/metrics.middleware";
+import { MetricsService } from "../../../src/shared/metrics.service";
+import { RequestIdMiddleware } from "../../../src/shared/request-id.middleware";
 import { IndexerModule } from "./indexer/indexer.module";
 
 @Module({

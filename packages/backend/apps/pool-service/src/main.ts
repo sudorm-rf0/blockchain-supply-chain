@@ -5,9 +5,9 @@ import compression from "compression";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
-import { AllExceptionsFilter } from "./common/all-exceptions.filter";
-import { initSentry } from "./observability/sentry";
-import { assertStartupEnv, validateStartupEnv } from "./config/env-check";
+import { AllExceptionsFilter } from "../../../src/shared/all-exceptions.filter";
+import { initSentry } from "../../../src/shared/sentry";
+import { assertStartupEnv, validateStartupEnv } from "../../../src/shared/env-check";
 import { POOL_ENV } from "./config/env";
 
 async function bootstrap(): Promise<void> {

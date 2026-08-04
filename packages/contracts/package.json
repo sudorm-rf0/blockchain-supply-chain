@@ -11,12 +11,16 @@
   },
   "devDependencies": {
     "@coral-xyz/anchor": "0.31.1",
+    "@eslint/js": "^10.0.1",
     "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.98.4",
     "@types/mocha": "^10.0.6",
+    "@types/node": "^20.14.9",
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3",
-    "@types/node": "^20.14.9"
+    "typescript-eslint": "^8.66.0"
   }
 }

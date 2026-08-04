@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.next/
+target/
+.turbo/
+pnpm-lock.yaml
+*.tsbuildinfo
+*.generated.yaml

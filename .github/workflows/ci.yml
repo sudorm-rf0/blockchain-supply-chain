@@ -424,7 +424,7 @@ jobs:
     if: needs.changes.outputs.docker == 'true' || github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Build backend image
         run: docker build --target backend-runner -f Dockerfile.multistage .
@@ -502,8 +502,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.monitoring == 'true' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v7
-
+      - uses: actions/checkout@v4
       - name: Install promtool
         run: |
           curl -sSfL --retry 3 --retry-all-errors -o /tmp/prometheus.tar.gz \

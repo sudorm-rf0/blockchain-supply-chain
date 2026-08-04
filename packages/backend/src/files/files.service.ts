@@ -108,7 +108,7 @@ export class FilesService {
           .rotate()
           .toBuffer();
         writeFileSync(file.path, cleaned);
-      } catch (error) {
+      } catch {
         this.removeUploadedFile(file.path);
         throw new BadRequestException("图片元数据处理失败");
       }

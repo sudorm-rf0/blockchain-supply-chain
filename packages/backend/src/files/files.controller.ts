@@ -37,7 +37,7 @@ const storage = diskStorage({
     cb(null, UPLOAD_DIR);
   },
   filename: (_req, file, cb) => {
-    const safeName = file.originalname.replace(/[^\w.\-]/g, "_");
+    const safeName = file.originalname.replace(/[^\w.-]/g, "_");
     cb(null, `${Date.now()}_${randomUUID()}_${safeName}`);
   },
 });

@@ -9,6 +9,18 @@ const TINY_PNG = Buffer.from(
   "base64",
 );
 
+async function seedAdmin(): Promise<{ email: string; password: string }> {
+  const email = `e2e-admin-${Date.now()}@example.com`;
+  const password = "E2eAdmin!";
+  const res = await fetch(`${BACKEND}/api/auth/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, name: "E2E Admin", password, confirmPassword: password }),
+  });
+  if (!res.ok) throw new Error(`seed admin failed: ${res.status}`);
+  return { email, password };
+}
+
 async function registerUser(page: Page): Promise<string> {
   const email = `ui-${Date.now()}@example.com`;
   await page.goto(`${BASE}/register`);
@@ -55,26 +67,22 @@ test("admin is forced to change the password and can open order detail", async (
   page,
   request,
 }) => {
+  const { email, password } = await seedAdmin();
+
   await page.goto(`${BASE}/login`);
-  await page.fill("#email", "admin@supply-chain.io");
-  await page.fill("#password", "Admin123!");
+  await page.fill("#email", email);
+  await page.fill("#password", password);
   await page.click('button[type="submit"]');
-  try {
-    await page.waitForURL("**/change-password", { timeout: 5000 });
-    await page.fill("#currentPassword", "Admin123!");
-    await page.fill("#newPassword", "AdminChanged!1");
-    await page.fill("#confirmPassword", "AdminChanged!1");
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/admin/files", { timeout: 15_000 });
-  } catch {
-    // 本地重复运行时初始密码可能已改过，改用新密码直接登录。
-    await page.fill("#password", "AdminChanged!1");
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/admin/files", { timeout: 15_000 });
-  }
+  await page.waitForURL("**/change-password", { timeout: 10_000 });
+  await page.fill("#currentPassword", password);
+  const newPassword = "E2eAdmin2!";
+  await page.fill("#newPassword", newPassword);
+  await page.fill("#confirmPassword", newPassword);
+  await page.click('button[type="submit"]');
+  await page.waitForURL("**/admin/files", { timeout: 15_000 });
 
   const loginRes = await request.post(`${BACKEND}/api/auth/login`, {
-    data: { email: "admin@supply-chain.io", password: "AdminChanged!1" },
+    data: { email, password: newPassword },
   });
   expect(loginRes.ok()).toBe(true);
   const login = (await loginRes.json()) as { accessToken: string };
