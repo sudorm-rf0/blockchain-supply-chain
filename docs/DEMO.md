@@ -48,7 +48,10 @@ scripts/dev-all.sh
 本地链需要先部署合约并创建 USDC/LP Mint：
 
 ```bash
-cd packages/contracts && anchor build
+cd packages/contracts
+anchor build
+# Agave 4.1.2 localnet 只接受 SBFv3（eBPF）程序，必须用 --arch v3 构建
+cargo build-sbf --arch v3
 cd ..
 export PATH="$HOME/.local/share/solana/active_release/bin:$PATH"
 solana airdrop 500 "$(solana address)"
@@ -79,6 +82,8 @@ USDC_MINT=<上面输出的值> node scripts/fund-demo-wallet.mjs <钱包地址>
 2. 普通用户注册 → 连接钱包 → `/user/upload` 上传单据（可拍照），
    填写 `tradeId` / `单据编号` → 上传 → “存证上链”签名确认。
 3. 管理员在 `/admin/files` 审核通过（可填驳回理由）。
+   可选：管理员在 `/admin/supply-chain` 初始化注册中心 → 授权供应商 →
+   注册商品（需钱包签名），演示权限化供应链注册。
 4. 用户 `/trade/new` 新建订单（金额、账期 30/60/90/120、卖方钱包）→
    钱包弹窗签名 → 跳转 `/orders` 看到 PENDING。
 5. 管理员 `/orders` 点“详情”→ 拨款 → 推进运输中 → 清关 → 已交付 → 释放货款；
@@ -94,7 +99,8 @@ USDC_MINT=<上面输出的值> node scripts/fund-demo-wallet.mjs <钱包地址>
 USDC_MINT=<输出> LP_MINT=<输出> node scripts/smoke-e2e.mjs
 ```
 
-输出 `register/upload/attest/tradeLifecycle` 全为 `true` 即完整工作流跑通。
+输出 `register/upload/attest/tradeLifecycle`、`supplyChainRegister`、
+`supplyChainRejectUnauthorized` 全为 `true` 即完整工作流跑通。
 
 ## 7. 重置演示数据
 

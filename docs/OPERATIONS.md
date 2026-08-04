@@ -172,6 +172,9 @@ PORT=3311 node scripts/dev-scan-stub.mjs   # 或由 scripts/dev-all.sh 自动启
   `cargo build-sbf --arch v3 && solana program deploy --program-id <keypair> target/deploy/*.so`。
 - 初始化资金池：`node scripts/init-localnet.mjs`，输出
   `USDC_MINT` / `LP_MINT` / `ADMIN`。
+- supply-chain 权限化注册：`node scripts/init-supply-chain.mjs <供应商公钥...>`
+  初始化 Registry 并授权供应商（幂等）；管理端「供应链管理」页
+  （`/admin/supply-chain`）可完成初始化/授权/撤销/注册商品（钱包签名）。
 - 违约事件会调用 `RISK_WEBHOOK_URL`，签名头
   `x-webhook-signature`（HMAC-SHA256）与 `x-webhook-timestamp`。
 - 合约升级后必须重新生成 Prisma 无关、更新 Indexer 解析器并跑
