@@ -84,6 +84,13 @@ pnpm dev:trade        # 3004
 pnpm dev:pool         # 3005（需 REDIS_URL=redis://localhost:6380）
 ```
 
+一键启动全部本地服务（validator 需先由 `docker compose up -d` 提供，
+首次先 `node scripts/init-localnet.mjs | tee infra/config/localnet.env`）：
+
+```bash
+bash scripts/dev-all.sh
+```
+
 前端：
 
 ```bash
