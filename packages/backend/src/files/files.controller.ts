@@ -24,6 +24,7 @@ import { AuthGuard } from "../auth/auth.guard";
 import { AdminGuard } from "../auth/admin.guard";
 import { FilesService } from "./files.service";
 import { ReviewFileDto } from "./dto/review-file.dto";
+import { BatchReviewDto } from "./dto/batch-review.dto";
 import { UploadFileDto } from "./dto/upload-file.dto";
 import type { FileStatus } from "@prisma/client";
 
@@ -128,6 +129,18 @@ export class FilesController {
     @Req() req: Request,
   ) {
     return this.filesService.patch(id, body, {
+      id: req.user!.sub,
+      email: req.user!.email,
+    });
+  }
+
+  @Post("batch-review")
+  @UseGuards(AuthGuard, AdminGuard)
+  batchReview(
+    @Body() body: BatchReviewDto,
+    @Req() req: Request,
+  ) {
+    return this.filesService.batchReview(body.ids, body, {
       id: req.user!.sub,
       email: req.user!.email,
     });

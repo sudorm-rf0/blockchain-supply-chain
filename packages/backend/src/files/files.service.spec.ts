@@ -299,6 +299,55 @@ describe("FilesService", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it("batch approves files and records per-file audit", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      { id: "f1", status: "PENDING" },
+      { id: "f2", status: "PENDING" },
+    ]);
+    (prisma.file.updateMany as jest.Mock).mockResolvedValue({ count: 2 });
+    const audit = makeAudit();
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      audit as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    const result = await service.batchReview(
+      ["f1", "f2"],
+      { status: "APPROVED", confirm: true },
+      { id: "admin-1" },
+    );
+    expect(result).toEqual({ ok: true, updated: 2, skipped: 0 });
+    expect(prisma.file.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["f1", "f2"] } },
+      data: { status: "APPROVED", remark: null },
+    });
+    expect(audit.record).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips files already in the target status", async () => {
+    const prisma = makePrisma();
+    (prisma.file.findMany as jest.Mock).mockResolvedValue([
+      { id: "f1", status: "APPROVED" },
+    ]);
+    const service = new FilesService(
+      prisma as never,
+      makeStorage() as never,
+      makeAudit() as never,
+      makeRedisFiles() as never,
+      makeScan() as never,
+    );
+    const result = await service.batchReview(
+      ["f1"],
+      { status: "APPROVED", confirm: true },
+      { id: "admin-1" },
+    );
+    expect(result).toEqual({ ok: true, updated: 0, skipped: 1 });
+    expect(prisma.file.updateMany).not.toHaveBeenCalled();
+  });
+
   it("blocks non-owners from viewing file versions", async () => {
     const prisma = makePrisma();
     (prisma.file.findUnique as jest.Mock).mockResolvedValue({

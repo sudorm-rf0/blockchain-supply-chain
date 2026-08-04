@@ -404,6 +404,20 @@ export async function reviewFile(
   });
 }
 
+export async function batchReviewFiles(
+  ids: string[],
+  body: {
+    status: "APPROVED" | "REJECTED";
+    remark?: string;
+  },
+): Promise<{ ok: boolean; updated: number; skipped: number }> {
+  return request(`${BACKEND_URL}/api/files/batch-review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ids, ...body, confirm: true }),
+  });
+}
+
 export interface AuditLogRecord {
   id: string;
   actorId: string | null;

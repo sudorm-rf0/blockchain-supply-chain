@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  batchReviewFiles,
   getFiles,
   reviewFile,
   type FileRecord,
@@ -66,6 +67,10 @@ export default function AdminFilesPage({
   const [approveId, setApproveId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchApproveOpen, setBatchApproveOpen] = useState(false);
+  const [batchRejectOpen, setBatchRejectOpen] = useState(false);
+  const [batchReason, setBatchReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -104,6 +109,52 @@ export default function AdminFilesPage({
     await approve(id);
   };
 
+  const pendingIds = files
+    .filter((file) => file.status === "PENDING")
+    .map((file) => file.id);
+  const allSelected =
+    pendingIds.length > 0 &&
+    pendingIds.every((id) => selectedIds.has(id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pendingIds.forEach((id) => next.delete(id));
+      else pendingIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const runBatch = async (status: "APPROVED" | "REJECTED", remark?: string) => {
+    if (selectedIds.size === 0) return;
+    setBusy(true);
+    try {
+      const result = await batchReviewFiles([...selectedIds], {
+        status,
+        remark,
+      });
+      toast.success(
+        `批量${status === "APPROVED" ? "通过" : "驳回"}完成：更新 ${result.updated} 条，跳过 ${result.skipped} 条`,
+      );
+      setSelectedIds(new Set());
+      setBatchReason("");
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "批量操作失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const reject = async () => {
     if (!rejectId) return;
     setBusy(true);
@@ -124,23 +175,56 @@ export default function AdminFilesPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">全部文件</h1>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="PENDING">待审核</SelectItem>
-            <SelectItem value="APPROVED">已通过</SelectItem>
-            <SelectItem value="REJECTED">已驳回</SelectItem>
-            <SelectItem value="ALL">全部</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedIds.size > 0 && (
+            <>
+              <span className="text-sm text-muted-foreground">
+                已选 {selectedIds.size} 条
+              </span>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => setBatchApproveOpen(true)}
+              >
+                批量通过
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={busy}
+                onClick={() => setBatchRejectOpen(true)}
+              >
+                批量驳回
+              </Button>
+            </>
+          )}
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PENDING">待审核</SelectItem>
+              <SelectItem value="APPROVED">已通过</SelectItem>
+              <SelectItem value="REJECTED">已驳回</SelectItem>
+              <SelectItem value="ALL">全部</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
         <div className="overflow-x-auto rounded-md border">
           <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  aria-label="全选当前页待审核文件"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="h-4 w-4 accent-primary"
+                />
+              </TableHead>
               <TableHead>文件名</TableHead>
               <TableHead>上传者</TableHead>
               <TableHead>大小</TableHead>
@@ -153,6 +237,16 @@ export default function AdminFilesPage({
           <TableBody>
             {files.map((file) => (
               <TableRow key={file.id}>
+                <TableCell>
+                  <input
+                    type="checkbox"
+                    aria-label={`选择 ${file.filename}`}
+                    checked={selectedIds.has(file.id)}
+                    disabled={file.status !== "PENDING"}
+                    onChange={() => toggleSelect(file.id)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                </TableCell>
                 <TableCell className="max-w-[180px] truncate">
                   {file.filename}
                 </TableCell>
@@ -229,6 +323,68 @@ export default function AdminFilesPage({
         onOpenChange={(open) => !open && setPreviewId(null)}
         fileId={previewId}
       />
+
+      <AlertDialog
+        open={batchApproveOpen}
+        onOpenChange={(open) => !open && setBatchApproveOpen(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量通过？</AlertDialogTitle>
+            <AlertDialogDescription>
+              将更新选中的 {selectedIds.size} 条文件为 APPROVED，并逐条写入审计日志。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBatchApproveOpen(false)}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy}
+              onClick={() => {
+                setBatchApproveOpen(false);
+                void runBatch("APPROVED");
+              }}
+            >
+              确认批量通过
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={batchRejectOpen}
+        onOpenChange={(open) => !open && setBatchRejectOpen(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量驳回</DialogTitle>
+            <DialogDescription>
+              为选中的 {selectedIds.size} 条文件输入驳回理由。
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={batchReason}
+            onChange={(e) => setBatchReason(e.target.value)}
+            placeholder="驳回理由"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchRejectOpen(false)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busy || !batchReason.trim()}
+              onClick={() => {
+                setBatchRejectOpen(false);
+                void runBatch("REJECTED", batchReason.trim());
+              }}
+            >
+              确认批量驳回
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={approveId !== null}
