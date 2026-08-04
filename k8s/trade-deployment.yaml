@@ -84,6 +84,18 @@ spec:
                   name: backend-secrets
                   key: LP_MINT
                   optional: true
+            - name: REPAYMENT_NOTIFY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: REPAYMENT_NOTIFY_URL
+                  optional: true
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: WEBHOOK_SECRET
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health

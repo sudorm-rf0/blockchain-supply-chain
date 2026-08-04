@@ -60,6 +60,18 @@ spec:
                   name: backend-secrets
                   key: ALLOWED_ORIGIN
                   optional: true
+            - name: CLAMAV_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: CLAMAV_HOST
+                  optional: true
+            - name: SCAN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: SCAN_URL
+                  optional: true
           volumeMounts:
             - name: uploads
               mountPath: /app/uploads
