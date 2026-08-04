@@ -5,6 +5,7 @@ FROM node:20-alpine AS builder
 WORKDIR /workspace
 
 ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org
+# self-hosted macOS 上构建时可注入 HTTP_PROXY/HTTPS_PROXY 指向可用代理
 ARG NEXT_PUBLIC_BACKEND_URL=https://supply-chain.example.com/api
 ARG NEXT_PUBLIC_TRADE_API_URL=https://supply-chain.example.com/api
 ARG NEXT_PUBLIC_POOL_API_URL=https://supply-chain.example.com/api
