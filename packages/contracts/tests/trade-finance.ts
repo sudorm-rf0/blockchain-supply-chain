@@ -404,8 +404,9 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(poolState.pendingDividends.toString(), lpDividend.toString());
     assert.equal(platformBalance.amount, BigInt(platformPart));
     assert.equal(poolState.activeCapital.toString(), "0");
-    assert.equal(poolState.nav.toString(), USDC(1).toString());
-    assert.equal(poolVaultAfterRepay.amount, BigInt(USDC(100_000)));
+    assert.equal(poolState.nav.toString(), "1000100");
+    assert.equal(poolVaultAfterRepay.amount, BigInt(USDC(100_010)));
+    assert.equal(poolState.totalAssets.toString(), USDC(100_010).toString());
     console.log("Pending dividends:", poolState.pendingDividends.toString());
     console.log("Platform balance:", platformBalance.amount.toString());
   });
@@ -482,7 +483,6 @@ describe("trade-finance full lifecycle", () => {
 
     const poolBefore = await getAccount(connection, poolTokenAccount);
     const poolStateBefore = await program.account.poolState.fetch(poolStatePda);
-    const insurancePayout = (USDC(700) * 1_000) / 10_000;
 
     await program.methods
       .defaultDeal(tradeId)
@@ -509,25 +509,16 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(dealState.status, 7); // Defaulted
     assert.equal(
       poolAfter.amount,
-      poolBefore.amount + BigInt(USDC(300)) - BigInt(insurancePayout),
+      poolBefore.amount + BigInt(USDC(1_000)),
     );
-    assert.equal(
-      dealAfter.amount,
-      BigInt(USDC(700)) + BigInt(insurancePayout),
-    );
+    assert.equal(dealAfter.amount, BigInt(0));
     assert.equal(
       poolState.insuranceFund.toString(),
-      new anchor.BN(poolStateBefore.insuranceFund)
-        .sub(new anchor.BN(insurancePayout))
-        .toString(),
+      poolStateBefore.insuranceFund.toString(),
     );
-    // total_assets: +down_payment (collateral enters vault), -insurance_payout (leaves vault)
     assert.equal(
       poolState.totalAssets.toString(),
-      new anchor.BN(poolStateBefore.totalAssets)
-        .add(new anchor.BN(USDC(300)))
-        .sub(new anchor.BN(insurancePayout))
-        .toString(),
+      poolStateBefore.totalAssets.toString(),
     );
     console.log("Default status:", dealState.status);
     console.log("Insurance fund:", poolState.insuranceFund.toString());

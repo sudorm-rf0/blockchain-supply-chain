@@ -189,7 +189,7 @@ pub mod trade_finance {
         Ok(())
     }
 
-    /// 创建贸易订单：校验账期与 1% 集中度，模拟锁定 30% 首付。
+    /// 创建贸易订单：校验账期与 1% 集中度，买方 30% 首付实际转入订单托管。
     pub fn create_deal(
         ctx: Context<CreateDeal>,
         id: u64,
@@ -259,7 +259,7 @@ pub mod trade_finance {
         let pool = &mut ctx.accounts.pool_state;
         pool.total_assets = pool
             .total_assets
-            .checked_add(amount)
+            .checked_add(down_payment)
             .ok_or(TradeFinanceError::MathOverflow)?;
 
         msg!(
@@ -435,7 +435,7 @@ pub mod trade_finance {
         Ok(())
     }
 
-    /// 管理员放款：记录已投放资金并推进订单状态（暂不实际转账）。
+    /// 管理员放款：资金池 vault 转入订单托管，active_capital 记账。
     pub fn fund_deal(ctx: Context<FundDeal>, trade_id: u64) -> Result<()> {
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
@@ -470,10 +470,6 @@ pub mod trade_finance {
         ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
-        pool.total_assets = pool
-            .total_assets
-            .checked_sub(funding_amount)
-            .ok_or(TradeFinanceError::MathOverflow)?;
         pool.active_capital = pool
             .active_capital
             .checked_add(funding_amount)
@@ -525,6 +521,7 @@ pub mod trade_finance {
             return Err(TradeFinanceError::InvalidStateTransition.into());
         }
 
+        let released = deal_status_value == deal_status::REPAYING;
         let down_payment = ctx.accounts.deal.down_payment;
         let pool_portion = ctx.accounts.deal.pool_portion;
         let insurance_payout = ctx
@@ -535,50 +532,41 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
 
-        require!(
-            ctx.accounts.pool_state.insurance_fund >= insurance_payout,
-            TradeFinanceError::InsufficientInsuranceFund
-        );
-
-        // 1) 30% 抵押金清算：订单托管 -> 资金池
-        let trade_id_bytes = trade_id.to_le_bytes();
-        let deal_bump = [ctx.bumps.deal];
-        let deal_signer: &[&[u8]] = &[
-            b"trade_finance",
-            b"deal",
-            ctx.accounts.deal.buyer.as_ref(),
-            &trade_id_bytes,
-            &deal_bump,
-        ];
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.deal_token_account.to_account_info(),
-                    to: ctx.accounts.pool_token_account.to_account_info(),
-                    authority: ctx.accounts.deal.to_account_info(),
-                },
-            )
-            .with_signer(&[deal_signer]),
-            down_payment,
-        )?;
-
-        // 2) 保险基金赔付：资金池 -> 订单托管
-        let pool_bump = [ctx.bumps.pool_authority];
-        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.pool_token_account.to_account_info(),
-                    to: ctx.accounts.deal_token_account.to_account_info(),
-                    authority: ctx.accounts.pool_authority.to_account_info(),
-                },
-            )
-            .with_signer(&[pool_signer]),
-            insurance_payout,
-        )?;
-        ctx.accounts.pool_token_account.reload()?;
+        if released {
+            // 托管已释放给卖方，买方违约时保险基金补偿资金池损失。
+            require!(
+                ctx.accounts.pool_state.insurance_fund >= insurance_payout,
+                TradeFinanceError::InsufficientInsuranceFund
+            );
+        } else {
+            // 托管仍持有 30% 抵押金 + 70% 垫付款：整笔收回资金池，
+            // 资金池收回本金并清算买方抵押金，无需动用保险基金。
+            let recovered = down_payment
+                .checked_add(pool_portion)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            let trade_id_bytes = trade_id.to_le_bytes();
+            let deal_bump = [ctx.bumps.deal];
+            let deal_signer: &[&[u8]] = &[
+                b"trade_finance",
+                b"deal",
+                ctx.accounts.deal.buyer.as_ref(),
+                &trade_id_bytes,
+                &deal_bump,
+            ];
+            token::transfer(
+                CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    Transfer {
+                        from: ctx.accounts.deal_token_account.to_account_info(),
+                        to: ctx.accounts.pool_token_account.to_account_info(),
+                        authority: ctx.accounts.deal.to_account_info(),
+                    },
+                )
+                .with_signer(&[deal_signer]),
+                recovered,
+            )?;
+            ctx.accounts.pool_token_account.reload()?;
+        }
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
@@ -586,16 +574,18 @@ pub mod trade_finance {
         deal.repaid_at = clock.unix_timestamp;
 
         let pool = &mut ctx.accounts.pool_state;
-        pool.insurance_fund = pool
-            .insurance_fund
-            .checked_sub(insurance_payout)
-            .ok_or(TradeFinanceError::MathOverflow)?;
-        pool.total_assets = pool
-            .total_assets
-            .checked_add(down_payment)
-            .ok_or(TradeFinanceError::MathOverflow)?
-            .checked_sub(insurance_payout)
-            .ok_or(TradeFinanceError::MathOverflow)?;
+        if released {
+            pool.insurance_fund = pool
+                .insurance_fund
+                .checked_sub(insurance_payout)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            pool.total_assets = pool
+                .total_assets
+                .checked_sub(pool_portion)
+                .ok_or(TradeFinanceError::MathOverflow)?
+                .checked_add(insurance_payout)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+        }
         pool.active_capital = pool
             .active_capital
             .checked_sub(pool_portion)
@@ -645,14 +635,15 @@ pub mod trade_finance {
             / BPS_BASE;
 
         let repayment_total = pool_portion
-            .checked_add(platform_part)
+            .checked_add(fee)
             .ok_or(TradeFinanceError::MathOverflow)?;
         require!(
             ctx.accounts.buyer_token_account.amount >= repayment_total,
             TradeFinanceError::InsufficientFunds
         );
 
-        // 本金 70% 回笼资金池 vault；费用中平台部分实时转入运营钱包。
+        // 买方支付本金 70% + 全额费用（2.5%）：全部先进入资金池 vault，
+        // 再按比例分配平台分成与买方返利，LP 分红留在池内形成真实资金支撑。
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -662,26 +653,45 @@ pub mod trade_finance {
                     authority: ctx.accounts.buyer.to_account_info(),
                 },
             ),
-            pool_portion,
+            repayment_total,
         )?;
+        ctx.accounts.pool_token_account.reload()?;
+
+        let pool_bump = [ctx.bumps.pool_authority];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 Transfer {
-                    from: ctx.accounts.buyer_token_account.to_account_info(),
+                    from: ctx.accounts.pool_token_account.to_account_info(),
                     to: ctx.accounts.platform_token_account.to_account_info(),
-                    authority: ctx.accounts.buyer.to_account_info(),
+                    authority: ctx.accounts.pool_authority.to_account_info(),
                 },
-            ),
+            )
+            .with_signer(&[pool_signer]),
             platform_part,
         )?;
+        if buyer_rebate > 0 {
+            token::transfer(
+                CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    Transfer {
+                        from: ctx.accounts.pool_token_account.to_account_info(),
+                        to: ctx.accounts.buyer_token_account.to_account_info(),
+                        authority: ctx.accounts.pool_authority.to_account_info(),
+                    },
+                )
+                .with_signer(&[pool_signer]),
+                buyer_rebate,
+            )?;
+        }
         ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
         pool.add_pending_dividends(lp_dividend)?;
         pool.total_assets = pool
             .total_assets
-            .checked_add(pool_portion)
+            .checked_add(lp_dividend)
             .ok_or(TradeFinanceError::MathOverflow)?;
         pool.active_capital = pool
             .active_capital
@@ -748,6 +758,7 @@ pub mod trade_finance {
         );
 
         let release_amount = ctx.accounts.deal.amount;
+        let collateral_out = ctx.accounts.deal.down_payment;
         let trade_id_bytes = trade_id.to_le_bytes();
         let deal_bump = [ctx.bumps.deal];
         let deal_signer: &[&[u8]] = &[
@@ -772,6 +783,14 @@ pub mod trade_finance {
 
         let deal = &mut ctx.accounts.deal;
         deal.status = deal_status::REPAYING;
+
+        // 买方 30% 抵押金随托管一并支付给卖方，从总资产中扣减；
+        // 资金池的 70% 垫付款转为对买方的应收（active_capital）。
+        let pool = &mut ctx.accounts.pool_state;
+        pool.total_assets = pool
+            .total_assets
+            .checked_sub(collateral_out)
+            .ok_or(TradeFinanceError::MathOverflow)?;
 
         emit!(ReleasedEvent {
             trade_id,
@@ -965,7 +984,7 @@ pub struct AdvanceDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct ReleaseToSeller<'info> {
-    #[account(seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
