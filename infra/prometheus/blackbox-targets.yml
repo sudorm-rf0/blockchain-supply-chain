@@ -1,0 +1,5 @@
+# deploy.sh 会根据 PUBLIC_BASE_URL 生成真实目标并覆盖此文件。
+- targets:
+    - https://supply-chain.example.com/health
+    - https://supply-chain.example.com/health/ready
+    - https://supply-chain.example.com/login

@@ -81,6 +81,16 @@ check_prometheus_config() {
   else
     add_check "prometheus-alertmanager-link" "FAIL" "${cfg} missing alertmanager:9093 target"
   fi
+  if rg -q "blackbox-exporter:9115" "${cfg}"; then
+    add_check "prometheus-blackbox-link" "PASS" "${cfg} routes probes to blackbox-exporter:9115"
+  else
+    add_check "prometheus-blackbox-link" "FAIL" "${cfg} missing blackbox-exporter:9115 target"
+  fi
+  if [[ -f "infra/blackbox/blackbox.yml" ]] && rg -q "http_2xx:" "infra/blackbox/blackbox.yml"; then
+    add_check "blackbox-config" "PASS" "infra/blackbox/blackbox.yml defines http_2xx module"
+  else
+    add_check "blackbox-config" "FAIL" "infra/blackbox/blackbox.yml missing http_2xx module"
+  fi
 }
 
 check_prometheus() {

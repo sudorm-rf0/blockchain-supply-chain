@@ -36,6 +36,30 @@ if [[ -n "${EMAIL_TO}" && ( -z "${SMTP_SMARTHOST}" || -z "${SMTP_FROM}" ) ]]; th
   exit 2
 fi
 
+CRITICAL_RECEIVER=0
+if [[ -n "${EMAIL_TO}" ]]; then CRITICAL_RECEIVER=1; fi
+if [[ -n "${SLACK_URL}" && -n "${WEBHOOK_URL}" ]]; then CRITICAL_RECEIVER=1; fi
+
+emit_webhook() {
+  echo "        webhook_configs:"
+  echo "          - url: \"${WEBHOOK_URL}\""
+  echo "            send_resolved: true"
+}
+
+emit_slack() {
+  echo "        slack_configs:"
+  echo "          - api_url: \"${SLACK_URL}\""
+  echo "            channel: \"${SLACK_CHANNEL}\""
+  echo "            send_resolved: true"
+  echo "            title: '{{ template \"slack.default.title\" . }}'"
+}
+
+emit_email() {
+  echo "        email_configs:"
+  echo "          - to: \"${EMAIL_TO}\""
+  echo "            send_resolved: true"
+}
+
 {
   echo "apiVersion: v1"
   echo "kind: ConfigMap"
@@ -64,24 +88,34 @@ fi
   echo "      group_wait: 30s"
   echo "      group_interval: 5m"
   echo "      repeat_interval: 4h"
+  if [[ "${CRITICAL_RECEIVER}" == "1" ]]; then
+    echo "      routes:"
+    echo "        - match:"
+    echo "            severity: critical"
+    echo "          receiver: critical"
+  fi
   echo "    receivers:"
   echo "      - name: default"
   if [[ -n "${WEBHOOK_URL}" ]]; then
-    echo "        webhook_configs:"
-    echo "          - url: \"${WEBHOOK_URL}\""
-    echo "            send_resolved: true"
+    emit_webhook
   fi
   if [[ -n "${SLACK_URL}" ]]; then
-    echo "        slack_configs:"
-    echo "          - api_url: \"${SLACK_URL}\""
-    echo "            channel: \"${SLACK_CHANNEL}\""
-    echo "            send_resolved: true"
-    echo "            title: '{{ template \"slack.default.title\" . }}'"
+    emit_slack
   fi
   if [[ -n "${EMAIL_TO}" ]]; then
-    echo "        email_configs:"
-    echo "          - to: \"${EMAIL_TO}\""
-    echo "            send_resolved: true"
+    emit_email
+  fi
+  if [[ "${CRITICAL_RECEIVER}" == "1" ]]; then
+    echo "      - name: critical"
+    if [[ -n "${EMAIL_TO}" ]]; then
+      emit_email
+    fi
+    if [[ -n "${SLACK_URL}" ]]; then
+      emit_slack
+    fi
+    if [[ -z "${EMAIL_TO}" && -z "${SLACK_URL}" ]]; then
+      emit_webhook
+    fi
   fi
 } > "${OUT}"
 

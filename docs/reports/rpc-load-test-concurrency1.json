@@ -1,0 +1,51 @@
+{
+  "rpc": "https://mainnet.helius-rpc.com/?api-key=***",
+  "startedAt": "2026-08-05T15:34:52.093Z",
+  "durationMs": 45240,
+  "totalRequests": 60,
+  "concurrency": 1,
+  "throughputRps": 1.33,
+  "successRate": 98.33,
+  "latencyMs": {
+    "min": 217.98,
+    "p50": 429.65,
+    "p90": 1034.25,
+    "p95": 1164.17,
+    "p99": 10542.48,
+    "max": 10542.48
+  },
+  "byMethod": {
+    "getHealth": {
+      "total": 12,
+      "ok": 11,
+      "errors": 1
+    },
+    "getVersion": {
+      "total": 12,
+      "ok": 12,
+      "errors": 0
+    },
+    "getSlot": {
+      "total": 12,
+      "ok": 12,
+      "errors": 0
+    },
+    "getLatestBlockhash": {
+      "total": 12,
+      "ok": 12,
+      "errors": 0
+    },
+    "getBalance": {
+      "total": 12,
+      "ok": 12,
+      "errors": 0
+    }
+  },
+  "sampleErrors": [
+    {
+      "method": "getHealth",
+      "status": 0,
+      "error": "TypeError: fetch failed"
+    }
+  ]
+}
