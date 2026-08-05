@@ -188,6 +188,7 @@ export function FilePreviewDialog({
 
             <div className="rounded-md border bg-muted/30 p-3">
               {isImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={objectUrl ?? ""}
                   alt={file.filename}
