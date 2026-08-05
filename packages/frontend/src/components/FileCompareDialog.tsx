@@ -30,6 +30,7 @@ function PreviewPane({ file, url }: { file: FileRecord; url: string | null }) {
       </div>
       <div className="flex h-72 items-center justify-center overflow-auto rounded-md border bg-muted/30 p-2">
         {isImage && url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={file.filename} className="max-h-full max-w-full object-contain" />
         ) : isPdf && url ? (
           <iframe src={url} title={file.filename} className="h-full w-full" />
