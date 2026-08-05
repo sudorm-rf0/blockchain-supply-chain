@@ -62,6 +62,7 @@ pub mod supply_chain {
         units: u64,
     ) -> Result<()> {
         require!(!sku.is_empty(), SupplyChainError::EmptySku);
+        require!(sku.len() <= 64, SupplyChainError::SkuTooLong);
         require!(units > 0, SupplyChainError::InvalidUnits);
 
         let caller = ctx.accounts.owner.key();
@@ -215,6 +216,10 @@ pub enum SupplyChainError {
 
     #[msg("Units must be greater than zero")]
     InvalidUnits,
+
+    /// SKU 超过 64 字节：超出 Product.sku 的固定账户空间。
+    #[msg("SKU must not exceed 64 bytes")]
+    SkuTooLong,
 
     /// 仅管理员或已授权供应商可执行该操作。
     #[msg("Unauthorized caller: admin or authorized supplier required")]
