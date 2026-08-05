@@ -32,7 +32,7 @@ export default function AppWalletProvider({ children }: { children: ReactNode })
     ],
     [],
   );
-  if (!mounted) return null;
+  if (!mounted) return <>{children}</>;
 
   return (
     <ConnectionProvider endpoint={endpoint}>
