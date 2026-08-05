@@ -10,7 +10,7 @@ import { DealStatus, Prisma } from "@prisma/client";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
-import { RedisService } from "../redis/redis.service";
+import { RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
 import {
   buildRedeemLpInstructionData,

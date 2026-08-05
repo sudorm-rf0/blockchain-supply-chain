@@ -8,8 +8,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type { Request } from "express";
-import { AdminGuard } from "../auth/admin.guard";
-import { AuthGuard } from "../auth/auth.guard";
+import { AdminGuard } from "@supply-chain/common";
+import { AuthGuard } from "@supply-chain/common";
 import { SupplyChainService } from "./supply-chain.service";
 import type {
   InitRegistryConfirmDto,

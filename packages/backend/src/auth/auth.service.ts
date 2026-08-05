@@ -10,16 +10,16 @@ import { PublicKey } from "@solana/web3.js";
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
-import { RedisService } from "../redis/redis.service";
+import { RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
-import { signJwt } from "./jwt";
+import { signJwt } from "@supply-chain/common";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   generateRefreshToken,
   hashRefreshToken,
   REFRESH_TOKEN_TTL_SECONDS,
 } from "./session";
-import { invalidateUserState } from "./auth.guard";
+import { invalidateUserState } from "@supply-chain/common";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,

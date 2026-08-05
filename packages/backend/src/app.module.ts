@@ -15,7 +15,7 @@ import { MetricsMiddleware } from "./shared/metrics.middleware";
 import { MetricsService } from "./shared/metrics.service";
 import { RequestIdMiddleware } from "./shared/request-id.middleware";
 import { PrismaService } from "./prisma/prisma.service";
-import { RedisService } from "./redis/redis.service";
+import { RedisService } from "@supply-chain/common";
 
 @Module({
   imports: [

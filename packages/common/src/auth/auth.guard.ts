@@ -6,11 +6,10 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import type { Request } from "express";
-import { PrismaService } from "../prisma/prisma.service";
+import type { PrismaQueryLike } from "../types";
 import { verifyJwt, type JwtPayload } from "./jwt";
-import { ACCESS_TOKEN_COOKIE } from "./session";
 
-export {};
+export const ACCESS_TOKEN_COOKIE = "access_token";
 
 declare global {
   namespace Express {
@@ -20,6 +19,7 @@ declare global {
   }
 }
 
+// 主后端改密流程允许访问的路径；其他服务无这些路由，白名单永不命中（等效全拒绝）。
 const PASSWORD_ONLY_PATHS = new Set([
   "/api/auth/me",
   "/api/auth/change-password",
@@ -40,7 +40,7 @@ export function invalidateUserState(userId: string): void {
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaQueryLike) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();

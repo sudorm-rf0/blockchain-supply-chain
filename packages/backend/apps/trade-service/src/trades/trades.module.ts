@@ -3,8 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { TradesController } from "./trades.controller";
 import { TradesService } from "./trades.service";
 import { AuditService } from "../audit/audit.service";
-import { RedisService } from "../redis/redis.service";
-import { AuthGuard } from "../auth/auth.guard";
+import { RedisService, AuthGuard, AdminGuard } from "@supply-chain/common";
 import { RepaymentDueNotifierService } from "./repayment-due-notifier.service";
 import { TradeMetricsService } from "./trade-metrics.service";
 import { NotifierService } from "./notifier.service";
@@ -15,9 +14,18 @@ import { MetricsService } from "../../../../src/shared/metrics.service";
   providers: [
     TradesService,
     AuditService,
-    AuthGuard,
     PrismaService,
     RedisService,
+    {
+      provide: AuthGuard,
+      useFactory: (prisma: PrismaService) => new AuthGuard(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: AdminGuard,
+      useFactory: (prisma: PrismaService) => new AdminGuard(prisma),
+      inject: [PrismaService],
+    },
     RepaymentDueNotifierService,
     TradeMetricsService,
     NotifierService,

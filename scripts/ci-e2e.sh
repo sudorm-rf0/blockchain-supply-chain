@@ -111,6 +111,7 @@ USDC_MINT="$(printf '%s\n' "$ENV_OUT" | sed -n 's/^USDC_MINT=//p')"
 LP_MINT="$(printf '%s\n' "$ENV_OUT" | sed -n 's/^LP_MINT=//p')"
 
 cd "$ROOT/packages/backend"
+pnpm --filter @supply-chain/common build >/dev/null
 pnpm build >/dev/null
 pnpm build:trade >/dev/null
 pnpm build:pool >/dev/null

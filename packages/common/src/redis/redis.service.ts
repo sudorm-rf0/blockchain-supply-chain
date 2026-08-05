@@ -21,12 +21,23 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  // setNX 不吞错：由调用方决定降级策略（如 503 / 跳过本轮）。
+  async setNX(key: string, value: string, seconds: number): Promise<boolean> {
+    const result = await this.client.set(key, value, "EX", seconds, "NX");
+    return result === "OK";
+  }
+
   async setEx(key: string, seconds: number, value: string): Promise<void> {
     try {
       await this.client.set(key, value, "EX", seconds);
     } catch {
       // Redis 不可用时静默降级。
     }
+  }
+
+  /** pool-service 曾用的别名，参数顺序 (key, value, seconds)。 */
+  async setWithExpiry(key: string, value: string, seconds: number): Promise<void> {
+    await this.setEx(key, seconds, value);
   }
 
   async incr(key: string): Promise<number> {

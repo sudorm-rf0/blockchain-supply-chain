@@ -84,6 +84,9 @@ importers:
       '@solana/web3.js':
         specifier: ^1.98.4
         version: 1.98.4(bufferutil@4.1.0)(typescript@5.5.3)(utf-8-validate@6.0.6)
+      '@supply-chain/common':
+        specifier: workspace:*
+        version: link:../common
       bullmq:
         specifier: ^5.5.1
         version: 5.81.3
@@ -175,6 +178,27 @@ importers:
       typescript-eslint:
         specifier: ^8.66.0
         version: 8.66.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.5.3)
+
+  packages/common:
+    devDependencies:
+      '@nestjs/common':
+        specifier: ^11.1.28
+        version: 11.1.28(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@types/express':
+        specifier: ^5
+        version: 5.0.6
+      '@types/node':
+        specifier: ^20.14.9
+        version: 20.19.43
+      express:
+        specifier: ^5
+        version: 5.2.1
+      ioredis:
+        specifier: ^5.4.1
+        version: 5.11.1
+      typescript:
+        specifier: ^5.5.3
+        version: 5.9.3
 
   packages/contracts:
     devDependencies:

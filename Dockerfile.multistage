@@ -29,10 +29,13 @@ COPY .npmrc package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/frontend/package.json packages/frontend/package.json
 COPY packages/backend/package.json packages/backend/package.json
+COPY packages/common/package.json packages/common/package.json
 
 RUN if [ -n "${NPM_REGISTRY}" ]; then pnpm config set registry "${NPM_REGISTRY}"; fi \
     && pnpm install --frozen-lockfile
 
+COPY packages/common packages/common
+RUN pnpm --filter @supply-chain/common build
 COPY packages/backend packages/backend
 RUN pnpm --filter @supply-chain/backend exec prisma generate
 RUN pnpm --filter @supply-chain/backend run build
