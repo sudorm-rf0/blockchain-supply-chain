@@ -83,6 +83,12 @@ kubectl exec deployment/backend -n supply-chain -- npm run prisma:deploy
 - [ ] `curl https://your-domain/health` 返回 `db: "up"`。
 - [ ] `curl https://your-domain/health/ready` 返回 200。
 - [ ] Prometheus 抓取 `/metrics` 正常，告警规则生效。
+- [ ] `bash scripts/verify-deployment.sh` 通过（健康/就绪/指标/关键接口；
+      真实环境建议 `REQUIRE_CSP_METRIC=1`，并按需 `RUN_SMOKE=1` 做全链路冒烟）。
+- [ ] `bash scripts/verify-contract-deployment.sh` 通过（Program 可执行、
+      PoolState 已初始化、USDC/LP Mint 正确、部署钱包有余额）。
+- [ ] `PREVIOUS_TAG=<上一版镜像tag> bash scripts/rollback-drill.sh` 通过
+      （dry-run；正式演练用 `DRY_RUN=0` 并在低峰执行）。
 - [ ] 真实验证一次：上传 → 预览 → 删除；钱包签名存证上链。
 - [ ] 用正式 RPC 压测 `POST /api/trades`，确认配额充足。
 - [ ] Postgres 做一次真实备份恢复演练；确认备份 CronJob 已创建。

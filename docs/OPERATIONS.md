@@ -97,6 +97,13 @@ bash scripts/db-backup-restore.sh drill
 bash scripts/verify-monitoring.sh
 ```
 
+部署后一键验证（健康/就绪/指标/关键接口，可选全链路冒烟）：
+
+```bash
+bash scripts/verify-deployment.sh
+bash scripts/verify-contract-deployment.sh
+```
+
 详见 [docs/MONITORING.md](MONITORING.md)。
 
 ### NetworkPolicy 外部出口收紧密级
