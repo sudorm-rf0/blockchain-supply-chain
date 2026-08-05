@@ -43,6 +43,10 @@ impl TradeDeal {
     pub const DISCRIMINATOR_SIZE: usize = 8;
 
     /// 账户空间 = 8 字节 Anchor 前缀 + 各字段长度。
+    /// 注意：此布局与 indexer 的
+    /// packages/backend/apps/indexer-service/src/indexer/trade-deal.parser.ts
+    /// （TRADE_DEAL_ACCOUNT_SIZE 与偏移）锚定，改动字段必须同步，
+    /// 并同步 layout-anchor.spec.ts 中的布局表。
     pub fn space() -> usize {
         Self::DISCRIMINATOR_SIZE
             + 8  // id
@@ -105,6 +109,10 @@ impl PoolState {
     pub const DISCRIMINATOR_SIZE: usize = 8;
 
     /// 账户空间 = 8 字节 Anchor 前缀 + 各字段长度。
+    /// 注意：此布局与 indexer 的
+    /// packages/backend/apps/indexer-service/src/indexer/pool-state.parser.ts
+    /// （POOL_STATE_ACCOUNT_SIZE 与偏移）锚定，改动字段必须同步，
+    /// 并同步 layout-anchor.spec.ts 中的布局表。
     pub fn space() -> usize {
         Self::DISCRIMINATOR_SIZE
             + 32 // admin
