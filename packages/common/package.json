@@ -1,0 +1,23 @@
+{
+  "name": "@supply-chain/common",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.1.28",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.28",
+    "@types/express": "^5",
+    "@types/node": "^20.14.9",
+    "express": "^5",
+    "ioredis": "^5.4.1",
+    "typescript": "^5.5.3"
+  }
+}

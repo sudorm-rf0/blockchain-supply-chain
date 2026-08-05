@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
-import { AuthGuard } from "../auth/auth.guard";
-import { AdminGuard } from "../auth/admin.guard";
+import { AuthGuard } from "@supply-chain/common";
+import { AdminGuard } from "@supply-chain/common";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Controller("api/admin/stats")

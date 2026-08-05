@@ -23,8 +23,8 @@ import { ExecuteWithdrawDto } from "./dto/execute-withdraw.dto";
 import { RedeemLpDto } from "./dto/redeem-lp.dto";
 import { ConfirmRedeemDto } from "./dto/confirm-redeem.dto";
 import { PoolService } from "./pool.service";
-import { AuthGuard } from "../auth/auth.guard";
-import { AdminGuard } from "../auth/admin.guard";
+import { AuthGuard } from "@supply-chain/common";
+import { AdminGuard } from "@supply-chain/common";
 
 @ApiTags("pool")
 @Controller("api")

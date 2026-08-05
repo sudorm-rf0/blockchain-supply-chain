@@ -10,7 +10,7 @@ import { Connection, MessageV0, PublicKey } from "@solana/web3.js";
 import { TRADE_ENV } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
-import { RedisService } from "../redis/redis.service";
+import { RedisService } from "@supply-chain/common";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
 import { ConfirmTradeDto } from "./dto/confirm-trade.dto";

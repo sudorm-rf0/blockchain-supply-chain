@@ -16,8 +16,8 @@ import {
   ApiOperation,
   ApiTags,
 } from "@nestjs/swagger";
-import { AuthGuard } from "../auth/auth.guard";
-import { AdminGuard } from "../auth/admin.guard";
+import { AuthGuard } from "@supply-chain/common";
+import { AdminGuard } from "@supply-chain/common";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
 import { ConfirmTradeDto } from "./dto/confirm-trade.dto";

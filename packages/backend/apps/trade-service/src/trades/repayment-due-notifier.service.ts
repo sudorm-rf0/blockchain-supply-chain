@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
-import { RedisService } from "../redis/redis.service";
+import { RedisService } from "@supply-chain/common";
 import { NotifierService } from "./notifier.service";
 
 const NOTIFY_DEDUP_TTL_SECONDS = 7 * 24 * 60 * 60;

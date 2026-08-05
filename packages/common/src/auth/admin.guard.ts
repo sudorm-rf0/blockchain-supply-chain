@@ -1,15 +1,15 @@
 import {
   CanActivate,
   ExecutionContext,
-  Injectable,
   ForbiddenException,
+  Injectable,
 } from "@nestjs/common";
 import type { Request } from "express";
-import { PrismaService } from "../prisma/prisma.service";
+import type { PrismaQueryLike } from "../types";
 
 @Injectable()
 export class AdminGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaQueryLike) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();

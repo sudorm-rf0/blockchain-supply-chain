@@ -15,7 +15,7 @@ import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { PublicKey } from "@solana/web3.js";
 import { AuthService } from "./auth.service";
-import { AuthGuard } from "./auth.guard";
+import { AuthGuard } from "@supply-chain/common";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";

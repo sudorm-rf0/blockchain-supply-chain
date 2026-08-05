@@ -1,4 +1,4 @@
-import { AdminGuard } from "./admin.guard";
+import { AdminGuard } from "@supply-chain/common";
 
 function makeContext(sub?: string, role?: string) {
   const request = { user: sub ? { sub, role } : undefined };

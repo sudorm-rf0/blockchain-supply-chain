@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
-import { AuthGuard } from "../auth/auth.guard";
+import { AuthGuard } from "@supply-chain/common";
 import { AttestationService } from "./attestation.service";
 import {
   AttestDocumentDto,

@@ -1,11 +1,10 @@
 import { Module } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { RedisService } from "../redis/redis.service";
+import { RedisService, AuthGuard, AdminGuard } from "@supply-chain/common";
 import { PoolController } from "./pool.controller";
 import { PoolService } from "./pool.service";
 import { WithdrawalWorkerService } from "./withdrawal-worker.service";
 import { AuditService } from "../audit/audit.service";
-import { AuthGuard } from "../auth/auth.guard";
 
 @Module({
   controllers: [PoolController],
@@ -13,9 +12,18 @@ import { AuthGuard } from "../auth/auth.guard";
     PoolService,
     WithdrawalWorkerService,
     AuditService,
-    AuthGuard,
     PrismaService,
     RedisService,
+    {
+      provide: AuthGuard,
+      useFactory: (prisma: PrismaService) => new AuthGuard(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: AdminGuard,
+      useFactory: (prisma: PrismaService) => new AdminGuard(prisma),
+      inject: [PrismaService],
+    },
   ],
   exports: [PrismaService],
 })

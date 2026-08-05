@@ -22,7 +22,7 @@ import { pipeline } from "node:stream/promises";
 import { PrismaService } from "../prisma/prisma.service";
 import type { StorageService } from "../storage/storage.service";
 import { AuditService } from "../audit/audit.service";
-import { RedisService } from "../redis/redis.service";
+import { RedisService } from "@supply-chain/common";
 import { ScanService } from "../security/scan.service";
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
