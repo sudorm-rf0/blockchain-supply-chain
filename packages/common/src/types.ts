@@ -1,9 +1,14 @@
 /**
  * 共享 guard 依赖的最小 Prisma 查询接口（鸭子类型）。
  * 各服务注入自己生成的 PrismaService 实例，避免共享包耦合 @prisma/client
- * 及其生成位置。select 用 any 以兼容 Prisma 的 SelectSubset 泛型签名；
- * 具体类型安全由各服务工厂 provider 注入的真实 PrismaService 保证。
+ * 及其生成位置。select 用 any 以兼容 Prisma 的 SelectSubset 泛型签名。
+ *
+ * 依赖注入：guard 构造参数用 @Inject(PRISMA_SERVICE) 显式 token，各服务模块
+ * 通过 { provide: PRISMA_SERVICE, useExisting: PrismaService } 提供，保证
+ * Nest 无论从哪个模块作用域实例化 guard 都能正确解析。
  */
+export const PRISMA_SERVICE = Symbol("PRISMA_SERVICE");
+
 export interface PrismaQueryLike {
   user: {
     findUnique(args: {
