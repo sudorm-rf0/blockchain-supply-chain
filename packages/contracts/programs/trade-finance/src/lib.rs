@@ -169,27 +169,23 @@ pub mod trade_finance {
         }
 
         let clock = Clock::get()?;
+        let owner = ctx.accounts.owner.key();
         let document = &mut ctx.accounts.document;
         document.trade_id = trade_id;
-        document.owner = ctx.accounts.owner.key();
+        document.owner = owner;
         document.file_hash = file_hash;
         document.uri = uri.clone();
         document.uploaded_at = clock.unix_timestamp;
 
         emit!(DocumentAttestedEvent {
             trade_id,
-            owner: document.owner,
+            owner,
             file_hash,
-            uri: document.uri.clone(),
-            uploaded_at: document.uploaded_at,
+            uri,
+            uploaded_at: clock.unix_timestamp,
         });
 
-        msg!(
-            "document attested: trade_id={}, owner={}, uri={}",
-            trade_id,
-            document.owner,
-            document.uri
-        );
+        msg!("document attested: trade_id={}", trade_id);
         Ok(())
     }
 
@@ -223,15 +219,8 @@ pub mod trade_finance {
             .checked_sub(down_payment)
             .ok_or(TradeFinanceError::MathOverflow)?;
 
-        // 单笔 1% 集中度上限：pool_portion <= total_assets * 1 / 100
-        let concentration_limit = ctx
-            .accounts
-            .pool_state
-            .total_assets
-            .checked_mul(1)
-            .ok_or(TradeFinanceError::MathOverflow)?
-            .checked_div(100)
-            .ok_or(TradeFinanceError::MathOverflow)?;
+        // 单笔 1% 集中度上限：pool_portion <= total_assets / 100
+        let concentration_limit = ctx.accounts.pool_state.total_assets / 100;
         require!(
             pool_portion <= concentration_limit,
             TradeFinanceError::OverConcentration
@@ -421,6 +410,7 @@ pub mod trade_finance {
         )?;
 
         ctx.accounts.pool_token_account.reload()?;
+        ctx.accounts.lp_mint.reload()?;
         pool.total_assets = total_after;
         pool.reserve_fund = reserve_before
             .checked_sub(reserve_out)
@@ -602,7 +592,9 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?;
         pool.total_assets = pool
             .total_assets
-            .checked_sub(down_payment)
+            .checked_add(down_payment)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_sub(insurance_payout)
             .ok_or(TradeFinanceError::MathOverflow)?;
         pool.active_capital = pool
             .active_capital
@@ -904,7 +896,6 @@ pub struct FundDeal<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub admin: Signer<'info>,
 
     /// CHECK: 买方公钥用于推导订单 PDA。
@@ -949,10 +940,9 @@ pub struct FundDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64, target_status: u8)]
 pub struct AdvanceDeal<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub admin: Signer<'info>,
 
     /// CHECK: 买方公钥用于推导订单 PDA。
@@ -975,10 +965,9 @@ pub struct AdvanceDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct ReleaseToSeller<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub admin: Signer<'info>,
 
     /// CHECK: 买方公钥用于推导订单 PDA。
@@ -1020,7 +1009,6 @@ pub struct RefreshNav<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub admin: Signer<'info>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
@@ -1043,7 +1031,6 @@ pub struct RepayDeal<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub buyer: Signer<'info>,
 
     #[account(
@@ -1075,7 +1062,7 @@ pub struct RepayDeal<'info> {
     pub platform_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(mut, seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -1095,7 +1082,6 @@ pub struct DepositPool<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub depositor: Signer<'info>,
 
     #[account(
@@ -1126,7 +1112,6 @@ pub struct RedeemLp<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub lp_user: Signer<'info>,
 
     #[account(
@@ -1166,7 +1151,6 @@ pub struct DefaultDeal<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
-    #[account(mut)]
     pub admin: Signer<'info>,
 
     /// CHECK: 买方公钥用于推导订单 PDA。
