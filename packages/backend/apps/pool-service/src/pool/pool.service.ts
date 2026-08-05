@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { DealStatus, Prisma } from "@prisma/client";
 import { Connection, PublicKey } from "@solana/web3.js";
@@ -28,6 +29,11 @@ const NOTICE_SECONDS = NOTICE_DAYS * 24 * 60 * 60;
 const U64_MAX = (1n << 64n) - 1n;
 const OVERVIEW_CACHE_KEY = "pool:overview:v1";
 const OVERVIEW_CACHE_SECONDS = 30;
+let _connection: Connection | undefined;
+
+function getConnection(): Connection {
+  return (_connection ??= new Connection(POOL_ENV.rpcUrl, "confirmed"));
+}
 const ACTIVE_STATUSES = new Set([
   "PENDING",
   "FUNDED",
@@ -186,7 +192,12 @@ export class PoolService {
     }
 
     const key = `lp:withdraw:${dto.lpWallet}`;
-    const lockAcquired = await this.redis.setNX(key, "locked", NOTICE_SECONDS);
+    let lockAcquired: boolean;
+    try {
+      lockAcquired = await this.redis.setNX(key, "locked", NOTICE_SECONDS);
+    } catch {
+      throw new ServiceUnavailableException("服务暂时不可用，请稍后重试");
+    }
     if (!lockAcquired) {
       throw new ConflictException(
         "withdrawal already requested within the 7-day notice period",
@@ -307,11 +318,10 @@ export class PoolService {
     } catch {
       throw new BadRequestException("invalid lpAmount");
     }
-    const connection = new Connection(POOL_ENV.rpcUrl, "confirmed");
     const { transaction, blockhash } = await buildRedeemLpTransaction(
       new PublicKey(dto.lpWallet),
       lpAmount,
-      connection,
+      getConnection(),
     );
     return {
       transaction: transaction
@@ -340,10 +350,9 @@ export class PoolService {
       throw new BadRequestException("invalid lpAmount");
     }
 
-    const connection = new Connection(POOL_ENV.rpcUrl, "confirmed");
     let tx;
     try {
-      tx = await connection.getTransaction(dto.txSignature, {
+      tx = await getConnection().getTransaction(dto.txSignature, {
         commitment: "confirmed",
         maxSupportedTransactionVersion: 0,
       });

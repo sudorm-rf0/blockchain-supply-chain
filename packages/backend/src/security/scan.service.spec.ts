@@ -53,7 +53,6 @@ describe("ScanService", () => {
     process.env.CLAMAV_HOST = "127.0.0.1";
     process.env.CLAMAV_PORT = "3310";
     const writes: Buffer[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fakeSocket: any = {
       write: (chunk: Buffer) => {
         writes.push(Buffer.from(chunk));
