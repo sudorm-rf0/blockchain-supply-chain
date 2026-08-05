@@ -3,6 +3,7 @@ import {
   Get,
   Header,
   Query,
+  StreamableFile,
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
@@ -40,10 +41,11 @@ export class AuditController {
     @Query("targetType") targetType?: string,
     @Query("limit") limit = "10000",
   ) {
-    return this.audit.exportCsv({
+    const stream = this.audit.exportCsv({
       action,
       targetType,
       limit: Math.min(100_000, Math.max(1, Number(limit) || 10_000)),
     });
+    return new StreamableFile(stream);
   }
 }

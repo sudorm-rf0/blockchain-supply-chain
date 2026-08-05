@@ -113,6 +113,7 @@ export class FilesController {
       "Content-Disposition",
       `inline; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,
     );
+    res.setHeader("Cache-Control", "private, max-age=3600");
     file.stream.on("error", () => {
       if (!res.headersSent) {
         res.status(500).end();

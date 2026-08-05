@@ -59,20 +59,29 @@ describe("AuditService", () => {
 
   it("exports audit entries as escaped CSV", async () => {
     const prisma = makePrisma();
-    prisma.auditLog.findMany.mockResolvedValue([
-      {
-        id: "log-1",
-        createdAt: new Date("2026-08-03T00:00:00.000Z"),
-        actorId: "user-1",
-        actorEmail: 'a"b@example.com',
-        action: "FILE_APPROVED",
-        targetType: "FILE",
-        targetId: "file-1",
-        metadata: { from: "PENDING,REVIEW" },
-      },
-    ]);
+    prisma.auditLog.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "log-1",
+          createdAt: new Date("2026-08-03T00:00:00.000Z"),
+          actorId: "user-1",
+          actorEmail: 'a"b@example.com',
+          action: "FILE_APPROVED",
+          targetType: "FILE",
+          targetId: "file-1",
+          metadata: { from: "PENDING,REVIEW" },
+        },
+      ])
+      .mockResolvedValue([]);
     const service = new AuditService(prisma as never);
-    const csv = await service.exportCsv({});
+    const stream = service.exportCsv({});
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(
+        Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)),
+      );
+    }
+    const csv = Buffer.concat(chunks).toString("utf8");
     expect(csv.startsWith('\uFEFF"id","createdAt"')).toBe(true);
     expect(csv).toContain('"a""b@example.com"');
     expect(csv).toContain('"PENDING,REVIEW"');

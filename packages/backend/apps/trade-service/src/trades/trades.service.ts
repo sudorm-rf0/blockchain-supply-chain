@@ -54,6 +54,22 @@ function getProgramId(): PublicKey {
 
 const U64_MAX = (1n << 64n) - 1n;
 
+// 列表/详情只取响应需要的字段，避免把整段 rawData(Json) 从数据库拉出来。
+const TRADE_LIST_SELECT = {
+  id: true,
+  dealId: true,
+  buyerWallet: true,
+  sellerWallet: true,
+  amount: true,
+  downPayment: true,
+  poolPortion: true,
+  tenor: true,
+  status: true,
+  txSignature: true,
+  logisticsHash: true,
+  createdAt: true,
+} satisfies Prisma.TradeDealSelect;
+
 type ParsedTxMessage = {
   accountKeys?: PublicKey[];
   staticAccountKeys?: PublicKey[];
@@ -157,7 +173,7 @@ export class TradesService {
         buyerWallet: dto.buyerWallet,
         sellerWallet: dto.sellerWallet,
         amount,
-        tenor: tenorDays,
+        tenor: tenorDays * 86_400n,
         status: "PENDING",
       },
       select: { dealId: true },
@@ -227,6 +243,7 @@ export class TradesService {
       where,
       orderBy: { createdAt: "desc" },
       take: 200,
+      select: TRADE_LIST_SELECT,
     });
     return trades.map((trade) => ({
       id: trade.id,
@@ -257,6 +274,7 @@ export class TradesService {
       where,
       orderBy: { createdAt: "desc" },
       take: 200,
+      select: TRADE_LIST_SELECT,
     });
     return trades.map((trade) => ({
       id: trade.id,
@@ -278,6 +296,7 @@ export class TradesService {
     const id = this.parseTradeId(tradeId);
     const trade = await this.prisma.tradeDeal.findUnique({
       where: { dealId: id.toString(10) },
+      select: TRADE_LIST_SELECT,
     });
     if (!trade) throw new NotFoundException("trade not found");
     const user = await this.prisma.user.findUnique({
@@ -414,7 +433,7 @@ export class TradesService {
           amount,
           downPayment,
           poolPortion,
-          tenor: tenorDays,
+          tenor: tenorDays * 86_400n,
           status: "PENDING",
           createdAt: new Date(),
           txSignature: dto.txSignature,

@@ -38,7 +38,12 @@ export class RepaymentDueNotifierService {
       if (dueAt > now) continue;
 
       const key = `repay:due:notified:${deal.dealId}`;
-      const claimed = await this.redis.setNX(key, "1", NOTIFY_DEDUP_TTL_SECONDS);
+      let claimed: boolean;
+      try {
+        claimed = await this.redis.setNX(key, "1", NOTIFY_DEDUP_TTL_SECONDS);
+      } catch {
+        continue;
+      }
       if (!claimed) continue;
 
       await this.audit.record({

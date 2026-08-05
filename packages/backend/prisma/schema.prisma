@@ -62,7 +62,7 @@ model TradeDeal {
   amount               BigInt
   downPayment          BigInt
   poolPortion          BigInt
-  tenor                BigInt
+  tenor                BigInt      /// 账期，单位秒
   status               DealStatus @default(PENDING)
   createdAt            DateTime
   repaidAt             DateTime?
