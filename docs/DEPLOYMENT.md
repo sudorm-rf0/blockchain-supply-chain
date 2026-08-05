@@ -76,15 +76,15 @@ FRONTEND_PORT=3100 pnpm dev
 
 ```bash
 docker build --target backend-runner \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=https://your-domain/api \
-  --build-arg NEXT_PUBLIC_TRADE_API_URL=https://your-domain/api \
-  --build-arg NEXT_PUBLIC_POOL_API_URL=https://your-domain/api \
+  --build-arg NEXT_PUBLIC_BACKEND_URL=https://your-domain \
+  --build-arg NEXT_PUBLIC_TRADE_API_URL=https://your-domain \
+  --build-arg NEXT_PUBLIC_POOL_API_URL=https://your-domain \
   -t your-registry/supply-chain-backend:latest .
 
 docker build --target frontend-runner \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=https://your-domain/api \
-  --build-arg NEXT_PUBLIC_TRADE_API_URL=https://your-domain/api \
-  --build-arg NEXT_PUBLIC_POOL_API_URL=https://your-domain/api \
+  --build-arg NEXT_PUBLIC_BACKEND_URL=https://your-domain \
+  --build-arg NEXT_PUBLIC_TRADE_API_URL=https://your-domain \
+  --build-arg NEXT_PUBLIC_POOL_API_URL=https://your-domain \
   -t your-registry/supply-chain-frontend:latest .
 ```
 

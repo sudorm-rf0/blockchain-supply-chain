@@ -43,3 +43,9 @@ solana program deploy target/deploy/supply_chain.so \
 echo "devnet deployment finished."
 echo "trade_finance program id: 9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
 echo "supply_chain program id: Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+
+echo "==> verifying trade_finance deployment"
+SOLANA_RPC_URL="${SOLANA_RPC_URL}" \
+  TRADE_FINANCE_PROGRAM_ID="9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3" \
+  REQUIRE_POOL=0 \
+  bash "${ROOT}/scripts/verify-contract-deployment.sh"
