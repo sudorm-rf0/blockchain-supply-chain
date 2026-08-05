@@ -19,6 +19,7 @@ import {
   hashRefreshToken,
   REFRESH_TOKEN_TTL_SECONDS,
 } from "./session";
+import { invalidateUserState } from "./auth.guard";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -270,6 +271,7 @@ export class AuthService {
         lastPasswordChangeAt: new Date(),
       },
     });
+    invalidateUserState(userId);
     if (currentRefreshToken) {
       await this.prisma.refreshToken.updateMany({
         where: {

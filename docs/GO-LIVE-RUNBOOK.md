@@ -97,6 +97,8 @@ kubectl exec deployment/backend -n supply-chain -- npm run prisma:deploy
 ## 5. 主网（上线当天）
 
 - [ ] 审计报告通过，缺陷已修复并复测。
+- [ ] `bash scripts/precheck-mainnet-deploy.sh` 通过（RPC/钱包/代币/Program ID/
+      PoolState 状态校验）。
 - [ ] 主网部署钱包有足够 SOL。
 - [ ] 部署合约后冻结 upgrade authority（或按治理计划保留）。
 - [ ] 切 `SOLANA_RPC_URL`、`USDC_MINT`、`LP_MINT` 为主网值。

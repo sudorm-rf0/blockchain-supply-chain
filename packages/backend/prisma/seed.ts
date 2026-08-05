@@ -8,6 +8,16 @@ async function seed() {
   const password = process.env.ADMIN_PASSWORD ?? "Admin123!";
   const name = process.env.ADMIN_NAME ?? "Admin";
 
+  if (
+    process.env.NODE_ENV === "production" &&
+    (!password || password === "Admin123!")
+  ) {
+    console.error(
+      "Refusing to seed the default admin password in production. Set ADMIN_PASSWORD to a strong secret.",
+    );
+    process.exit(1);
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     if (existing.role !== "ADMIN") {

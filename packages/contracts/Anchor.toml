@@ -14,4 +14,4 @@ trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
 members = ["programs/supply-chain", "programs/trade-finance"]
 
 [scripts]
-test = "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "bash scripts/test-anchor.sh"

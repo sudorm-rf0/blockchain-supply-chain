@@ -19,6 +19,7 @@ jobs:
       security: ${{ steps.changes.outputs.security }}
       backup: ${{ steps.changes.outputs.backup }}
       monitoring: ${{ steps.changes.outputs.monitoring }}
+      scripts: ${{ steps.changes.outputs.scripts }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,6 +74,30 @@ jobs:
               - 'k8s/**'
               - 'scripts/verify-monitoring.sh'
               - '.github/workflows/ci.yml'
+            scripts:
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+
+  scripts-lint:
+    runs-on: [self-hosted, macOS, ARM64]
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax check
+        run: |
+          set -euo pipefail
+          for f in scripts/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: Verify deployment scripts are executable
+        run: |
+          test -x scripts/verify-deployment.sh
+          test -x scripts/verify-contract-deployment.sh
+          test -x scripts/rollback-drill.sh
+          test -x scripts/precheck-mainnet-deploy.sh
 
   backend:
     runs-on: [self-hosted, macOS, ARM64]
