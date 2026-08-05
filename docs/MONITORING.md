@@ -64,7 +64,11 @@ bash scripts/verify-monitoring.sh
   `localhost` 或 `host.docker.internal`；已配置
   `alerting.alertmanagers` 指向 `alertmanager:9093`。
 - `infra/prometheus/alerts.yml`：7 条告警（服务下线、5xx 比例、队列失败、
-  索引器陈旧、P99 延迟、内存水位、CSP 违规上报）。
+  索引器陈旧、P99 延迟、内存水位、CSP 违规上报、Blackbox 探针、TLS 到期）。
+- `infra/blackbox/blackbox.yml`：Blackbox Exporter HTTP 探针模块；
+  `deploy.sh` 根据 `PUBLIC_BASE_URL` 生成探针目标
+  （`/health`、`/health/ready`、`/login`），由 Prometheus 的
+  `blackbox` job 抓取 `probe_success`。
 - `infra/grafana/dashboards/supply-chain.json`：大盘，覆盖请求量、5xx、
   P99、堆内存、事件循环、索引器队列。
 - `infra/grafana/provisioning/`：Grafana 自动加载 datasource 与 dashboard 的
@@ -104,6 +108,10 @@ ALERTMANAGER_SMTP_FROM="alert@example.com" \
 没有 generated 配置但设置了 `ALERTMANAGER_*` 环境变量时，`deploy.sh` 也会
 临时生成后再 apply。生成前请确认 URL / SMTP 凭据只通过环境变量传入，不要
 写进仓库。
+
+`configure-alertmanager-webhook.sh` 会按 `severity` 分级路由：`critical`
+（服务下线、Blackbox 探针失败等）走独立 receiver（邮件 + Slack），
+`warning` 走默认 receiver（Webhook + Slack）。
 
 ## 4.2 CSP 违规上报告警
 

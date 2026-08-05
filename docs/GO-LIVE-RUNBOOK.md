@@ -83,6 +83,8 @@ kubectl exec deployment/backend -n supply-chain -- npm run prisma:deploy
 - [ ] `curl https://your-domain/health` 返回 `db: "up"`。
 - [ ] `curl https://your-domain/health/ready` 返回 200。
 - [ ] Prometheus 抓取 `/metrics` 正常，告警规则生效。
+- [ ] Blackbox 探针已配置（`/health`、`/health/ready`、`/login`），
+      并确认 Alertmanager 按 severity 分级推送。
 - [ ] `bash scripts/verify-deployment.sh` 通过（健康/就绪/指标/关键接口；
       真实环境建议 `REQUIRE_CSP_METRIC=1`，并按需 `RUN_SMOKE=1` 做全链路冒烟）。
 - [ ] `bash scripts/verify-contract-deployment.sh` 通过（Program 可执行、
@@ -91,6 +93,8 @@ kubectl exec deployment/backend -n supply-chain -- npm run prisma:deploy
       （dry-run；正式演练用 `DRY_RUN=0` 并在低峰执行）。
 - [ ] 真实验证一次：上传 → 预览 → 删除；钱包签名存证上链。
 - [ ] 用正式 RPC 压测 `POST /api/trades`，确认配额充足。
+- [ ] `SOLANA_RPC_URL=<正式RPC> node scripts/load-test/rpc-load-test.mjs`
+      成功率 >= 95%，p95 延迟 < 500ms；否则升级 RPC 套餐或加轮询。
 - [ ] Postgres 做一次真实备份恢复演练；确认备份 CronJob 已创建。
 - [ ] CI 全绿；保留上一版镜像用于回滚。
 

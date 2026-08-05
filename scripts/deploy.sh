@@ -71,9 +71,16 @@ kubectl apply -n "${NAMESPACE}" -f k8s/postgres-backup-drill-cronjob.yaml
 
 if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
   echo "==> [3.6/5] apply monitoring stack"
+  BB_TARGETS="$(mktemp /tmp/blackbox-targets.XXXXXX.yml)"
+  printf -- '- targets:\n    - %s/health\n    - %s/health/ready\n    - %s/login\n' \
+    "${PUBLIC_BASE_URL}" "${PUBLIC_BASE_URL}" "${PUBLIC_BASE_URL}" > "${BB_TARGETS}"
   kubectl -n "${NAMESPACE}" create configmap prometheus-config \
     --from-file=prometheus.yml=infra/prometheus/prometheus.yml \
     --from-file=alerts.yml=infra/prometheus/alerts.yml \
+    --from-file=blackbox-targets.yml="${BB_TARGETS}" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl -n "${NAMESPACE}" create configmap blackbox-exporter-config \
+    --from-file=blackbox.yml=infra/blackbox/blackbox.yml \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   kubectl -n "${NAMESPACE}" create configmap grafana-provisioning \
     --from-file=datasources/prometheus.yml=infra/grafana/provisioning/datasources/prometheus.yml \
@@ -103,6 +110,7 @@ if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
   kubectl apply -n "${NAMESPACE}" \
     -f "${ALERTMANAGER_CONFIG}" \
     -f k8s/prometheus-deployment.yaml \
+    -f k8s/blackbox-exporter-deployment.yaml \
     -f k8s/grafana-deployment.yaml \
     -f k8s/alertmanager-deployment.yaml
   kubectl rollout status deployment/prometheus -n "${NAMESPACE}" --timeout=300s

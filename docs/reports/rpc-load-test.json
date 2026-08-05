@@ -1,0 +1,66 @@
+{
+  "rpc": "https://mainnet.helius-rpc.com/?api-key=***",
+  "startedAt": "2026-08-05T15:33:33.135Z",
+  "durationMs": 11187,
+  "totalRequests": 200,
+  "concurrency": 10,
+  "throughputRps": 17.88,
+  "successRate": 30,
+  "latencyMs": {
+    "min": 208.63,
+    "p50": 274.01,
+    "p90": 920.12,
+    "p95": 1417.92,
+    "p99": 2354.18,
+    "max": 7070.25
+  },
+  "byMethod": {
+    "getSlot": {
+      "total": 40,
+      "ok": 14,
+      "errors": 26
+    },
+    "getVersion": {
+      "total": 40,
+      "ok": 0,
+      "errors": 40
+    },
+    "getBalance": {
+      "total": 40,
+      "ok": 16,
+      "errors": 24
+    },
+    "getHealth": {
+      "total": 40,
+      "ok": 15,
+      "errors": 25
+    },
+    "getLatestBlockhash": {
+      "total": 40,
+      "ok": 15,
+      "errors": 25
+    }
+  },
+  "sampleErrors": [
+    {
+      "method": "getVersion",
+      "status": 200
+    },
+    {
+      "method": "getVersion",
+      "status": 200
+    },
+    {
+      "method": "getVersion",
+      "status": 200
+    },
+    {
+      "method": "getVersion",
+      "status": 200
+    },
+    {
+      "method": "getVersion",
+      "status": 200
+    }
+  ]
+}

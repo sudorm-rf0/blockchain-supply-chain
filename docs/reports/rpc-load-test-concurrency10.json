@@ -1,0 +1,71 @@
+{
+  "rpc": "https://mainnet.helius-rpc.com/?api-key=***",
+  "startedAt": "2026-08-05T15:35:41.283Z",
+  "durationMs": 12628,
+  "totalRequests": 200,
+  "concurrency": 10,
+  "throughputRps": 15.84,
+  "successRate": 40.5,
+  "latencyMs": {
+    "min": 211.72,
+    "p50": 291.05,
+    "p90": 1013.01,
+    "p95": 1322.35,
+    "p99": 2260.3,
+    "max": 4307.27
+  },
+  "byMethod": {
+    "getVersion": {
+      "total": 40,
+      "ok": 14,
+      "errors": 26
+    },
+    "getBalance": {
+      "total": 40,
+      "ok": 15,
+      "errors": 25
+    },
+    "getSlot": {
+      "total": 40,
+      "ok": 15,
+      "errors": 25
+    },
+    "getHealth": {
+      "total": 40,
+      "ok": 20,
+      "errors": 20
+    },
+    "getLatestBlockhash": {
+      "total": 40,
+      "ok": 17,
+      "errors": 23
+    }
+  },
+  "sampleErrors": [
+    {
+      "method": "getVersion",
+      "status": 0,
+      "error": "SyntaxError: Unexpected token 'T', \"Too Many Requests\" is not valid JSON"
+    },
+    {
+      "method": "getLatestBlockhash",
+      "status": 0,
+      "error": "SyntaxError: Unexpected token 'T', \"Too Many Requests\" is not valid JSON"
+    },
+    {
+      "method": "getSlot",
+      "status": 0,
+      "error": "SyntaxError: Unexpected token 'T', \"Too Many Requests\" is not valid JSON"
+    },
+    {
+      "method": "getHealth",
+      "status": 0,
+      "error": "SyntaxError: Unexpected token 'T', \"Too Many Requests\" is not valid JSON"
+    },
+    {
+      "method": "getVersion",
+      "status": 0,
+      "error": "SyntaxError: Unexpected token 'T', \"Too Many Requests\" is not valid JSON"
+    }
+  ]
+}
