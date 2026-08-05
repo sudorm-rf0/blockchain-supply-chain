@@ -126,6 +126,9 @@ jobs:
         working-directory: packages/backend
         run: pnpm exec prisma generate
 
+      - name: Build shared common package
+        run: pnpm --filter @supply-chain/common build
+
       - name: TypeScript Check (main backend)
         working-directory: packages/backend
         run: pnpm exec tsc --noEmit
@@ -426,6 +429,7 @@ jobs:
         run: |
           pnpm exec prisma migrate deploy
           pnpm exec prisma db seed
+          pnpm --filter @supply-chain/common build
           pnpm build
           pnpm build:trade
           pnpm build:pool
@@ -434,6 +438,8 @@ jobs:
         working-directory: packages/backend
         env:
           SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+          # e2e 用本地 validator，外网 RPC 预检仅作观察；self-hosted 网络不通时降级不阻塞
+          RPC_CHECK_ALLOW_FAIL: "1"
         run: |
           THROTTLE_LIMIT=100000 PORT="$CI_BACKEND_PORT" pnpm start > /tmp/backend.log 2>&1 &
           REDIS_URL="$REDIS_URL" THROTTLE_LIMIT=100000 POOL_SERVICE_PORT="$CI_POOL_PORT" pnpm start:pool > /tmp/pool.log 2>&1 &
