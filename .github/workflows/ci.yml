@@ -30,6 +30,7 @@ jobs:
           filters: |
             backend:
               - 'packages/backend/**'
+              - 'packages/common/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             frontend:
@@ -44,6 +45,7 @@ jobs:
               - 'pnpm-lock.yaml'
             e2e:
               - 'packages/backend/**'
+              - 'packages/common/**'
               - 'packages/contracts/**'
               - 'scripts/**'
               - 'package.json'
@@ -51,20 +53,24 @@ jobs:
             frontend-e2e:
               - 'packages/frontend/**'
               - 'packages/backend/**'
+              - 'packages/common/**'
               - 'scripts/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             docker:
               - 'Dockerfile.multistage'
               - 'packages/backend/**'
+              - 'packages/common/**'
               - 'packages/frontend/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             security:
+              - 'packages/common/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - '.github/workflows/ci.yml'
             backup:
+              - 'packages/common/**'
               - 'packages/backend/**'
               - 'scripts/db-backup-restore.sh'
               - 'package.json'
