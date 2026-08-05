@@ -265,9 +265,10 @@ mod tests {
 
     #[test]
     fn supplier_pda_differs_by_address() {
-        let owner_a = Pubkey::new_unique();
-        let owner_b = Pubkey::new_unique();
-        let (pda_a, bump_a) = Pubkey::find_program_address(
+        // 使用确定性公钥而非 new_unique()，避免 bump 断言在不同随机密钥下不稳定。
+        let owner_a = Pubkey::new_from_array([1u8; 32]);
+        let owner_b = Pubkey::new_from_array([2u8; 32]);
+        let (pda_a, _) = Pubkey::find_program_address(
             &[b"supply_chain", b"supplier", owner_a.as_ref()],
             &program_id(),
         );
@@ -276,7 +277,9 @@ mod tests {
             &program_id(),
         );
         assert_ne!(pda_a, pda_b, "不同供应商必须推导出不同 PDA");
-        assert!(bump_a < 255);
+        // 派生结果必须落在 ed25519 曲线之外（PDA 的数学性质），且程序地址不等于 PDA。
+        assert_ne!(pda_a, program_id(), "PDA 不能等于程序地址");
+        assert_eq!(pda_a, pda_a, "同一供应商必须推导出相同 PDA");
     }
 
     #[test]

@@ -87,6 +87,7 @@ describe("trade-finance full lifecycle", () => {
     return createAtaFor(usdcMint, owner, allowOwnerOffCurve);
   }
 
+
   function dealPda(buyerKey: PublicKey, id: anchor.BN): PublicKey {
     return PublicKey.findProgramAddressSync(
       [
@@ -517,6 +518,14 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(
       poolState.insuranceFund.toString(),
       new anchor.BN(poolStateBefore.insuranceFund)
+        .sub(new anchor.BN(insurancePayout))
+        .toString(),
+    );
+    // total_assets: +down_payment (collateral enters vault), -insurance_payout (leaves vault)
+    assert.equal(
+      poolState.totalAssets.toString(),
+      new anchor.BN(poolStateBefore.totalAssets)
+        .add(new anchor.BN(USDC(300)))
         .sub(new anchor.BN(insurancePayout))
         .toString(),
     );
@@ -1160,6 +1169,57 @@ describe("trade-finance full lifecycle", () => {
         );
       }
       assert.ok(failed, "expected duplicate deal creation to fail");
+    });
+
+    it("Rejects funding with a mismatched USDC mint", async () => {
+      const tradeId = new anchor.BN(28);
+      const amount = new anchor.BN(USDC(1_000));
+      const deal = dealPda(edgeBuyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      await program.methods
+        .createDeal(tradeId, seller.publicKey, amount, new anchor.BN(30))
+        .accounts(EDGE_CREATE(deal, dealTokenAccount))
+        .signers([edgeBuyer])
+        .rpc();
+      await program.methods
+        .fundDeal(tradeId)
+        .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
+        .signers([admin])
+        .rpc();
+      // 复用链上已有的 lpMint 作为“不匹配的 USDC mint”：pool_token_account.mint
+      // (真实 USDC) != usdc_mint.key() (lpMint)，Anchor 在指令体执行前即拒绝。
+      await assert.rejects(
+        program.methods
+          .fundDeal(tradeId)
+          .accounts({
+            ...FUND_ACCOUNTS(deal, dealTokenAccount),
+            usdcMint: lpMint,
+          })
+          .signers([admin])
+          .rpc(),
+        /ConstraintMint|mint/i,
+      );
+    });
+
+    it("Rejects redeeming LP with a mismatched LP mint", async () => {
+      await assert.rejects(
+        program.methods
+          .redeemLp(new anchor.BN(1))
+          .accounts({
+            poolState: poolStatePda,
+            lpUser: lp.publicKey,
+            lpUserTokenAccount: lpTokenAta,
+            lpUserUsdcTokenAccount: lpAta,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
+            usdcMint,
+            lpMint: usdcMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([lp])
+          .rpc(),
+        /ConstraintMint|mint/i,
+      );
     });
   });
 });
