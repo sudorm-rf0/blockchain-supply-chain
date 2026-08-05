@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import {
   ConnectionProvider,
@@ -15,6 +15,10 @@ import { clusterApiUrl } from "@solana/web3.js";
 import { UnsolvedBloomWalletAdapter } from "@/components/adapters/UnsolvedBloomWalletAdapter";
 
 export default function AppWalletProvider({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(
     () => process.env.NEXT_PUBLIC_RPC_URL ?? clusterApiUrl(network),
