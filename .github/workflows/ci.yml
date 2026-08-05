@@ -501,12 +501,14 @@ jobs:
         run: |
           docker build --target backend-runner -f Dockerfile.multistage \
             --build-arg ALPINE_MIRROR=https://mirrors.aliyun.com \
+            --build-arg NPM_REGISTRY=https://registry.npmmirror.com \
             --build-arg HTTP_PROXY=http://host.docker.internal:7897 \
             --build-arg HTTPS_PROXY=http://host.docker.internal:7897 .
 
       - name: Build frontend image
         run: |
           docker build --build-arg ALPINE_MIRROR=https://mirrors.aliyun.com \
+            --build-arg NPM_REGISTRY=https://registry.npmmirror.com \
             --build-arg HTTP_PROXY=http://host.docker.internal:7897 \
             --build-arg HTTPS_PROXY=http://host.docker.internal:7897 \
             --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.example.com \

@@ -9,10 +9,16 @@ ARG ALPINE_MIRROR=https://dl-cdn.alpinelinux.org
 ARG NEXT_PUBLIC_BACKEND_URL=https://supply-chain.example.com
 ARG NEXT_PUBLIC_TRADE_API_URL=https://supply-chain.example.com
 ARG NEXT_PUBLIC_POOL_API_URL=https://supply-chain.example.com
-ARG NEXT_PUBLIC_INDEXER_API_URL=https://supply-chain.example.com/api
+ARG NEXT_PUBLIC_INDEXER_API_URL=https://supply-chain.example.com
 ARG NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
 ARG NEXT_PUBLIC_CSP_REPORT_URI=
+ARG NPM_REGISTRY=
+ARG NPM_FETCH_RETRIES=5
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV npm_config_fetch_retries=${NPM_FETCH_RETRIES} \
+    npm_config_fetch_timeout=120000 \
+    npm_config_fetch_retry_mintimeout=10000 \
+    npm_config_fetch_retry_maxtimeout=60000
 
 RUN sed -i "s#https://dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#g" /etc/apk/repositories \
     && apk add --no-cache libc6-compat openssl python3 make g++ \
@@ -24,7 +30,8 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/frontend/package.json packages/frontend/package.json
 COPY packages/backend/package.json packages/backend/package.json
 
-RUN pnpm install --frozen-lockfile
+RUN if [ -n "${NPM_REGISTRY}" ]; then pnpm config set registry "${NPM_REGISTRY}"; fi \
+    && pnpm install --frozen-lockfile
 
 COPY packages/backend packages/backend
 RUN pnpm --filter @supply-chain/backend exec prisma generate

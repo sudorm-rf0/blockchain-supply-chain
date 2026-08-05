@@ -17,8 +17,6 @@ import { UnsolvedBloomWalletAdapter } from "@/components/adapters/UnsolvedBloomW
 export default function AppWalletProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(
     () => process.env.NEXT_PUBLIC_RPC_URL ?? clusterApiUrl(network),
@@ -34,6 +32,7 @@ export default function AppWalletProvider({ children }: { children: ReactNode })
     ],
     [],
   );
+  if (!mounted) return null;
 
   return (
     <ConnectionProvider endpoint={endpoint}>
