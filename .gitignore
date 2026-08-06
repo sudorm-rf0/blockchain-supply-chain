@@ -33,3 +33,6 @@ deploy/vps/.env.data
 # 但模板文件要入库
 !deploy/vps/.env.app.example
 !deploy/vps/.env.data.example
+
+# 审计材料包产物（用 scripts/build-audit-package.sh 重新生成）
+dist-audit/

@@ -42,6 +42,24 @@
   `confirm=true`，前端弹窗与后端校验共同生效。
 - 请求日志：4xx/5xx 全量记录，2xx/3xx 抽样 1%，防止高流量下日志洪峰。
 
+## 2.5 链上/DB 对账（上线后每天必跑）
+
+核对资金池状态、订单状态与资金恒等式（`total_assets = vault + 托管`），发现差异退出码 1：
+
+```bash
+SOLANA_RPC_URL=<正式RPC> DATABASE_URL=<DB> TRADE_FINANCE_PROGRAM_ID=<ID> \
+USDC_MINT=<USDC> bash scripts/reconcile.sh
+```
+
+cron 建议：每小时跑一次，失败即告警（Webhook/IM）：
+`0 * * * * bash /path/scripts/reconcile.sh >/tmp/reconcile.log 2>&1 || curl -fsS <告警webhook> -d "链上/DB 对账失败"`
+
+重点观察：
+- `资金池 xxx 不一致`：indexer 回写错误或链上被篡改，需立即人工核对。
+- `订单 xxx 状态不一致`：confirm 与 indexer 竞态残留或链上操作未同步。
+- `恒等式不符`：vault + 托管 ≠ total_assets，资金账本出现差异（最严重）。
+- `PoolSnapshot 过期`：indexer 停止工作，需检查订阅/队列。
+
 ## 3. 日常巡检
 
 ```bash
