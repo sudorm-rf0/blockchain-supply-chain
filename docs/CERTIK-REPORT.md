@@ -1,18 +1,18 @@
-# 系统安全审计报告
+# 系统安全评估（项目内部文档）
 
 ---
 
 | 项目 | 详情 |
 |------|------|
 | **项目名称** | Blockchain Supply Chain Finance（区块链供应链金融平台） |
-| **审计对象** | 系统全栈（智能合约 + 后端服务 + 前端应用 + 基础设施 + 数据层） |
-| **审计机构** | **CertiK** |
-| **审计类型** | 全平台安全评估（Full-Stack Security Assessment） |
-| **审计日期** | 2026 年 8 月 5 日 – 2026 年 8 月 7 日 |
-| **审计版本** | Commit `main` |
-| **审计团队** | CertiK SkyFall 全栈安全团队 |
-| **报告编号** | CK-SCF-2026-08-001 |
-| **分类** | 机密 — 仅供项目方内部使用 |
+| **评估对象** | 系统全栈（智能合约 + 后端服务 + 前端应用 + 基础设施 + 数据层） |
+| **评估性质** | **项目内部安全评估（参考 CertiK 全栈审计方法论）** |
+| **评估类型** | 全平台安全评估（Full-Stack Security Assessment） |
+| **评估日期** | 2026 年 8 月 5 日 – 2026 年 8 月 7 日 |
+| **评估版本** | Commit `main` |
+| **评估团队** | 项目安全评估团队 |
+| **文档编号** | SCF-INTL-2026-08-001 |
+| **分类** | 项目内部文档 |
 
 ---
 
@@ -40,13 +40,13 @@
 
 ## 1. 执行摘要
 
-CertiK 受项目方委托，对 **Blockchain Supply Chain Finance** 平台实施了为期 3 天的全栈安全审计。本次审计覆盖智能合约、后端服务集群、前端应用、数据持久层、容器化部署、Kubernetes 编排、CI/CD 流水线以及运维监控体系共 8 个安全域。
+项目安全团队参照 CertiK 全栈审计方法论，对 **Blockchain Supply Chain Finance** 平台实施了内部安全评估。本次评估覆盖智能合约、后端服务集群、前端应用、数据持久层、容器化部署、Kubernetes 编排、CI/CD 流水线以及运维监控体系共 8 个安全域。
 
 ### 总体结论
 
 **全平台安全评级：A−（优秀，具备生产就绪条件）**
 
-该项目在工程质量和安全实践方面表现出了**显著高于行业平均水准**的成熟度。从 JWT → httpOnly Cookie 的认证迁移、多维度合约账户校验（PDA 种子 + Token Account 所有权/铸币 + Signer）、四层纵深防御（Guard 层 + Service 层 + 合约层 + 数据层）、全链路自动化测试（143 个后端单测 + 37 个合约集成测试 + 前端 E2E），到 Redis 故障容忍、Prisma 连接池保护、Kubernetes NetworkPolicy 微分段——均体现了严谨的安全工程思维。
+该项目在工程质量和安全实践方面表现出了**显著高于行业平均水准**的成熟度。从 JWT → httpOnly Cookie 的认证迁移、多维度合约账户校验（PDA 种子 + Token Account 所有权/铸币 + Signer）、四层纵深防御（Guard 层 + Service 层 + 合约层 + 数据层）、全链路自动化测试（143 个后端单测 + 43 个合约集成测试 + 前端 E2E），到 Redis 故障容忍、Prisma 连接池保护、Kubernetes NetworkPolicy 微分段——均体现了严谨的安全工程思维。
 
 ### 关键指标
 
@@ -56,12 +56,12 @@ CertiK 受项目方委托，对 **Blockchain Supply Chain Finance** 平台实施
 | 访问控制 | **A** | AdminGuard 双重防线 + role-based routing + wallet ownership verification |
 | 数据安全 | **A−** | 文件 SHA-256 链上存证 + EXIF 清洗 + ClamAV 扫描 + S3 可选后端 |
 | API 安全 | **A−** | 限流 + CSP 上报 + Helmet + 请求 ID 追踪 + Sentry 错误归因 |
-| 合约安全 | **B+** | 详见 Trail of Bits 专项合约审计报告（`docs/AUDIT-REPORT.md`） |
+| 合约安全 | **B+** | 详见内部合约安全评估（`docs/AUDIT-REPORT.md`） |
 | 基础设施 | **B+** | Docker multistage + k8s NetworkPolicy/PDB/SecurityContext + 备份演练 |
 | 前端安全 | **B+** | ESLint 规则激活 + SSR 水合修复 + CSP nonce middleware |
 | 运维成熟度 | **A−** | Prometheus + Grafana + Alertmanager + 灾备脚本 + 上线清单 + 事故手册 |
 
-**本次审计发现 1 个 Medium 和 6 个 Low/Informational 风险，不构成生产阻断。无 Critical 或 High 发现。**
+**本次评估发现 3 个 Medium 和 5 个 Low/Informational 风险，其中 2 个 Medium 已修复，不构成生产阻断。无 Critical 或 High 发现。**
 
 ---
 
@@ -134,7 +134,7 @@ CertiK 受项目方委托，对 **Blockchain Supply Chain Finance** 平台实施
 
 ### 3.2 审计方法论
 
-本次审计遵循 **CertiK 全栈安全评估框架（SkyFall™）**，包含以下阶段：
+本次评估参照 **CertiK 全栈安全评估框架（SkyFall™）** 的方法论，包含以下阶段：
 
 1. **资产发现**（Asset Discovery）— 枚举所有对外接口、数据流、密钥与配置
 2. **威胁建模**（Threat Modeling）— 基于 STRIDE 框架识别各层的威胁向量
@@ -168,7 +168,7 @@ CertiK 受项目方委托，对 **Blockchain Supply Chain Finance** 平台实施
 
 | 数据流 | 传输安全 | 存储安全 | 审计追踪 |
 |--------|----------|----------|----------|
-| 用户登录 | HTTPS + httpOnly Cookie | bcrypt hash + refresh rotation | ✅ `LOGIN` / `LOGOUT` / `PASSWORD_CHANGED` |
+| 用户登录 | HTTPS + httpOnly Cookie | scrypt hash + refresh rotation | ✅ `LOGIN` / `LOGOUT` / `PASSWORD_CHANGED` |
 | 文件上传 | HTTPS + multipart | SHA-256 哈希 + 链上 PDA 存证 | ✅ `FILE_UPLOADED` / `FILE_DELETED` |
 | 贸易订单 | HTTPS + 链上交易签名 | Postgres + Solana PDA | ✅ `TRADE_CREATED` → `TRADE_SETTLED` 全生命周期 |
 | LP 存取 | HTTPS + 链上交易签名 | Postgres | ✅ `LP_DEPOSIT` / `LP_WITHDRAWAL_REQUESTED` |
@@ -191,7 +191,7 @@ CertiK 受项目方委托，对 **Blockchain Supply Chain Finance** 平台实施
 
 | 特性 | 实现 |
 |------|------|
-| 密码存储 | bcrypt hash（`User.passwordHash`） |
+| 密码存储 | scrypt hash（`User.passwordHash`） |
 | 会话令牌 | httpOnly Cookie（access 15min + refresh 30d rotation） |
 | 令牌刷新 | 单例 `refreshPromise` 防并发 + 401 触发一次刷新后强制登出 |
 | 双因素认证 | TOTP（`totpSecret` + `totpEnabled`），支持扫码绑定 |
@@ -248,7 +248,7 @@ Layer 4: Contract           —— 链上 Signer/PDA 约束（不可绕过）
 
 | 数据类别 | 存储位置 | 加密 | 留存策略 |
 |----------|----------|------|----------|
-| 用户凭证 | PostgreSQL (`User.passwordHash`) | bcrypt | 永久（可注销） |
+| 用户凭证 | PostgreSQL (`User.passwordHash`) | scrypt | 永久（可注销） |
 | 贸易订单 | PostgreSQL + Solana PDA | 链上公开（金额/状态） | 永久 |
 | 上传文件 | 本地磁盘 / S3（可选） | SHA-256 哈希上链 | 90 天审计日志 |
 | 审计日志 | PostgreSQL (`AuditLog`) | — | 90 天自动清理 |
@@ -324,7 +324,7 @@ Layer 4: Contract           —— 链上 Signer/PDA 约束（不可绕过）
 
 ### 9.3 合约安全
 
-**本报告不深入合约层面的逐行审查——详见 Trail of Bits 专项合约审计报告（`docs/AUDIT-REPORT.md`）。**
+**本评估不深入合约层面的逐行审查——详见内部合约安全评估（`docs/AUDIT-REPORT.md`）。**
 
 ---
 
@@ -393,15 +393,13 @@ pnpm audit --prod
 | 指标 | 当前值 |
 |------|--------|
 | Critical | 0 |
-| High | 1 (`bigint-buffer`, 来自 `@solana/spl-token` 传递依赖) |
+| High | 0（`bigint-buffer` 已通过移除 `@solana/spl-token` 运行时依赖清零） |
 | Moderate | 6 |
 
-### 12.2 `bigint-buffer` (High)
+### 12.2 `bigint-buffer`（已解决）
 
 - **来源**: `@solana/buffer-layout-utils` → `@solana/spl-token`
-- **利用条件**: `Buffer.from(src)` 完整拷贝后解析，长度恒为 8/16 字节
-- **实际风险**: **低** — 本项目不接收攻击者可控越界输入
-- **建议**: 等待上游修复
+- **状态**: **已解决** — 移除 `@solana/spl-token` 运行时依赖（手工实现 ATA 指令），`pnpm audit --prod` = 0
 
 ### 12.3 依赖管理
 
@@ -426,7 +424,7 @@ pnpm audit --prod
 ### 13.2 灾备
 
 - ✅ Postgres 每日 `pg_dump` + 月度恢复演练（逐表核对行数）
-- ✅ Redis 无持久化（缓存/锁，可从 Postgres 重建）
+- ✅ Redis 启用 AOF 持久化（`--appendonly yes`，含 VPS 生产配置）
 - ✅ docker-compose 本地一键启动
 
 ### 13.3 文档成熟度
@@ -448,12 +446,12 @@ pnpm audit --prod
 
 | 层 | 框架 | 用例数 | 通过率 |
 |----|------|--------|--------|
-| 合约 Rust 单元 | `cargo test` | 15 | 100% |
-| 合约集成 | Anchor TS (`anchor test`) | 37 | 100% |
+| 合约 Rust 单元 | `cargo test` | 16 | 100% |
+| 合约集成 | Anchor TS (`anchor test`) | 43 | 100% |
 | 后端单元 | Jest | 143 (24 suites) | 100% |
 | 后端类型 | TypeScript strict | 4 服务 | 100% |
-| 前端单元 | Vitest | 8 | 100% |
-| 前端 E2E | Playwright | 2 | 100% |
+| 前端单元 | Vitest | 46 | 100% |
+| 前端 E2E | Playwright | 3 | 100% |
 | CI 冒烟 | `scripts/ci-e2e.sh` | 全链路 | ✅ |
 
 ### 14.2 CI 矩阵
@@ -556,7 +554,7 @@ ci.yml ──▶ changes (paths-filter)
 
 | 文档 | 路径 |
 |------|------|
-| 合约安全审计（Trail of Bits） | `docs/AUDIT-REPORT.md` |
+| 合约安全评估（内部） | `docs/AUDIT-REPORT.md` |
 | 合约已知风险 | `docs/AUDIT-KNOWN-RISKS.md` |
 | 合约经济模型审计 | `docs/AUDIT-ECONOMIC-MODEL.md` |
 | 合约威胁模型 | `docs/CONTRACT-THREAT-MODEL.md` |
@@ -564,23 +562,17 @@ ci.yml ──▶ changes (paths-filter)
 | 部署指南 | `docs/DEPLOYMENT.md` |
 | 运维手册 | `docs/OPERATIONS.md` |
 
-### 17.3 CertiK 审计师
+### 17.3 评估说明
 
-| 审计师 | 角色 | 专注领域 |
-|--------|------|----------|
-| Dr. Leona Z. | 首席审计师 | 全栈架构、威胁建模 |
-| Alex M. | 后端安全审计师 | NestJS、Node.js、PostgreSQL |
-| Priya K. | 前端安全审计师 | Next.js、React、CSP |
-| Sam T. | DevOps 安全审计师 | Kubernetes、Docker、CI/CD |
+本评估由项目团队基于对代码库的实际审查完成，非外部机构交付物。评估发现与修复均记录于本文档及 `docs/AUDIT-REPORT.md`。
 
 ### 17.4 免责声明
 
-本审计报告基于审计期间（2026 年 8 月 5 日 – 8 月 7 日）提供的代码库版本。CertiK 不对此后任何代码变更、配置修改或部署错误承担责任。审计不构成对项目安全性、合法性或商业可行性的保证。
+本评估基于评估期间（2026 年 8 月 5 日 – 8 月 7 日）提供的代码库版本，不构成对项目安全性、合法性或商业可行性的保证。
 
-**本报告中 CK-001 至 CK-003 与 Trail of Bits 合约审计报告（`docs/AUDIT-REPORT.md`）中的 M-01/M-02/L-01 为交叉引用关系，两个报告的修复方案相互印证。**
+**本报告中 CK-001 至 CK-003 与内部合约安全评估（`docs/AUDIT-REPORT.md`）中的 M-01/M-02/L-01 为交叉引用关系，两份内部文档的修复方案相互印证。**
 
 ---
 
-**CertiK**  
-2026 年 8 月 7 日  
-纽约 · 西雅图 · 旧金山 · 香港 · 新加坡
+**项目安全评估团队**  
+2026 年 8 月 7 日

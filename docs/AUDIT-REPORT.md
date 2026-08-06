@@ -1,16 +1,15 @@
-# 智能合约安全审计报告
+# 智能合约安全评估（项目内部文档）
 
 ---
 
 | 项目 | 详情 |
 |------|------|
 | **项目名称** | Blockchain Supply Chain Finance（区块链供应链金融） |
-| **审计对象** | 智能合约（Solana Anchor）、后端服务、前端应用 |
-| **审计机构** | **Trail of Bits** |
-| **审计日期** | 2026 年 8 月 4 日 – 2026 年 8 月 7 日 |
-| **审计版本** | Commit `main`，程序 ID `9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3`（trade-finance）、`Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk`（supply-chain） |
-| **审计团队** | Trail of Bits 区块链安全团队 |
-| **联系方式** | audits@trailofbits.com |
+| **评估对象** | 智能合约（Solana Anchor）、后端服务、前端应用 |
+| **评估性质** | **项目内部安全评估（参考 Trail of Bits 合约审计方法论）** |
+| **评估日期** | 2026 年 8 月 4 日 – 2026 年 8 月 7 日 |
+| **评估版本** | Commit `main`，程序 ID `9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3`（trade-finance）、`Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk`（supply-chain） |
+| **评估团队** | 项目安全评估团队 |
 
 ---
 
@@ -28,7 +27,7 @@
 
 ## 1. 执行摘要
 
-Trail of Bits 受项目方委托，对 **Blockchain Supply Chain Finance**（以下简称"本项目"）的智能合约、后端服务及前端应用进行了为期 3 天的安全审计。
+项目安全团队参照 Trail of Bits 合约审计方法论，对本项目的智能合约、后端服务及前端应用进行了内部安全评估。
 
 本项目是一个基于 **Solana 区块链** 和 **Anchor 0.31.1 框架** 的供应链金融系统，核心功能包括：贸易订单的创建-放款-物流-还款全生命周期管理、LP 资金池的存取赎回、链上单据存证、以及供应链供应商授权与商品注册。
 
@@ -38,7 +37,7 @@ Trail of Bits 受项目方委托，对 **Blockchain Supply Chain Finance**（以
 
 - 合约核心逻辑正确，`checked_*` 算术保护策略完备，未发现可直接导致资金损失的漏洞。
 - 账户权限校验（PDA 种子约束、Token 账户所有权/铸币校验、Signer 检查）是本次审计的最强项，覆盖全面且一致性好。
-- 发现 2 个**中危**问题（链上 USDC/LP Mint 未锚定至 PoolState、`setNX` 故障沉默导致误导性错误码），以及若干低危/优化项。**所有中危问题已在审计期间完成修复并由审计团队确认。**
+- 发现 2 个**中危**问题（链上 USDC/LP Mint 未锚定至 PoolState、`setNX` 故障沉默导致误导性错误码），以及若干低危/优化项。**所有中危问题已在评估期间完成修复并由项目团队复核确认。**
 
 ### 资产风险评级
 
@@ -69,7 +68,7 @@ Trail of Bits 受项目方委托，对 **Blockchain Supply Chain Finance**（以
 
 ### 审计方法论
 
-采用 **Trail of Bits 标准化审计流程**，结合自动化工具与人工审查：
+采用 **Trail of Bits 标准化审计流程** 作为参考模板，结合自动化工具与人工审查：
 
 1. **静态分析** — 逐行审查全部合约代码，重点关注算术安全、访问控制、状态机完整性
 2. **动态验证** — 运行全部 Rust 单元测试（15 个）和 Anchor TS 集成测试（~31 个用例）
@@ -340,7 +339,7 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 | `trade-finance::state::tests` | 7 | ✅ |
 | `trade-finance::test_id` | 1 | ✅ |
 | `supply-chain::tests` | 7 | ✅ |
-| **合计** | **15** | **15 / 15** |
+| **合计** | **16** | **16 / 16** |
 
 覆盖场景：过期判断、状态转换合法性、非法状态码拒绝、SETTLED 锁定、NAV 溢出保护、`pending_dividends` 溢出保护、PDA 稳定性/确定/唯一性、账户空间精简、错误消息稳定性。
 
@@ -348,9 +347,9 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 测试文件 | 用例数 | 说明 |
 |----------|--------|------|
-| `trade-finance.ts` | ~31 | 完整生命周期 + 边界场景 + mint 不匹配负面测试 + 不变量断言 |
-| `supply-chain.ts` | ~6 | 管理员授权/撤销、供应商注册、无授权拒绝 |
-| **合计** | **~37** | |
+| `trade-finance.ts` | 30 | 完整生命周期 + 边界场景 + mint 不匹配负面测试 + 不变量断言 |
+| `supply-chain.ts` | 13 | 管理员授权/撤销、供应商注册、无授权拒绝 |
+| **合计** | **43** | |
 
 ### 5.3 后端 Jest 测试
 
@@ -364,8 +363,8 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 种类 | 测试数 | 状态 |
 |------|--------|------|
-| Vitest 单元测试 | ~8 | ✅ 通过 |
-| Playwright E2E | 2 | ✅ 通过 |
+| Vitest 单元测试 | 46 | ✅ 通过 |
+| Playwright E2E | 3 | ✅ 通过 |
 | Next.js 生产构建 | — | ✅ 通过 |
 
 ---
@@ -429,24 +428,22 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 | I-04 | 登录页错误信息模糊处理不当 | Informational | ✅ 已解决 |
 | I-05 | `formatUsdc` 精度损失 | Informational | ✅ 已解决 |
 
-> **无 Critical 或 High 级别发现。所有 Medium 及 Low 发现已在审计期间由项目方完成修复并通过本团队验证确认。**
+> **无 Critical 或 High 级别发现。所有 Medium 及 Low 发现已由项目团队完成修复并复核确认。**
 
 ### 7.3 免责声明
 
-本审计报告基于审计期间提供的代码版本。Trail of Bits 不对审计后代码的任何修改、部署或运行错误负责。任何对核心合约逻辑的修改（包括但不限于业务常量数值变动、账户结构体添加/删除字段、指令签名修改）应当进行重新审计。
+本评估基于评估期间提供的代码版本，不构成对项目安全性、合法性或商业可行性的保证。任何对核心合约逻辑的修改（包括但不限于业务常量数值变动、账户结构体添加/删除字段、指令签名修改）应当进行重新评估。
 
 ---
 
-**Trail of Bits**  
-2026 年 8 月 7 日  
-纽约 · 旧金山 · 伦敦
+**项目安全评估团队**  
+2026 年 8 月 7 日
 
 ---
 
-## 8. 项目侧复核补充（2026-08-07 · 非 Trail of Bits 交付内容）
+## 8. 项目侧复核补充（2026-08-07）
 
-> 以下为项目团队在审计报告定稿后，对本仓库**当前状态**的补充说明，
-> 不构成 Trail of Bits 的声明，亦不替代审计报告的原始结论。
+> 本节为项目团队对**当前仓库状态**的复核补充。
 
 ### 8.1 测试计数（当前仓库实际）
 
@@ -458,7 +455,7 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 | 前端 Vitest | ~8 | **46/46** |
 | Playwright e2e | 2 | **3**（含 TOTP 两步登录） |
 
-### 8.2 审计后新增/修复（补充，与报告结论不冲突）
+### 8.2 评估后新增/修复（补充）
 
 - **依赖审计清零**：移除 `@solana/spl-token` 运行时依赖（手工实现 ATA 指令），
   `pnpm audit --prod` = **No known vulnerabilities found**（消除 bigint-buffer 高危）。
@@ -472,7 +469,8 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 ### 8.3 上线状态（截至 2026-08-07）
 
-- **第三方审计：✅ 通过**（本报告：B+，无 Critical/High，2 个中危已修复确认）。
+- **内部安全评估：✅ 完成**（本报告：B+，无 Critical/High，2 个中危已修复确认）。
+  ⚠️ 真实第三方审计尚未执行——上线硬门槛仍需独立机构出具报告（审计材料包已备好，见 `scripts/build-audit-package.sh`）。
 - 剩余上线事项（均为可执行）：
   1. 真实 VPS/K8s 部署 + 全链路冒烟（工具链已备：`deploy/vps` + `deploy-mainnet.sh`）。
   2. 主网 RPC 付费套餐 + 主网配置（`SOLANA_RPC_URL`/Program ID/USDC/LP）。
