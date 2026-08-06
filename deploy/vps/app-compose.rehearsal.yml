@@ -1,0 +1,31 @@
+# 本地排练 override：与正式栈隔离（容器名/端口），DB/Redis 指向本机
+# 用法：REHEARSAL_DATABASE_URL=... REHEARSAL_REDIS_URL=... bash scripts/deploy-vps.sh --rehearsal
+services:
+  backend:
+    container_name: vps-reh-backend
+    environment:
+      DATABASE_URL: ${REHEARSAL_DATABASE_URL:?required}
+      REDIS_URL: ${REHEARSAL_REDIS_URL:?required}
+      JWT_SECRET: rehearsal-secret-0123456789abcdef
+      ALLOWED_ORIGIN: http://localhost:3100
+      CLAMAV_HOST: ""
+      CLAMAV_PORT: ""
+  indexer:
+    container_name: vps-reh-indexer
+    environment:
+      DATABASE_URL: ${REHEARSAL_DATABASE_URL:?required}
+      REDIS_URL: ${REHEARSAL_REDIS_URL:?required}
+  trade:
+    container_name: vps-reh-trade
+    environment:
+      DATABASE_URL: ${REHEARSAL_DATABASE_URL:?required}
+      REDIS_URL: ${REHEARSAL_REDIS_URL:?required}
+  pool:
+    container_name: vps-reh-pool
+    environment:
+      DATABASE_URL: ${REHEARSAL_DATABASE_URL:?required}
+      REDIS_URL: ${REHEARSAL_REDIS_URL:?required}
+  nginx:
+    container_name: vps-reh-nginx
+    ports:
+      - "8080:80"
