@@ -236,13 +236,13 @@ describe("TradesService", () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it("rejects confirm fund when the deal is not PENDING", async () => {
+  it("rejects confirm fund when the deal is not PENDING or FUNDED", async () => {
     const prisma = makePrisma({
       tradeDeal: {
         findUnique: jest.fn(async () => ({
           id: "deal-pda",
           dealId: "1",
-          status: "FUNDED",
+          status: "SETTLED",
           buyerWallet: "buyerWallet",
         })),
       },

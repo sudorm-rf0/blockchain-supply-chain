@@ -516,7 +516,7 @@ export class TradesService {
   async confirmFundTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
     return this.withConfirmLock(tradeId, async () => {
         const trade = await this.requireAdminAndDeal(tradeId, userId);
-        if (trade.status !== "PENDING") {
+        if (trade.status !== "PENDING" && trade.status !== "FUNDED") {
           throw new BadRequestException("only PENDING deals can be funded");
         }
         const buyerPubkey = new PublicKey(trade.buyerWallet);
@@ -577,10 +577,14 @@ export class TradesService {
     return this.withConfirmLock(tradeId, async () => {
         if (!dto.txSignature) throw new BadRequestException("txSignature is required");
         const trade = await this.requireAdminAndDeal(tradeId, userId);
-        if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status)) {
+        const targetStatus = this.parseTargetStatus(dto.targetStatus);
+        const targetDealStatus = TARGET_STATUS_BY_CODE[targetStatus];
+        if (
+          !["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status) &&
+          trade.status !== targetDealStatus
+        ) {
           throw new BadRequestException(`cannot advance deal from status ${trade.status}`);
         }
-        const targetStatus = this.parseTargetStatus(dto.targetStatus);
         const buyerPubkey = new PublicKey(trade.buyerWallet);
         const dealPda = deriveDealPda(getProgramId(), buyerPubkey, BigInt(tradeId));
         await verifyOnChainInstruction(
@@ -627,7 +631,7 @@ export class TradesService {
   async confirmRepayTrade(tradeId: string, body: ConfirmSignatureDto, userId: string) {
     return this.withConfirmLock(tradeId, async () => {
         const trade = await this.requireBuyerDeal(tradeId, userId);
-        if (trade.status !== "REPAYING") {
+        if (trade.status !== "REPAYING" && trade.status !== "SETTLED") {
           throw new BadRequestException("only REPAYING deals can be repaid");
         }
         const buyerPubkey = new PublicKey(trade.buyerWallet);
@@ -688,7 +692,7 @@ export class TradesService {
   ) {
     return this.withConfirmLock(tradeId, async () => {
         const trade = await this.requireAdminAndDeal(tradeId, userId);
-        if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED", "REPAYING"].includes(trade.status)) {
+        if (!["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED", "REPAYING", "DEFAULTED"].includes(trade.status)) {
           throw new BadRequestException(`cannot default deal from status ${trade.status}`);
         }
         const dealPda = deriveDealPda(
