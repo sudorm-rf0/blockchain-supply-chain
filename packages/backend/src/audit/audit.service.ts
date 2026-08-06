@@ -113,19 +113,24 @@ export class AuditService {
 
     async function* generate() {
       yield "\uFEFF" + header.map((h) => `"${h}"`).join(",") + "\n";
-      let offset = 0;
-      while (offset < limit) {
+      // keyset 分页（审计 B-01）：用唯一主键 id 作游标，避免大数据量下
+      // offset 增长的性能退化；orderBy 同时按 createdAt,id 保证稳定排序。
+      let emitted = 0;
+      let cursor: string | undefined;
+      while (emitted < limit) {
+        const take = Math.min(batchSize, limit - emitted);
         const items = await prisma.auditLog.findMany({
           where,
-          orderBy: { createdAt: "asc" },
-          skip: offset,
-          take: Math.min(batchSize, limit - offset),
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          take,
         });
         if (items.length === 0) break;
         for (const item of items) {
           yield rowOf(item) + "\n";
         }
-        offset += items.length;
+        emitted += items.length;
+        cursor = items[items.length - 1].id;
       }
     }
 

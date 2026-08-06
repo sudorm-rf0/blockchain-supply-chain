@@ -120,6 +120,8 @@ if (!poolExists) {
     keys: [
       { pubkey: poolState, isSigner: false, isWritable: true },
       { pubkey: admin.publicKey, isSigner: true, isWritable: true },
+      { pubkey: usdcMint, isSigner: false, isWritable: false },
+      { pubkey: lpMint, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     programId,
