@@ -56,11 +56,13 @@ bash scripts/deploy-mainnet.sh --yes --generate-keypairs             # 正式部
 # 部署后冻结升级权限（可选，不可逆）：
 bash scripts/deploy-mainnet.sh --yes --freeze-upgrade-authority
 
-# 3) 初始化资金池（主网 USDC/LP）并真实存款（小额起步）
-node scripts/init-localnet.mjs   # 换成主网 RPC + 主网 mint
-
-# 4) 初始化供应链注册中心 + 授权真实供应商
-node scripts/init-supply-chain.mjs <真实供应商公钥...>
+# 3) 初始化资金池 + 真实存款 + Registry（一键编排，先 --dry-run 预览）
+SOLANA_RPC_URL=<主网RPC> TRADE_FINANCE_PROGRAM_ID=<新ID> \
+USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v LP_MINT=<新LP> \
+DEPOSIT_USDC=1000 \
+bash scripts/init-mainnet.sh --dry-run --yes <真实供应商公钥...>   # 预览
+bash scripts/init-mainnet.sh --yes <真实供应商公钥...>            # 正式（小额起步）
+# 只初始化池不存款：bash scripts/init-mainnet.sh --yes --skip-deposit
 
 # 5) 部署服务（VPS 或 K8s，见 deploy/vps 或 DEPLOYMENT.md）+ 数据库迁移
 
