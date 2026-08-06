@@ -235,6 +235,8 @@ describe("trade-finance full lifecycle", () => {
       .accounts({
         poolState: poolStatePda,
         admin: admin.publicKey,
+        usdcMint,
+        lpMint,
         systemProgram: SystemProgram.programId,
       })
       .signers([admin])
@@ -271,6 +273,8 @@ describe("trade-finance full lifecycle", () => {
         .accounts({
           poolState: poolStatePda,
           admin: admin.publicKey,
+          usdcMint,
+          lpMint,
           systemProgram: SystemProgram.programId,
         })
         .signers([admin])

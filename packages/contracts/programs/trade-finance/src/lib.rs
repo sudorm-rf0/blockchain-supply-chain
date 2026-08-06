@@ -145,6 +145,8 @@ pub mod trade_finance {
         pool.insurance_fund = 0;
         pool.pending_dividends = 0;
         pool.nav = 0;
+        pool.usdc_mint = ctx.accounts.usdc_mint.key();
+        pool.lp_mint = ctx.accounts.lp_mint.key();
 
         msg!("pool initialized by {}", pool.admin);
         Ok(())
@@ -1011,6 +1013,9 @@ pub struct InitializePool<'info> {
     pub pool_state: Account<'info, PoolState>,
     #[account(mut)]
     pub admin: Signer<'info>,
+    /// 锚定的 USDC / LP Mint（审计 S-01）：初始化时写入，无链上约束（池尚不存在）。
+    pub usdc_mint: Account<'info, Mint>,
+    pub lp_mint: Account<'info, Mint>,
     pub system_program: Program<'info, System>,
 }
 
@@ -1107,6 +1112,9 @@ pub struct CreateDeal<'info> {
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -1156,8 +1164,14 @@ pub struct FundDeal<'info> {
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    #[account(
+        constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub lp_mint: Account<'info, Mint>,
 }
 
@@ -1224,6 +1238,9 @@ pub struct ReleaseToSeller<'info> {
     )]
     pub seller_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
 }
@@ -1245,7 +1262,13 @@ pub struct RefreshNav<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
+    #[account(
+        constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub lp_mint: Account<'info, Mint>,
 }
 
@@ -1297,8 +1320,14 @@ pub struct RepayDeal<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    #[account(
+        constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub lp_mint: Account<'info, Mint>,
 
     #[account(
@@ -1341,8 +1370,14 @@ pub struct DistributeDividends<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    #[account(
+        constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub lp_mint: Account<'info, Mint>,
 }
 
@@ -1371,8 +1406,14 @@ pub struct DepositPool<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    #[account(
+        constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub lp_mint: Account<'info, Mint>,
 }
 
@@ -1408,8 +1449,14 @@ pub struct RedeemLp<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     #[account(mut)]
+    #[account(
+        constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub lp_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
 }
@@ -1456,7 +1503,13 @@ pub struct DefaultDeal<'info> {
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
 
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    #[account(
+        constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
     pub lp_mint: Account<'info, Mint>,
 }
