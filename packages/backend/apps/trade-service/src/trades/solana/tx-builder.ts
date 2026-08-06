@@ -8,6 +8,7 @@ import {
 } from "@solana/web3.js";
 import { createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import { TRADE_ENV } from "../../config/env";
+import { getCachedBlockhash } from "./blockhash-cache";
 
 export const BPS_BASE = 10_000n;
 export const DOWN_PAYMENT_BPS = 3_000n;
@@ -75,6 +76,16 @@ export function deriveDealPda(
       buyer.toBuffer(),
       encodeU64(id),
     ],
+    programId,
+  )[0];
+}
+
+export function deriveRebatePda(
+  programId: PublicKey,
+  buyer: PublicKey,
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("trade_finance"), Buffer.from("rebate"), buyer.toBuffer()],
     programId,
   )[0];
 }
@@ -223,6 +234,7 @@ export async function buildFundDealTransaction(
   const poolState = derivePoolStatePda(prog);
   const poolAuthority = derivePoolAuthorityPda(prog);
   const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
+  const rebatePda = deriveRebatePda(prog, input.buyer);
   const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, uMint);
   const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, uMint);
 
@@ -237,10 +249,12 @@ export async function buildFundDealTransaction(
     { pubkey: uMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: lpMintKey(), isSigner: false, isWritable: false },
+    { pubkey: rebatePda, isSigner: false, isWritable: true },
+    { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
   const data = buildFundDealInstructionData(input.tradeId);
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
@@ -264,7 +278,7 @@ export async function buildAdvanceDealTransaction(
   ];
 
   const data = buildAdvanceDealInstructionData(input.tradeId, input.targetStatus);
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
@@ -307,7 +321,7 @@ export async function buildRepayDealTransaction(
   ];
 
   const data = buildRepayDealInstructionData(input.tradeId);
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.buyer;
   transaction.recentBlockhash = blockhash;
@@ -356,7 +370,7 @@ export async function buildDefaultDealTransaction(
   ];
 
   const data = buildDefaultDealInstructionData(input.tradeId);
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
@@ -387,7 +401,7 @@ export async function buildReleaseToSellerTransaction(
   ];
 
   const data = buildReleaseToSellerInstructionData(input.tradeId);
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
@@ -435,7 +449,7 @@ export async function buildCreateDealTransaction(
     { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.buyer;
   transaction.recentBlockhash = blockhash;

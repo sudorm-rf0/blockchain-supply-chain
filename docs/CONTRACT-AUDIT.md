@@ -62,6 +62,13 @@
 `supply-chain register_product` 依赖 `#[max_len(64)]` 账户空间，但输入未显式
 检查。新增 `SkuTooLong` 错误，`sku.len() <= 64` 硬校验。
 
+### M2 新增链上能力：分红分配与返利子账户
+
+- 新增 `distribute_dividends`：管理员把 `pending_dividends` 从资金池 vault
+  实际发放给指定接收方，避免“只记账、永远不分”。
+- 新增 `RebateRecord` 账户：`repay_deal` 时把买方返利累计写入链上，
+  并发出 `BuyerRebateEvent`，形成可审计的“买家子账户”。
+
 ### L1 LP 赎回的流动性保护偏弱
 
 `redeem_lp` 用 `active_capital <= total_after` 做保护，而 `total_after` 包含
@@ -77,5 +84,5 @@
 ## 验证
 
 - `cargo test`：trade-finance 8 个、supply-chain 8 个全部通过。
-- `anchor test`：38 个集成用例全部通过（含边界：重复放款、重复还款、
-  跳状态、超额集中度、错误 mint、供应商权限等）。
+- `anchor test`：39 个集成用例全部通过（含边界：重复放款、重复还款、
+  跳状态、超额集中度、错误 mint、供应商权限、分红发放、返利记账等）。

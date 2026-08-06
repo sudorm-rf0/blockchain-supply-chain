@@ -2,7 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
 
 use crate::error::TradeFinanceError;
-use crate::state::{deal_status, DocumentRecord, MAX_DOCUMENT_URI_LEN, PoolState, TradeDeal};
+use crate::state::{
+    deal_status, DocumentRecord, MAX_DOCUMENT_URI_LEN, PoolState, RebateRecord, TradeDeal,
+};
 
 declare_id!("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
 
@@ -93,6 +95,21 @@ pub struct RedeemedEvent {
     pub lp_user: Pubkey,
     pub lp_amount: u64,
     pub usdc_out: u64,
+}
+
+#[event]
+pub struct DividendDistributedEvent {
+    pub recipient: Pubkey,
+    pub amount: u64,
+    pub remaining: u64,
+}
+
+#[event]
+pub struct BuyerRebateEvent {
+    pub buyer: Pubkey,
+    pub trade_id: u64,
+    pub amount: u64,
+    pub total: u64,
 }
 
 /// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
@@ -706,6 +723,21 @@ pub mod trade_finance {
         deal.status = deal_status::SETTLED;
         deal.repaid_at = clock.unix_timestamp;
 
+        if buyer_rebate > 0 {
+            let rebate = &mut ctx.accounts.rebate;
+            rebate.buyer = ctx.accounts.buyer.key();
+            rebate.total_rebate = rebate
+                .total_rebate
+                .checked_add(buyer_rebate)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            emit!(BuyerRebateEvent {
+                buyer: rebate.buyer,
+                trade_id,
+                amount: buyer_rebate,
+                total: rebate.total_rebate,
+            });
+        }
+
         msg!(
             "Fee distributed - Platform: {}, Rebate: {}, LP: {}",
             platform_part,
@@ -815,6 +847,65 @@ pub mod trade_finance {
         let lp_supply = ctx.accounts.lp_mint.supply;
         pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
         msg!("pool nav refreshed: {}", pool.nav);
+        Ok(())
+    }
+
+    /// 管理员发放待分配 LP 分红：从资金池 vault 支付给指定接收方。
+    pub fn distribute_dividends(
+        ctx: Context<DistributeDividends>,
+        amount: u64,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(amount > 0, TradeFinanceError::InvalidAmount);
+
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.pending_dividends >= amount,
+            TradeFinanceError::InsufficientDividends
+        );
+
+        let pool_bump = [ctx.bumps.pool_authority];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.pool_token_account.to_account_info(),
+                    to: ctx.accounts.recipient_token_account.to_account_info(),
+                    authority: ctx.accounts.pool_authority.to_account_info(),
+                },
+            )
+            .with_signer(&[pool_signer]),
+            amount,
+        )?;
+        ctx.accounts.pool_token_account.reload()?;
+
+        pool.pending_dividends = pool
+            .pending_dividends
+            .checked_sub(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.total_assets = pool
+            .total_assets
+            .checked_sub(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        let vault_amount = ctx.accounts.pool_token_account.amount;
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+
+        emit!(DividendDistributedEvent {
+            recipient: ctx.accounts.recipient.key(),
+            amount,
+            remaining: pool.pending_dividends,
+        });
+        msg!(
+            "distributed {} USDC dividends to {}; remaining {}",
+            amount,
+            ctx.accounts.recipient.key(),
+            pool.pending_dividends
+        );
         Ok(())
     }
 }
@@ -934,6 +1025,8 @@ pub struct FundDeal<'info> {
     pub deal: Account<'info, TradeDeal>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
     #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
@@ -1050,6 +1143,7 @@ pub struct RepayDeal<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
+    #[account(mut)]
     pub buyer: Signer<'info>,
 
     #[account(
@@ -1079,6 +1173,50 @@ pub struct RepayDeal<'info> {
         constraint = platform_token_account.owner == pool_state.platform_wallet @ TradeFinanceError::WrongTokenAccountOwner
     )]
     pub platform_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    pub usdc_mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
+    pub lp_mint: Account<'info, Mint>,
+
+    #[account(
+        init_if_needed,
+        payer = buyer,
+        space = RebateRecord::space(),
+        seeds = [b"trade_finance", b"rebate" as &[u8], buyer.key().as_ref()],
+        bump
+    )]
+    pub rebate: Account<'info, RebateRecord>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct DistributeDividends<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+
+    /// CHECK: 分红接收方钱包，owner 由 recipient_token_account 约束校验。
+    pub recipient: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = recipient_token_account.owner == recipient.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = recipient_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub recipient_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
     #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]

@@ -7,6 +7,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { TRADE_ENV } from "../../config/env";
+import { getCachedBlockhash } from "./blockhash-cache";
 import {
   encodeU64,
   derivePoolStatePda,
@@ -81,7 +82,7 @@ export async function buildFundDealTransaction(
     { pubkey: input.lpMint, isSigner: false, isWritable: false },
   ];
 
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
@@ -126,7 +127,7 @@ export async function buildRepayDealTransaction(
     { pubkey: input.lpMint, isSigner: false, isWritable: false },
   ];
 
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.buyer;
   transaction.recentBlockhash = blockhash;
@@ -173,7 +174,7 @@ export async function buildDepositPoolTransaction(
     { pubkey: input.lpMint, isSigner: false, isWritable: false },
   ];
 
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.depositor;
   transaction.recentBlockhash = blockhash;
@@ -220,7 +221,7 @@ export async function buildDefaultDealTransaction(
     { pubkey: input.lpMint, isSigner: false, isWritable: false },
   ];
 
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
@@ -257,7 +258,7 @@ export async function buildAdvanceDealTransaction(
     { pubkey: dealPda, isSigner: false, isWritable: true },
   ];
 
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;
@@ -300,7 +301,7 @@ export async function buildReleaseToSellerTransaction(
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = input.admin;
   transaction.recentBlockhash = blockhash;

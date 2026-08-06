@@ -7,6 +7,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { POOL_ENV } from "../config/env";
+import { getCachedBlockhash } from "./blockhash-cache";
 
 const SYSTEM_PROGRAM_ID = new PublicKey("11111111111111111111111111111111");
 const TOKEN_PROGRAM_ID = new PublicKey(
@@ -84,7 +85,7 @@ export async function buildRedeemLpTransaction(
   ];
 
   const data = buildRedeemLpInstructionData(lpAmount);
-  const { blockhash } = await connection.getLatestBlockhash("confirmed");
+  const { blockhash } = await getCachedBlockhash(connection);
   const transaction = new Transaction();
   transaction.feePayer = lpUser;
   transaction.recentBlockhash = blockhash;

@@ -101,4 +101,8 @@ pub enum TradeFinanceError {
     /// 保险基金不足：赎回后保险基金低于最低余额，拒绝操作以保护资金池。
     #[msg("Insurance fund would fall below the minimum balance")]
     InsuranceRatioTooLow,
+
+    /// 待分配 LP 分红不足：无法完成本次分红发放。
+    #[msg("Pending LP dividends are insufficient for the distribution")]
+    InsufficientDividends,
 }

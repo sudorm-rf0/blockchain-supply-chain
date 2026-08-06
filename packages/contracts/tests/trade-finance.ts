@@ -112,6 +112,17 @@ describe("trade-finance full lifecycle", () => {
     )[0];
   }
 
+  function rebatePda(buyerKey: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("trade_finance"),
+        Buffer.from("rebate"),
+        buyerKey.toBuffer(),
+      ],
+      program.programId,
+    )[0];
+  }
+
   before(async () => {
     payer = anchor.web3.Keypair.generate();
     admin = anchor.web3.Keypair.generate();
@@ -386,6 +397,8 @@ describe("trade-finance full lifecycle", () => {
         poolTokenAccount,
         usdcMint,
         lpMint,
+        rebate: rebatePda(buyer.publicKey),
+        systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([buyer])
@@ -399,6 +412,7 @@ describe("trade-finance full lifecycle", () => {
     const fee = (USDC(1_000) * 250) / 10_000;
     const lpDividend = (fee * 4_000) / 10_000;
     const platformPart = (fee * 5_000) / 10_000;
+    const buyerRebate = (fee * 1_000) / 10_000;
 
     assert.equal(dealState.status, 6); // Settled
     assert.equal(poolState.pendingDividends.toString(), lpDividend.toString());
@@ -407,6 +421,10 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(poolState.nav.toString(), "1000100");
     assert.equal(poolVaultAfterRepay.amount, BigInt(USDC(100_010)));
     assert.equal(poolState.totalAssets.toString(), USDC(100_010).toString());
+    const rebateAfter = await program.account.rebateRecord.fetch(
+      rebatePda(buyer.publicKey),
+    );
+    assert.equal(rebateAfter.totalRebate.toString(), buyerRebate.toString());
     console.log("Pending dividends:", poolState.pendingDividends.toString());
     console.log("Platform balance:", platformBalance.amount.toString());
   });
@@ -440,6 +458,44 @@ describe("trade-finance full lifecycle", () => {
       assert.ok(String(error).includes("OverConcentration"));
     }
     assert.ok(failed, "expected OverConcentration error");
+  });
+
+  it("Distributes pending LP dividends", async () => {
+    const poolState = await program.account.poolState.fetch(poolStatePda);
+    const pending = new anchor.BN(poolState.pendingDividends.toString());
+    assert.ok(pending.gt(new anchor.BN(0)), "expected pending dividends");
+
+    const usdcBefore = await getAccount(connection, lpAta);
+    const vaultBefore = await getAccount(connection, poolTokenAccount);
+    await program.methods
+      .distributeDividends(pending)
+      .accounts({
+        poolState: poolStatePda,
+        admin: admin.publicKey,
+        recipient: lp.publicKey,
+        recipientTokenAccount: lpAta,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
+        usdcMint,
+        lpMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([admin])
+      .rpc();
+
+    const poolAfter = await program.account.poolState.fetch(poolStatePda);
+    const usdcAfter = await getAccount(connection, lpAta);
+    const vaultAfter = await getAccount(connection, poolTokenAccount);
+    assert.equal(poolAfter.pendingDividends.toString(), "0");
+    assert.equal(
+      usdcAfter.amount,
+      usdcBefore.amount + BigInt(pending.toString()),
+    );
+    assert.equal(
+      vaultAfter.amount,
+      vaultBefore.amount - BigInt(pending.toString()),
+    );
+    console.log("Distributed dividends:", pending.toString());
   });
 
   it("Handles default scenario", async () => {
@@ -656,6 +712,8 @@ describe("trade-finance full lifecycle", () => {
       poolTokenAccount,
       usdcMint,
       lpMint,
+      rebate: rebatePda(repayer),
+      systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
     });
 
