@@ -377,6 +377,15 @@ pub mod trade_finance {
         let total_after = total_before
             .checked_sub(usdc_out)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        // 流动性保护：赎回后 vault 现金必须仍 >= 在途应收（active_capital），
+        // 防止把 vault 抽到低于 active_capital 造成流动性风险（审计 L1）。
+        let vault_after = vault_before
+            .checked_sub(usdc_out)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        require!(
+            vault_after >= pool.active_capital,
+            TradeFinanceError::InsufficientFunds
+        );
         require!(
             pool.active_capital <= total_after,
             TradeFinanceError::InsufficientFunds
