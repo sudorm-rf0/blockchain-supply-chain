@@ -16,18 +16,6 @@ pub mod state;
 pub const DOWN_PAYMENT_BPS: u64 = 3000;
 /// 万分位基数，用于 bps 换算。
 pub const BPS_BASE: u64 = 10_000;
-/// 允许账期：30 天。
-pub const TENOR_30_DAYS: i64 = 30 * 86_400;
-/// 允许账期：60 天。
-pub const TENOR_60_DAYS: i64 = 60 * 86_400;
-/// 允许账期：90 天。
-pub const TENOR_90_DAYS: i64 = 90 * 86_400;
-/// 允许账期：120 天。
-pub const TENOR_120_DAYS: i64 = 120 * 86_400;
-/// 单笔订单集中度上限：1%，以 bps 表示。
-pub const MAX_CONCENTRATION_BPS: u64 = 100;
-/// 资金池放款比例，7000 bps = 70.00%。
-pub const FUNDING_PCT_BPS: u64 = 7000;
 /// 买方还款费率，250 bps = 2.50%（按 70% 本金计算）。
 pub const FEE_PCT_BPS: u64 = 250;
 /// 平台运营钱包分成比例，5000 bps = 50%（占费用）。
@@ -38,8 +26,6 @@ pub const BUYER_REBATE_PCT_BPS: u64 = 1000;
 pub const LP_DIVIDEND_PCT_BPS: u64 = 4000;
 /// 存入资金进入风险准备金的占比，8000 bps = 80%。
 pub const RESERVE_FUND_PCT_BPS: u64 = 8000;
-/// 存入资金进入保险基金的占比，2000 bps = 20%。
-pub const INSURANCE_FUND_PCT_BPS: u64 = 2000;
 /// 违约时保险基金按资金池垫付额的赔付比例，1000 bps = 10%。
 pub const INSURANCE_PAYOUT_PCT_BPS: u64 = 1000;
 /// LP 单次赎回占闲置资金的最高比例，5000 bps = 50%。
@@ -269,7 +255,7 @@ pub mod trade_finance {
         deal.down_payment = down_payment;
         deal.pool_portion = pool_portion;
         deal.tenor = tenor;
-        deal.status = deal_status::PENDING;
+        deal.set_status(deal_status::PENDING)?;
         deal.created_at = clock.unix_timestamp;
         deal.repaid_at = 0;
 
@@ -505,7 +491,7 @@ pub mod trade_finance {
         pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
 
         let deal = &mut ctx.accounts.deal;
-        deal.status = deal_status::FUNDED;
+        deal.set_status(deal_status::FUNDED)?;
 
         emit!(FundedEvent {
             trade_id,
@@ -596,7 +582,7 @@ pub mod trade_finance {
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
-        deal.status = deal_status::DEFAULTED;
+        deal.set_status(deal_status::DEFAULTED)?;
         deal.repaid_at = clock.unix_timestamp;
 
         let pool = &mut ctx.accounts.pool_state;
@@ -729,7 +715,7 @@ pub mod trade_finance {
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
-        deal.status = deal_status::SETTLED;
+        deal.set_status(deal_status::SETTLED)?;
         deal.repaid_at = clock.unix_timestamp;
 
         if buyer_rebate > 0 {
@@ -773,7 +759,7 @@ pub mod trade_finance {
         validate_advance(ctx.accounts.deal.status, target_status)?;
 
         let deal = &mut ctx.accounts.deal;
-        deal.status = target_status;
+        deal.set_status(target_status)?;
 
         emit!(DealStatusChangedEvent {
             trade_id,
@@ -823,7 +809,7 @@ pub mod trade_finance {
         )?;
 
         let deal = &mut ctx.accounts.deal;
-        deal.status = deal_status::REPAYING;
+        deal.set_status(deal_status::REPAYING)?;
 
         // 买方 30% 抵押金随托管一并支付给卖方，从总资产中扣减；
         // 资金池的 70% 垫付款转为对买方的应收（active_capital）。
