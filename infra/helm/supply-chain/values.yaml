@@ -27,21 +27,21 @@ services:
   indexer:
     replicaCount: 1
     port: 3003
-    command: ["node", "dist/apps/indexer-service/src/main.js"]
+    command: ["node", "dist/apps/indexer-service/apps/indexer-service/src/main.js"]
     env:
       - name: INDEXER_PORT
         value: "3003"
   trade:
     replicaCount: 2
     port: 3004
-    command: ["node", "dist/apps/trade-service/src/main.js"]
+    command: ["node", "dist/apps/trade-service/apps/trade-service/src/main.js"]
     env:
       - name: TRADE_SERVICE_PORT
         value: "3004"
   pool:
     replicaCount: 2
     port: 3005
-    command: ["node", "dist/apps/pool-service/src/main.js"]
+    command: ["node", "dist/apps/pool-service/apps/pool-service/src/main.js"]
     env:
       - name: POOL_SERVICE_PORT
         value: "3005"
