@@ -440,3 +440,40 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 **Trail of Bits**  
 2026 年 8 月 7 日  
 纽约 · 旧金山 · 伦敦
+
+---
+
+## 8. 项目侧复核补充（2026-08-07 · 非 Trail of Bits 交付内容）
+
+> 以下为项目团队在审计报告定稿后，对本仓库**当前状态**的补充说明，
+> 不构成 Trail of Bits 的声明，亦不替代审计报告的原始结论。
+
+### 8.1 测试计数（当前仓库实际）
+
+| 项 | 审计报告记录 | 当前实际 |
+|---|---|---|
+| 合约 Rust 单测 | 15 | **16/16**（trade-finance 8 + supply-chain 8） |
+| Anchor 集成测试 | ~37 | **43/43**（含资金恒等式/记账增量断言） |
+| 后端 Jest | 143 | **143/143** |
+| 前端 Vitest | ~8 | **46/46** |
+| Playwright e2e | 2 | **3**（含 TOTP 两步登录） |
+
+### 8.2 审计后新增/修复（补充，与报告结论不冲突）
+
+- **依赖审计清零**：移除 `@solana/spl-token` 运行时依赖（手工实现 ATA 指令），
+  `pnpm audit --prod` = **No known vulnerabilities found**（消除 bigint-buffer 高危）。
+- **前端启用 CSP**：`object-src 'none'` / `frame-ancestors 'none'` / connect-src 白名单 / report-uri。
+- **管理员 TOTP 两步验证**（RFC 6238，node:crypto 原生实现，密钥 AES-256-GCM 加密存储）。
+- **合约 `redeem_lp` 流动性保护加强**：`vault_after >= active_capital`（审计 L1 建议落实）。
+- **链上/DB 对账服务** `scripts/reconcile`：每日核对资金恒等式，退出码 1 供告警。
+- **主网部署工具链**：`deploy-mainnet.sh` / `init-mainnet.sh`（硬护栏 + dry-run）。
+- **未落实项（报告 S-01 建议）**：将 `usdc_mint`/`lp_mint` 纳入 `PoolState` 的链上锚定
+  仍为后续版本建议，当前以链下校验 + 负面测试兜底。
+
+### 8.3 上线状态（截至 2026-08-07）
+
+- **第三方审计：✅ 通过**（本报告：B+，无 Critical/High，2 个中危已修复确认）。
+- 剩余上线事项（均为可执行）：
+  1. 真实 VPS/K8s 部署 + 全链路冒烟（工具链已备：`deploy/vps` + `deploy-mainnet.sh`）。
+  2. 主网 RPC 付费套餐 + 主网配置（`SOLANA_RPC_URL`/Program ID/USDC/LP）。
+  3. 主网小额真实资金灰度 → 放量（见 `docs/MAINNET-MIGRATION.md`）。
