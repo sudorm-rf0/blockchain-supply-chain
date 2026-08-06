@@ -7,7 +7,7 @@
 | 参数 | 值 | 说明 |
 |---|---|---|
 | `DOWN_PAYMENT_BPS` | 3000（30%） | 买方下单时首付进托管 |
-| `FUNDING_PCT_BPS` | 7000（70%） | 资金池垫付部分，`active_capital` 记为应收 |
+| 垫付比例 | 7000 bps（70%） | 资金池垫付部分，`active_capital` 记为应收 |
 | 账期 `tenor` | 30/60/90/120 天 | 单位秒存链上 |
 | 费用 `FEE_PCT_BPS` | 250（2.5%） | 按订单金额收，买方还款时支付 |
 
@@ -26,7 +26,7 @@
 
 - `total_assets = vault + Σ 订单托管余额`（全局不变式，已由测试守护）
 - `reserve_fund` 占 vault 80%（`RESERVE_FUND_PCT_BPS=8000`）
-- `insurance_fund` 占 vault 20%（`INSURANCE_FUND_PCT_BPS=2000`），最低绝对值
+- `insurance_fund` 占 vault 20%（2000 bps），最低绝对值
   `MIN_INSURANCE_ABS=100_000_000`（100 USDC）
 - `active_capital` 单列为在途应收（不并入 vault）
 
@@ -45,11 +45,15 @@
 
 ## 6. 集中度限制
 
-- `MAX_CONCENTRATION_BPS=100`（单订单垫付 ≤ vault 的 1%）
+- 集中度上限 100 bps（1%）：单订单垫付 ≤ vault 的 1%
 
 ## 7. 保险赔付
 
 - `INSURANCE_PAYOUT_PCT_BPS=1000`（保险赔付占 vault 10% 上限）
+
+> 注：垫付比例(70%)、保险占比(20%)、集中度上限(1%) 在合约中已以内联数值实现
+> （原命名常量 `FUNDING_PCT_BPS` / `INSURANCE_FUND_PCT_BPS` / `MAX_CONCENTRATION_BPS`
+> 已随 2026-08-06 重构移除），数值与本文档一致。
 
 ## 8. 供应链注册（`supply-chain`）
 
