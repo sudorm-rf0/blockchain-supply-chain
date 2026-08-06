@@ -137,6 +137,7 @@ export class PoolService {
       insuranceFund: (latest?.insuranceFund ?? 0n).toString(10),
       pendingDividends: pendingDividends.toString(10),
       utilizationBps: Number(latest?.utilization ?? 0n),
+      paused: latest?.paused ?? false,
       aprPct,
       downPaymentSharePct,
       poolPortionSharePct,

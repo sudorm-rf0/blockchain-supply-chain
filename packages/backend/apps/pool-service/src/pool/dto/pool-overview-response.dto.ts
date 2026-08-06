@@ -69,6 +69,9 @@ export class PoolOverviewResponseDto {
   @ApiProperty({ example: "12000000000" })
   outstandingAmount!: string;
 
+  @ApiProperty({ description: "资金池紧急暂停状态（合约 PoolState.paused）", example: false })
+  paused!: boolean;
+
   @ApiProperty({ type: [PoolTrendPointDto] })
   trend!: PoolTrendPointDto[];
 }

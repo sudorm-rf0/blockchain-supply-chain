@@ -205,6 +205,12 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {overview?.paused && (
+        <div className="rounded-lg border border-red-500/60 bg-red-50 p-4 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          资金池已紧急暂停：链上放款/还款/赎回/建单等资金操作已被冻结，请管理员确认后再恢复。
+        </div>
+      )}
+
       {loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((item) => (

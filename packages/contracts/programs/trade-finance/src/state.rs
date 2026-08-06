@@ -103,6 +103,9 @@ pub struct PoolState {
     pub platform_wallet: Pubkey,
     /// 资金池净值。
     pub nav: u64,
+    /// 紧急暂停开关：true 时冻结全部资金移动指令
+    /// （建单/存款/放款/推进/释放/还款/违约/赎回/分红）。
+    pub paused: bool,
 }
 
 impl PoolState {
@@ -123,6 +126,7 @@ impl PoolState {
             + 8  // pending_dividends
             + 32 // platform_wallet
             + 8  // nav
+            + 1  // paused (bool)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -131,6 +135,13 @@ impl PoolState {
             .pending_dividends
             .checked_add(amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        Ok(())
+    }
+
+    /// 紧急暂停守卫：暂停期间拒绝资金移动类指令。
+    /// 读取/查询与管理员配置（set_paused/transfer_admin/set_platform_wallet）不受限。
+    pub fn ensure_not_paused(&self) -> Result<()> {
+        require!(!self.paused, TradeFinanceError::PoolPaused);
         Ok(())
     }
 
@@ -243,6 +254,7 @@ mod tests {
             pending_dividends: 0,
             platform_wallet: Pubkey::default(),
             nav: 0,
+            paused: false,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
@@ -264,11 +276,30 @@ mod tests {
             pending_dividends: u64::MAX,
             platform_wallet: Pubkey::default(),
             nav: 0,
+            paused: false,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
         pool.add_pending_dividends(50).unwrap();
         assert_eq!(pool.pending_dividends, 150);
+    }
+
+    #[test]
+    fn pool_ensure_not_paused_guards_money_ops() {
+        let mut pool = PoolState {
+            admin: Pubkey::default(),
+            total_assets: 0,
+            active_capital: 0,
+            reserve_fund: 0,
+            insurance_fund: 0,
+            pending_dividends: 0,
+            platform_wallet: Pubkey::default(),
+            nav: 0,
+            paused: true,
+        };
+        assert!(pool.ensure_not_paused().is_err());
+        pool.paused = false;
+        assert!(pool.ensure_not_paused().is_ok());
     }
 
     #[test]

@@ -98,6 +98,24 @@ pub struct BuyerRebateEvent {
     pub total: u64,
 }
 
+#[event]
+pub struct PoolPausedEvent {
+    pub admin: Pubkey,
+    pub paused: bool,
+}
+
+#[event]
+pub struct AdminTransferredEvent {
+    pub old_admin: Pubkey,
+    pub new_admin: Pubkey,
+}
+
+#[event]
+pub struct PlatformWalletUpdatedEvent {
+    pub admin: Pubkey,
+    pub platform_wallet: Pubkey,
+}
+
 /// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
 fn validate_advance(from: u8, to: u8) -> Result<()> {
     match (from, to) {
@@ -129,6 +147,72 @@ pub mod trade_finance {
         pool.nav = 0;
 
         msg!("pool initialized by {}", pool.admin);
+        Ok(())
+    }
+
+    /// 紧急暂停/恢复资金池：管理员可随时冻结全部资金移动指令。
+    /// 暂停后 get_pool_info / refresh_nav / attest_document 等只读与存证
+    /// 仍可用，但建单/存款/放款/推进/释放/还款/违约/赎回/分红一律拒绝。
+    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        pool.paused = paused;
+        emit!(PoolPausedEvent {
+            admin: ctx.accounts.admin.key(),
+            paused,
+        });
+        msg!(
+            "pool {} by {}",
+            if paused { "paused" } else { "resumed" },
+            pool.admin
+        );
+        Ok(())
+    }
+
+    /// 管理员轮换：把资金池管理员转移给新地址，降低单点私钥风险。
+    pub fn transfer_admin(ctx: Context<TransferAdmin>, new_admin: Pubkey) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            new_admin != Pubkey::default(),
+            TradeFinanceError::InvalidNewAdmin
+        );
+        let old_admin = pool.admin;
+        pool.admin = new_admin;
+        emit!(AdminTransferredEvent {
+            old_admin,
+            new_admin,
+        });
+        msg!("admin transferred: {} -> {}", old_admin, new_admin);
+        Ok(())
+    }
+
+    /// 更新平台运营钱包（手续费收款地址），防止运营钱包轮换需重部署。
+    pub fn set_platform_wallet(
+        ctx: Context<SetPlatformWallet>,
+        platform_wallet: Pubkey,
+    ) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            platform_wallet != Pubkey::default(),
+            TradeFinanceError::InvalidPlatformWallet
+        );
+        pool.platform_wallet = platform_wallet;
+        emit!(PlatformWalletUpdatedEvent {
+            admin: ctx.accounts.admin.key(),
+            platform_wallet,
+        });
+        msg!("platform wallet updated: {}", platform_wallet);
         Ok(())
     }
 
@@ -200,6 +284,7 @@ pub mod trade_finance {
         amount: u64,
         tenor_days: u64,
     ) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
         require!(
             matches!(tenor_days, 30 | 60 | 90 | 120),
@@ -277,6 +362,7 @@ pub mod trade_finance {
 
     /// LP 存入稳定币：按 80%/20% 计入风险准备金与保险基金。
     pub fn deposit_pool(ctx: Context<DepositPool>, amount: u64) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
 
         token::transfer(
@@ -324,6 +410,7 @@ pub mod trade_finance {
 
     /// LP 赎回：按 NAV 换算并销毁 LP 代币，同时受单次上限与保险池保护。
     pub fn redeem_lp(ctx: Context<RedeemLp>, lp_amount: u64) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(
             lp_amount > 0,
             TradeFinanceError::ZeroRedeemAmount
@@ -449,6 +536,7 @@ pub mod trade_finance {
 
     /// 管理员放款：资金池 vault 转入订单托管，active_capital 记账。
     pub fn fund_deal(ctx: Context<FundDeal>, trade_id: u64) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -508,6 +596,7 @@ pub mod trade_finance {
 
     /// 管理员标记违约：清算 30% 抵押金并触发保险基金赔付。
     pub fn default_deal(ctx: Context<DefaultDeal>, trade_id: u64) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -617,6 +706,7 @@ pub mod trade_finance {
 
     /// 买方还款：支付平台费用，LP 分红暂存资金池并回笼本金。
     pub fn repay_deal(ctx: Context<RepayDeal>, trade_id: u64) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         let deal = &ctx.accounts.deal;
         require!(
             deal.id == trade_id,
@@ -748,6 +838,7 @@ pub mod trade_finance {
         trade_id: u64,
         target_status: u8,
     ) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -771,6 +862,7 @@ pub mod trade_finance {
 
     /// 管理员在交付确认后释放托管资金给卖方，订单进入还款期。
     pub fn release_to_seller(ctx: Context<ReleaseToSeller>, trade_id: u64) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -850,6 +942,7 @@ pub mod trade_finance {
         ctx: Context<DistributeDividends>,
         amount: u64,
     ) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -925,6 +1018,30 @@ pub struct InitializePool<'info> {
 pub struct GetPoolInfo<'info> {
     #[account(seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
+}
+
+#[derive(Accounts)]
+pub struct SetPaused<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct TransferAdmin<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetPlatformWallet<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
 }
 
 #[derive(Accounts)]

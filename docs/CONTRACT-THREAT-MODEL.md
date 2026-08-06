@@ -32,6 +32,9 @@
 - 越权调用：所有管理员指令校验 `pool_state.admin`；还款校验 `deal.buyer`。
 - 状态机跳转：`validate_advance` 与各指令的 status require 收紧合法路径。
 - 重复初始化：PDA + `init` 保证幂等失败。
+- 紧急暂停：`set_paused` 冻结全部资金移动指令（建单/存款/放款/推进/释放/还款/违约/赎回/分红），
+  只读与存证不受限；暂停/恢复、管理员轮换、运营钱包更新均写入链上事件。
+- 管理员轮换：`transfer_admin` 支持防单点私钥风险；新地址必须非默认公钥。
 - 算术溢出：金额计算全部 `checked_*`。
 - 错误 mint/owner：TokenAccount 约束校验 owner 与 mint。
 - CPI 安全：仅调用 SPL Token 的 transfer/burn，且使用 PDA signer seeds。
@@ -42,3 +45,5 @@
 - `lp_mint` 铸币权在链下，上线前应交给多签/治理。
 - `redeem_lp` 允许在有在途应收时抽干闲置现金（流动性风险，非资不抵债）。
 - `bigint-buffer` 传递依赖无上游补丁，属于供应链残余风险。
+- 紧急暂停是止损手段：若漏洞在暂停前已被利用，需升级合约修复（保留升级权限或
+  `--freeze-upgrade-authority` 二选一）；`transfer_admin` 需配合新管理员冷钱包备份。
