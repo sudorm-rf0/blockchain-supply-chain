@@ -8,11 +8,42 @@ export { AuthUser };
 export async function login(
   email: string,
   password: string,
-): Promise<{ accessToken?: string; user: AuthUser; mustChangePassword?: boolean }> {
+  totpCode?: string,
+): Promise<{
+  accessToken?: string;
+  user: AuthUser;
+  mustChangePassword?: boolean;
+  requiresTotp?: boolean;
+}> {
   return request(`${BACKEND_URL}/api/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, totpCode }),
+  });
+}
+
+export async function setupTotp(): Promise<{
+  secret: string;
+  otpauthUrl: string;
+}> {
+  return request(`${BACKEND_URL}/api/auth/totp/setup`, {
+    method: "POST",
+  });
+}
+
+export async function enableTotp(code: string): Promise<{ ok: boolean }> {
+  return request(`${BACKEND_URL}/api/auth/totp/enable`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+}
+
+export async function disableTotp(code: string): Promise<{ ok: boolean }> {
+  return request(`${BACKEND_URL}/api/auth/totp/disable`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code }),
   });
 }
 

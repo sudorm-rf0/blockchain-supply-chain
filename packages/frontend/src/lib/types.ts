@@ -7,6 +7,7 @@ export interface AuthUser {
   role: UserRole;
   wallet?: string;
   mustChangePassword?: boolean;
+  totpEnabled?: boolean;
 }
 
 export type FileStatus = "PENDING" | "APPROVED" | "REJECTED";

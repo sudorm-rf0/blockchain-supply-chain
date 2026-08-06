@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,6 +24,8 @@ type LoginForm = z.infer<typeof schema>;
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
+  const [requiresTotp, setRequiresTotp] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
   const {
     register,
     handleSubmit,
@@ -34,10 +37,17 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginForm) => {
     try {
-      const { user, mustChangePassword } = await login(
+      const result = await login(
         values.email,
         values.password,
+        totpCode || undefined,
       );
+      if (result.requiresTotp) {
+        setRequiresTotp(true);
+        toast.info("该账号已开启两步验证，请输入 6 位验证码");
+        return;
+      }
+      const { user, mustChangePassword } = result;
       setAuth({ ...user, mustChangePassword: mustChangePassword ?? false });
       toast.success("登录成功");
       router.push(
@@ -48,7 +58,7 @@ export default function LoginPage() {
             : "/user/upload",
       );
     } catch {
-      toast.error("邮箱或密码错误");
+      toast.error(requiresTotp ? "验证码错误" : "邮箱或密码错误");
     }
   };
 
@@ -85,8 +95,21 @@ export default function LoginPage() {
                 </p>
               )}
             </div>
+            {requiresTotp && (
+              <div className="space-y-2">
+                <Label htmlFor="totp">两步验证码</Label>
+                <Input
+                  id="totp"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="6 位验证码"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                />
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "登录中..." : "登录"}
+              {isSubmitting ? "登录中..." : requiresTotp ? "验证并登录" : "登录"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               还没有账号？{" "}

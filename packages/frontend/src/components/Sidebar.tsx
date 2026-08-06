@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ReceiptText,
   ScrollText,
+  ShieldCheck,
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ export function Sidebar({ role }: SidebarProps) {
           { href: "/admin/audit", label: "审计日志", icon: ScrollText },
           { href: "/admin/trades", label: "全部订单", icon: ReceiptText },
           { href: "/admin/supply-chain", label: "供应链管理", icon: Boxes },
+          { href: "/admin/security", label: "安全设置", icon: ShieldCheck },
           { href: "/admin/withdrawals", label: "提款管理", icon: Banknote },
           { href: "/orders", label: "我的订单", icon: ReceiptText },
           {
