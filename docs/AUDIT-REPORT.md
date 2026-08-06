@@ -108,6 +108,9 @@ supply-chain/
 | `default_deal` | Admin | 标记违约（清算抵押 / 保险赔付） |
 | `distribute_dividends` | Admin | 发放 LP 分红 |
 | `refresh_nav` | Admin | 刷新链上 NAV |
+| `set_paused` | Admin | 紧急暂停/恢复资金池（冻结全部资金移动指令） |
+| `transfer_admin` | Admin | 管理员轮换（防单点私钥风险） |
+| `set_platform_wallet` | Admin | 更新平台运营钱包 |
 | `attest_document` | Any | 单据 SHA-256 存证 |
 | `get_pool_info` | 只读 | 查询资金池状态 |
 
@@ -124,6 +127,7 @@ supply-chain/
 | pending_dividends | u64 (8) | 72 | 待分配 LP 分红 |
 | platform_wallet | Pubkey (32) | 80 | 平台运营钱包 |
 | nav | u64 (8) | 112 | 资金池净值 |
+| paused | bool (1) | 120 | 紧急暂停开关（冻结资金移动指令） |
 
 ### 3.3 后端架构
 
@@ -347,9 +351,9 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 测试文件 | 用例数 | 说明 |
 |----------|--------|------|
-| `trade-finance.ts` | 30 | 完整生命周期 + 边界场景 + mint 不匹配负面测试 + 不变量断言 |
+| `trade-finance.ts` | 36 | 完整生命周期 + 边界场景 + mint 不匹配负面测试 + 不变量断言 + 暂停/管理员轮换治理 |
 | `supply-chain.ts` | 13 | 管理员授权/撤销、供应商注册、无授权拒绝 |
-| **合计** | **43** | |
+| **合计** | **49** | |
 
 ### 5.3 后端 Jest 测试
 
@@ -363,7 +367,7 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 种类 | 测试数 | 状态 |
 |------|--------|------|
-| Vitest 单元测试 | 46 | ✅ 通过 |
+| Vitest 单元测试 | 48 | ✅ 通过 |
 | Playwright E2E | 3 | ✅ 通过 |
 | Next.js 生产构建 | — | ✅ 通过 |
 
@@ -449,10 +453,10 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 项 | 审计报告记录 | 当前实际 |
 |---|---|---|
-| 合约 Rust 单测 | 15 | **16/16**（trade-finance 8 + supply-chain 8） |
-| Anchor 集成测试 | ~37 | **43/43**（含资金恒等式/记账增量断言） |
+| 合约 Rust 单测 | 15 | **17/17**（trade-finance 9 + supply-chain 8） |
+| Anchor 集成测试 | ~37 | **49/49**（含资金恒等式/记账增量断言 + 暂停/管理员轮换治理） |
 | 后端 Jest | 143 | **143/143** |
-| 前端 Vitest | ~8 | **46/46** |
+| 前端 Vitest | ~8 | **48/48** |
 | Playwright e2e | 2 | **3**（含 TOTP 两步登录） |
 
 ### 8.2 评估后新增/修复（补充）
@@ -464,6 +468,9 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 - **合约 `redeem_lp` 流动性保护加强**：`vault_after >= active_capital`（审计 L1 建议落实）。
 - **链上/DB 对账服务** `scripts/reconcile`：每日核对资金恒等式，退出码 1 供告警。
 - **主网部署工具链**：`deploy-mainnet.sh` / `init-mainnet.sh`（硬护栏 + dry-run）。
+- **链上治理能力（新增）**：`set_paused` 紧急暂停（冻结全部资金移动指令）、
+  `transfer_admin` 管理员轮换、`set_platform_wallet` 运营钱包更新；indexer
+  快照回写 `paused`，资金池看板展示暂停横幅（Rust 单测 9/9 + Anchor 49/49）。
 - **未落实项（报告 S-01 建议）**：将 `usdc_mint`/`lp_mint` 纳入 `PoolState` 的链上锚定
   仍为后续版本建议，当前以链下校验 + 负面测试兜底。
 

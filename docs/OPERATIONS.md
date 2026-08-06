@@ -212,8 +212,16 @@ node scripts/scan-uploads.mjs <目录>     # 指定其他目录
   （`/admin/supply-chain`）可完成初始化/授权/撤销/注册商品（钱包签名）。
 - 违约事件会调用 `RISK_WEBHOOK_URL`，签名头
   `x-webhook-signature`（HMAC-SHA256）与 `x-webhook-timestamp`。
+- **紧急暂停（链上熔断）**：管理员钱包调用 `set_paused(true)` 可冻结全部
+  资金移动指令（建单/存款/放款/推进/释放/还款/违约/赎回/分红），只读与存证
+  不受限；恢复用 `set_paused(false)`。暂停状态由 indexer 回写快照，资金池
+  看板会显示红色横幅，可用于告警联动。
+- **管理员轮换**：`transfer_admin(<新管理员>)` 把资金池管理员转移给新地址
+  （不可为全零公钥）；`set_platform_wallet(<新钱包>)` 更新平台运营钱包。
+  三者均仅限当前管理员调用并写入链上事件。
 - 合约升级后必须重新生成 Prisma 无关、更新 Indexer 解析器并跑
-  `cd packages/contracts && pnpm test`。
+  `cd packages/contracts && pnpm test`；改 PoolState/TradeDeal 布局必须同步
+  `apps/indexer-service/src/indexer/*-parser.ts` 与 `layout-anchor.spec.ts`。
 
 ## 8. 上线清单
 

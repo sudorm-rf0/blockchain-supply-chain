@@ -94,6 +94,8 @@ model PoolSnapshot {
   reserveFund      BigInt
   insuranceFund    BigInt
   pendingDividends BigInt
+  /// 资金池紧急暂停开关（合约 PoolState.paused）。
+  paused           Boolean @default(false)
   capturedAt       DateTime
 
   @@unique([poolAddress, capturedAt])

@@ -144,6 +144,8 @@ export interface PoolOverview {
   settledDeals: number;
   defaultedDeals: number;
   outstandingAmount: string;
+  /// 资金池紧急暂停状态（合约 PoolState.paused，由 indexer 快照回写）。
+  paused: boolean;
   trend: PoolTrendPoint[];
 }
 

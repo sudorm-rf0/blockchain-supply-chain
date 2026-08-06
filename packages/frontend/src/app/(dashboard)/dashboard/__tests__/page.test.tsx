@@ -66,6 +66,7 @@ function makeOverview() {
     settledDeals: 2,
     defaultedDeals: 1,
     outstandingAmount: "30000000",
+    paused: false,
     trend: [],
   };
 }
@@ -104,5 +105,17 @@ describe("DashboardPage", () => {
     indexerMock.mockRejectedValue(new Error("down"));
     render(<DashboardPage />);
     expect(await screen.findByText("unreachable")).toBeTruthy();
+  });
+
+  it("shows an emergency-pause banner when the pool is paused on chain", async () => {
+    overviewMock.mockResolvedValue({ ...makeOverview(), paused: true });
+    render(<DashboardPage />);
+    expect(await screen.findByText(/资金池已紧急暂停/)).toBeTruthy();
+  });
+
+  it("does not show the pause banner when the pool is not paused", async () => {
+    render(<DashboardPage />);
+    await screen.findByText("Pool Size");
+    expect(screen.queryByText(/资金池已紧急暂停/)).toBeNull();
   });
 });

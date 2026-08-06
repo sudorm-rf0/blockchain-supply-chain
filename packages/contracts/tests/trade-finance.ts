@@ -1500,5 +1500,181 @@ describe("trade-finance full lifecycle", () => {
     const defaulted = await program.account.tradeDeal.fetch(deal);
     assert.equal(defaulted.status, 7);
   });
+  
+  describe("governance: pause + admin rotation", () => {
+    let govLp: anchor.web3.Keypair;
+    let govLpAta: PublicKey;
+    let govLpTokenAta: PublicKey;
+
+    const GOV_REDEEM_ACCOUNTS = () => ({
+      poolState: poolStatePda,
+      lpUser: govLp.publicKey,
+      lpUserTokenAccount: govLpTokenAta,
+      lpUserUsdcTokenAccount: govLpAta,
+      poolAuthority: poolAuthorityPda,
+      poolTokenAccount,
+      usdcMint,
+      lpMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    });
+
+    async function setPausedAs(
+      keypair: anchor.web3.Keypair,
+      paused: boolean,
+    ): Promise<void> {
+      await program.methods
+        .setPaused(paused)
+        .accounts({ poolState: poolStatePda, admin: keypair.publicKey })
+        .signers([keypair])
+        .rpc();
+    }
+
+    before(async () => {
+      // 独立 LP，避免干扰主生命周期测试的余额断言。
+      govLp = anchor.web3.Keypair.generate();
+      await airdrop(govLp.publicKey);
+      govLpAta = await createAta(govLp.publicKey);
+      govLpTokenAta = await createAtaFor(lpMint, govLp.publicKey);
+      await mintTo(
+        connection,
+        payer,
+        lpMint,
+        govLpTokenAta,
+        payer.publicKey,
+        100_000,
+      );
+    });
+
+    it("Admin can pause and unpause the pool", async () => {
+      await setPausedAs(admin, true);
+      assert.equal((await poolSnapshot()).paused, true);
+      await setPausedAs(admin, false);
+      assert.equal((await poolSnapshot()).paused, false);
+      console.log("Pool pause/unpause ok");
+    });
+
+    it("Pause freezes money-moving ops and unpause resumes them", async () => {
+      await setPausedAs(admin, true);
+      // 暂停时赎回被冻结（与建单/放款/还款/违约/释放/分红共用同一守卫）
+      await assert.rejects(
+        program.methods
+          .redeemLp(new anchor.BN(1_000))
+          .accounts(GOV_REDEEM_ACCOUNTS())
+          .signers([govLp])
+          .rpc(),
+        /Pool is paused/,
+      );
+      console.log("Redeem blocked while paused");
+
+      await setPausedAs(admin, false);
+      const lpTokenBefore = await getAccount(connection, govLpTokenAta);
+      await program.methods
+        .redeemLp(new anchor.BN(1_000))
+        .accounts(GOV_REDEEM_ACCOUNTS())
+        .signers([govLp])
+        .rpc();
+      const lpTokenAfter = await getAccount(connection, govLpTokenAta);
+      assert.equal(
+        lpTokenAfter.amount,
+        lpTokenBefore.amount - BigInt(1_000),
+        "恢复后赎回应正常扣减 LP",
+      );
+      console.log("Redeem resumes after unpause");
+    });
+
+    it("Rejects pausing by a non-admin", async () => {
+      await assert.rejects(
+        program.methods
+          .setPaused(true)
+          .accounts({ poolState: poolStatePda, admin: buyer.publicKey })
+          .signers([buyer])
+          .rpc(),
+        /Unauthorized/,
+      );
+      console.log("Non-admin pause rejected");
+    });
+
+    it("Transfers admin; old admin loses control, new admin gains it", async () => {
+      const newAdmin = anchor.web3.Keypair.generate();
+      await airdrop(newAdmin.publicKey);
+
+      await program.methods
+        .transferAdmin(newAdmin.publicKey)
+        .accounts({ poolState: poolStatePda, admin: admin.publicKey })
+        .signers([admin])
+        .rpc();
+      assert.equal(
+        (await poolSnapshot()).admin.toBase58(),
+        newAdmin.publicKey.toBase58(),
+      );
+
+      // 旧管理员不再有权
+      await assert.rejects(
+        program.methods
+          .setPaused(true)
+          .accounts({ poolState: poolStatePda, admin: admin.publicKey })
+          .signers([admin])
+          .rpc(),
+        /Unauthorized/,
+      );
+
+      // 新管理员可暂停/恢复
+      await setPausedAs(newAdmin, true);
+      assert.equal((await poolSnapshot()).paused, true);
+      await setPausedAs(newAdmin, false);
+
+      // 转回原 admin，保持后续测试环境一致
+      await program.methods
+        .transferAdmin(admin.publicKey)
+        .accounts({ poolState: poolStatePda, admin: newAdmin.publicKey })
+        .signers([newAdmin])
+        .rpc();
+      assert.equal(
+        (await poolSnapshot()).admin.toBase58(),
+        admin.publicKey.toBase58(),
+      );
+      console.log("Admin rotation ok");
+    });
+
+    it("Rejects transferring admin to the default public key", async () => {
+      await assert.rejects(
+        program.methods
+          .transferAdmin(PublicKey.default)
+          .accounts({ poolState: poolStatePda, admin: admin.publicKey })
+          .signers([admin])
+          .rpc(),
+        /InvalidNewAdmin/,
+      );
+      console.log("Default-pubkey admin transfer rejected");
+    });
+
+    it("Admin can update platform wallet; rejects default", async () => {
+      const newWallet = anchor.web3.Keypair.generate();
+      await program.methods
+        .setPlatformWallet(newWallet.publicKey)
+        .accounts({ poolState: poolStatePda, admin: admin.publicKey })
+        .signers([admin])
+        .rpc();
+      assert.equal(
+        (await poolSnapshot()).platformWallet.toBase58(),
+        newWallet.publicKey.toBase58(),
+      );
+      // 恢复原运营钱包，保持后续状态一致
+      await program.methods
+        .setPlatformWallet(platformWallet.publicKey)
+        .accounts({ poolState: poolStatePda, admin: admin.publicKey })
+        .signers([admin])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .setPlatformWallet(PublicKey.default)
+          .accounts({ poolState: poolStatePda, admin: admin.publicKey })
+          .signers([admin])
+          .rpc(),
+        /InvalidPlatformWallet/,
+      );
+      console.log("Platform wallet update ok");
+    });
   });
+});
 });

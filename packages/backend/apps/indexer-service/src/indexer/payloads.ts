@@ -26,5 +26,7 @@ export interface PoolSnapshotPayload {
   pendingDividends: string;
   nav: string;
   utilizationBps: number;
+  /// 资金池紧急暂停开关（合约 PoolState.paused）。
+  paused: boolean;
   capturedAt: string;
 }

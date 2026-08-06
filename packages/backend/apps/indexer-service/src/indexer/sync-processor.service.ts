@@ -161,6 +161,7 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
         reserveFund: BigInt(payload.reserveFund),
         insuranceFund: BigInt(payload.insuranceFund),
         pendingDividends: BigInt(payload.pendingDividends),
+        paused: payload.paused,
         capturedAt: hourStart,
       },
       update: {
@@ -171,6 +172,7 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
         reserveFund: BigInt(payload.reserveFund),
         insuranceFund: BigInt(payload.insuranceFund),
         pendingDividends: BigInt(payload.pendingDividends),
+        paused: payload.paused,
       },
     });
   }

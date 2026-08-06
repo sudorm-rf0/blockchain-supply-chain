@@ -97,4 +97,16 @@ pub enum TradeFinanceError {
     /// 待分配 LP 分红不足：无法完成本次分红发放。
     #[msg("Pending LP dividends are insufficient for the distribution")]
     InsufficientDividends,
+
+    /// 资金池已暂停：管理员触发紧急冻结，全部资金移动指令被拒绝。
+    #[msg("Pool is paused; money-moving operations are frozen")]
+    PoolPaused,
+
+    /// 新管理员地址非法：不能把管理员转移给全零公钥。
+    #[msg("New admin must not be the default public key")]
+    InvalidNewAdmin,
+
+    /// 平台钱包地址非法：不能把收款钱包设为全零公钥。
+    #[msg("Platform wallet must not be the default public key")]
+    InvalidPlatformWallet,
 }
