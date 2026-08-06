@@ -274,6 +274,56 @@ if (USDC_MINT) {
     { txSignature: await signSend(repay.transaction, wallet) },
   );
   results.tradeLifecycle = repayRes.status === "SETTLED";
+
+  // 违约场景：第二笔订单，拨款后违约，验证 DEFAULTED（托管整笔回池）
+  const defCreated = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
+    buyerWallet: wallet.publicKey.toBase58(),
+    sellerWallet: wallet.publicKey.toBase58(),
+    amount: "10000000",
+    tenor: "30",
+  });
+  await api(
+    TRADE,
+    `/api/trades/${defCreated.tradeId}/confirm`,
+    reg.accessToken,
+    "POST",
+    {
+      buyerWallet: wallet.publicKey.toBase58(),
+      sellerWallet: wallet.publicKey.toBase58(),
+      amount: "10000000",
+      tenor: "30",
+      txSignature: await signSend(defCreated.transaction, wallet),
+    },
+  );
+  const defFunded = await api(
+    TRADE,
+    `/api/trades/${defCreated.tradeId}/fund`,
+    adminToken,
+    "POST",
+    { adminWallet: admin.publicKey.toBase58() },
+  );
+  await api(
+    TRADE,
+    `/api/trades/${defCreated.tradeId}/fund/confirm`,
+    adminToken,
+    "POST",
+    { txSignature: await signSend(defFunded.transaction, admin) },
+  );
+  const defTx = await api(
+    TRADE,
+    `/api/trades/${defCreated.tradeId}/default`,
+    adminToken,
+    "POST",
+    { adminWallet: admin.publicKey.toBase58() },
+  );
+  const defConfirm = await api(
+    TRADE,
+    `/api/trades/${defCreated.tradeId}/default/confirm`,
+    adminToken,
+    "POST",
+    { txSignature: await signSend(defTx.transaction, admin) },
+  );
+  results.defaultScenario = defConfirm.status === "DEFAULTED";
 }
 
 // ---- supply-chain 权限化注册冒烟（默认启用；SKIP_SUPPLY_CHAIN=1 跳过）----

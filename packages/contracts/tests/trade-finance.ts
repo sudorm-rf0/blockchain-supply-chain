@@ -87,6 +87,47 @@ describe("trade-finance full lifecycle", () => {
     return createAtaFor(usdcMint, owner, allowOwnerOffCurve);
   }
 
+  // ---- 不变量辅助：total_assets == vault + 全部订单托管余额 ----
+  async function poolSnapshot() {
+    return program.account.poolState.fetch(poolStatePda);
+  }
+  async function vaultBalance(): Promise<bigint> {
+    return (await getAccount(connection, poolTokenAccount)).amount;
+  }
+  async function escrowBalance(escrow: PublicKey): Promise<bigint> {
+    if (!(await connection.getAccountInfo(escrow))) return 0n;
+    return (await getAccount(connection, escrow)).amount;
+  }
+  // 扫描该测试文件创建的全部订单托管（buyer 为所有订单买方，tradeId 1..200）
+  async function allKnownEscrowSum(): Promise<bigint> {
+    let sum = 0n;
+    for (let id = 1; id <= 200; id++) {
+      const deal = dealPda(buyer.publicKey, new anchor.BN(id));
+      const escrow = getAssociatedTokenAddressSync(
+        usdcMint,
+        deal,
+        true,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      );
+      if (await connection.getAccountInfo(escrow)) {
+        sum += (await getAccount(connection, escrow)).amount;
+      }
+    }
+    return sum;
+  }
+
+  async function assertPoolInvariant(label: string): Promise<void> {
+    const pool = await poolSnapshot();
+    const vault = await vaultBalance();
+    const escrowSum = await allKnownEscrowSum();
+    assert.equal(
+      pool.totalAssets.toString(),
+      (vault + escrowSum).toString(),
+      `${label}: total_assets(${pool.totalAssets}) 应等于 vault(${vault}) + 托管(${escrowSum})`,
+    );
+  }
+
 
   function dealPda(buyerKey: PublicKey, id: anchor.BN): PublicKey {
     return PublicKey.findProgramAddressSync(
@@ -358,6 +399,7 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(escrowAfterFund.amount, BigInt(USDC(1_000)));
     console.log("Active capital:", poolState.activeCapital.toString());
     console.log("Total assets:", poolState.totalAssets.toString());
+    await assertPoolInvariant("fund");
   });
 
   it("Repays and distributes fees", async () => {
@@ -636,6 +678,7 @@ describe("trade-finance full lifecycle", () => {
     const poolAfter = await getAccount(connection, poolTokenAccount);
     const dealAfter = await getAccount(connection, dealTokenAccount);
 
+    await assertPoolInvariant("default");
     assert.equal(dealState.status, 7); // Defaulted
     assert.equal(
       poolAfter.amount,
@@ -1344,5 +1387,118 @@ describe("trade-finance full lifecycle", () => {
         /ConstraintMint|mint/i,
       );
     });
+
+  it("Accounting deltas hold through create/fund/default (audit H2/H4)", async () => {
+    // 增量断言：验证 create 只增 down_payment、fund 为内部划转、default 托管整笔回池
+    const tradeId = new anchor.BN(99);
+    const amount = new anchor.BN(USDC(100));
+    const tenorDays = new anchor.BN(30);
+    const deal = dealPda(buyer.publicKey, tradeId);
+    const dealTokenAccount = await createAta(deal, true);
+
+    await mintTo(
+      connection,
+      payer,
+      usdcMint,
+      buyerAta,
+      payer.publicKey,
+      USDC(500),
+    );
+
+    const totalBefore = (await poolSnapshot()).totalAssets;
+    const vaultBefore = await vaultBalance();
+    const escrowBefore = await escrowBalance(dealTokenAccount);
+
+    // create：首付 30 进托管；total_assets 只增加 down_payment（H4），vault 不变
+    await program.methods
+      .createDeal(tradeId, seller.publicKey, amount, tenorDays)
+      .accounts({
+        poolState: poolStatePda,
+        buyer: buyer.publicKey,
+        deal,
+        buyerTokenAccount: buyerAta,
+        dealTokenAccount,
+        usdcMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([buyer])
+      .rpc();
+    assert.equal(
+      (await escrowBalance(dealTokenAccount)) - escrowBefore,
+      BigInt(USDC(30)),
+      "create 后托管应增加首付 30",
+    );
+    assert.equal(
+      ((await poolSnapshot()).totalAssets - totalBefore).toString(),
+      BigInt(USDC(30)).toString(),
+      "create 只增加 total_assets 30（H4）",
+    );
+    assert.equal(await vaultBalance(), vaultBefore, "create 不应动 vault");
+
+    // fund：vault -> 托管 70，total_assets 不变（H4 内部划转）
+    await program.methods
+      .fundDeal(tradeId)
+      .accounts({
+        poolState: poolStatePda,
+        admin: admin.publicKey,
+        buyer: buyer.publicKey,
+        deal,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
+        dealTokenAccount,
+        usdcMint,
+        lpMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([admin])
+      .rpc();
+    assert.equal(
+      (await escrowBalance(dealTokenAccount)) - escrowBefore,
+      BigInt(USDC(100)),
+      "fund 后托管应达 100",
+    );
+    assert.equal(
+      ((await poolSnapshot()).totalAssets - totalBefore).toString(),
+      BigInt(USDC(30)).toString(),
+      "fund 不应改变 total_assets（H4）",
+    );
+    assert.equal(
+      vaultBefore - (await vaultBalance()),
+      BigInt(USDC(70)),
+      "fund 从 vault 划转 70",
+    );
+
+    // default：托管整笔回池（H2），total_assets 不变，escrow 清零
+    await program.methods
+      .defaultDeal(tradeId)
+      .accounts({
+        poolState: poolStatePda,
+        admin: admin.publicKey,
+        buyer: buyer.publicKey,
+        deal,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
+        dealTokenAccount,
+        usdcMint,
+        lpMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([admin])
+      .rpc();
+    assert.equal(await escrowBalance(dealTokenAccount), 0n, "default 后托管清零");
+    assert.equal(
+      ((await poolSnapshot()).totalAssets - totalBefore).toString(),
+      BigInt(USDC(30)).toString(),
+      "default 不应改变 total_assets",
+    );
+    assert.equal(
+      (await vaultBalance()) - vaultBefore,
+      BigInt(USDC(30)),
+      "default 后 vault 相对 create 前 +30（托管回到 vault）",
+    );
+    const defaulted = await program.account.tradeDeal.fetch(deal);
+    assert.equal(defaulted.status, 7);
+  });
   });
 });
