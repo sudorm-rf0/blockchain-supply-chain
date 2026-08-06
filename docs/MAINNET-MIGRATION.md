@@ -48,12 +48,13 @@ TRADE_FINANCE_PROGRAM_ID=<新ID> SUPPLY_CHAIN_PROGRAM_ID=<新ID> \
 USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v LP_MINT=<新LP> \
 bash scripts/precheck-mainnet-deploy.sh
 
-# 2) 生成主网 Program keypair 并部署（改 scripts/deploy-devnet.sh 的 keypair 为新建的）
-solana-keygen new -o target/deploy/trade_finance-keypair.json --force
-solana-keygen new -o target/deploy/supply_chain-keypair.json --force
-solana program deploy target/deploy/trade_finance.so --program-id .../trade_finance-keypair.json
-solana program deploy target/deploy/supply_chain.so --program-id .../supply_chain-keypair.json
-# 部署成功后考虑冻结 upgrade authority（或按治理计划）
+# 2) 一键部署（含预检/全新 keypair/可选冻结升级权限；--dry-run 先预览）
+SOLANA_RPC_URL=<主网RPC> DEPLOY_WALLET=<冷钱包> \
+USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v LP_MINT=<新LP> \
+bash scripts/deploy-mainnet.sh --dry-run --yes --generate-keypairs   # 预览
+bash scripts/deploy-mainnet.sh --yes --generate-keypairs             # 正式部署
+# 部署后冻结升级权限（可选，不可逆）：
+bash scripts/deploy-mainnet.sh --yes --freeze-upgrade-authority
 
 # 3) 初始化资金池（主网 USDC/LP）并真实存款（小额起步）
 node scripts/init-localnet.mjs   # 换成主网 RPC + 主网 mint
