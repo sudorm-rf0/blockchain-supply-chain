@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { RedisService } from "@supply-chain/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { IndexerService } from "./indexer.service";
 import { IndexerStatusController } from "./indexer-status.controller";
@@ -12,6 +13,7 @@ import { SyncQueueService } from "./sync-queue.service";
 @Module({
   controllers: [IndexerStatusController, MetricsController],
   providers: [
+    RedisService,
     PrismaService,
     MetricsService,
     IndexerMetricsService,

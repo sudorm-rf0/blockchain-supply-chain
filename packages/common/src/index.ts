@@ -8,3 +8,4 @@ export { signJwt, verifyJwt, type JwtPayload } from "./auth/jwt";
 export { RedisService } from "./redis/redis.service";
 export { PRISMA_SERVICE } from "./types";
 export type { PrismaQueryLike } from "./types";
+export { pickRpcUrl } from "./rpc";

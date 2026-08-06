@@ -4,8 +4,9 @@ import {
   HttpException,
   UnauthorizedException,
 } from "@nestjs/common";
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
 import { Keypair } from "@solana/web3.js";
-import { AuthService } from "./auth.service";
+import { AuthService, generateTotpSecret, totpCodeAt } from "./auth.service";
 
 process.env.JWT_SECRET = "test-secret-at-least-32-chars-long!";
 
@@ -13,9 +14,28 @@ function makeAudit() {
   return { record: jest.fn(async () => undefined) };
 }
 
-function makePrisma() {
+function encryptForTest(secret: string): string {
+  const iv = randomBytes(12);
+  const key = createHash("sha256")
+    .update(`${process.env.JWT_SECRET}:totp`)
+    .digest();
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const enc = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("base64")}.${tag.toString("base64")}.${enc.toString("base64")}`;
+}
+
+function makePrisma(
+  seedUsers: Array<Record<string, unknown>> = [],
+) {
   const byEmail = new Map<string, Record<string, unknown>>();
   const byWallet = new Map<string, Record<string, unknown>>();
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const u of seedUsers) {
+    byEmail.set(String(u.email), u);
+    byWallet.set(String(u.wallet), u);
+    byId.set(String(u.id), u);
+  }
   return {
     refreshToken: {
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "rt1", ...data })),
@@ -26,7 +46,8 @@ function makePrisma() {
     },
     user: {
       findUnique: jest.fn(
-        async ({ where }: { where: { email?: string; wallet?: string } }) => {
+        async ({ where }: { where: { email?: string; wallet?: string; id?: string } }) => {
+          if (where.id) return byId.get(where.id) ?? null;
           if (where.email) return byEmail.get(where.email) ?? null;
           if (where.wallet) return byWallet.get(where.wallet) ?? null;
           return null;
@@ -36,11 +57,20 @@ function makePrisma() {
         const user = { id: "u1", ...data };
         byEmail.set(String(data.email), user);
         byWallet.set(String(data.wallet), user);
+        byId.set("u1", user);
         return user;
       }),
-      update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
-        return { id: "u1", ...data };
-      }),
+      update: jest.fn(
+        async ({ where, data }: { where?: { id?: string }; data: Record<string, unknown> }) => {
+          const id = String(where?.id ?? "u1");
+          const current = byId.get(id) ?? {};
+          const updated: Record<string, unknown> = { ...current, ...data, id: current.id ?? id };
+          byId.set(id, updated);
+          if (updated.email) byEmail.set(String(updated.email), updated);
+          if (updated.wallet) byWallet.set(String(updated.wallet), updated);
+          return updated;
+        },
+      ),
     },
   };
 }
@@ -139,10 +169,13 @@ describe("AuthService", () => {
       password: "secret123",
       wallet,
     });
-    const ok = await service.login({
+    const result = await service.login({
       email: "login@example.com",
       password: "secret123",
     });
+    expect("requiresTotp" in result).toBe(false);
+    if ("requiresTotp" in result) throw new Error("unexpected requiresTotp");
+    const ok = result;
     expect(ok.accessToken).toMatch(/^eyJ/);
     expect(ok.refreshToken).toHaveLength(64);
     expect(ok.user.email).toBe("login@example.com");
@@ -150,6 +183,132 @@ describe("AuthService", () => {
     await expect(
       service.login({ email: "login@example.com", password: "wrong-pass" }),
     ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("setupTotp returns a secret and stores it encrypted", async () => {
+    const prisma = makePrisma();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await service.register({
+      name: "T",
+      email: "setup@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    const result = await service.setupTotp("u1");
+    expect(result.secret).toBeTruthy();
+    expect(result.otpauthUrl).toContain("otpauth://totp/");
+    const updateData = (prisma.user.update as jest.Mock).mock.calls[0][0].data;
+    expect(String(updateData.totpSecret)).not.toContain(result.secret); // 加密存储
+  });
+
+  it("login returns requiresTotp when TOTP enabled and no code provided", async () => {
+    const secret = generateTotpSecret();
+    const prisma = makePrisma([
+      {
+        id: "u-totp",
+        email: "totp@example.com",
+        wallet: "wallet-totp",
+        role: "USER",
+        mustChangePassword: false,
+        passwordHash: "salt:hash", // 密码校验不通过也会先走 TOTP 分支? 见下方断言
+        totpEnabled: true,
+        totpSecret: encryptForTest(secret),
+      },
+    ]);
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    // 密码正确性仍校验：用真实注册流程生成合法密码哈希
+    await service.register({
+      name: "T",
+      email: "totp2@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    // 给注册用户开启 TOTP
+    await prisma.user.update({
+      data: { totpEnabled: true, totpSecret: encryptForTest(secret) },
+    });
+    const result = await service.login({
+      email: "totp2@example.com",
+      password: "secret123",
+    });
+    expect(result).toEqual({ requiresTotp: true });
+
+    await expect(
+      service.login({
+        email: "totp2@example.com",
+        password: "secret123",
+        totpCode: "000000",
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+
+    const validCode = totpCodeAt(secret, Math.floor(Date.now() / 1000 / 30));
+    const okResult = await service.login({
+      email: "totp2@example.com",
+      password: "secret123",
+      totpCode: validCode,
+    });
+    expect("requiresTotp" in okResult).toBe(false);
+    if ("requiresTotp" in okResult) throw new Error("unexpected");
+    expect(okResult.accessToken).toMatch(/^eyJ/);
+  });
+
+  it("enableTotp verifies the code before enabling", async () => {
+    const secret = generateTotpSecret();
+    const prisma = makePrisma();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await service.register({
+      name: "T",
+      email: "enable@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    await prisma.user.update({
+      data: { totpSecret: encryptForTest(secret) },
+    });
+    await expect(
+      service.enableTotp("u1", "000000"),
+    ).rejects.toThrow(BadRequestException);
+    const ok = await service.enableTotp("u1", totpCodeAt(secret, Math.floor(Date.now() / 1000 / 30)));
+    expect(ok).toEqual({ ok: true });
+  });
+
+  it("disableTotp requires a valid code and clears the secret", async () => {
+    const secret = generateTotpSecret();
+    const prisma = makePrisma();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await service.register({
+      name: "T",
+      email: "disable@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    await prisma.user.update({
+      data: {
+        totpSecret: encryptForTest(secret),
+        totpEnabled: true,
+      },
+    });
+    await expect(
+      service.disableTotp("u1", "000000"),
+    ).rejects.toThrow(BadRequestException);
+    const ok = await service.disableTotp("u1", totpCodeAt(secret, Math.floor(Date.now() / 1000 / 30)));
+    expect(ok).toEqual({ ok: true });
   });
 
   it("records AUTH_LOGIN on successful login", async () => {

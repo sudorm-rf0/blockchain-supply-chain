@@ -3,10 +3,10 @@ import {
   AccountMeta,
   Connection,
   PublicKey,
+  SYSVAR_RENT_PUBKEY,
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 import { TRADE_ENV } from "../../config/env";
 import { getCachedBlockhash } from "./blockhash-cache";
 
@@ -23,7 +23,36 @@ const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
   "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
 );
 
+// SPL Associated Token Account 的 CreateIdempotent(0x01) 指令本地实现。
+// 不依赖 @solana/spl-token（其传递依赖 bigint-buffer 存在无补丁高危漏洞）。
+function createAssociatedTokenAccountIdempotentInstruction(
+  payer: PublicKey,
+  associatedToken: PublicKey,
+  owner: PublicKey,
+  mint: PublicKey,
+  tokenProgramId: PublicKey,
+  associatedTokenProgramId: PublicKey,
+): TransactionInstruction {
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: associatedToken, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+      { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+    ],
+    programId: associatedTokenProgramId,
+    data: Buffer.from([1]),
+  });
+}
+
 let _programIdCache: PublicKey | undefined;
+
+// platformWallet（资金池平台分成钱包）短缓存：避免每次构建还款交易都查 RPC。
+let _platformWalletCache: { poolKey: string; wallet: PublicKey; expiresAt: number } | undefined;
+const PLATFORM_WALLET_CACHE_MS = 10_000;
 let _usdcMintCache: PublicKey | undefined;
 let _lpMintCache: PublicKey | undefined;
 
@@ -295,11 +324,23 @@ export async function buildRepayDealTransaction(
   const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, input.usdcMint);
   const buyerTokenAccount = deriveAssociatedTokenAccount(input.buyer, input.usdcMint);
 
-  const poolInfo = await connection.getAccountInfo(poolState, "confirmed");
-  if (!poolInfo) {
-    throw new Error("pool state is not initialized");
+  const now = Date.now();
+  if (
+    !_platformWalletCache ||
+    _platformWalletCache.poolKey !== poolState.toBase58() ||
+    _platformWalletCache.expiresAt < now
+  ) {
+    const poolInfo = await connection.getAccountInfo(poolState, "confirmed");
+    if (!poolInfo) {
+      throw new Error("pool state is not initialized");
+    }
+    _platformWalletCache = {
+      poolKey: poolState.toBase58(),
+      wallet: parsePlatformWallet(poolInfo.data),
+      expiresAt: now + PLATFORM_WALLET_CACHE_MS,
+    };
   }
-  const platformWallet = parsePlatformWallet(poolInfo.data);
+  const platformWallet = _platformWalletCache.wallet;
   const platformTokenAccount = deriveAssociatedTokenAccount(
     platformWallet,
     input.usdcMint,

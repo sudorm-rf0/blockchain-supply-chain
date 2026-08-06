@@ -57,12 +57,48 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const session = await this.authService.login(body, getClientIp(req));
+    if ("requiresTotp" in session) {
+      return { requiresTotp: true };
+    }
     setAuthCookies(res, session.accessToken, session.refreshToken);
     return {
       accessToken: session.accessToken,
       user: session.user,
       mustChangePassword: session.mustChangePassword,
     };
+  }
+
+  @Post("totp/setup")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  async setupTotp(@Req() req: Request) {
+    return this.authService.setupTotp(req.user!.sub);
+  }
+
+  @Post("totp/enable")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  async enableTotp(
+    @Req() req: Request,
+    @Body("code") code: string,
+  ) {
+    if (!/^\d{6}$/.test(code ?? "")) {
+      throw new BadRequestException("TOTP 验证码为 6 位数字");
+    }
+    return this.authService.enableTotp(req.user!.sub, code);
+  }
+
+  @Post("totp/disable")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  async disableTotp(
+    @Req() req: Request,
+    @Body("code") code: string,
+  ) {
+    if (!/^\d{6}$/.test(code ?? "")) {
+      throw new BadRequestException("TOTP 验证码为 6 位数字");
+    }
+    return this.authService.disableTotp(req.user!.sub, code);
   }
 
   @Post("refresh")

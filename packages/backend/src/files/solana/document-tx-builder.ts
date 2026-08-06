@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { pickRpcUrl } from "@supply-chain/common";
 import {
   AccountMeta,
   Connection,
@@ -14,7 +15,6 @@ const DOCUMENT_SEED = Buffer.from("trade_finance");
 const DOCUMENT_PREFIX = Buffer.from("document");
 
 let cachedProgramId: PublicKey | null = null;
-let cachedConnection: Connection | null = null;
 
 export function getProgramId(): PublicKey {
   cachedProgramId ??= new PublicKey(
@@ -27,13 +27,20 @@ export function getRpcUrl(): string {
   return process.env.SOLANA_RPC_URL ?? "http://localhost:8899";
 }
 
+const _rpcConnections = new Map<string, Connection>();
+
 export function getConnection(): Connection {
-  cachedConnection ??= new Connection(getRpcUrl(), {
-    commitment: "confirmed",
-    fetch: (url, options) =>
-      fetch(url, { ...options, signal: AbortSignal.timeout(30_000) }),
-  });
-  return cachedConnection;
+  const url = pickRpcUrl(getRpcUrl());
+  let conn = _rpcConnections.get(url);
+  if (!conn) {
+    conn = new Connection(url, {
+      commitment: "confirmed",
+      fetch: (fetchUrl, options) =>
+        fetch(fetchUrl, { ...options, signal: AbortSignal.timeout(30_000) }),
+    });
+    _rpcConnections.set(url, conn);
+  }
+  return conn;
 }
 
 export function encodeU64(value: bigint): Buffer {

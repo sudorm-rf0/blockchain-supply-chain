@@ -10,7 +10,7 @@ import { DealStatus, Prisma } from "@prisma/client";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
-import { RedisService } from "@supply-chain/common";
+import { RedisService, pickRpcUrl } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
 import {
   buildRedeemLpInstructionData,
@@ -29,10 +29,16 @@ const NOTICE_SECONDS = NOTICE_DAYS * 24 * 60 * 60;
 const U64_MAX = (1n << 64n) - 1n;
 const OVERVIEW_CACHE_KEY = "pool:overview:v1";
 const OVERVIEW_CACHE_SECONDS = 30;
-let _connection: Connection | undefined;
+const _connections = new Map<string, Connection>();
 
 function getConnection(): Connection {
-  return (_connection ??= new Connection(POOL_ENV.rpcUrl, "confirmed"));
+  const url = pickRpcUrl(POOL_ENV.rpcUrl);
+  let conn = _connections.get(url);
+  if (!conn) {
+    conn = new Connection(url, "confirmed");
+    _connections.set(url, conn);
+  }
+  return conn;
 }
 const ACTIVE_STATUSES = new Set([
   "PENDING",
