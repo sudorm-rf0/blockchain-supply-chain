@@ -3,7 +3,7 @@ import { PoolSnapshotPayload } from "./payloads";
 // 布局锚定：discriminator(8) + admin(32) + total_assets(8) + active_capital(8)
 // + reserve_fund(8) + insurance_fund(8) + pending_dividends(8) + platform_wallet(32)
 // + nav(8) + paused(1) = 121。与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 121;
+export const POOL_STATE_ACCOUNT_SIZE = 185;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;

@@ -40,7 +40,9 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //  32  platform_wallet (Pubkey)
 //   8  nav (u64)
 //   1  paused (bool)
-const EXPECTED_POOL_STATE_SIZE = 8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1;
+//  32  usdc_mint (Pubkey, S-01 锚定)
+//  32  lp_mint (Pubkey, S-01 锚定)
+const EXPECTED_POOL_STATE_SIZE = 8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -49,7 +51,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(121);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(185);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 
