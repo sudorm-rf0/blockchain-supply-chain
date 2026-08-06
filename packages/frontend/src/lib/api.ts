@@ -1,5 +1,15 @@
 /** Re-export barrel — prefer importing from individual modules for tree-shaking. */
-export { login, register, getMe, fetchSession, logout, changePassword } from "./auth-api";
+export {
+  login,
+  register,
+  getMe,
+  fetchSession,
+  logout,
+  changePassword,
+  setupTotp,
+  enableTotp,
+  disableTotp,
+} from "./auth-api";
 export type { AuthUser } from "./auth-api";
 export {
   uploadFile,
