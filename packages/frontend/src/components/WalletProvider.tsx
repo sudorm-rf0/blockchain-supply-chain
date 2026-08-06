@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -11,16 +10,17 @@ import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
 import { CoinbaseWalletAdapter } from "@solana/wallet-adapter-coinbase";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
-import { clusterApiUrl } from "@solana/web3.js";
 import { UnsolvedBloomWalletAdapter } from "@/components/adapters/UnsolvedBloomWalletAdapter";
+
+const DEVNET_RPC = "https://api.devnet.solana.com";
 
 export default function AppWalletProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const network = WalletAdapterNetwork.Devnet;
+  // RPC 端点统一由 NEXT_PUBLIC_RPC_URL 配置（部署/本地一致），不再硬编码 Devnet 网络。
   const endpoint = useMemo(
-    () => process.env.NEXT_PUBLIC_RPC_URL ?? clusterApiUrl(network),
-    [network],
+    () => process.env.NEXT_PUBLIC_RPC_URL ?? DEVNET_RPC,
+    [],
   );
   const wallets = useMemo(
     () => [
