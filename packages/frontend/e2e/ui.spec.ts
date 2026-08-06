@@ -110,3 +110,88 @@ test("admin is forced to change the password and can open order detail", async (
   await expect(page.getByText("订单详情")).toBeVisible();
   await expect(page.getByText(/关联单据（\d+）/)).toBeVisible();
 });
+
+// ---- TOTP 两步验证端到端（与后端 node:crypto 原生 TOTP 算法一致）----
+import { createHmac } from "node:crypto";
+
+const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function base32Decode(input: string): Buffer {
+  const clean = input.toUpperCase().replace(/=+$/, "");
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+  for (const ch of clean) {
+    const idx = BASE32.indexOf(ch);
+    if (idx < 0) throw new Error("invalid base32");
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(out);
+}
+
+function totpCodeAt(secret: string, counter: number): string {
+  const key = base32Decode(secret);
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter));
+  const hmac = createHmac("sha1", key).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const bin =
+    ((hmac[offset] & 0x7f) << 24) |
+    (hmac[offset + 1] << 16) |
+    (hmac[offset + 2] << 8) |
+    hmac[offset + 3];
+  return (bin % 1_000_000).toString().padStart(6, "0");
+}
+
+function currentTotp(secret: string): string {
+  return totpCodeAt(secret, Math.floor(Date.now() / 1000 / 30));
+}
+
+test("admin can enable TOTP and must enter a code on next login", async ({
+  page,
+  request,
+}) => {
+  const { email, password } = await seedAdmin();
+
+  // 1) API 登录 -> 生成密钥 -> 用验证码开启 TOTP
+  const loginRes = await request.post(`${BACKEND}/api/auth/login`, {
+    data: { email, password },
+  });
+  expect(loginRes.ok()).toBeTruthy();
+  const setupRes = await request.post(`${BACKEND}/api/auth/totp/setup`);
+  expect(setupRes.ok()).toBeTruthy();
+  const { secret } = (await setupRes.json()) as { secret: string };
+  const enableRes = await request.post(`${BACKEND}/api/auth/totp/enable`, {
+    data: { code: currentTotp(secret) },
+  });
+  expect(enableRes.ok()).toBeTruthy();
+  await request.post(`${BACKEND}/api/auth/logout`);
+
+  try {
+    // 2) UI 登录：先输账号密码，出现两步验证码输入，填码后登录成功
+    await page.goto(`${BASE}/login`);
+    await page.fill("#email", email);
+    await page.fill("#password", password);
+    await page.click('button[type="submit"]');
+    await expect(page.locator("#totp")).toBeVisible({ timeout: 15_000 });
+    await page.fill("#totp", currentTotp(secret));
+    await page.click('button[type="submit"]');
+    // 登录成功：离开 /login（管理员可能被引导到改密页或管理页）
+    await page.waitForURL(/\/(admin|change-password)/, { timeout: 15_000 });
+  } finally {
+    // 3) 清理：重新登录（现在需要验证码）并关闭 TOTP，避免影响其它用例
+    const reLogin = await request.post(`${BACKEND}/api/auth/login`, {
+      data: { email, password, totpCode: currentTotp(secret) },
+    });
+    if (reLogin.ok()) {
+      await request.post(`${BACKEND}/api/auth/totp/disable`, {
+        data: { code: currentTotp(secret) },
+      });
+    }
+  }
+});
