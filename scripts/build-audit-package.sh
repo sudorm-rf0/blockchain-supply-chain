@@ -25,8 +25,9 @@ cp "${ROOT}/packages/contracts/Anchor.toml" "${PKG_DIR}/contracts/" 2>/dev/null 
 cp "${ROOT}/packages/contracts/tests/"*.ts "${PKG_DIR}/contracts/tests/" 2>/dev/null || true
 
 # 3) 文档
-for f in CONTRACT-AUDIT.md AUDIT-REPORT.md AUDIT-ECONOMIC-MODEL.md AUDIT-KNOWN-RISKS.md \
-         MAINNET-MIGRATION.md LAUNCH-CHECKLIST.md; do
+for f in CONTRACT-AUDIT.md AUDIT-REPORT.md CERTIK-REPORT.md AUDIT-DELIVERY.md \
+         AUDIT-ECONOMIC-MODEL.md AUDIT-KNOWN-RISKS.md MAINNET-MIGRATION.md \
+         LAUNCH-CHECKLIST.md; do
   [[ -f "${ROOT}/docs/${f}" ]] && cp "${ROOT}/docs/${f}" "${PKG_DIR}/docs/"
 done
 
@@ -46,7 +47,7 @@ devnet 部署（当前已验证）:
 测试结果（最新 CI/local）:
   Anchor 集成: 43/43 通过（含 create/fund/default 记账增量断言）
   后端 Jest: 143/143
-  前端 Vitest: 16/16
+  前端 Vitest: 46/46
 
 说明:
   - 本包不含任何私钥/keypair，仅供审计代码审查。
