@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
-import { AuditService } from "../audit/audit.service";
+import { AuditService } from "@supply-chain/common";
 import { RedisService } from "@supply-chain/common";
 import { NotifierService } from "./notifier.service";
 

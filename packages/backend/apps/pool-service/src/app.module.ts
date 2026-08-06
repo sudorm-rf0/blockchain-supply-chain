@@ -3,7 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { OriginGuard } from "../../../src/shared/origin.guard";
-import { HealthController } from "./health/health.controller";
+import { createHealthController } from "@supply-chain/common";
 import { MetricsController } from "../../../src/shared/metrics.controller";
 import { MetricsMiddleware } from "../../../src/shared/metrics.middleware";
 import { MetricsService } from "../../../src/shared/metrics.service";
@@ -21,7 +21,7 @@ import { PoolModule } from "./pool/pool.module";
     ]),
     PoolModule,
   ],
-  controllers: [HealthController, MetricsController],
+  controllers: [createHealthController("pool-service"), MetricsController],
   providers: [
     MetricsService,
     {

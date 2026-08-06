@@ -9,7 +9,7 @@ import {
 import { PoolController } from "./pool.controller";
 import { PoolService } from "./pool.service";
 import { WithdrawalWorkerService } from "./withdrawal-worker.service";
-import { AuditService } from "../audit/audit.service";
+import { AuditService } from "@supply-chain/common";
 
 @Module({
   controllers: [PoolController],
@@ -23,6 +23,6 @@ import { AuditService } from "../audit/audit.service";
     RedisService,
     { provide: PRISMA_SERVICE, useExisting: PrismaService },
   ],
-  exports: [PrismaService],
+  exports: [PrismaService, PRISMA_SERVICE],
 })
 export class PoolModule {}
