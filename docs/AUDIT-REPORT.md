@@ -46,8 +46,8 @@
    **已扩充**：后端 Jest 63 个用例（trade/pool/indexer 边界、Cookie 会话、改密、二次确认），
    合约 20 个用例（非法跳转、0 金额、重复还款、超额拨款、非管理员拨款等），
    CI 已包含 localnet 全链路冒烟与 Docker 构建。
-   当前状态：后端 Jest 129/129、合约 Anchor 集成 36/36 + Rust 单测 16/16、
-   前端 Vitest 16/16（见下方验证记录）。
+   当前状态：后端 Jest 143/143、合约 Anchor 集成 43/43 + Rust 单测 16/16、
+   前端 Vitest 32/32（见下方验证记录）。
 7. **Prisma 5.15 + Node 24 BigInt 限制**：超过 2^53 的查询失败，已通过 48 位订单 ID 与
    indexer 跳过规避；建议统一 Node 20 LTS 或升级 Prisma 后移除规避。
 8. **文件默认本地磁盘**：本地可用；生产必须配置 `STORAGE_DRIVER=s3`，并加生命周期策略。
@@ -121,8 +121,8 @@
 
 - 后端/前端/三个独立服务构建通过；Jest 129/129（覆盖订单状态机权限与非法跳转、
   文件版本/删除权限、提款成功路径、indexer 解码异常边界、供应链管理校验）；
-  合约 Anchor 集成测试 36/36（trade-finance 23 + supply-chain 13）且
-  `cargo test` Rust 单测 16/16；前端 Vitest 16/16。
+  合约 Anchor 集成测试 43/43（trade-finance 30 + supply-chain 13）且
+  `cargo test` Rust 单测 16/16；前端 Vitest 32/32。
 - 前端新增 Vitest 组件测试 3/3、Playwright UI e2e 2/2（版本上传、管理员强制改密、
   订单详情），并接入 CI `frontend-e2e` job。
 - Next.js 15.5.22 + React 19 升级后，`/orders`、`/dashboard`、`/admin/audit`
