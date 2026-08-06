@@ -1,0 +1,74 @@
+# ================= VPS-B：数据机（Postgres + Redis + 备份）=================
+# 用法：cp .env.data.example .env.data && docker compose -f data-compose.yml up -d
+# 安全：5432/6379 端口必须用云防火墙限制为仅允许 VPS-A 的 IP 访问，不要对公网开放。
+name: supply-chain-data
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: ${POSTGRES_CONTAINER_NAME:-supply-chain-postgres}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_HOST_PORT:-0.0.0.0:5432}:5432"   # 防火墙限制来源
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: ${REDIS_CONTAINER_NAME:-supply-chain-redis}
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "${REDIS_HOST_PORT:-0.0.0.0:6379}:6379"   # 防火墙限制来源
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backup:
+    image: postgres:15
+    container_name: ${BACKUP_CONTAINER_NAME:-supply-chain-backup}
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "backup cron: pg_dump 每日 02:00，保留 ${BACKUP_RETENTION_DAYS} 天"
+        while true; do
+          H=$$(date +%H)
+          if [ "$$H" = "02" ]; then
+            TS=$(date +%Y%m%d-%H%M%S)
+            PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h postgres -U $$POSTGRES_USER -Fc $$POSTGRES_DB \
+              > /backups/supply_chain-$$TS.dump 2>> /backups/backup.log
+            echo "backup done: $$TS" >> /backups/backup.log
+            find /backups -name "supply_chain-*.dump" -mtime +$${BACKUP_RETENTION_DAYS} -delete
+          fi
+          sleep 3600
+        done
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  backups:

@@ -26,3 +26,10 @@ packages/frontend/playwright-report/
 infra/config/*.env
 k8s/alertmanager-config.generated.yaml
 k8s/network-policies.generated.yaml
+
+# VPS 部署本地配置（含真实密钥，勿提交）
+deploy/vps/.env.app
+deploy/vps/.env.data
+# 但模板文件要入库
+!deploy/vps/.env.app.example
+!deploy/vps/.env.data.example
