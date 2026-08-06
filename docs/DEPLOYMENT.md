@@ -201,6 +201,19 @@ Ingress 声明 `supply-chain-tls` Secret。可使用
 `scripts/generate-tls-certs.sh` 自签，或接入 Cert-Manager。仅 HTTP 调试时
 删除 Ingress 中的 `tls` 段。
 
+## 7.5 密钥加固（审计 CK-005）
+
+默认 `create-k8s-secrets.sh` 使用 K8s Native Secret（`backend-secrets`）——
+集群管理员可读取明文。生产建议二选一：
+
+- **Sealed Secrets**：`kubeseal` 把 Secret 加密为 SealedSecret 入库，仅集群内控制器可解密
+  （离线加密，适合 GitOps）。
+- **External Secrets Operator + 云 KMS/Secret Manager**：Secret 由云厂商保管，
+  K8s 侧仅引用（阿里云 KMS / 腾讯云凭据管理系统 / AWS Secrets Manager）。
+
+切换方式：控制器安装后，把 `create-k8s-secrets.sh` 生成的 Secret 改为从
+SealedSecret/ExternalSecret 注入，Deployment 的 `secretKeyRef` 无需改动。
+
 ## 8. 安全配置清单
 
 上线前必须核对以下环境变量：

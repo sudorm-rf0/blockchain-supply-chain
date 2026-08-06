@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -28,10 +29,9 @@ function PreviewPane({ file, url }: { file: FileRecord; url: string | null }) {
         <p className="truncate text-sm font-medium">{file.filename}</p>
         <Badge className={fileStatusClass(file.status)}>{file.status}</Badge>
       </div>
-      <div className="flex h-72 items-center justify-center overflow-auto rounded-md border bg-muted/30 p-2">
+      <div className="relative flex h-72 items-center justify-center overflow-auto rounded-md border bg-muted/30 p-2">
         {isImage && url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={file.filename} className="max-h-full max-w-full object-contain" />
+          <Image src={url} alt={file.filename} fill unoptimized className="object-contain" />
         ) : isPdf && url ? (
           <iframe src={url} title={file.filename} className="h-full w-full" />
         ) : (

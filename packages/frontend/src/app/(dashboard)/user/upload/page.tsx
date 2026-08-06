@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Image from "next/image";
 import { useDropzone } from "react-dropzone";
 import { Camera } from "lucide-react";
 import { Transaction } from "@solana/web3.js";
@@ -197,10 +198,12 @@ export default function UploadPage() {
           {file && (
             <div className="flex items-center gap-3">
               {previewUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={previewUrl}
                   alt="待上传文件预览"
+                  width={64}
+                  height={64}
+                  unoptimized
                   className="h-16 w-16 rounded-md object-cover"
                 />
               )}

@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useTheme } from "next-themes";
+import { useChartTheme } from "@/lib/chart-theme";
 import type { PoolTrendPoint } from "@/lib/api";
 
 interface LiquidityUtilizationChartProps {
@@ -32,13 +32,8 @@ export function LiquidityUtilizationChart({
   trend,
 }: LiquidityUtilizationChartProps) {
   const data = toChartPoints(trend);
-  const { resolvedTheme } = useTheme();
-  const dark = resolvedTheme === "dark";
-  const gridColor = dark ? "#27272a" : "#e4e4e7";
-  const axisColor = dark ? "#71717a" : "#a1a1aa";
-  const tooltipBg = dark ? "#18181b" : "#ffffff";
-  const tooltipBorder = dark ? "#3f3f46" : "#d4d4d8";
-  const tooltipColor = dark ? "#f4f4f5" : "#18181b";
+  const { gridColor, axisColor, tooltipBg, tooltipBorder, tooltipColor } =
+    useChartTheme();
 
   return (
     <div className="h-72 w-full">
