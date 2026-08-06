@@ -39,8 +39,7 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);
 
-
-    await app.listen(POOL_ENV.port);
+  await app.listen(POOL_ENV.port);
   Logger.log(`pool-service listening on ${POOL_ENV.port}`, "Bootstrap");
 }
 

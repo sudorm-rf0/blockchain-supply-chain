@@ -2,27 +2,49 @@ import { useUserStore } from "@/stores/user-store";
 import { BACKEND_URL, API_TIMEOUT_MS } from "./env";
 import type { AuthUser } from "./types";
 
-export function formatUsdc(raw: string | number): string {
-  const n = typeof raw === "bigint" ? raw : BigInt(raw);
+function groupThousands(value: bigint): string {
+  const sign = value < 0n ? "-" : "";
+  const digits = (value < 0n ? -value : value).toString(10);
+  const parts: string[] = [];
+  let rest = digits;
+  while (rest.length > 3) {
+    parts.unshift(rest.slice(-3));
+    rest = rest.slice(0, -3);
+  }
+  parts.unshift(rest);
+  return sign + parts.join(",");
+}
+
+export function formatUsdc(raw: string | number | bigint): string {
+  let n: bigint;
+  try {
+    n = typeof raw === "bigint" ? raw : BigInt(raw);
+  } catch {
+    // 非整数输入（小数/非法串）回退到浮点格式化，避免页面崩溃。
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return "0.00";
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
   const intPart = n / 1_000_000n;
   const fracPart = n % 1_000_000n;
   const fracStr = fracPart.toString().padStart(6, "0").slice(0, 2);
-  return Number(intPart).toLocaleString("en-US") + "." + fracStr;
+  return groupThousands(intPart) + "." + fracStr;
 }
 
 async function readError(response: Response): Promise<string> {
   const text = await response.text();
   try {
     const body = JSON.parse(text) as { message?: string | string[] };
-    return Array.isArray(body.message)
-      ? body.message.join(", ")
-      : body.message ?? text;
+    return Array.isArray(body.message) ? body.message.join(", ") : (body.message ?? text);
   } catch {
     return text || `HTTP ${response.status}`;
   }
 }
 
-let refreshPromise: Promise<boolean> | null = null;
+let refreshPromise: Promise<RefreshResult> | null = null;
 
 function isAuthEndpoint(url: string): boolean {
   return (
@@ -39,7 +61,9 @@ function forceLogout(): void {
   }
 }
 
-async function tryRefreshSession(): Promise<boolean> {
+type RefreshResult = "ok" | "invalid" | "network";
+
+async function tryRefreshSession(): Promise<RefreshResult> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
@@ -52,21 +76,21 @@ async function tryRefreshSession(): Promise<boolean> {
           },
           API_TIMEOUT_MS,
         );
-        if (!response.ok) return false;
+        if (response.status === 401 || response.status === 403) {
+          return "invalid";
+        }
+        if (!response.ok) return "network";
         const body = (await response.json()) as {
           user: AuthUser;
           mustChangePassword?: boolean;
         };
         useUserStore.getState().setAuth({
           ...body.user,
-          mustChangePassword:
-            body.mustChangePassword ??
-            body.user.mustChangePassword ??
-            false,
+          mustChangePassword: body.mustChangePassword ?? body.user.mustChangePassword ?? false,
         });
-        return true;
+        return "ok";
       } catch {
-        return false;
+        return "network";
       } finally {
         setTimeout(() => {
           refreshPromise = null;
@@ -74,7 +98,7 @@ async function tryRefreshSession(): Promise<boolean> {
       }
     })();
   }
-  return refreshPromise;
+  return refreshPromise!;
 }
 
 function isRetryable(error: unknown, method: string): boolean {
@@ -115,13 +139,9 @@ export async function requestWithRetry(
         { ...init, credentials: "include", headers },
         API_TIMEOUT_MS,
       );
-      if (
-        response.status === 401 &&
-        allowRefresh &&
-        !isAuthEndpoint(url)
-      ) {
+      if (response.status === 401 && allowRefresh && !isAuthEndpoint(url)) {
         const refreshed = await tryRefreshSession();
-        if (refreshed) {
+        if (refreshed === "ok") {
           const retry = await fetchWithTimeout(
             url,
             { ...init, credentials: "include", headers },
@@ -136,6 +156,10 @@ export async function requestWithRetry(
             throw new Error(`HTTP ${retry.status}: ${message}`);
           }
           return retry;
+        }
+        if (refreshed === "network") {
+          // 刷新接口网络不可达时不登出，避免瞬时抖动踢掉有效会话。
+          throw new Error("网络连接失败，请检查网络后重试");
         }
         forceLogout();
         throw new Error("登录已过期，请重新登录");
@@ -156,10 +180,7 @@ export async function requestWithRetry(
   throw new Error("request failed");
 }
 
-export async function request<T>(
-  url: string,
-  init?: RequestInit,
-): Promise<T> {
+export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {};
   if (init?.headers) {
     for (const [k, v] of Object.entries(init.headers as Record<string, string>)) {

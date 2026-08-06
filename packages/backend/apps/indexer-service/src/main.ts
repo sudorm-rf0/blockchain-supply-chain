@@ -29,7 +29,7 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
-    await app.listen(INDEXER_ENV.port);
+  await app.listen(INDEXER_ENV.port);
   Logger.log(`indexer-service listening on ${INDEXER_ENV.port}`, "Bootstrap");
 }
 

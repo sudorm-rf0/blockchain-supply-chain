@@ -16,19 +16,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { fetchSession, logout as logoutApi } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, hydrated, setHydrated } = useUserStore();
@@ -37,12 +29,9 @@ export default function DashboardLayout({
   useEffect(() => {
     let active = true;
     void (async () => {
-      const session = await fetchSession();
-      if (!active) return;
-      setHydrated(true);
-      if (!session) {
-        // fetchSession 失败时由 api 层完成登出跳转。
-      }
+      // fetchSession 失败时由 api 层完成登出跳转，这里只负责结束加载态。
+      await fetchSession();
+      if (active) setHydrated(true);
     })();
     return () => {
       active = false;
@@ -89,11 +78,7 @@ export default function DashboardLayout({
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="fixed left-4 top-4 z-40 md:hidden"
-          >
+          <Button variant="outline" size="icon" className="fixed left-4 top-4 z-40 md:hidden">
             <Menu className="h-4 w-4" />
           </Button>
         </SheetTrigger>

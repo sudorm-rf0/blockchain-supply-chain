@@ -8,13 +8,7 @@ import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   buildRedeemLp,
@@ -32,25 +26,17 @@ const AssetTrendChart = dynamic(
   () => import("@/components/AssetTrendChart").then((m) => m.AssetTrendChart),
   {
     ssr: false,
-    loading: () => (
-      <div className="h-80 w-full animate-pulse rounded-lg bg-muted" />
-    ),
+    loading: () => <div className="h-80 w-full animate-pulse rounded-lg bg-muted" />,
   },
 );
 
 const LiquidityUtilizationChart = dynamic(
-  () =>
-    import("@/components/LiquidityUtilizationChart").then(
-      (m) => m.LiquidityUtilizationChart,
-    ),
+  () => import("@/components/LiquidityUtilizationChart").then((m) => m.LiquidityUtilizationChart),
   {
     ssr: false,
-    loading: () => (
-      <div className="h-72 w-full animate-pulse rounded-lg bg-muted" />
-    ),
+    loading: () => <div className="h-72 w-full animate-pulse rounded-lg bg-muted" />,
   },
 );
-
 
 // ==== 分段标识: 页面组件 ====
 export default function DashboardPage() {
@@ -104,17 +90,20 @@ export default function DashboardPage() {
       toast.error("请先连接钱包");
       return;
     }
-    const raw = BigInt(Math.round(Number(lpAmount) * 1_000_000));
-    if (!Number.isFinite(Number(lpAmount)) || raw <= BigInt(0)) {
+    const lpNum = Number(lpAmount);
+    if (!Number.isFinite(lpNum) || lpNum <= 0) {
+      toast.error("请输入有效的 LP 数量");
+      return;
+    }
+    const raw = BigInt(Math.round(lpNum * 1_000_000));
+    if (raw <= BigInt(0)) {
       toast.error("请输入有效的 LP 数量");
       return;
     }
     setRedeeming(true);
     try {
       const built = await buildRedeemLp(publicKey.toBase58(), raw.toString(10));
-      const transaction = Transaction.from(
-        Buffer.from(built.transaction, "base64"),
-      );
+      const transaction = Transaction.from(Buffer.from(built.transaction, "base64"));
       const signature = await sendTransaction(transaction, connection);
       await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirmRedeemLp(raw.toString(10), signature);
@@ -170,9 +159,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">LP 链上赎回</CardTitle>
-          <CardDescription>
-            按当前 NAV 换算，单次赎回不超过闲置资金 50%
-          </CardDescription>
+          <CardDescription>按当前 NAV 换算，单次赎回不超过闲置资金 50%</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
@@ -207,28 +194,21 @@ export default function DashboardPage() {
           {indexer ? (
             <span className="text-emerald-600 dark:text-emerald-400">
               synced · last snapshot{" "}
-              {indexer.lastPoolSnapshotAt
-                ? formatDateTime(indexer.lastPoolSnapshotAt)
-                : "n/a"}
+              {indexer.lastPoolSnapshotAt ? formatDateTime(indexer.lastPoolSnapshotAt) : "n/a"}
             </span>
           ) : (
             <span className="text-red-600 dark:text-red-400">unreachable</span>
           )}
         </p>
         {indexer && indexer.queue.failed > 0 && (
-          <p className="text-amber-600 dark:text-amber-400">
-            {indexer.queue.failed} failed jobs
-          </p>
+          <p className="text-amber-600 dark:text-amber-400">{indexer.queue.failed} failed jobs</p>
         )}
       </div>
 
       {loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((item) => (
-            <div
-              key={item}
-              className="h-28 animate-pulse rounded-lg border bg-muted"
-            />
+            <div key={item} className="h-28 animate-pulse rounded-lg border bg-muted" />
           ))}
         </div>
       )}
@@ -236,11 +216,7 @@ export default function DashboardPage() {
       {error && (
         <div className="rounded-lg border border-red-500/50 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-200">
           {error}
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="ml-3 underline"
-          >
+          <button type="button" onClick={() => void load()} className="ml-3 underline">
             Retry
           </button>
         </div>
@@ -250,16 +226,12 @@ export default function DashboardPage() {
         <>
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
-              <Card
-                key={stat.label}
-              >
+              <Card key={stat.label}>
                 <CardHeader>
                   <CardDescription>{stat.label}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className={`text-2xl font-semibold ${stat.accent}`}>
-                    {stat.value}
-                  </p>
+                  <p className={`text-2xl font-semibold ${stat.accent}`}>{stat.value}</p>
                 </CardContent>
               </Card>
             ))}
@@ -267,15 +239,15 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
-            <div className="mb-4 flex items-center justify-between">
-              <CardTitle className="text-base">资产趋势</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Utilization {((overview.utilizationBps / 10_000) * 100).toFixed(1)}%
-              </p>
-            </div>
+              <div className="mb-4 flex items-center justify-between">
+                <CardTitle className="text-base">资产趋势</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Utilization {((overview.utilizationBps / 10_000) * 100).toFixed(1)}%
+                </p>
+              </div>
             </CardHeader>
             <CardContent>
-            <AssetTrendChart trend={overview.trend} />
+              <AssetTrendChart trend={overview.trend} />
             </CardContent>
           </Card>
 
@@ -283,9 +255,7 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle className="text-base">流动性 / 利用率</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  闲置流动性 = 总资产 - 活跃资本
-                </p>
+                <p className="text-xs text-muted-foreground">闲置流动性 = 总资产 - 活跃资本</p>
               </div>
             </CardHeader>
             <CardContent>
@@ -293,11 +263,9 @@ export default function DashboardPage() {
                 <div className="rounded-md border p-3">
                   <p className="text-xs text-muted-foreground">闲置流动性</p>
                   <p className="mt-1 text-xl font-semibold text-violet-600 dark:text-violet-300">
-                    ${formatUsdc(
-                      (
-                        BigInt(overview.totalAssets) -
-                        BigInt(overview.activeCapital)
-                      ).toString(10),
+                    $
+                    {formatUsdc(
+                      (BigInt(overview.totalAssets) - BigInt(overview.activeCapital)).toString(10),
                     )}
                   </p>
                 </div>
@@ -318,9 +286,7 @@ export default function DashboardPage() {
                 <CardDescription>Active Deals</CardDescription>
               </CardHeader>
               <CardContent>
-              <p className="text-xl font-semibold">
-                {overview.activeDeals}
-              </p>
+                <p className="text-xl font-semibold">{overview.activeDeals}</p>
               </CardContent>
             </Card>
             <Card>
@@ -328,9 +294,9 @@ export default function DashboardPage() {
                 <CardDescription>Settled</CardDescription>
               </CardHeader>
               <CardContent>
-              <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-300">
-                {overview.settledDeals}
-              </p>
+                <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-300">
+                  {overview.settledDeals}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -338,9 +304,9 @@ export default function DashboardPage() {
                 <CardDescription>Defaulted</CardDescription>
               </CardHeader>
               <CardContent>
-              <p className="text-xl font-semibold text-red-600 dark:text-red-300">
-                {overview.defaultedDeals}
-              </p>
+                <p className="text-xl font-semibold text-red-600 dark:text-red-300">
+                  {overview.defaultedDeals}
+                </p>
               </CardContent>
             </Card>
           </section>
