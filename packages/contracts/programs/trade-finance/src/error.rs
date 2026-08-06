@@ -46,11 +46,7 @@ pub enum TradeFinanceError {
     #[msg("Deal must be Pending before funding")]
     DealNotPending,
 
-    /// 订单尚未 Funded：只有 Funded 状态的订单可以还款或违约处理。
-    #[msg("Deal must be Funded before repayment")]
-    DealNotFunded,
-
-    /// Token 账户所有者不匹配：转入/转出账户必须归属对应角色。
+    /// Token 账户 mint 不匹配：资金操作只接受 USDC。
     #[msg("Token account owner mismatch")]
     WrongTokenAccountOwner,
 
@@ -65,10 +61,6 @@ pub enum TradeFinanceError {
     /// 状态码非法：TradeDeal.status 不是已知的枚举值。
     #[msg("Unsupported deal status")]
     InvalidStatus,
-
-    /// 订单尚未进入运输阶段：只有 Funded 状态可以推进到 InTransit。
-    #[msg("Deal must be Funded before entering transit")]
-    DealNotFundedForTransit,
 
     /// 订单尚未完成交付：只有 Delivered 状态可以释放托管资金给卖方。
     #[msg("Deal must be Delivered before release to seller")]
