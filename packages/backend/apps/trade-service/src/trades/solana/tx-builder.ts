@@ -234,7 +234,6 @@ export async function buildFundDealTransaction(
   const poolState = derivePoolStatePda(prog);
   const poolAuthority = derivePoolAuthorityPda(prog);
   const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
-  const rebatePda = deriveRebatePda(prog, input.buyer);
   const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, uMint);
   const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, uMint);
 
@@ -249,8 +248,6 @@ export async function buildFundDealTransaction(
     { pubkey: uMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: lpMintKey(), isSigner: false, isWritable: false },
-    { pubkey: rebatePda, isSigner: false, isWritable: true },
-    { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
   const data = buildFundDealInstructionData(input.tradeId);
@@ -294,6 +291,7 @@ export async function buildRepayDealTransaction(
   const poolState = derivePoolStatePda(prog);
   const poolAuthority = derivePoolAuthorityPda(prog);
   const dealPda = deriveDealPda(prog, input.buyer, input.tradeId);
+  const rebatePda = deriveRebatePda(prog, input.buyer);
   const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, input.usdcMint);
   const buyerTokenAccount = deriveAssociatedTokenAccount(input.buyer, input.usdcMint);
 
@@ -318,6 +316,8 @@ export async function buildRepayDealTransaction(
     { pubkey: input.usdcMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: lpMintKey(), isSigner: false, isWritable: false },
+    { pubkey: rebatePda, isSigner: false, isWritable: true },
+    { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
   ];
 
   const data = buildRepayDealInstructionData(input.tradeId);
