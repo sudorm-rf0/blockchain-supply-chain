@@ -42,7 +42,6 @@ export default function DashboardLayout({
       setHydrated(true);
       if (!session) {
         // fetchSession 失败时由 api 层完成登出跳转。
-        setHydrated(true);
       }
     })();
     return () => {
@@ -68,7 +67,11 @@ export default function DashboardLayout({
   }, [hydrated, user, pathname, router]);
 
   if (!hydrated || !user) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   const role = user.role;

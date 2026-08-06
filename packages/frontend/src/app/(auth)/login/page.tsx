@@ -57,8 +57,21 @@ export default function LoginPage() {
             ? "/admin/files"
             : "/user/upload",
       );
-    } catch {
-      toast.error(requiresTotp ? "验证码错误" : "邮箱或密码错误");
+    } catch (error) {
+      const hint = error instanceof Error ? error.message : "";
+      if (
+        hint.includes("fetch") ||
+        hint.includes("网络") ||
+        hint.includes("Network") ||
+        hint.includes("timeout") ||
+        hint.includes("Abort")
+      ) {
+        toast.error("网络连接失败，请检查网络后重试");
+      } else if (requiresTotp) {
+        toast.error("验证码错误");
+      } else {
+        toast.error("邮箱或密码错误");
+      }
     }
   };
 

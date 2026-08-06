@@ -3,10 +3,11 @@ import { BACKEND_URL, API_TIMEOUT_MS } from "./env";
 import type { AuthUser } from "./types";
 
 export function formatUsdc(raw: string | number): string {
-  return (Number(raw) / 1_000_000).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const n = typeof raw === "bigint" ? raw : BigInt(raw);
+  const intPart = n / 1_000_000n;
+  const fracPart = n % 1_000_000n;
+  const fracStr = fracPart.toString().padStart(6, "0").slice(0, 2);
+  return Number(intPart).toLocaleString("en-US") + "." + fracStr;
 }
 
 async function readError(response: Response): Promise<string> {
