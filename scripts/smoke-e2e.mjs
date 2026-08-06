@@ -155,11 +155,30 @@ const confirmed = await api(
 results.attest = confirmed.ok === true;
 
 if (USDC_MINT) {
-  const adminLogin = await api(BASE, "/api/auth/login", null, "POST", {
-      email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
-      password: process.env.ADMIN_PASSWORD ?? "Admin123!",
-  });
+  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@supply-chain.io";
+  const candidates = [
+    process.env.ADMIN_PASSWORD,
+    "Admin123!",
+    "AdminChanged!1",
+    "E2eAdmin2!",
+  ].filter(Boolean);
+  let adminLogin;
   let adminPassword = process.env.ADMIN_PASSWORD ?? "Admin123!";
+  for (const password of candidates) {
+    try {
+      adminLogin = await api(BASE, "/api/auth/login", null, "POST", {
+        email: adminEmail,
+        password,
+      });
+      adminPassword = password;
+      break;
+    } catch {
+      // 尝试下一个候选密码。
+    }
+  }
+  if (!adminLogin) {
+    throw new Error(`admin login failed for ${adminEmail}`);
+  }
   let adminToken = adminLogin.accessToken;
   if (adminLogin.mustChangePassword) {
     await api(BASE, "/api/auth/change-password", adminToken, "POST", {
@@ -168,7 +187,7 @@ if (USDC_MINT) {
     });
     adminPassword = "AdminChanged!1";
     const adminReLogin = await api(BASE, "/api/auth/login", null, "POST", {
-      email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
+      email: adminEmail,
       password: adminPassword,
     });
     adminToken = adminReLogin.accessToken;

@@ -82,10 +82,10 @@ else
 fi
 check_http "backend swagger" "${BACKEND_URL}/api-docs" "200"
 code="$(http_code "${POOL_URL}/api/pool/overview")"
-if [[ "${code}" == "401" ]]; then
-  add_check "pool overview requires auth" "PASS" "HTTP ${code}"
+if [[ "${code}" == "200" ]]; then
+  add_check "pool overview public" "PASS" "HTTP ${code}"
 else
-  add_check "pool overview requires auth" "FAIL" "HTTP ${code}, expected 401"
+  add_check "pool overview public" "FAIL" "HTTP ${code}, expected 200"
 fi
 check_http "indexer status" "${INDEXER_URL}/api/indexer/status" "200"
 

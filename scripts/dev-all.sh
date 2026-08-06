@@ -18,12 +18,15 @@ else
   echo "warning: ${LOCALNET_ENV} not found; trade/pool will use dev placeholder mints" >&2
 fi
 
+# trade/pool/indexer 使用编译产物启动，先构建一次。
+(cd "${ROOT}/packages/backend" && pnpm build:indexer >/dev/null 2>&1 && pnpm build:trade >/dev/null 2>&1 && pnpm build:pool >/dev/null 2>&1) || true
+
 SERVICES=(
   "backend|3001|packages/backend|pnpm dev"
   "scan-stub|3311|.|PORT=3311 node scripts/dev-scan-stub.mjs"
-  "indexer|3003|packages/backend|REDIS_URL=redis://localhost:6380 pnpm dev:indexer"
-  "trade|3004|packages/backend|${ENV_PREFIX} pnpm dev:trade"
-  "pool|3005|packages/backend|REDIS_URL=redis://localhost:6380 ${ENV_PREFIX} pnpm dev:pool"
+  "indexer|3003|packages/backend|REDIS_URL=redis://localhost:6380 node dist/apps/indexer-service/apps/indexer-service/src/main.js"
+  "trade|3004|packages/backend|${ENV_PREFIX} node dist/apps/trade-service/apps/trade-service/src/main.js"
+  "pool|3005|packages/backend|REDIS_URL=redis://localhost:6380 ${ENV_PREFIX} node dist/apps/pool-service/apps/pool-service/src/main.js"
   "frontend|3100|packages/frontend|FRONTEND_PORT=3100 pnpm dev"
 )
 
