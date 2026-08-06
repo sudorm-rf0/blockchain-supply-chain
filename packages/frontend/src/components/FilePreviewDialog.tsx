@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Copy, Check, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -186,13 +187,14 @@ export function FilePreviewDialog({
               </div>
             )}
 
-            <div className="rounded-md border bg-muted/30 p-3">
+            <div className="relative h-96 rounded-md border bg-muted/30 p-3">
               {isImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={objectUrl ?? ""}
                   alt={file.filename}
-                  className="mx-auto max-h-96"
+                  fill
+                  unoptimized
+                  className="object-contain"
                 />
               ) : isPdf ? (
                 <iframe

@@ -28,6 +28,11 @@ export function uploadFileWithProgress(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BACKEND_URL}/api/files`);
     xhr.withCredentials = true;
+    // 上传超时（审计 F-02/CK-007）：默认 120s，可通过 UPLOAD_TIMEOUT_MS 覆盖。
+    xhr.timeout = Number(
+      process.env.NEXT_PUBLIC_UPLOAD_TIMEOUT_MS ?? 120_000,
+    );
+    xhr.ontimeout = () => reject(new Error("上传超时，请重试"));
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         onProgress({
