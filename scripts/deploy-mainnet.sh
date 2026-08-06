@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# 主网合约部署（真实资金环境，操作不可逆！）
+#
+# 用法：
+#   bash scripts/deploy-mainnet.sh --yes                # 部署（必须先显式确认）
+#   bash scripts/deploy-mainnet.sh --yes --generate-keypairs   # 自动生成全新 Program keypair
+#   bash scripts/deploy-mainnet.sh --dry-run --yes      # 只打印命令不执行
+#   bash scripts/deploy-mainnet.sh --yes --freeze-upgrade-authority  # 部署后冻结升级权限
+#
+# 环境变量（必填，见 infra/config/production.env.example）：
+#   SOLANA_RPC_URL         主网 RPC（拒绝 localhost/devnet）
+#   DEPLOY_WALLET          主网部署钱包（建议独立冷钱包）
+#   USDC_MINT / LP_MINT    主网代币（LP mint authority 需已交多签）
+# 可选：
+#   TRADE_KEYPAIR / SUPPLY_KEYPAIR    Program keypair 路径（默认 target/deploy/mainnet/*-keypair.json）
+#   MIN_BALANCE_SOL        预检最低余额（默认 2）
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SOLANA_BIN="${SOLANA_BIN:-$HOME/.local/share/solana/active_release/bin}"
+export PATH="${SOLANA_BIN}:$HOME/.cargo/bin:$PATH"
+
+CONFIRM=0
+DRY_RUN=0
+GENERATE_KEYS=0
+FREEZE=0
+for arg in "$@"; do
+  case "$arg" in
+    --yes) CONFIRM=1 ;;
+    --dry-run) DRY_RUN=1 ;;
+    --generate-keypairs) GENERATE_KEYS=1 ;;
+    --freeze-upgrade-authority) FREEZE=1 ;;
+    *) echo "unknown arg: $arg" >&2; exit 1 ;;
+  esac
+done
+
+TRADE_KEYPAIR="${TRADE_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/trade_finance-keypair.json}"
+SUPPLY_KEYPAIR="${SUPPLY_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/supply_chain-keypair.json}"
+LOG_FILE="${LOG_FILE:-/tmp/deploy-mainnet-$(date +%Y%m%d-%H%M%S).log}"
+
+log() { echo "[$(date -u +%H:%M:%SZ)] $*" | tee -a "${LOG_FILE}"; }
+
+# ---------- 1. 不可逆确认 ----------
+if [[ "${CONFIRM}" != "1" ]]; then
+  echo "❌ 这是【主网】部署，操作不可逆。必须显式传 --yes 确认。" >&2
+  echo "   先用 --dry-run 预览将执行的命令。" >&2
+  exit 1
+fi
+
+# ---------- 2. 环境变量校验 ----------
+: "${SOLANA_RPC_URL:?必须设置 SOLANA_RPC_URL（主网）}"
+: "${DEPLOY_WALLET:?必须设置 DEPLOY_WALLET（主网部署钱包）}"
+: "${USDC_MINT:?必须设置 USDC_MINT（主网 USDC）}"
+: "${LP_MINT:?必须设置 LP_MINT（主网 LP，authority 需已交多签）}"
+
+case "${SOLANA_RPC_URL}" in
+  *localhost*|*127.0.0.1*|*devnet*) echo "❌ SOLANA_RPC_URL 不能是 localhost/devnet：${SOLANA_RPC_URL}" >&2; exit 1 ;;
+esac
+
+command -v anchor >/dev/null || { echo "anchor CLI not found" >&2; exit 1; }
+command -v solana >/dev/null || { echo "solana CLI not found" >&2; exit 1; }
+
+# ---------- 3. Program keypair ----------
+if [[ "${GENERATE_KEYS}" == "1" ]]; then
+  mkdir -p "$(dirname "${TRADE_KEYPAIR}")" "$(dirname "${SUPPLY_KEYPAIR}")"
+  [[ -f "${TRADE_KEYPAIR}" ]] && { echo "❌ keypair 已存在：${TRADE_KEYPAIR}（不会覆盖）" >&2; exit 1; }
+  [[ -f "${SUPPLY_KEYPAIR}" ]] && { echo "❌ keypair 已存在：${SUPPLY_KEYPAIR}（不会覆盖）" >&2; exit 1; }
+  echo "==> 生成全新主网 Program keypair（离线保管备份！）"
+  solana-keygen new --no-bip39-passphrase --force -o "${TRADE_KEYPAIR}"
+  solana-keygen new --no-bip39-passphrase --force -o "${SUPPLY_KEYPAIR}"
+else
+  for kp in "${TRADE_KEYPAIR}" "${SUPPLY_KEYPAIR}"; do
+    [[ -f "${kp}" ]] || { echo "❌ 缺少 Program keypair：${kp}（用 --generate-keypairs 生成）" >&2; exit 1; }
+  done
+fi
+
+TRADE_PROGRAM_ID="$(solana-keygen pubkey "${TRADE_KEYPAIR}")"
+SUPPLY_PROGRAM_ID="$(solana-keygen pubkey "${SUPPLY_KEYPAIR}")"
+# 禁止使用 devnet 占位 ID
+if [[ "${TRADE_PROGRAM_ID}" == "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3" || \
+      "${SUPPLY_PROGRAM_ID}" == "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk" ]]; then
+  echo "❌ Program ID 仍是 devnet 占位 ID，主网禁止使用" >&2
+  exit 1
+fi
+
+log "==> 主网部署计划"
+log "  RPC:        ${SOLANA_RPC_URL}"
+log "  钱包:       ${DEPLOY_WALLET}"
+log "  trade:      ${TRADE_PROGRAM_ID}  (keypair ${TRADE_KEYPAIR})"
+log "  supply:     ${SUPPLY_PROGRAM_ID}  (keypair ${SUPPLY_KEYPAIR})"
+log "  USDC/LP:    ${USDC_MINT} / ${LP_MINT}"
+log "  freeze:     ${FREEZE}"
+echo "----------------------------------------"
+echo "以上信息已写入日志：${LOG_FILE}"
+echo "确认无误？主网部署不可回滚。5 秒后继续（Ctrl-C 取消）..."
+sleep 5
+
+if [[ "${DRY_RUN}" == "1" ]]; then
+  echo "==> [dry-run] 以下命令将被执行（未真正部署）："
+  cat <<CMDS
+  bash ${ROOT}/scripts/precheck-mainnet-deploy.sh
+  (cd ${ROOT}/packages/contracts && anchor build && cargo build-sbf --arch v3)
+  solana program deploy ${ROOT}/packages/contracts/target/deploy/trade_finance.so --program-id ${TRADE_KEYPAIR}
+  solana program deploy ${ROOT}/packages/contracts/target/deploy/supply_chain.so --program-id ${SUPPLY_KEYPAIR}
+  bash ${ROOT}/scripts/verify-contract-deployment.sh
+CMDS
+  exit 0
+fi
+
+# ---------- 4. 主网预检（强制） ----------
+log "==> [1/6] 主网预检"
+SOLANA_RPC_URL="${SOLANA_RPC_URL}" DEPLOY_WALLET="${DEPLOY_WALLET}" \
+TRADE_FINANCE_PROGRAM_ID="${TRADE_PROGRAM_ID}" SUPPLY_CHAIN_PROGRAM_ID="${SUPPLY_PROGRAM_ID}" \
+USDC_MINT="${USDC_MINT}" LP_MINT="${LP_MINT}" \
+MIN_BALANCE_SOL="${MIN_BALANCE_SOL:-2}" EXPECT_POOL="${EXPECT_POOL:-absent}" \
+bash "${ROOT}/scripts/precheck-mainnet-deploy.sh" | tee -a "${LOG_FILE}"
+
+# ---------- 5. 构建 ----------
+log "==> [2/6] 构建合约（anchor + cargo build-sbf v3）"
+cd "${ROOT}/packages/contracts"
+anchor build 2>&1 | tee -a "${LOG_FILE}"
+cargo build-sbf --arch v3 2>&1 | tail -3 | tee -a "${LOG_FILE}"
+
+# ---------- 6. 部署 ----------
+log "==> [3/6] 部署 trade_finance (${TRADE_PROGRAM_ID})"
+solana program deploy target/deploy/trade_finance.so \
+  --program-id "${TRADE_KEYPAIR}" --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
+
+log "==> [4/6] 部署 supply_chain (${SUPPLY_PROGRAM_ID})"
+solana program deploy target/deploy/supply_chain.so \
+  --program-id "${SUPPLY_KEYPAIR}" --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
+
+# ---------- 7. 冻结升级权限（可选） ----------
+if [[ "${FREEZE}" == "1" ]]; then
+  log "==> [5/6] 冻结 upgrade authority（--final，不可逆）"
+  solana program set-upgrade-authority "${TRADE_PROGRAM_ID}" --final --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
+  solana program set-upgrade-authority "${SUPPLY_PROGRAM_ID}" --final --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
+  log "  已冻结。合约将无法再升级。"
+fi
+
+# ---------- 8. 验证 ----------
+log "==> [6/6] 验证部署"
+SOLANA_RPC_URL="${SOLANA_RPC_URL}" \
+  TRADE_FINANCE_PROGRAM_ID="${TRADE_PROGRAM_ID}" \
+  USDC_MINT="${USDC_MINT}" LP_MINT="${LP_MINT}" \
+  ADMIN_WALLET="${DEPLOY_WALLET}" REQUIRE_POOL=0 \
+  bash "${ROOT}/scripts/verify-contract-deployment.sh" | tee -a "${LOG_FILE}"
+
+echo "----------------------------------------"
+echo "✅ 主网部署完成（日志：${LOG_FILE}）"
+echo "trade_finance: ${TRADE_PROGRAM_ID}"
+echo "supply_chain:  ${SUPPLY_PROGRAM_ID}"
+echo ""
+echo "⚠️ 后续步骤（涉及真实资金，未自动执行）："
+echo "  1) 初始化资金池 + 真实存款：node scripts/init-localnet.mjs（换成主网 RPC/mint）"
+echo "  2) 初始化供应链注册中心：node scripts/init-supply-chain.mjs <真实供应商公钥...>"
+echo "  3) 配置服务环境变量（见 docs/MAINNET-MIGRATION.md 配置替换表）"
+echo "  4) 小额真实资金冒烟：node scripts/smoke-e2e.mjs"
+echo "  5) 保存 Program keypair 离线备份（未冻结升级权限前切勿丢失）"
