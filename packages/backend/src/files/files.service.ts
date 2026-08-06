@@ -115,6 +115,7 @@ export class FilesService {
     }
 
     if (fields.tradeId && (!/^\d+$/.test(fields.tradeId) || BigInt(fields.tradeId) < 0n)) {
+      this.removeUploadedFile(file.path);
       throw new BadRequestException("invalid tradeId");
     }
     const uploadDay = new Date().toISOString().slice(0, 10);

@@ -39,8 +39,7 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);
 
-
-    await app.listen(TRADE_ENV.port);
+  await app.listen(TRADE_ENV.port);
   Logger.log(`trade-service listening on ${TRADE_ENV.port}`, "Bootstrap");
 }
 
