@@ -86,3 +86,16 @@
 - `cargo test`：trade-finance 8 个、supply-chain 8 个全部通过。
 - `anchor test`：39 个集成用例全部通过（含边界：重复放款、重复还款、
   跳状态、超额集中度、错误 mint、供应商权限、分红发放、返利记账等）。
+
+## 第三方审计范围建议（上线前）
+
+本仓库内部审计覆盖常规路径；以下为**上线前建议交第三方审计重点复核**的范围：
+
+1. `RepayDeal`（2026-08-06 新增 `rebate` 账本 + 分红逻辑）：买方返利记账、
+   LP 分红是否始终有 USDC 支撑（H1 同类问题复检）、`init_if_needed` 的 payer/rent。
+2. `DistributeDividends`（新增指令）：分红总额上限、`pending_dividends` 与 vault
+   现金的一致性、单人领取是否可重复领取、admin 权限边界。
+3. `redeem_lp` 流动性保护（`vault_after >= active_capital`）在极端集中度下的行为。
+4. `default_deal` / `release_to_seller` 的托管释放路径与 `total_assets` 不变式。
+5. 权限模型：`supply-chain` Registry/供应商授权/撤销与 `trade-finance` admin 权限。
+6. 经济模型：费用、返利、分红、保险池、单次赎回上限的数值边界（u64 溢出、除法取整）。
