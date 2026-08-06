@@ -319,3 +319,22 @@ impl DocumentRecord {
             + 8  // uploaded_at
     }
 }
+
+/// 买方返利累计账户：记录每个买方累计获得的返利，形成链上“买家子账户”。
+#[account]
+#[derive(InitSpace)]
+pub struct RebateRecord {
+    /// 买方钱包。
+    pub buyer: Pubkey,
+    /// 累计返利金额（USDC 原始单位）。
+    pub total_rebate: u64,
+}
+
+impl RebateRecord {
+    pub const DISCRIMINATOR_SIZE: usize = 8;
+
+    /// 账户空间 = 8 字节 Anchor 前缀 + buyer + total_rebate。
+    pub fn space() -> usize {
+        Self::DISCRIMINATOR_SIZE + 32 + 8
+    }
+}

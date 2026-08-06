@@ -125,6 +125,17 @@ describe("compute units measurement", () => {
     )[0];
   }
 
+  function rebatePda(buyerKey: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("trade_finance"),
+        Buffer.from("rebate"),
+        buyerKey.toBuffer(),
+      ],
+      program.programId,
+    )[0];
+  }
+
   it("measures compute units across the full lifecycle", async () => {
     payer = anchor.web3.Keypair.generate();
     admin = anchor.web3.Keypair.generate();
@@ -191,6 +202,8 @@ describe("compute units measurement", () => {
           poolTokenAccount,
           usdcMint,
           lpMint,
+          rebate: rebatePda(buyer.publicKey),
+          systemProgram: SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([lp])
