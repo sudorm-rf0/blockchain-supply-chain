@@ -155,7 +155,6 @@ export default function OrdersPage() {
     );
 
   const isAdmin = user?.role === "ADMIN";
-  const isBuyer = Boolean(user?.wallet);
 
   return (
     <div className="space-y-4">
@@ -212,7 +211,7 @@ export default function OrdersPage() {
                 const canAdvance =
                   isAdmin && NEXT_TRADE_STATUS[trade.status] !== undefined;
                 const canRepay =
-                  isBuyer &&
+                  user?.role === "USER" &&
                   trade.status === "REPAYING" &&
                   user?.wallet === trade.buyerWallet;
                 const canDefault =
