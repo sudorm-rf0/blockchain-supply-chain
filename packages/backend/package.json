@@ -36,7 +36,6 @@
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.19.3",
     "@sentry/node": "^10.69.0",
-    "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.98.4",
     "@supply-chain/common": "workspace:*",
     "bullmq": "^5.5.1",

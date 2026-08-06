@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { PublicKey } from "@solana/web3.js";
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "@supply-chain/common";
@@ -20,6 +20,7 @@ import {
   REFRESH_TOKEN_TTL_SECONDS,
 } from "./session";
 import { invalidateUserState } from "@supply-chain/common";
+import { createHmac } from "node:crypto";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -31,6 +32,110 @@ async function hashPassword(password: string, salt: string): Promise<Buffer> {
   return scryptAsync(password, salt, 64);
 }
 
+// ---- TOTP：RFC 6238，node:crypto 原生实现（零依赖，避免 otplib 打包问题）----
+const TOTP_ISSUER = "SupplyChain";
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+export function generateTotpSecret(): string {
+  const bytes = randomBytes(20);
+  let bits = 0;
+  let value = 0;
+  let out = "";
+  for (const b of bytes) {
+    value = (value << 8) | b;
+    bits += 8;
+    while (bits >= 5) {
+      out += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  return out;
+}
+
+function base32Decode(input: string): Buffer {
+  const clean = input.toUpperCase().replace(/=+$/, "");
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+  for (const ch of clean) {
+    const idx = BASE32_ALPHABET.indexOf(ch);
+    if (idx < 0) throw new Error("invalid base32");
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(out);
+}
+
+export function totpCodeAt(secret: string, counter: number): string {
+  const key = base32Decode(secret);
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter));
+  const hmac = createHmac("sha1", key).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const bin =
+    ((hmac[offset] & 0x7f) << 24) |
+    (hmac[offset + 1] << 16) |
+    (hmac[offset + 2] << 8) |
+    hmac[offset + 3];
+  return (bin % 1_000_000).toString().padStart(6, "0");
+}
+
+function isValidTotpCode(code: string, secret: string | null): boolean {
+  if (!/^\d{6}$/.test(code) || !secret) return false;
+  try {
+    const counter = Math.floor(Date.now() / 1000 / 30);
+    for (let i = -1; i <= 1; i++) {
+      if (totpCodeAt(secret, counter + i) === code) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function totpUri(secret: string, accountName: string): string {
+  const label = encodeURIComponent(`${TOTP_ISSUER}:${accountName}`);
+  return `otpauth://totp/${label}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(TOTP_ISSUER)}&algorithm=SHA1&digits=6&period=30`;
+}
+
+function totpEncryptionKey(): Buffer {
+  return createHash("sha256")
+    .update(`${process.env.JWT_SECRET ?? "dev-secret"}:totp`)
+    .digest();
+}
+
+function encryptTotpSecret(secret: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", totpEncryptionKey(), iv);
+  const enc = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("base64")}.${tag.toString("base64")}.${enc.toString("base64")}`;
+}
+
+function decryptTotpSecret(stored: string | null): string | null {
+  if (!stored) return null;
+  try {
+    const [ivB64, tagB64, encB64] = stored.split(".");
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      totpEncryptionKey(),
+      Buffer.from(ivB64, "base64"),
+    );
+    decipher.setAuthTag(Buffer.from(tagB64, "base64"));
+    return Buffer.concat([
+      decipher.update(Buffer.from(encB64, "base64")),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
 export interface PublicUser {
   id: string;
   email: string;
@@ -38,6 +143,7 @@ export interface PublicUser {
   role: "USER" | "ADMIN";
   wallet: string;
   mustChangePassword: boolean;
+  totpEnabled: boolean;
 }
 
 export interface SessionResult {
@@ -120,9 +226,9 @@ export class AuthService {
   }
 
   async login(
-    body: { email: string; password: string },
+    body: { email: string; password: string; totpCode?: string },
     clientIp?: string,
-  ): Promise<SessionResult> {
+  ): Promise<SessionResult | { requiresTotp: true }> {
     const failKey = `login:fail:${body.email}`;
     const fails = await this.redis.incr(failKey);
     if (fails === 1) {
@@ -154,6 +260,15 @@ export class AuthService {
     const stored = Buffer.from(storedHash, "hex");
     if (hash.length !== stored.length || !timingSafeEqual(hash, stored)) {
       throw new UnauthorizedException("邮箱或密码错误");
+    }
+    if (user.totpEnabled) {
+      const secret = decryptTotpSecret(user.totpSecret);
+      if (!body.totpCode) {
+        return { requiresTotp: true };
+      }
+      if (!isValidTotpCode(body.totpCode, secret)) {
+        throw new UnauthorizedException("TOTP 验证码错误");
+      }
     }
     await this.redis.del(failKey);
     await this.audit.record({
@@ -336,6 +451,59 @@ export class AuthService {
     }
   }
 
+  async setupTotp(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("用户不存在");
+    if (user.totpEnabled) throw new ConflictException("TOTP 已启用");
+    const secret = generateTotpSecret();
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpSecret: encryptTotpSecret(secret) },
+    });
+    const otpauthUrl = totpUri(secret, user.email ?? userId);
+    return { secret, otpauthUrl };
+  }
+
+  async enableTotp(userId: string, code: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.totpSecret) throw new BadRequestException("请先生成 TOTP 密钥");
+    const secret = decryptTotpSecret(user.totpSecret);
+    if (!isValidTotpCode(code, secret)) {
+      throw new BadRequestException("TOTP 验证码错误");
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: true },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "TOTP_ENABLED",
+      targetType: "AUTH",
+      targetId: userId,
+    });
+    return { ok: true };
+  }
+
+  async disableTotp(userId: string, code: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.totpEnabled) throw new BadRequestException("TOTP 未启用");
+    const secret = decryptTotpSecret(user.totpSecret);
+    if (!isValidTotpCode(code, secret)) {
+      throw new BadRequestException("TOTP 验证码错误");
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpSecret: null, totpEnabled: false },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "TOTP_DISABLED",
+      targetType: "AUTH",
+      targetId: userId,
+    });
+    return { ok: true };
+  }
+
   private async issueSession(
     user: { id: string; email: string | null; name: string | null; role: string; wallet?: string | null; mustChangePassword?: boolean },
     existingRefreshToken?: string,
@@ -372,6 +540,7 @@ export class AuthService {
     role: string;
     wallet?: string | null;
     mustChangePassword?: boolean;
+    totpEnabled?: boolean;
   }): PublicUser {
     return {
       id: user.id,
@@ -380,6 +549,7 @@ export class AuthService {
       role: user.role === "ADMIN" ? ("ADMIN" as const) : ("USER" as const),
       wallet: user.wallet ?? "",
       mustChangePassword: user.mustChangePassword === true,
+      totpEnabled: user.totpEnabled === true,
     };
   }
 }

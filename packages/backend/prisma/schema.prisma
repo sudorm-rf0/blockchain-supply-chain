@@ -28,6 +28,8 @@ model User {
   role                 String    @default("USER")
   mustChangePassword   Boolean   @default(false)
   lastPasswordChangeAt DateTime?
+  totpSecret           String?
+  totpEnabled          Boolean   @default(false)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

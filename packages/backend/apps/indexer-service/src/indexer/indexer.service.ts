@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { AccountInfo, Connection, PublicKey } from "@solana/web3.js";
+import { pickRpcUrl } from "@supply-chain/common";
 import { INDEXER_ENV } from "../config/env";
 import {
   POOL_STATE_ACCOUNT_SIZE,
@@ -32,7 +33,7 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
   private poolSubscriptionId: number | null = null;
 
   constructor(private readonly syncQueue: SyncQueueService) {
-    this.connection = new Connection(INDEXER_ENV.rpcUrl, {
+    this.connection = new Connection(pickRpcUrl(INDEXER_ENV.rpcUrl), {
       commitment: "confirmed",
     });
     this.programId = new PublicKey(INDEXER_ENV.programId);

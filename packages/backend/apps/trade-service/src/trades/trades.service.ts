@@ -10,7 +10,7 @@ import { Connection, MessageV0, PublicKey } from "@solana/web3.js";
 import { TRADE_ENV } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
-import { RedisService } from "@supply-chain/common";
+import { RedisService, pickRpcUrl } from "@supply-chain/common";
 import { CreateTradeDto } from "./dto/create-trade.dto";
 import { CreateTradeResponseDto } from "./dto/create-trade-response.dto";
 import { ConfirmTradeDto } from "./dto/confirm-trade.dto";
@@ -38,15 +38,21 @@ import {
   isValidTenor,
 } from "./solana/tx-builder";
 
-let _connection: Connection | undefined;
+const _connections = new Map<string, Connection>();
 let _programId: PublicKey | undefined;
 
 function getConnection(): Connection {
-  return (_connection ??= new Connection(TRADE_ENV.rpcUrl, {
-    commitment: "confirmed",
-    fetch: (url, options) =>
-      fetch(url, { ...options, signal: AbortSignal.timeout(30_000) }),
-  }));
+  const url = pickRpcUrl(TRADE_ENV.rpcUrl);
+  let conn = _connections.get(url);
+  if (!conn) {
+    conn = new Connection(url, {
+      commitment: "confirmed",
+      fetch: (fetchUrl, options) =>
+        fetch(fetchUrl, { ...options, signal: AbortSignal.timeout(30_000) }),
+    });
+    _connections.set(url, conn);
+  }
+  return conn;
 }
 function getProgramId(): PublicKey {
   return (_programId ??= new PublicKey(TRADE_ENV.programId));
