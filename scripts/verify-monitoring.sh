@@ -48,6 +48,21 @@ validate_alerts() {
   fi
 }
 
+validate_recording_rules() {
+  local status="PASS"
+  local detail=""
+  local file="infra/prometheus/rules.yml"
+  if ! command -v promtool >/dev/null 2>&1; then
+    add_check "recording-rules-syntax" "SKIP" "promtool not found"
+    return 0
+  fi
+  if out="$(promtool check rules "${file}" 2>&1)"; then
+    add_check "recording-rules-syntax" "PASS" "${out}"
+  else
+    add_check "recording-rules-syntax" "FAIL" "${out}"
+  fi
+}
+
 check_service_metrics() {
   IFS=',' read -r -a entries <<< "${SERVICES}"
   for entry in "${entries[@]}"; do
@@ -123,6 +138,7 @@ check_grafana() {
 
 start_ts="$(date +%s)"
 validate_alerts
+validate_recording_rules
 check_service_metrics
 check_prometheus_config
 check_prometheus

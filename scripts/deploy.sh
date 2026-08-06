@@ -77,6 +77,7 @@ if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
   kubectl -n "${NAMESPACE}" create configmap prometheus-config \
     --from-file=prometheus.yml=infra/prometheus/prometheus.yml \
     --from-file=alerts.yml=infra/prometheus/alerts.yml \
+    --from-file=rules.yml=infra/prometheus/rules.yml \
     --from-file=blackbox-targets.yml="${BB_TARGETS}" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   kubectl -n "${NAMESPACE}" create configmap blackbox-exporter-config \

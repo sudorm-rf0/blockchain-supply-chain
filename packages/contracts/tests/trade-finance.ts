@@ -223,6 +223,22 @@ describe("trade-finance full lifecycle", () => {
     console.log("Pool nav:", poolState.nav.toString());
   });
 
+  it("Rejects re-initializing the pool", async () => {
+    await assert.rejects(
+      program.methods
+        .initializePool(platformWallet.publicKey)
+        .accounts({
+          poolState: poolStatePda,
+          admin: admin.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([admin])
+        .rpc(),
+      /already in use|AccountDiscriminator|ConstraintSeeds/i,
+    );
+    console.log("Pool re-initialization rejected");
+  });
+
   it("Creates a trade deal", async () => {
     const tradeId = new anchor.BN(1);
     const amount = new anchor.BN(USDC(1_000));
@@ -496,6 +512,64 @@ describe("trade-finance full lifecycle", () => {
       vaultBefore.amount - BigInt(pending.toString()),
     );
     console.log("Distributed dividends:", pending.toString());
+  });
+
+  it("Rejects dividend distribution above pending", async () => {
+    const poolState = await program.account.poolState.fetch(poolStatePda);
+    const pending = new anchor.BN(poolState.pendingDividends.toString());
+
+    await assert.rejects(
+      program.methods
+        .distributeDividends(pending.add(new anchor.BN(1)))
+        .accounts({
+          poolState: poolStatePda,
+          admin: admin.publicKey,
+          recipient: lp.publicKey,
+          recipientTokenAccount: lpAta,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+          usdcMint,
+          lpMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc(),
+      /InsufficientDividends/,
+    );
+    console.log("Over-distribution rejected");
+  });
+
+  it("Rejects duplicate document attestation", async () => {
+    const fileHash = Buffer.from(
+      anchor.web3.Keypair.generate().publicKey.toBytes(),
+    );
+    const uri = "ipfs://bafybeig7/duplicate-doc.pdf";
+    const doc = documentPda(new anchor.BN(0), fileHash);
+    await program.methods
+      .attestDocument(new anchor.BN(0), fileHash, uri)
+      .accounts({
+        owner: buyer.publicKey,
+        document: doc,
+        deal: null,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([buyer])
+      .rpc();
+
+    await assert.rejects(
+      program.methods
+        .attestDocument(new anchor.BN(0), fileHash, uri)
+        .accounts({
+          owner: buyer.publicKey,
+          document: doc,
+          deal: null,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([buyer])
+        .rpc(),
+      /already in use|AccountDiscriminator|ConstraintSeeds/i,
+    );
+    console.log("Duplicate document attestation rejected");
   });
 
   it("Handles default scenario", async () => {

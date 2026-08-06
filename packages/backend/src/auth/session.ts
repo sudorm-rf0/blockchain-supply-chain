@@ -17,7 +17,7 @@ export function generateRefreshToken(): string {
 function cookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: "strict" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: maxAgeSeconds * 1000,

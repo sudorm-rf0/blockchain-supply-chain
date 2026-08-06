@@ -1,0 +1,22 @@
+groups:
+  - name: supply-chain-slo
+    rules:
+      - record: slo:http_requests_total:rate5m
+        expr: sum by (job) (rate(http_requests_total[5m]))
+
+      - record: slo:http_errors_total:rate5m
+        expr: sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))
+
+      - record: slo:error_ratio:rate5m
+        expr: |
+          sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum by (job) (rate(http_requests_total[5m])), 1)
+
+      - alert: ErrorBudgetBurn
+        expr: slo:error_ratio:rate5m > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error budget burning on {{ $labels.job }}"
+          description: "5-minute 5xx ratio is above 5% SLO target on {{ $labels.job }}."
