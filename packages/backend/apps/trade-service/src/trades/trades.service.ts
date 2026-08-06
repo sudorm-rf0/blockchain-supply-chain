@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { Prisma, type DealStatus } from "@prisma/client";
 import { Connection, MessageV0, PublicKey } from "@solana/web3.js";
@@ -185,7 +186,13 @@ export class TradesService {
 
   private async withConfirmLock<T>(tradeId: string, run: () => Promise<T>): Promise<T> {
     const key = `trade:confirm:${this.normalizeTradeId(tradeId)}`;
-    const acquired = await this.redis.setNX(key, "1", 60);
+    let acquired: boolean;
+    try {
+      acquired = await this.redis.setNX(key, "1", 60);
+    } catch {
+      // Redis 不可用时退化为 503，避免确认操作 500；锁过期后重试即可。
+      throw new ServiceUnavailableException("服务暂时不可用，请稍后重试");
+    }
     if (!acquired) {
       throw new ConflictException("该订单正在处理中，请勿重复提交");
     }
