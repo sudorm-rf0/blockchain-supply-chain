@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { RedisService } from "@supply-chain/common";
+import { RedisService, PRISMA_SERVICE } from "@supply-chain/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { IndexerService } from "./indexer.service";
 import { IndexerStatusController } from "./indexer-status.controller";
@@ -15,6 +15,7 @@ import { SyncQueueService } from "./sync-queue.service";
   providers: [
     RedisService,
     PrismaService,
+    { provide: PRISMA_SERVICE, useExisting: PrismaService },
     MetricsService,
     IndexerMetricsService,
     SyncQueueService,
@@ -22,6 +23,6 @@ import { SyncQueueService } from "./sync-queue.service";
     RiskControlWebhookService,
     IndexerService,
   ],
-  exports: [PrismaService],
+  exports: [PrismaService, PRISMA_SERVICE],
 })
 export class IndexerModule {}

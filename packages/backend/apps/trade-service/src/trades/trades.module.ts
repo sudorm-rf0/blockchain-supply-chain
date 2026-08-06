@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { TradesController } from "./trades.controller";
 import { TradesService } from "./trades.service";
-import { AuditService } from "../audit/audit.service";
+import { AuditService } from "@supply-chain/common";
 import {
   RedisService,
   AuthGuard,
@@ -29,6 +29,6 @@ import { MetricsService } from "../../../../src/shared/metrics.service";
     NotifierService,
     MetricsService,
   ],
-  exports: [PrismaService],
+  exports: [PrismaService, PRISMA_SERVICE],
 })
 export class TradesModule {}

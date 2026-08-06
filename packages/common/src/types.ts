@@ -16,4 +16,17 @@ export interface PrismaQueryLike {
       select?: any;
     }): Promise<any | null>;
   };
+  $queryRaw(query: TemplateStringsArray, ...values: any[]): Promise<unknown>;
+  auditLog: {
+    create(args: {
+      data: {
+        actorId?: string | null;
+        actorEmail?: string | null;
+        action: string;
+        targetType: string;
+        targetId: string;
+        metadata?: any;
+      };
+    }): Promise<unknown>;
+  };
 }

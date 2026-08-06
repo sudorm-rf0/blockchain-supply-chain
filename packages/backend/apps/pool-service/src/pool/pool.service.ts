@@ -11,7 +11,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService, pickRpcUrl } from "@supply-chain/common";
-import { AuditService } from "../audit/audit.service";
+import { AuditService } from "@supply-chain/common";
 import {
   buildRedeemLpInstructionData,
   buildRedeemLpTransaction,

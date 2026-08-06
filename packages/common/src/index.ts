@@ -6,6 +6,8 @@ export {
 export { AdminGuard } from "./auth/admin.guard";
 export { signJwt, verifyJwt, type JwtPayload } from "./auth/jwt";
 export { RedisService } from "./redis/redis.service";
+export { AuditService, type AuditRecordInput } from "./audit/audit.service";
+export { createHealthController } from "./health/health.controller";
 export { PRISMA_SERVICE } from "./types";
 export type { PrismaQueryLike } from "./types";
 export { pickRpcUrl } from "./rpc";
