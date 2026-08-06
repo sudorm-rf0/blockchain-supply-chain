@@ -222,7 +222,7 @@ jobs:
 
       - name: Component Tests
         working-directory: packages/frontend
-        run: pnpm test
+        run: pnpm test -- --coverage
 
       - name: Production Build
         working-directory: packages/frontend
