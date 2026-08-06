@@ -26,8 +26,8 @@ cp "${ROOT}/packages/contracts/tests/"*.ts "${PKG_DIR}/contracts/tests/" 2>/dev/
 
 # 3) 文档
 for f in CONTRACT-AUDIT.md AUDIT-REPORT.md CERTIK-REPORT.md AUDIT-DELIVERY.md \
-         AUDIT-ECONOMIC-MODEL.md AUDIT-KNOWN-RISKS.md MAINNET-MIGRATION.md \
-         LAUNCH-CHECKLIST.md; do
+         AUDIT-REMEDIATION.md AUDIT-ECONOMIC-MODEL.md AUDIT-KNOWN-RISKS.md \
+         MAINNET-MIGRATION.md LAUNCH-CHECKLIST.md; do
   [[ -f "${ROOT}/docs/${f}" ]] && cp "${ROOT}/docs/${f}" "${PKG_DIR}/docs/"
 done
 
@@ -46,7 +46,7 @@ devnet 部署（当前已验证）:
 
 测试结果（最新 CI/local）:
   Anchor 集成: 49/49 通过（含 create/fund/default 记账增量断言 + 暂停/管理员轮换治理）
-  后端 Jest: 143/143
+  后端 Jest: 146/146
   前端 Vitest: 48/48
 
 说明:
