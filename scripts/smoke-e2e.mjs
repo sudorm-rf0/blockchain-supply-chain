@@ -12,6 +12,7 @@ import {
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { deflateSync } from "node:zlib";
 import { getOrCreateAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 
 const RPC = process.env.SOLANA_RPC_URL ?? "http://localhost:8899";
@@ -25,6 +26,30 @@ const keypairPath =
   `${homedir()}/.config/solana/id.json`;
 const adminSecret = JSON.parse(readFileSync(keypairPath, "utf8"));
 const admin = Keypair.fromSecretKey(Uint8Array.from(adminSecret));
+
+// devnet 适配：官方水龙头有严格限制（每次 <=2 SOL 且按日/项目限额），
+// SMOKE_FUND_FROM=admin 时改为由管理员钱包转账给临时钱包，避免依赖水龙头。
+// SMOKE_FUND_SOL 控制每个临时钱包的 SOL 数（默认 5，与历史行为一致）。
+const FUND_SOL = Number(process.env.SMOKE_FUND_SOL ?? 5);
+const FUND_FROM = process.env.SMOKE_FUND_FROM ?? "faucet"; // "faucet" | "admin"
+async function fund(pubkey) {
+  if (FUND_FROM === "admin") {
+    const tx = new Transaction();
+    tx.feePayer = admin.publicKey;
+    tx.recentBlockhash = (await conn.getLatestBlockhash("confirmed")).blockhash;
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: admin.publicKey,
+        toPubkey: pubkey,
+        lamports: BigInt(Math.round(FUND_SOL * 1_000_000_000)),
+      }),
+    );
+    tx.sign(admin);
+    await conn.confirmTransaction(await conn.sendRawTransaction(tx.serialize()), "confirmed");
+  } else {
+    await conn.requestAirdrop(pubkey, FUND_SOL * 1_000_000_000);
+  }
+}
 const results = {};
 
 async function api(base, path, token, method = "GET", body) {
@@ -51,7 +76,7 @@ async function signSend(transactionB64, signer) {
 }
 
 const wallet = Keypair.generate();
-await conn.requestAirdrop(wallet.publicKey, 5_000_000_000);
+await fund(wallet.publicKey);
 await new Promise((r) => setTimeout(r, 1200));
 
 const email = `smoke-${Date.now()}@example.com`;
@@ -63,13 +88,48 @@ const reg = await api(BASE, "/api/auth/register", null, "POST", {
 });
 results.register = true;
 
-const png = Buffer.concat([
-  Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-    "base64",
-  ),
-  Buffer.from(String(Date.now())),
-]);
+// 生成不同像素的合法 1x1 RGBA PNG：后端会用 sharp 重编码（去 EXIF/旋转），
+// 尾部追加的垃圾字节会被丢弃，因此必须让"图像内容"本身随每次运行变化，
+// 否则所有冒烟文件哈希相同，触发"该文件哈希已存证"409。
+function crc32(buf) {
+  let crc = 0xffffffff;
+  for (const byte of buf) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+function pngChunk(type, data) {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([length, body, crc]);
+}
+function makePng(seed) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const raw = Buffer.from([0, seed % 256, (seed >> 8) % 256, (seed >> 16) % 256, 255]);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(raw)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+const png = makePng(Date.now());
 const fd = new FormData();
 fd.append("file", new Blob([png], { type: "image/png" }), "smoke.png");
 const upRes = await fetch(`${BASE}/api/files`, {
@@ -274,7 +334,7 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
 
   // 2) 授权一个临时供应商（幂等）。
   const supplier = Keypair.generate();
-  await conn.requestAirdrop(supplier.publicKey, 5_000_000_000);
+  await fund(supplier.publicKey);
   await new Promise((r) => setTimeout(r, 1200));
   const supPda = supplierPda(supplier.publicKey);
   if (!(await conn.getAccountInfo(supPda))) {
@@ -315,7 +375,7 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
 
   // 4) 负面用例：未授权钱包注册必须被拒绝。
   const stranger = Keypair.generate();
-  await conn.requestAirdrop(stranger.publicKey, 5_000_000_000);
+  await fund(stranger.publicKey);
   await new Promise((r) => setTimeout(r, 1200));
   const badSku = `BLOCKED-${Date.now()}`;
   const badProd = productPda(stranger.publicKey, badSku);
