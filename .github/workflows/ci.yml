@@ -22,10 +22,10 @@ jobs:
       scripts: ${{ steps.changes.outputs.scripts }}
       vps: ${{ steps.changes.outputs.vps }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: changes
         with:
           filters: |
@@ -94,7 +94,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.scripts == 'true' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Shell syntax check
         run: |
@@ -115,7 +115,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.vps == 'true' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate deploy-vps.sh syntax
         run: bash -n scripts/deploy-vps.sh
@@ -145,14 +145,14 @@ jobs:
       DATABASE_URL: postgresql://user:pass@localhost:5432/supply_chain?connection_limit=10&pool_timeout=20&socket_timeout=30&schema=public
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
           node-version: 20
@@ -189,7 +189,7 @@ jobs:
 
       - name: Tests
         working-directory: packages/backend
-        run: pnpm exec jest --runInBand
+        run: pnpm exec jest --runInBand --coverage
 
   frontend:
     runs-on: [self-hosted, macOS, ARM64]
@@ -197,14 +197,14 @@ jobs:
     if: needs.changes.outputs.frontend == 'true' || github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
           node-version: 20
@@ -234,13 +234,13 @@ jobs:
     if: needs.changes.outputs.contracts == 'true' || github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -249,7 +249,7 @@ jobs:
 
       - name: Install Anchor CLI
         id: cache-anchor
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/anchor
           key: anchor-0.31.1-${{ runner.os }}
@@ -262,7 +262,7 @@ jobs:
 
       - name: Cache Solana CLI
         id: cache-solana
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/solana
           key: agave-4.1.2-${{ runner.os }}
@@ -321,7 +321,7 @@ jobs:
       CI_SOLANA_HOME: "/tmp/solana-ci"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Start isolated Postgres and Redis
         run: |
@@ -339,12 +339,12 @@ jobs:
           docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null
           docker exec supply-chain-redis-ci redis-cli ping >/dev/null
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
           node-version: 20
@@ -358,7 +358,7 @@ jobs:
 
       - name: Cache Anchor CLI
         id: cache-anchor
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/anchor
           key: anchor-0.31.1-e2e-${{ runner.os }}
@@ -371,7 +371,7 @@ jobs:
 
       - name: Cache Solana CLI
         id: cache-solana
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/solana
           key: agave-4.1.2-e2e-${{ runner.os }}
@@ -431,7 +431,7 @@ jobs:
       E2E_BASE_URL: "http://localhost:3110"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Start isolated Postgres and Redis
         run: |
@@ -449,12 +449,12 @@ jobs:
           docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null
           docker exec supply-chain-redis-ci redis-cli ping >/dev/null
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
           node-version: 20
@@ -547,7 +547,7 @@ jobs:
     if: needs.changes.outputs.docker == 'true' || github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build backend image
         run: |
@@ -575,14 +575,14 @@ jobs:
     needs: changes
     if: needs.changes.outputs.security == 'true' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
           node-version: 20
@@ -604,14 +604,14 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:15632/supply_chain?connection_limit=5&schema=public
       CONTAINER: supply-chain-postgres-ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
         with:
           version: 9.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: runner.os == 'Linux'
         with:
           node-version: 20
@@ -652,7 +652,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.monitoring == 'true' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install promtool
         run: |
           case "$(uname -s)" in
