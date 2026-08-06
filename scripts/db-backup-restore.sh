@@ -14,6 +14,7 @@
 #   DUMP_PATH   backup file (default /tmp/supply_chain_backup.dump)
 #   REPORT_PATH report file (default /tmp/backup-drill-report.json)
 #   KEEP_TEMP=1 keep the temp database after verification
+#   BACKUP_ENCRYPT_KEY=...  optional; encrypt dumps with AES-256-CBC
 set -euo pipefail
 
 CONTAINER="${CONTAINER:-supply-chain-postgres}"
@@ -24,6 +25,9 @@ TEST_DB="${TEST_DB:-supply_chain_drill_$(date +%Y%m%d_%H%M%S)}"
 DUMP_PATH="${DUMP_PATH:-/tmp/supply_chain_backup.dump}"
 REPORT_PATH="${REPORT_PATH:-/tmp/backup-drill-report.json}"
 KEEP_TEMP="${KEEP_TEMP:-0}"
+BACKUP_ENCRYPT_KEY="${BACKUP_ENCRYPT_KEY:-}"
+OPENSSL_BIN="${OPENSSL_BIN:-openssl}"
+PLAIN_DUMP=""
 
 TABLES=("User" "TradeDeal" "PoolSnapshot" "WithdrawRequest" "File" "AuditLog" "RefreshToken")
 
@@ -50,11 +54,26 @@ pg_restore_cmd() {
 }
 
 cleanup() {
+  if [[ -n "${PLAIN_DUMP}" ]]; then
+    rm -f "${PLAIN_DUMP}" 2>/dev/null || true
+  fi
   if [[ "${KEEP_TEMP}" != "1" && -n "${TEST_DB}" ]]; then
     psql -c "DROP DATABASE IF EXISTS \"${TEST_DB}\";" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
+
+encrypt_dump() {
+  local src="$1" dst="$2"
+  ${OPENSSL_BIN} enc -aes-256-cbc -pbkdf2 -salt -pass "pass:${BACKUP_ENCRYPT_KEY}" \
+    -in "${src}" -out "${dst}"
+}
+
+decrypt_dump() {
+  local src="$1" dst="$2"
+  ${OPENSSL_BIN} enc -d -aes-256-cbc -pbkdf2 -pass "pass:${BACKUP_ENCRYPT_KEY}" \
+    -in "${src}" -out "${dst}"
+}
 
 count_rows() {
   local db="$1"
@@ -115,6 +134,10 @@ command_name="${1:-drill}"
 
 if [[ "${command_name}" == "backup" ]]; then
   pg_dump_cmd -Fc -d "${DB}" -f "${DUMP_PATH}"
+  if [[ -n "${BACKUP_ENCRYPT_KEY}" ]]; then
+    encrypt_dump "${DUMP_PATH}" "${DUMP_PATH}.enc"
+    DUMP_PATH="${DUMP_PATH}.enc"
+  fi
   dump_bytes="$(docker exec "${CONTAINER}" sh -c "wc -c < ${DUMP_PATH}" | tr -d '[:space:]')"
   duration="$(( $(date +%s) - start_ts ))"
   echo "backup written: ${DUMP_PATH} (${dump_bytes} bytes)"
@@ -140,10 +163,23 @@ if [[ "${command_name}" == "restore" ]]; then
     echo "dump file not found: ${DUMP_PATH}" >&2
     exit 2
   fi
+  if [[ "${DUMP_PATH}" == *.enc ]]; then
+    if [[ -z "${BACKUP_ENCRYPT_KEY}" ]]; then
+      echo "encrypted dump requires BACKUP_ENCRYPT_KEY" >&2
+      exit 2
+    fi
+    PLAIN_DUMP="${DUMP_PATH%.enc}.plain"
+    decrypt_dump "${DUMP_PATH}" "${PLAIN_DUMP}"
+    DUMP_PATH="${PLAIN_DUMP}"
+  fi
 fi
 
 echo "==> [1/4] taking backup: ${DB} -> ${DUMP_PATH}"
 pg_dump_cmd -Fc -d "${DB}" -f "${DUMP_PATH}"
+if [[ -n "${BACKUP_ENCRYPT_KEY}" ]]; then
+  encrypt_dump "${DUMP_PATH}" "${DUMP_PATH}.enc"
+  DUMP_PATH="${DUMP_PATH}.enc"
+fi
 dump_bytes="$(docker exec "${CONTAINER}" sh -c "wc -c < ${DUMP_PATH}" | tr -d '[:space:]')"
 echo "    backup bytes: ${dump_bytes}"
 
@@ -151,8 +187,19 @@ echo "==> [2/4] creating temp database: ${TEST_DB}"
 psql -c "DROP DATABASE IF EXISTS \"${TEST_DB}\";" >/dev/null
 psql -c "CREATE DATABASE \"${TEST_DB}\";" >/dev/null
 
+RESTORE_FILE="${DUMP_PATH}"
+if [[ "${RESTORE_FILE}" == *.enc ]]; then
+  if [[ -z "${BACKUP_ENCRYPT_KEY}" ]]; then
+    echo "encrypted dump requires BACKUP_ENCRYPT_KEY" >&2
+    exit 2
+  fi
+  PLAIN_DUMP="${RESTORE_FILE%.enc}.plain"
+  decrypt_dump "${RESTORE_FILE}" "${PLAIN_DUMP}"
+  RESTORE_FILE="${PLAIN_DUMP}"
+fi
+
 echo "==> [3/4] restoring backup into temp database"
-if ! pg_restore_cmd -d "${TEST_DB}" "${DUMP_PATH}" >/dev/null 2>&1; then
+if ! pg_restore_cmd -d "${TEST_DB}" "${RESTORE_FILE}" >/dev/null 2>&1; then
   echo "restore failed" >&2
   jq -n \
     --arg command "drill" \
@@ -164,7 +211,7 @@ if ! pg_restore_cmd -d "${TEST_DB}" "${DUMP_PATH}" >/dev/null 2>&1; then
 fi
 
 echo "==> [4/4] verifying restored rows"
-verify_output="$(verify_restore "${DUMP_PATH}" "${TEST_DB}")"
+verify_output="$(verify_restore "${RESTORE_FILE}" "${TEST_DB}")"
 verify_failures="$(printf '%s\n' "${verify_output}" | sed -n 's/^failures=//p')"
 verify_notes=()
 while IFS= read -r line; do

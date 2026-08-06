@@ -24,9 +24,9 @@ fi
 SERVICES=(
   "backend|3001|packages/backend|pnpm dev"
   "scan-stub|3311|.|PORT=3311 node scripts/dev-scan-stub.mjs"
-  "indexer|3003|packages/backend|REDIS_URL=redis://localhost:6380 node dist/apps/indexer-service/apps/indexer-service/src/main.js"
-  "trade|3004|packages/backend|${ENV_PREFIX} node dist/apps/trade-service/apps/trade-service/src/main.js"
-  "pool|3005|packages/backend|REDIS_URL=redis://localhost:6380 ${ENV_PREFIX} node dist/apps/pool-service/apps/pool-service/src/main.js"
+  "indexer|3003|packages/backend|REDIS_URL=redis://localhost:6380 pnpm exec ts-node -P apps/indexer-service/tsconfig.app.json apps/indexer-service/src/main.ts"
+  "trade|3004|packages/backend|${ENV_PREFIX} pnpm exec ts-node -P apps/trade-service/tsconfig.app.json apps/trade-service/src/main.ts"
+  "pool|3005|packages/backend|REDIS_URL=redis://localhost:6380 ${ENV_PREFIX} pnpm exec ts-node -P apps/pool-service/tsconfig.app.json apps/pool-service/src/main.ts"
   "frontend|3100|packages/frontend|FRONTEND_PORT=3100 pnpm dev"
 )
 

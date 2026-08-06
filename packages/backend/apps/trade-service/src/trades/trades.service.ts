@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { Prisma, type DealStatus } from "@prisma/client";
 import { Connection, MessageV0, PublicKey } from "@solana/web3.js";
+import { createHash } from "node:crypto";
 import { TRADE_ENV } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -198,7 +199,22 @@ export class TradesService {
   async createTrade(
     dto: CreateTradeDto,
     userId: string,
+    idempotencyKey?: string,
   ): Promise<CreateTradeResponseDto> {
+    const idemKey = idempotencyKey
+      ? `trade:idem:${userId}:${createHash("sha256").update(idempotencyKey).digest("hex")}`
+      : undefined;
+    if (idemKey) {
+      const cached = await this.redis.get(idemKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached) as CreateTradeResponseDto;
+        } catch {
+          // 缓存损坏时忽略并重新构建。
+        }
+      }
+    }
+
     const buyer = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!buyer) throw new ForbiddenException("登录用户不存在");
     if (buyer.wallet !== dto.buyerWallet) {
@@ -231,7 +247,7 @@ export class TradesService {
         this.parsePubkey(dto.buyerWallet, "buyerWallet"),
         BigInt(existing.dealId),
       );
-      return {
+      const duplicateResponse: CreateTradeResponseDto = {
         tradeId: existing.dealId,
         transaction: "",
         blockhash: "",
@@ -240,6 +256,12 @@ export class TradesService {
         poolPortion: poolPortion.toString(10),
         duplicate: true,
       };
+      if (idemKey) {
+        await this.redis
+          .setWithExpiry(idemKey, JSON.stringify(duplicateResponse), 86_400)
+          .catch(() => undefined);
+      }
+      return duplicateResponse;
     }
 
     const tradeId = generateTradeId();
@@ -261,7 +283,7 @@ export class TradesService {
       getConnection(),
     );
 
-    return {
+    const response: CreateTradeResponseDto = {
       tradeId: tradeId.toString(10),
       transaction: transaction
         .serialize({ requireAllSignatures: false, verifySignatures: false })
@@ -271,6 +293,12 @@ export class TradesService {
       downPayment: downPayment.toString(10),
       poolPortion: poolPortion.toString(10),
     };
+    if (idemKey) {
+      await this.redis
+        .setWithExpiry(idemKey, JSON.stringify(response), 86_400)
+        .catch(() => undefined);
+    }
+    return response;
   }
 
   async listMyTrades(

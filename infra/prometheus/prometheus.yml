@@ -9,6 +9,7 @@ alerting:
 
 rule_files:
   - /etc/prometheus/alerts.yml
+  - /etc/prometheus/rules.yml
 
 scrape_configs:
   - job_name: backend

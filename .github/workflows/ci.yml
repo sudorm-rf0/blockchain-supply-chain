@@ -666,7 +666,9 @@ jobs:
           echo "/tmp/${DIR}" >> "$GITHUB_PATH"
 
       - name: Validate Prometheus alert rules
-        run: promtool check rules infra/prometheus/alerts.yml
+        run: |
+          promtool check rules infra/prometheus/alerts.yml
+          promtool check rules infra/prometheus/rules.yml
 
       - name: Validate Grafana dashboard JSON
         run: python3 -m json.tool infra/grafana/dashboards/supply-chain.json >/dev/null

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -43,8 +44,9 @@ export class TradesController {
   create(
     @Body() dto: CreateTradeDto,
     @Req() req: Request,
+    @Headers("idempotency-key") idempotencyKey?: string,
   ): Promise<CreateTradeResponseDto> {
-    return this.tradesService.createTrade(dto, req.user!.sub);
+    return this.tradesService.createTrade(dto, req.user!.sub, idempotencyKey);
   }
 
   @Get()
