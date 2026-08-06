@@ -20,6 +20,7 @@ jobs:
       backup: ${{ steps.changes.outputs.backup }}
       monitoring: ${{ steps.changes.outputs.monitoring }}
       scripts: ${{ steps.changes.outputs.scripts }}
+      vps: ${{ steps.changes.outputs.vps }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,6 +84,10 @@ jobs:
             scripts:
               - 'scripts/**'
               - '.github/workflows/ci.yml'
+            vps:
+              - 'deploy/**'
+              - 'scripts/deploy-vps.sh'
+              - '.github/workflows/ci.yml'
 
   scripts-lint:
     runs-on: [self-hosted, macOS, ARM64]
@@ -104,6 +109,33 @@ jobs:
           test -x scripts/verify-contract-deployment.sh
           test -x scripts/rollback-drill.sh
           test -x scripts/precheck-mainnet-deploy.sh
+
+  vps-deploy:
+    runs-on: [self-hosted, macOS, ARM64]
+    needs: changes
+    if: needs.changes.outputs.vps == 'true' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate deploy-vps.sh syntax
+        run: bash -n scripts/deploy-vps.sh
+
+      - name: Validate data compose
+        working-directory: deploy/vps
+        run: |
+          docker compose --env-file .env.data.example -f data-compose.yml config >/dev/null
+
+      - name: Validate app compose
+        working-directory: deploy/vps
+        run: |
+          cp .env.app.example .env.app
+          docker compose --env-file .env.app -f app-compose.yml config >/dev/null
+
+      - name: Validate nginx config
+        run: |
+          mkdir -p /tmp/nginx-cert/live/supply-chain.example.com
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj "/CN=supply-chain.example.com"             -keyout /tmp/nginx-cert/live/supply-chain.example.com/privkey.pem             -out /tmp/nginx-cert/live/supply-chain.example.com/fullchain.pem 2>/dev/null
+          docker run --rm -v "$PWD/deploy/vps/nginx.conf:/etc/nginx/conf.d/default.conf:ro"             -v /tmp/nginx-cert:/etc/letsencrypt:ro nginx:1.27-alpine nginx -t
 
   backend:
     runs-on: [self-hosted, macOS, ARM64]
@@ -372,6 +404,10 @@ jobs:
       - name: Run End-to-End Smoke
         run: bash scripts/ci-e2e.sh
 
+      - name: Cleanup CI containers
+        if: always()
+        run: docker rm -f supply-chain-pg-ci supply-chain-redis-ci supply-chain-postgres-ci >/dev/null 2>&1 || true
+
   frontend-e2e:
     runs-on: [self-hosted, macOS, ARM64]
     needs: changes
@@ -501,6 +537,10 @@ jobs:
         working-directory: packages/frontend
         run: pnpm test:e2e
 
+      - name: Cleanup CI containers
+        if: always()
+        run: docker rm -f supply-chain-pg-ci supply-chain-redis-ci supply-chain-postgres-ci >/dev/null 2>&1 || true
+
   docker:
     runs-on: [self-hosted, macOS, ARM64]
     needs: [changes]
@@ -602,7 +642,10 @@ jobs:
       - name: Run backup restore drill
         run: |
           CONTAINER="${CONTAINER}" bash scripts/db-backup-restore.sh drill
-          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
+
+      - name: Cleanup CI containers
+        if: always()
+        run: docker rm -f supply-chain-pg-ci supply-chain-redis-ci supply-chain-postgres-ci >/dev/null 2>&1 || true
 
   monitoring:
     runs-on: [self-hosted, macOS, ARM64]

@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | `DATABASE_URL` | 本地 Postgres | Prisma 连接串 |
 | `REDIS_URL` | `redis://localhost:6380` | 缓存、队列、锁、防暴破 |
-| `SOLANA_RPC_URL` | `http://localhost:8899` | 正式环境必须替换 |
+| `SOLANA_RPC_URL` | `http://localhost:8899` | 正式环境必须替换；**支持逗号分隔多个 Key**（如 `https://a.helius...?key=1,https://b...?key=2`，逐个轮询分摊配额/限流） |
 | `JWT_SECRET` | dev 固定值 | 生产强制 >= 32 字符 |
 | `THROTTLE_LIMIT` | `120` | 每分钟每 IP 上限 |
 | `MAX_UPLOADS_PER_DAY` | `200` | 每用户每日上传上限 |
