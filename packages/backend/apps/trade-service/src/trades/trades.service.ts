@@ -127,6 +127,47 @@ async function verifyOnChainInstruction(
   }
 }
 
+// TradeDeal 账户布局：discriminator(8) + id(8) + buyer(32) + seller(32)
+// + amount(8) + down_payment(8) + pool_portion(8) + tenor(8) + status(1)。
+const TRADE_STATUS_OFFSET = 8 + 8 + 32 + 32 + 8 + 8 + 8 + 8;
+const CHAIN_STATUS_TO_DEAL: Record<number, DealStatus> = {
+  0: "PENDING",
+  1: "FUNDED",
+  2: "IN_TRANSIT",
+  3: "CUSTOMS_CLEAR",
+  4: "DELIVERED",
+  5: "REPAYING",
+  6: "SETTLED",
+  7: "DEFAULTED",
+};
+
+async function fetchOnChainDealStatus(
+  dealPda: PublicKey,
+): Promise<DealStatus | null> {
+  const connection = getConnection();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const info = await connection.getAccountInfo(dealPda, "confirmed");
+    if (info && info.data.length > TRADE_STATUS_OFFSET) {
+      return CHAIN_STATUS_TO_DEAL[info.data[TRADE_STATUS_OFFSET]] ?? null;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return null;
+}
+
+async function requireOnChainStatus(
+  dealPda: PublicKey,
+  expected: DealStatus,
+): Promise<DealStatus> {
+  const onChain = await fetchOnChainDealStatus(dealPda);
+  if (onChain !== expected) {
+    throw new BadRequestException(
+      `链上订单状态为 ${onChain ?? "unknown"}，期望 ${expected}，请勿使用过期签名回退状态`,
+    );
+  }
+  return onChain;
+}
+
 @Injectable()
 export class TradesService {
   constructor(
@@ -418,6 +459,7 @@ export class TradesService {
         if (!hasCreateDeal) {
           throw new BadRequestException("交易不包含预期的 create_deal 指令");
         }
+        await requireOnChainStatus(dealPda, "PENDING");
 
         const downPayment = (amount * DOWN_PAYMENT_BPS) / BPS_BASE;
         const poolPortion = amount - downPayment;
@@ -526,6 +568,7 @@ export class TradesService {
           buildFundDealInstructionData(BigInt(tradeId)),
           dealPda,
         );
+        await requireOnChainStatus(dealPda, "FUNDED");
         const updated = await this.prisma.tradeDeal.update({
           where: { dealId: this.normalizeTradeId(tradeId) },
           data: { status: "FUNDED", txSignature: body.txSignature },
@@ -578,7 +621,7 @@ export class TradesService {
         if (!dto.txSignature) throw new BadRequestException("txSignature is required");
         const trade = await this.requireAdminAndDeal(tradeId, userId);
         const targetStatus = this.parseTargetStatus(dto.targetStatus);
-        const targetDealStatus = TARGET_STATUS_BY_CODE[targetStatus];
+        const targetDealStatus = TARGET_STATUS_BY_CODE[targetStatus] as DealStatus;
         if (
           !["FUNDED", "IN_TRANSIT", "CUSTOMS_CLEAR", "DELIVERED"].includes(trade.status) &&
           trade.status !== targetDealStatus
@@ -592,7 +635,8 @@ export class TradesService {
           buildAdvanceDealInstructionData(BigInt(tradeId), targetStatus),
           dealPda,
         );
-        const status = TARGET_STATUS_BY_CODE[targetStatus];
+        await requireOnChainStatus(dealPda, targetDealStatus);
+        const status = TARGET_STATUS_BY_CODE[targetStatus] as DealStatus;
         const updated = await this.prisma.tradeDeal.update({
           where: { dealId: this.normalizeTradeId(tradeId) },
           data: { status: status as DealStatus, txSignature: dto.txSignature },
@@ -641,6 +685,7 @@ export class TradesService {
           buildRepayDealInstructionData(BigInt(tradeId)),
           dealPda,
         );
+        await requireOnChainStatus(dealPda, "SETTLED");
         const updated = await this.prisma.tradeDeal.update({
           where: { dealId: this.normalizeTradeId(tradeId) },
           data: { status: "SETTLED", repaidAt: new Date(), txSignature: body.txSignature },
@@ -705,6 +750,7 @@ export class TradesService {
           buildDefaultDealInstructionData(BigInt(tradeId)),
           dealPda,
         );
+        await requireOnChainStatus(dealPda, "DEFAULTED");
         const updated = await this.prisma.tradeDeal.update({
           where: { dealId: this.normalizeTradeId(tradeId) },
           data: {
@@ -770,6 +816,7 @@ export class TradesService {
           buildReleaseToSellerInstructionData(BigInt(tradeId)),
           dealPda,
         );
+        await requireOnChainStatus(dealPda, "REPAYING");
         const updated = await this.prisma.tradeDeal.update({
           where: { dealId: this.normalizeTradeId(tradeId) },
           data: { status: "REPAYING", txSignature: body.txSignature },

@@ -284,9 +284,15 @@ export class PoolService {
     if (request.status !== "READY") {
       throw new BadRequestException("仅 READY 状态的提款可执行");
     }
-    const updated = await this.prisma.withdrawRequest.update({
-      where: { id },
+    const result = await this.prisma.withdrawRequest.updateMany({
+      where: { id, status: "READY" },
       data: { status: "EXECUTED" },
+    });
+    if (result.count === 0) {
+      throw new ConflictException("该提款已被其他管理员处理，请刷新后重试");
+    }
+    const updated = await this.prisma.withdrawRequest.findUniqueOrThrow({
+      where: { id },
     });
     await this.redis
       .del(`lp:withdraw:${request.lpAddress}`)

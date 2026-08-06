@@ -22,8 +22,14 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     withdrawRequest: {
       findFirst: jest.fn(async () => null),
       findUnique: jest.fn(async () => null),
+      findUniqueOrThrow: jest.fn(async ({ where }) => ({
+        id: where.id,
+        status: "EXECUTED",
+        lpAddress: "lpWallet",
+      })),
       create: jest.fn(async ({ data }) => ({ ...data, id: "wr-1" })),
       update: jest.fn(async ({ data }) => ({ ...data })),
+      updateMany: jest.fn(async () => ({ count: 1 })),
       findMany: jest.fn(async () => []),
     },
     ...overrides,
@@ -119,6 +125,12 @@ describe("PoolService", () => {
           id: "wr-1",
           lpAddress: "lpWallet",
           status: "READY",
+        })),
+        updateMany: jest.fn(async () => ({ count: 1 })),
+        findUniqueOrThrow: jest.fn(async () => ({
+          id: "wr-1",
+          status: "EXECUTED",
+          lpAddress: "lpWallet",
         })),
         update: jest.fn(async ({ data }) => ({
           id: "wr-1",
@@ -294,6 +306,12 @@ describe("PoolService", () => {
           id: "wr-1",
           status: "READY",
         })),
+        updateMany: jest.fn(async () => ({ count: 1 })),
+        findUniqueOrThrow: jest.fn(async () => ({
+          id: "wr-1",
+          status: "EXECUTED",
+          lpAddress: "lpWallet",
+        })),
         update: jest.fn(async ({ data }) => ({ ...data, id: "wr-1" })),
       },
     });
@@ -424,6 +442,12 @@ describe("PoolService", () => {
         findUnique: jest.fn(async () => ({
           id: "wr-1",
           status: "READY",
+        })),
+        updateMany: jest.fn(async () => ({ count: 1 })),
+        findUniqueOrThrow: jest.fn(async () => ({
+          id: "wr-1",
+          status: "EXECUTED",
+          lpAddress: "lpWallet",
         })),
         update: jest.fn(async ({ data }) => ({ ...data, id: "wr-1" })),
       },
