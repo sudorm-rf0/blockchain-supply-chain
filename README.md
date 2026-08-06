@@ -148,6 +148,7 @@ Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，�
 - [devnet → 主网迁移清单](docs/MAINNET-MIGRATION.md)：上线时链上重建/配置替换/测试重跑
 - [审计经济模型](docs/AUDIT-ECONOMIC-MODEL.md) 与 [已知风险](docs/AUDIT-KNOWN-RISKS.md)：第三方审计材料
 - [隐私/条款模板](docs/PRIVACY-TERMS-TEMPLATE.md) 与 [上线值班 SOP](docs/ONCALL-SOP.md)
+- [审计发送清单与询价模板](docs/AUDIT-DELIVERY.md)
 - [技术成本估算](docs/COSTS.md)（不含审计）
 - [应急预案](docs/INCIDENT-RUNBOOK.md)
 - [审计报告](docs/AUDIT-REPORT.md) 与
