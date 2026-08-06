@@ -106,6 +106,10 @@ pub struct PoolState {
     /// 紧急暂停开关：true 时冻结全部资金移动指令
     /// （建单/存款/放款/推进/释放/还款/违约/赎回/分红）。
     pub paused: bool,
+    /// 锚定的 USDC Mint（审计 S-01：链上 require_keys_eq! 校验）。
+    pub usdc_mint: Pubkey,
+    /// 锚定的 LP Mint（审计 S-01）。
+    pub lp_mint: Pubkey,
 }
 
 impl PoolState {
@@ -127,6 +131,8 @@ impl PoolState {
             + 32 // platform_wallet
             + 8  // nav
             + 1  // paused (bool)
+            + 32 // usdc_mint (Pubkey, S-01 锚定)
+            + 32 // lp_mint (Pubkey, S-01 锚定)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -255,6 +261,8 @@ mod tests {
             platform_wallet: Pubkey::default(),
             nav: 0,
             paused: false,
+            usdc_mint: Pubkey::default(),
+            lp_mint: Pubkey::default(),
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
@@ -277,6 +285,8 @@ mod tests {
             platform_wallet: Pubkey::default(),
             nav: 0,
             paused: false,
+            usdc_mint: Pubkey::default(),
+            lp_mint: Pubkey::default(),
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -296,6 +306,8 @@ mod tests {
             platform_wallet: Pubkey::default(),
             nav: 0,
             paused: true,
+            usdc_mint: Pubkey::default(),
+            lp_mint: Pubkey::default(),
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
