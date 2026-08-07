@@ -103,3 +103,12 @@ DFR 复测确认首次审计 1 Critical + 4 High 已代码级修复，并识别 
 | L-11 | 分红接收方自由指定 | Low | `distribute_dividends` 仅允许向 LP 持有者发放，且单次不超过其按 LP 占比应得份额 |
 
 测试：Rust 22/22、Anchor 63/63。
+
+## DFR 第四轮复测（DFR-2026-0146）整改（2026-08-07）
+
+| 编号 | 标题 | 严重性 | 整改 |
+|------|------|--------|------|
+| H-06 | supply-chain 管理员时锁可被置零（与 H-05 同类） | High | `set_registry_admin_delay` 硬下限 `MIN_REGISTRY_ADMIN_DELAY_SECS=86400`；`initialize_registry` 初始时锁由部署方注入（生产 48h） |
+| L-12 | 治理安全控制测试覆盖缺口 | Low | 补 H-06 攻击路径回归测试（setRegistryAdminDelay(0)/(100) 被拒、锁定期内 accept 被拒、管理员未被接管） |
+
+测试：Rust 22/22、Anchor 65/65。

@@ -3,6 +3,9 @@ use anchor_lang::solana_program::hash::hash;
 
 declare_id!("Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk");
 
+/// 注册中心管理员时锁硬下限（秒，审计 H-06）：set_registry_admin_delay 不得低于此值。
+pub const MIN_REGISTRY_ADMIN_DELAY_SECS: i64 = 86_400;
+
 /// 部署方白名单（审计 H-01）：仅允许该地址（或程序的 upgrade authority）初始化注册中心。
 /// 当前为本地开发/测试钱包；主网部署前必须替换为实际部署冷钱包地址。
 pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
@@ -20,7 +23,10 @@ pub mod supply_chain {
 
     /// 初始化供应链注册中心，记录唯一管理员。
     /// 审计 H-01：仅允许程序的 upgrade authority 初始化，杜绝抢先初始化抢跑。
-    pub fn initialize_registry(ctx: Context<InitializeRegistry>) -> Result<()> {
+    pub fn initialize_registry(
+        ctx: Context<InitializeRegistry>,
+        initial_delay_secs: i64,
+    ) -> Result<()> {
         // 审计 H-01 / N-05：若程序保留 upgrade authority，初始化者必须等于
         // upgrade authority；仅当 upgrade authority 已冻结（None）时回退 DEPLOYER 白名单。
         // ProgramData 布局（agave 4.1.2 实测）：u32@0(3) + u64 slot@4 + u8 option@12 + Pubkey@13。
@@ -50,7 +56,9 @@ pub mod supply_chain {
         registry.initialized_at = Clock::get()?.unix_timestamp;
         registry.pending_admin = Pubkey::default();
         registry.pending_admin_proposed_at = 0;
-        registry.admin_delay_secs = 0;
+        // 审计 H-06：初始时锁由部署方注入（生产 172_800s，测试可注入小值验证锁定期）。
+        require!(initial_delay_secs >= 0, SupplyChainError::InvalidNewAdmin);
+        registry.admin_delay_secs = initial_delay_secs;
         msg!("registry initialized by {}", registry.admin);
         Ok(())
     }
@@ -114,7 +122,11 @@ pub mod supply_chain {
             registry.admin == ctx.accounts.admin.key(),
             SupplyChainError::Unauthorized
         );
-        require!(delay_secs >= 0, SupplyChainError::InvalidNewAdmin);
+        // 审计 H-06：不得将时锁下调至硬下限（86_400s）以下，杜绝 supply-chain 侧"置零自废后门"。
+        require!(
+            delay_secs >= MIN_REGISTRY_ADMIN_DELAY_SECS,
+            SupplyChainError::InvalidNewAdmin
+        );
         registry.admin_delay_secs = delay_secs;
         msg!("registry admin delay set to {}s", delay_secs);
         Ok(())
