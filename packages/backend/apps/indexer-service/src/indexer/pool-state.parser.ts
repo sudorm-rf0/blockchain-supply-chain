@@ -7,9 +7,9 @@ import { PoolSnapshotPayload } from "./payloads";
 // + redemption_price(8) + redeem_window_epoch(8) + redeem_window_used(8)
 // + pending_admin(32) + pending_admin_proposed_at(8) + fee_apy_bps(8)
 // + lp_share_bps(8) + platform_share_bps(8) + rebate_share_bps(8) + first_loss_reserve(8)
-// + min_insurance_abs(8) + overdue_fee_apy_bps(8) + pending_admin_delay_secs(8) = 321。
-// 与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 321;
+// + min_insurance_abs(8) + overdue_fee_apy_bps(8) + pending_admin_delay_secs(8)
+// + tracked_vault(8) = 329。与 state.rs PoolState::space() 逐字段一致。
+export const POOL_STATE_ACCOUNT_SIZE = 329;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;

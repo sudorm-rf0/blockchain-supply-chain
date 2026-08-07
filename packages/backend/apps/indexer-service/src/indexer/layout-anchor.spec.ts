@@ -56,9 +56,10 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //   8  min_insurance_abs (L-07)
 //   8  overdue_fee_apy_bps (L-04)
 //   8  pending_admin_delay_secs (N-02)
+//   8  tracked_vault (独立复测 H-3)
 const EXPECTED_POOL_STATE_SIZE =
   8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8 +
-  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8;
+  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -67,7 +68,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(321);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(329);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 

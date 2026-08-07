@@ -145,6 +145,18 @@ fi
 # ---------- 8. 冻结升级权限（可选，与 UA=多签互斥） ----------
 if [[ "${FREEZE}" == "1" ]]; then
   log "==> [5/6] 冻结 upgrade authority（--final，不可逆）"
+  # 独立复测 M-3：冻结（UA=None）后生产路径拒绝初始化（N-05），
+  # 必须先完成资金池/注册中心初始化再冻结，否则部署变砖。
+  POOL_PDA="$(node -e "const {PublicKey}=require('${ROOT}/node_modules/@solana/web3.js');const p=new PublicKey('${TRADE_PROGRAM_ID}');console.log(PublicKey.findProgramAddressSync([Buffer.from('trade_finance'),Buffer.from('pool')],p)[0].toBase58())")"
+  REG_PDA="$(node -e "const {PublicKey}=require('${ROOT}/node_modules/@solana/web3.js');const p=new PublicKey('${SUPPLY_PROGRAM_ID}');console.log(PublicKey.findProgramAddressSync([Buffer.from('supply_chain'),Buffer.from('registry')],p)[0].toBase58())")"
+  for entry in "资金池:${POOL_PDA}" "注册中心:${REG_PDA}"; do
+    NAME="${entry%%:*}"; PDA="${entry##*:}"
+    if ! solana account "${PDA}" --url "${SOLANA_RPC_URL}" --output json >/dev/null 2>&1; then
+      echo "❌ [M-3] 冻结前必须先初始化${NAME}（${PDA}）链上不存在；请先运行 init-mainnet 再冻结。" >&2
+      exit 1
+    fi
+  done
+  log "  已确认资金池/注册中心已初始化，开始冻结（不可逆）..."
   solana program set-upgrade-authority "${TRADE_PROGRAM_ID}" --final --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
   solana program set-upgrade-authority "${SUPPLY_PROGRAM_ID}" --final --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
   log "  已冻结。合约将无法再升级。"

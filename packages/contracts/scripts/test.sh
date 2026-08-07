@@ -42,8 +42,9 @@ trap restore EXIT
 
 for f in "${FILES[@]}"; do
   cp "$f" "$f.bak"
-  # 替换 DEPLOYER 常量中的公钥（保持 pubkey!("...") 结构）
-  sed -i.bak2 "s/pubkey!(\"[A-Za-z0-9]*\")/pubkey!(\"${DEPLOYER_PUBKEY}\")/" "$f"
+  # 仅替换 DEPLOYER 常量行的公钥（锚定 "pub const DEPLOYER:"，避免误伤
+  # 同文件内其它 pubkey! 字面量，如 BPF_LOADER_UPGRADEABLE）
+  sed -i.bak2 "s/^pub const DEPLOYER: Pubkey = pubkey!(\"[A-Za-z0-9]*\")/pub const DEPLOYER: Pubkey = pubkey!(\"${DEPLOYER_PUBKEY}\")/" "$f"
   rm -f "$f.bak2"
 done
 

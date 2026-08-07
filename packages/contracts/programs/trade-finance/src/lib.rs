@@ -49,6 +49,8 @@ pub const INSURANCE_PAYOUT_PCT_BPS: u64 = 1000;
 pub const MAX_REDEEM_BPS: u64 = 5000;
 /// 赎回后保险基金最低余额（USDC 原始单位，100 USDC）。
 pub const MIN_INSURANCE_ABS: u64 = 100_000_000;
+/// BPF Loader Upgradeable 程序 ID（ProgramData PDA 推导基准，审计 C-1）。
+pub const BPF_LOADER_UPGRADEABLE: Pubkey = pubkey!("BPFLoaderUpgradeab1e11111111111111111111111");
 
 // ==== 分段标识: 账户数据结构 ====
 // TradeDeal 与 PoolState 定义在 state.rs，含 space() 与状态机辅助方法。
@@ -105,6 +107,17 @@ pub mod trade_finance {
         //   offset 4: u64 slot
         //   offset 12: u8 升级权限存在标记（1=有）
         //   offset 13: Pubkey upgrade_authority
+        // 独立复测 C-1（Critical）：program_data 必须绑定到本程序的 ProgramData PDA，
+        // 否则攻击者可传入任意账户（其 13-45 字节为攻击者公钥）伪造 upgrade authority，
+        // 并在部署者之前抢跑初始化夺取管理员。先绑定再读取，杜绝伪造。
+        let expected_program_data = Pubkey::find_program_address(
+            &[ctx.program_id.key().as_ref()],
+            &BPF_LOADER_UPGRADEABLE,
+        ).0;
+        require!(
+            ctx.accounts.program_data.key() == expected_program_data,
+            TradeFinanceError::Unauthorized
+        );
         let pd_data = ctx.accounts.program_data.try_borrow_data()?;
         let ua_tag = u8::from_le_bytes(
             pd_data[12..13].try_into().map_err(|_| TradeFinanceError::Unauthorized)?,
@@ -154,6 +167,8 @@ pub mod trade_finance {
         pool.insurance_fund = 0;
         pool.pending_dividends = 0;
         pool.nav = 0;
+        // 独立复测 H-3：权威金库记账初始为 0（外部捐赠无法混入）。
+        pool.tracked_vault = 0;
         pool.usdc_mint = ctx.accounts.usdc_mint.key();
         pool.lp_mint = ctx.accounts.lp_mint.key();
         pool.escrow_funded = 0;
@@ -467,6 +482,12 @@ pub mod trade_finance {
     /// 并在同一指令内按当期 NAV 链上铸造 LP 份额（审计 C-01）。
     pub fn deposit_pool(ctx: Context<DepositPool>, amount: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
+        // 独立复测 H-3：金库一致性守卫（实时余额必须等于权威记账，拒绝外部捐赠），
+        // 份额定价基于权威 tracked_vault，外部资金无法抬高定价基准。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+        let tracked_vault_before = ctx.accounts.pool_state.tracked_vault;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
 
         token::transfer(
@@ -483,12 +504,12 @@ pub mod trade_finance {
         ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
-        let vault_before_deposit = ctx
-            .accounts
-            .pool_token_account
-            .amount
-            .checked_sub(amount)
+        // 独立复测 H-3：权威记账随实际入金同步（与实时余额保持一致）。
+        pool.tracked_vault = pool
+            .tracked_vault
+            .checked_add(amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        let vault_before_deposit = tracked_vault_before;
         let lp_supply = ctx.accounts.lp_mint.supply;
 
         // 审计 C-01：份额发行收归合约控制——首笔按 1 USDC = 1 LP（显示单位），
@@ -576,6 +597,10 @@ pub mod trade_finance {
     /// LP 赎回：按 NAV 换算并销毁 LP 代币，同时受单次上限与保险池保护。
     pub fn redeem_lp(ctx: Context<RedeemLp>, lp_amount: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
+        // 独立复测 H-3：金库一致性守卫，赎回定价基于权威记账。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         require!(
             lp_amount > 0,
             TradeFinanceError::ZeroRedeemAmount
@@ -587,7 +612,7 @@ pub mod trade_finance {
 
         let lp_supply = ctx.accounts.lp_mint.supply;
         require!(lp_supply > 0, TradeFinanceError::ZeroLpSupply);
-        let vault_before = ctx.accounts.pool_token_account.amount;
+        let vault_before = ctx.accounts.pool_state.tracked_vault;
         require!(vault_before > 0, TradeFinanceError::InsufficientFunds);
 
         // 审计 N-01/N-06：赎回按 LP 权益现金基准（vault - first_loss）兑付，首损不可赎回。
@@ -709,6 +734,11 @@ pub mod trade_finance {
 
         ctx.accounts.pool_token_account.reload()?;
         ctx.accounts.lp_mint.reload()?;
+        // 独立复测 H-3：权威金库记账随赎回兑付同步扣减。
+        pool.tracked_vault = pool
+            .tracked_vault
+            .checked_sub(usdc_out)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         pool.total_assets = total_after;
         pool.reserve_fund = reserve_before
             .checked_sub(reserve_out)
@@ -747,6 +777,10 @@ pub mod trade_finance {
     /// 管理员放款：资金池 vault 转入订单托管，active_capital 记账。
     pub fn fund_deal(ctx: Context<FundDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
+        // 独立复测 H-3：金库一致性守卫。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -791,6 +825,11 @@ pub mod trade_finance {
             .escrow_funded
             .checked_add(funding_amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        // 独立复测 H-3：vault 划转到托管，权威记账同步扣减。
+        pool.tracked_vault = pool
+            .tracked_vault
+            .checked_sub(funding_amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         let lp_supply = ctx.accounts.lp_mint.supply;
         let outstanding = pool
             .active_capital
@@ -817,6 +856,10 @@ pub mod trade_finance {
     /// 管理员标记违约：清算 30% 抵押金并触发保险基金赔付。
     pub fn default_deal(ctx: Context<DefaultDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
+        // 独立复测 H-3：金库一致性守卫。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -927,6 +970,13 @@ pub mod trade_finance {
                 .escrow_funded
                 .checked_sub(pool_portion)
                 .ok_or(TradeFinanceError::MathOverflow)?;
+            // 独立复测 H-3：托管整笔回池，权威金库记账同步增加（首付+垫付）。
+            pool.tracked_vault = pool
+                .tracked_vault
+                .checked_add(down_payment)
+                .ok_or(TradeFinanceError::MathOverflow)?
+                .checked_add(pool_portion)
+                .ok_or(TradeFinanceError::MathOverflow)?;
         }
         let outstanding = pool
             .active_capital
@@ -955,6 +1005,10 @@ pub mod trade_finance {
     /// 买方还款：支付平台费用，LP 分红暂存资金池并回笼本金。
     pub fn repay_deal(ctx: Context<RepayDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
+        // 独立复测 H-3：金库一致性守卫。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         let deal = &ctx.accounts.deal;
         require!(
             deal.id == trade_id,
@@ -980,7 +1034,9 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
         require!(fee <= max_fee, TradeFinanceError::MaxFeeExceeded);
-        require!(fee > 0, TradeFinanceError::InvalidAmount);
+        // 独立复测 L-1：极小订单 fee 向下取整为 0 时允许纯还本（fee=0 仅在
+        // pool_portion 足够小时发生，不构成费率规避），防止微单无法结清（DoS）。
+        // 下游 platform/buyer_rebate/lp_dividend 均按 fee 比例计算，fee=0 时自然为 0。
         let platform_part = fee
             .checked_mul(pool_ref.platform_share_bps)
             .ok_or(TradeFinanceError::MathOverflow)?
@@ -1072,6 +1128,15 @@ pub mod trade_finance {
         ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
+        // 独立复测 H-3：还款净入金 = 还款总额 - 平台分成 - 买方返利（LP 分红留存池内）。
+        pool.tracked_vault = pool
+            .tracked_vault
+            .checked_add(repayment_total)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_sub(platform_part)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_sub(buyer_rebate)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         pool.add_pending_dividends(lp_dividend)?;
         // H-04/L-04：total_assets 按 vault 实际留存（fee - platform - rebate）记账，
         // 消除取整 dust 导致的恒等式偏差。
@@ -1260,6 +1325,10 @@ pub mod trade_finance {
         amount: u64,
     ) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
+        // 独立复测 H-3：金库一致性守卫。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -1308,6 +1377,11 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?;
         pool.total_assets = pool
             .total_assets
+            .checked_sub(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        // 独立复测 H-3：分红自金库兑付，权威记账同步扣减。
+        pool.tracked_vault = pool
+            .tracked_vault
             .checked_sub(amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
         let outstanding = pool
@@ -1446,6 +1520,10 @@ pub mod trade_finance {
 
     /// 平台注入首损资金（H-04）：真实 USDC 进入金库，计入 first_loss_reserve（不计 LP 净值）。
     pub fn deposit_first_loss(ctx: Context<DepositFirstLoss>, amount: u64) -> Result<()> {
+        // 独立复测 H-3：金库一致性守卫。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.admin == ctx.accounts.admin.key(),
@@ -1466,6 +1544,11 @@ pub mod trade_finance {
         )?;
         ctx.accounts.pool_token_account.reload()?;
 
+        // 独立复测 H-3：首损注资进入金库，权威记账同步增加。
+        pool.tracked_vault = pool
+            .tracked_vault
+            .checked_add(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         pool.first_loss_reserve = pool
             .first_loss_reserve
             .checked_add(amount)
@@ -1485,6 +1568,10 @@ pub mod trade_finance {
 
     /// 治理提取首损资金（H-04）：仅允许提取至最低保留余额之上。
     pub fn withdraw_first_loss(ctx: Context<WithdrawFirstLoss>, amount: u64) -> Result<()> {
+        // 独立复测 H-3：金库一致性守卫。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.admin == ctx.accounts.admin.key(),
@@ -1529,6 +1616,11 @@ pub mod trade_finance {
             .with_signer(&[pool_signer]),
             amount,
         )?;
+        // 独立复测 H-3：首损提取离开金库，权威记账同步扣减。
+        pool.tracked_vault = pool
+            .tracked_vault
+            .checked_sub(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         ctx.accounts.pool_token_account.reload()?;
 
         pool.first_loss_reserve = remaining;
