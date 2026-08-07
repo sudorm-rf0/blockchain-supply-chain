@@ -4,7 +4,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 
 use crate::state::{
-    LP_MINT_DECIMALS, REDEEM_WINDOW_SECS, ADMIN_TRANSFER_DELAY_SECS, USDC_DECIMALS_FACTOR,
+    LP_MINT_DECIMALS, ADMIN_TRANSFER_DELAY_SECS, USDC_DECIMALS_FACTOR,
     DEFAULT_FEE_APY_BPS, DEFAULT_LP_SHARE_BPS, DEFAULT_PLATFORM_SHARE_BPS, DEFAULT_REBATE_SHARE_BPS,
     DEFAULT_MIN_INSURANCE_ABS,
     MAX_SINGLE_FEE_BPS, MIN_FIRST_LOSS_ABS,
@@ -945,7 +945,6 @@ pub mod trade_finance {
             TradeFinanceError::DealNotRepaying
         );
 
-        let amount = deal.amount;
         let pool_portion = deal.pool_portion;
         // H-04：fee = P × fee_apy_bps × tenor / (10000 × 365 × 86400)。
         let pool_ref = &ctx.accounts.pool_state;
