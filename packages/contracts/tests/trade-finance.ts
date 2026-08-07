@@ -2159,6 +2159,66 @@ describe("trade-finance full lifecycle", () => {
       );
       console.log("set_admin_delay hard floor enforced (H-05)");
     });
+
+    it("Blocks H-05 timelock bypass attack sequence (DFR PoC regression)", async () => {
+      // 复现 DFR 提供的 PoC 攻击序列，验证修复后攻击被阻断：
+      //   set_admin_delay(0) 现被硬下限拒绝，accept 无法即时成功。
+      const attacker = anchor.web3.Keypair.generate();
+      await airdrop(attacker.publicKey);
+
+      // 1) 建立 48h 时锁
+      await program.methods
+        .setAdminDelay(new anchor.BN(172_800))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+
+      // 2) 提出将管理员转移给攻击者
+      await program.methods
+        .proposeAdmin(attacker.publicKey)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+
+      // 3) 未等待时锁：accept 被拒（锁定期生效）
+      await assert.rejects(
+        program.methods
+          .acceptAdmin()
+          .accounts({ poolState: poolStatePda, newAdmin: attacker.publicKey })
+          .signers([attacker])
+          .rpc(),
+        /AdminLockNotElapsed/,
+      );
+
+      // 4) 攻击者尝试 set_admin_delay(0) 废止时锁 -> 被硬下限拒绝（H-05 修复）
+      await assert.rejects(
+        program.methods
+          .setAdminDelay(new anchor.BN(0))
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /InvalidFeeParams/,
+      );
+
+      // 5) 攻击者尝试任何小值同样被拒
+      await assert.rejects(
+        program.methods
+          .setAdminDelay(new anchor.BN(1))
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /InvalidFeeParams/,
+      );
+
+      // 6) 攻击路径被阻断：管理员仍是原 admin，攻击者未接管
+      assert.equal(
+        (await poolSnapshot()).admin.toBase58(),
+        provider.wallet.publicKey.toBase58(),
+        "H-05 修复后攻击者不应接管管理员",
+      );
+      assert.equal(
+        (await poolSnapshot()).pendingAdminDelaySecs.toString(),
+        "172800",
+        "时锁保持 48h，未被下调",
+      );
+      console.log("H-05 PoC attack sequence blocked (regression)");
+    });
   });
 });
 
