@@ -112,3 +112,8 @@ DFR 复测确认首次审计 1 Critical + 4 High 已代码级修复，并识别 
 | L-12 | 治理安全控制测试覆盖缺口 | Low | 补 H-06 攻击路径回归测试（setRegistryAdminDelay(0)/(100) 被拒、锁定期内 accept 被拒、管理员未被接管） |
 
 测试：Rust 22/22、Anchor 65/65。
+
+## N-03 / N-05（部署配置，代码已支持）
+
+- **N-03（单管理员缺多签）**：合约 `pool.admin` / `registry.admin` 已支持指向任意地址（含 Squads 多签 PDA）；主网部署必须指向多签（≥3/5），并由 `precheck-mainnet-deploy.sh`（MULTISIG_ADMIN 检查）与 MAINNET-MIGRATION.md 前置条件强制。
+- **N-05（DEPLOYER 硬编码测试钱包）**：初始化守卫已实现"upgrade authority 存在则必须匹配、仅 UA 冻结时回退 DEPLOYER"；`test.sh` 在测试环境动态注入 DEPLOYER。主网部署保留冷钱包 UA 或冻结，`precheck-mainnet-deploy.sh` 校验部署钱包 != 测试 DEPLOYER 且声明 UA 处置计划。

@@ -75,6 +75,19 @@ else
   fi
 fi
 
+# 审计 N-05：主网部署钱包不得等于测试 DEPLOYER（硬编码测试钱包在主网无效）
+if [[ -n "${DEPLOY_WALLET}" && "${DEPLOY_WALLET}" == "${TEST_DEPLOYER}" ]]; then
+  add_check "deploy wallet" "FAIL" "DEPLOY_WALLET equals the test DEPLOYER (${TEST_DEPLOYER}); use a dedicated cold wallet"
+fi
+# 审计 N-05：必须声明 upgrade authority 处置计划（冷钱包保留或冻结）
+if [[ -z "${UPGRADE_AUTHORITY_PLAN}" ]]; then
+  add_check "upgrade authority plan" "FAIL" "UPGRADE_AUTHORITY_PLAN must be 'cold-wallet' or 'freeze'"
+elif [[ "${UPGRADE_AUTHORITY_PLAN}" != "cold-wallet" && "${UPGRADE_AUTHORITY_PLAN}" != "freeze" ]]; then
+  add_check "upgrade authority plan" "FAIL" "UPGRADE_AUTHORITY_PLAN=${UPGRADE_AUTHORITY_PLAN} invalid (cold-wallet|freeze)"
+else
+  add_check "upgrade authority plan" "PASS" "${UPGRADE_AUTHORITY_PLAN}"
+fi
+
 if [[ -z "${DEPLOY_WALLET}" ]]; then
   add_check "deploy wallet" "FAIL" "DEPLOY_WALLET is required"
 else
