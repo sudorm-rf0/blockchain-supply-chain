@@ -18,8 +18,8 @@ use crate::state::{
 
 declare_id!("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
 
-/// 部署方白名单（审计 H-01）：仅允许该地址（或程序的 upgrade authority）初始化资金池。
-/// 当前为本地开发/测试钱包；主网部署前必须替换为实际部署冷钱包地址。
+/// 部署方白名单（审计 H-01/N-05）：仅允许该地址（或程序的 upgrade authority）初始化。
+/// 测试/CI 由 scripts/test.sh 动态替换为当前部署钱包；主网构建前必须替换为部署冷钱包地址。
 pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
 
 pub mod error;
