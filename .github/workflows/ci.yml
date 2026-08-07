@@ -143,6 +143,18 @@ jobs:
           [ "$rc_delay" -ne 0 ] || { echo "expected reject: delay < 86400"; exit 1; }
           [ "$rc_deployer" -ne 0 ] || { echo "expected reject: DEPLOY_WALLET == test DEPLOYER"; exit 1; }
 
+      - name: Staging-verify orchestration smoke (all skip -> ALL PASS)
+        run: |
+          cat > /tmp/senv <<EOF
+          PUBLIC_BASE_URL=https://staging.example.com
+          DATABASE_URL=postgresql://u:p@127.0.0.1:5432/x
+          SOLANA_RPC_URL=https://api.devnet.solana.com
+          TRADE_FINANCE_PROGRAM_ID=9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3
+          USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+          EOF
+          bash scripts/staging-verify.sh --env-file /tmp/senv             --skip-health --skip-deploy-verify --skip-monitoring --skip-backup --skip-rollback --skip-reconcile | tail -3
+          grep -q "ALL PASS" <(bash scripts/staging-verify.sh --env-file /tmp/senv             --skip-health --skip-deploy-verify --skip-monitoring --skip-backup --skip-rollback --skip-reconcile | tail -3)
+
       - name: Preflight dry-run with placeholder governance vars (skip-precheck)
         run: |
           SOLANA_RPC_URL=https://api.mainnet-beta.solana.com           DEPLOY_WALLET=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v           TRADE_FINANCE_PROGRAM_ID=11111111111111111111111111111111           SUPPLY_CHAIN_PROGRAM_ID=TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA           USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v           LP_MINT=11111111111111111111111111111111           MULTISIG_ADMIN=11111111111111111111111111111111           UPGRADE_AUTHORITY_PLAN=cold-wallet INITIAL_ADMIN_DELAY=172800           bash scripts/launch-preflight.sh --skip-precheck | tee /tmp/preflight-ok.log
