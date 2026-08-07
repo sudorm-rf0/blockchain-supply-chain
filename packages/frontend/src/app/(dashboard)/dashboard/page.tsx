@@ -245,6 +245,61 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle className="text-base">链上治理参数</CardTitle>
+              <CardDescription>费率 / 首损 / 分成（合约 PoolState，H-04 参数化）</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">年化费率（垫付额）</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {(Number(overview.feeApyBps) / 100).toFixed(2)}%
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">逾期费率</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {(Number(overview.overdueFeeApyBps) / 100).toFixed(2)}%
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">首损准备金</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    ${formatUsdc(overview.firstLossReserve)}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">在途托管垫付</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    ${formatUsdc(overview.escrowFunded)}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">分成 LP / 平台 / 返利</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {(Number(overview.lpShareBps) / 100).toFixed(0)}% /{" "}
+                    {(Number(overview.platformShareBps) / 100).toFixed(0)}% /{" "}
+                    {(Number(overview.rebateShareBps) / 100).toFixed(0)}%
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">赎回单价</p>
+                  <p className="mt-1 text-xl font-semibold">
+                    ${formatUsdc(overview.redemptionPrice)}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3 sm:col-span-2">
+                  <p className="text-xs text-muted-foreground">待确认管理员（两步转移）</p>
+                  <p className="mt-1 break-all font-mono text-xs">
+                    {overview.pendingAdmin ?? "无待转移"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <div className="mb-4 flex items-center justify-between">
                 <CardTitle className="text-base">资产趋势</CardTitle>
                 <p className="text-xs text-muted-foreground">

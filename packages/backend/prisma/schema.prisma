@@ -96,6 +96,31 @@ model PoolSnapshot {
   pendingDividends BigInt
   /// 资金池紧急暂停开关（合约 PoolState.paused）。
   paused           Boolean @default(false)
+  /// 在途托管垫付（审计 M-01）。
+  escrowFunded     BigInt @default(0)
+  /// 当前赎回单价（审计 M-04）。
+  redemptionPrice  BigInt @default(0)
+  /// 赎回窗口起始纪元（审计 M-05）。
+  redeemWindowEpoch BigInt @default(0)
+  /// 赎回窗口已用额度（审计 M-05）。
+  redeemWindowUsed BigInt @default(0)
+  /// 待确认的新管理员（两步转移 H-03）；无待转移时为空。
+  pendingAdmin     String?
+  pendingAdminProposedAt BigInt @default(0)
+  /// H-04 年化费率（bps）。
+  feeApyBps        BigInt @default(0)
+  /// H-04 费用分成：LP / 平台 / 返利（bps）。
+  lpShareBps       BigInt @default(0)
+  platformShareBps BigInt @default(0)
+  rebateShareBps   BigInt @default(0)
+  /// 首损准备金（H-04 first-loss tranche）。
+  firstLossReserve BigInt @default(0)
+  /// 保险基金最低余额阈值。
+  minInsuranceAbs  BigInt @default(0)
+  /// 逾期费率（bps）。
+  overdueFeeApyBps BigInt @default(0)
+  /// 两步转移延迟（秒）。
+  pendingAdminDelaySecs BigInt @default(0)
   capturedAt       DateTime
 
   @@unique([poolAddress, capturedAt])

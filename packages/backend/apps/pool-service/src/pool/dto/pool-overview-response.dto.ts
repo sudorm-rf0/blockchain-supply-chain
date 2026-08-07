@@ -72,6 +72,33 @@ export class PoolOverviewResponseDto {
   @ApiProperty({ description: "资金池紧急暂停状态（合约 PoolState.paused）", example: false })
   paused!: boolean;
 
+  @ApiProperty({ description: "在途托管垫付（USDC 原始单位，审计 M-01）", example: "0" })
+  escrowFunded!: string;
+
+  @ApiProperty({ description: "当前赎回单价（USDC 原始单位，审计 M-04）", example: "0" })
+  redemptionPrice!: string;
+
+  @ApiProperty({ description: "H-04 年化费率（bps，垫付额）", example: 0 })
+  feeApyBps!: string;
+
+  @ApiProperty({ description: "H-04 逾期费率（bps）", example: 0 })
+  overdueFeeApyBps!: string;
+
+  @ApiProperty({ description: "首损准备金（USDC 原始单位，H-04 first-loss tranche）", example: "0" })
+  firstLossReserve!: string;
+
+  @ApiProperty({ description: "费用分成 LP（bps，H-04）", example: 0 })
+  lpShareBps!: string;
+
+  @ApiProperty({ description: "费用分成 平台（bps，H-04）", example: 0 })
+  platformShareBps!: string;
+
+  @ApiProperty({ description: "费用分成 买方返利（bps，H-04）", example: 0 })
+  rebateShareBps!: string;
+
+  @ApiProperty({ description: "待确认新管理员（两步转移 H-03，无则为 null）", example: null })
+  pendingAdmin!: string | null;
+
   @ApiProperty({ type: [PoolTrendPointDto] })
   trend!: PoolTrendPointDto[];
 }

@@ -67,6 +67,15 @@ function makeOverview() {
     defaultedDeals: 1,
     outstandingAmount: "30000000",
     paused: false,
+    escrowFunded: "0",
+    redemptionPrice: "1000000",
+    feeApyBps: "350",
+    overdueFeeApyBps: "500",
+    firstLossReserve: "200000000",
+    lpShareBps: "4000",
+    platformShareBps: "5000",
+    rebateShareBps: "1000",
+    pendingAdmin: null,
     trend: [],
   };
 }
@@ -117,5 +126,23 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
     await screen.findByText("Pool Size");
     expect(screen.queryByText(/资金池已紧急暂停/)).toBeNull();
+  });
+
+  it("renders on-chain governance parameters", async () => {
+    render(<DashboardPage />);
+    expect(await screen.findByText("链上治理参数")).toBeTruthy();
+    expect(screen.getByText(/3.50%/)).toBeTruthy(); // feeApyBps 350 / 100
+    expect(screen.getByText("$200.00")).toBeTruthy(); // firstLossReserve 200_000_000 / 1e6
+    expect(screen.getByText(/40% \/ 50% \/ 10%/)).toBeTruthy(); // LP/平台/返利
+    expect(screen.getByText("无待转移")).toBeTruthy();
+  });
+
+  it("shows the pending admin address when a transfer is in flight", async () => {
+    overviewMock.mockResolvedValue({
+      ...makeOverview(),
+      pendingAdmin: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+    });
+    render(<DashboardPage />);
+    expect(await screen.findByText("9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin")).toBeTruthy();
   });
 });

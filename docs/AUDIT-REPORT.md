@@ -479,7 +479,11 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 - **主网部署工具链**：`deploy-mainnet.sh` / `init-mainnet.sh`（硬护栏 + dry-run）。
 - **链上治理能力（新增）**：`set_paused` 紧急暂停（冻结全部资金移动指令）、
   `transfer_admin` 管理员轮换、`set_platform_wallet` 运营钱包更新；indexer
-  快照回写 `paused`，资金池看板展示暂停横幅（Rust 单测 8/7 + Anchor 55/55）。
+  快照回写 `paused`，资金池看板展示暂停横幅。
+- **治理参数可观测性（新增）**：indexer 快照全量回写 H-04 费率/分成参数
+  （`feeApyBps`/`overdueFeeApyBps`/`lpShareBps`/`platformShareBps`/`rebateShareBps`）、
+  首损准备金、在途托管、赎回单价/窗口、两步转移待确认管理员等；资金池看板新增
+  「链上治理参数」卡片（Rust 22/22 + Anchor 62/62 + 后端 146 + 前端 50）。
 - **未落实项（报告 S-01 建议）**：将 `usdc_mint`/`lp_mint` 纳入 `PoolState` 的链上锚定
   仍为后续版本建议，当前以链下校验 + 负面测试兜底。
 

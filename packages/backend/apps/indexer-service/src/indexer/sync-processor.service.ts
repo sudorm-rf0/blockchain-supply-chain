@@ -162,6 +162,20 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
         insuranceFund: BigInt(payload.insuranceFund),
         pendingDividends: BigInt(payload.pendingDividends),
         paused: payload.paused,
+        escrowFunded: BigInt(payload.escrowFunded ?? "0"),
+        redemptionPrice: BigInt(payload.redemptionPrice ?? "0"),
+        redeemWindowEpoch: BigInt(payload.redeemWindowEpoch ?? "0"),
+        redeemWindowUsed: BigInt(payload.redeemWindowUsed ?? "0"),
+        pendingAdmin: this.normalizePendingAdmin(payload.pendingAdmin ?? ""),
+        pendingAdminProposedAt: BigInt(payload.pendingAdminProposedAt ?? "0"),
+        feeApyBps: BigInt(payload.feeApyBps ?? "0"),
+        lpShareBps: BigInt(payload.lpShareBps ?? "0"),
+        platformShareBps: BigInt(payload.platformShareBps ?? "0"),
+        rebateShareBps: BigInt(payload.rebateShareBps ?? "0"),
+        firstLossReserve: BigInt(payload.firstLossReserve ?? "0"),
+        minInsuranceAbs: BigInt(payload.minInsuranceAbs ?? "0"),
+        overdueFeeApyBps: BigInt(payload.overdueFeeApyBps ?? "0"),
+        pendingAdminDelaySecs: BigInt(payload.pendingAdminDelaySecs ?? "0"),
         capturedAt: hourStart,
       },
       update: {
@@ -173,8 +187,27 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
         insuranceFund: BigInt(payload.insuranceFund),
         pendingDividends: BigInt(payload.pendingDividends),
         paused: payload.paused,
+        escrowFunded: BigInt(payload.escrowFunded ?? "0"),
+        redemptionPrice: BigInt(payload.redemptionPrice ?? "0"),
+        redeemWindowEpoch: BigInt(payload.redeemWindowEpoch ?? "0"),
+        redeemWindowUsed: BigInt(payload.redeemWindowUsed ?? "0"),
+        pendingAdmin: this.normalizePendingAdmin(payload.pendingAdmin ?? ""),
+        pendingAdminProposedAt: BigInt(payload.pendingAdminProposedAt ?? "0"),
+        feeApyBps: BigInt(payload.feeApyBps ?? "0"),
+        lpShareBps: BigInt(payload.lpShareBps ?? "0"),
+        platformShareBps: BigInt(payload.platformShareBps ?? "0"),
+        rebateShareBps: BigInt(payload.rebateShareBps ?? "0"),
+        firstLossReserve: BigInt(payload.firstLossReserve ?? "0"),
+        minInsuranceAbs: BigInt(payload.minInsuranceAbs ?? "0"),
+        overdueFeeApyBps: BigInt(payload.overdueFeeApyBps ?? "0"),
+        pendingAdminDelaySecs: BigInt(payload.pendingAdminDelaySecs ?? "0"),
       },
     });
+  }
+
+  /** 全零公钥（无待转移管理员）归一化为 null。 */
+  private normalizePendingAdmin(address: string): string | null {
+    return address === "11111111111111111111111111111111" ? null : address;
   }
 
   private async upsertUser(wallet: string) {
