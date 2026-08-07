@@ -1411,7 +1411,7 @@ describe("trade-finance full lifecycle", () => {
             usdcMint: lpMint,
           })
               .rpc(),
-        /ConstraintMint|mint/i,
+        /ConstraintMint|ConstraintAssociated|mint|associated/i,
       );
     });
 
@@ -1432,7 +1432,7 @@ describe("trade-finance full lifecycle", () => {
           })
           .signers([lp])
           .rpc(),
-        /ConstraintMint|mint/i,
+        /ConstraintMint|ConstraintAssociated|mint|associated/i,
       );
     });
 
@@ -1989,6 +1989,36 @@ describe("trade-finance full lifecycle", () => {
         /FirstLossInsufficient/,
       );
       console.log("withdraw_first_loss ok (H-04)");
+    });
+
+    it("Sets risk params: min insurance + overdue fee (L-07/L-04)", async () => {
+      await program.methods
+        .setRiskParams(new anchor.BN(50_000_000), new anchor.BN(500))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      let pool = await poolSnapshot();
+      assert.equal(pool.minInsuranceAbs.toString(), "50000000");
+      assert.equal(pool.overdueFeeApyBps.toString(), "500");
+      // 非法：罚息费率超上限
+      await assert.rejects(
+        program.methods
+          .setRiskParams(new anchor.BN(50_000_000), new anchor.BN(9000))
+          .accounts({
+            poolState: poolStatePda,
+            admin: provider.wallet.publicKey,
+          })
+          .rpc(),
+        /InvalidFeeParams/,
+      );
+      // 恢复默认
+      await program.methods
+        .setRiskParams(new anchor.BN(100_000_000), new anchor.BN(0))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      pool = await poolSnapshot();
+      assert.equal(pool.minInsuranceAbs.toString(), "100000000");
+      assert.equal(pool.overdueFeeApyBps.toString(), "0");
+      console.log("set_risk_params ok (L-07/L-04)");
     });
   });
 });

@@ -118,12 +118,31 @@ pub mod supply_chain {
         product.sku = sku;
         product.units = units;
         product.created_at = Clock::get()?.unix_timestamp;
+        product.active = true;
 
         msg!(
             "product registered: owner={}, sku={}, units={}",
             product.owner,
             product.sku,
             product.units
+        );
+        Ok(())
+    }
+
+    /// 标记商品失效（审计 L-09）：供应商被撤销后，管理员可将其名下商品标记失效，
+    /// 使链上存在明确的"已撤销"状态。
+    pub fn revoke_product(ctx: Context<RevokeProduct>, sku: String) -> Result<()> {
+        require!(
+            ctx.accounts.registry.admin == ctx.accounts.admin.key(),
+            SupplyChainError::Unauthorized
+        );
+        let product = &mut ctx.accounts.product;
+        require!(product.active, SupplyChainError::AlreadyRevoked);
+        product.active = false;
+        msg!(
+            "product revoked: owner={}, sku={}",
+            product.owner,
+            product.sku
         );
         Ok(())
     }
@@ -197,6 +216,27 @@ pub struct RevokeSupplier<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(sku: String)]
+pub struct RevokeProduct<'info> {
+    #[account(seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
+    pub registry: Account<'info, Registry>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    /// CHECK: 商品 owner，用于推导 product PDA。
+    pub owner: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"supply_chain", b"product" as &[u8], owner.key().as_ref(), &sku_seed(&sku)],
+        bump,
+        constraint = product.owner == owner.key() @ SupplyChainError::Unauthorized
+    )]
+    pub product: Account<'info, Product>,
+}
+
+#[derive(Accounts)]
 #[instruction(sku: String, units: u64)]
 pub struct RegisterProduct<'info> {
     #[account(seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
@@ -253,6 +293,8 @@ pub struct Product {
     pub sku: String,
     pub units: u64,
     pub created_at: i64,
+    /// 商品是否有效（审计 L-09）：撤销供应商后可由管理员标记失效。
+    pub active: bool,
 }
 
 #[error_code]
@@ -274,6 +316,10 @@ pub enum SupplyChainError {
     /// 新管理员地址非法：不能把管理员转移给全零公钥。
     #[msg("New admin must not be the default public key")]
     InvalidNewAdmin,
+
+    /// 商品已处于失效状态。
+    #[msg("Product is already revoked")]
+    AlreadyRevoked,
 }
 
 #[cfg(test)]

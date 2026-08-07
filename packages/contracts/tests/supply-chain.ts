@@ -390,4 +390,51 @@ describe("supply-chain permissioned registration", () => {
     );
     console.log("Default-pubkey registry admin transfer rejected");
   });
+
+  it("Revokes a product and marks it inactive (L-09)", async () => {
+    const sku = "SKU-REVOKE-001";
+    const product = productPda(program.programId, supplierA.publicKey, sku);
+    // 用供应商 A 注册（已在前面测试中授权）
+    const supAuthPda = supplierPda(program.programId, supplierA.publicKey);
+    await program.methods
+      .registerProduct(sku, new anchor.BN(5))
+      .accounts({
+        registry: REGISTRY(),
+        product,
+        owner: supplierA.publicKey,
+        supplier: supAuthPda,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([supplierA])
+      .rpc();
+    let p = await program.account.product.fetch(product);
+    assert.equal(p.active, true);
+
+    await program.methods
+      .revokeProduct(sku)
+      .accounts({
+        registry: REGISTRY(),
+        admin: provider.wallet.publicKey,
+        owner: supplierA.publicKey,
+        product,
+      })
+      .rpc();
+    p = await program.account.product.fetch(product);
+    assert.equal(p.active, false, "revoke_product 后商品应标记失效");
+
+    // 重复 revoke 拒绝
+    await assert.rejects(
+      program.methods
+        .revokeProduct(sku)
+        .accounts({
+          registry: REGISTRY(),
+          admin: provider.wallet.publicKey,
+          owner: supplierA.publicKey,
+          product,
+        })
+        .rpc(),
+      /AlreadyRevoked/,
+    );
+    console.log("Product revoked and re-revoke rejected (L-09)");
+  });
 });
