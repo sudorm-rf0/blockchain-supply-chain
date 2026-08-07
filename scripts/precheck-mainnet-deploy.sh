@@ -22,6 +22,15 @@ LP_MINT="${LP_MINT:-}"
 EXPECT_POOL="${EXPECT_POOL:-absent}"
 MIN_BALANCE_SOL="${MIN_BALANCE_SOL:-1}"
 REPORT_PATH="${REPORT_PATH:-/tmp/mainnet-precheck-report.json}"
+# 审计 N-05/N-03/L-13 主网治理前置
+#   TEST_DEPLOYER=开发/测试 DEPLOYER（主网部署钱包不得等于它）
+#   UPGRADE_AUTHORITY_PLAN=cold-wallet|freeze  升级权限处置计划
+#   MULTISIG_ADMIN=<Squads 多签 PDA>            资金池/注册中心管理员应指向多签
+#   INITIAL_ADMIN_DELAY=<秒，>=86400>           初始化时锁下限
+TEST_DEPLOYER="3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8"
+UPGRADE_AUTHORITY_PLAN="${UPGRADE_AUTHORITY_PLAN:-}"
+MULTISIG_ADMIN="${MULTISIG_ADMIN:-}"
+INITIAL_ADMIN_DELAY="${INITIAL_ADMIN_DELAY:-}" 
 TOKEN_PROGRAM="TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 DEV_TRADE_PROGRAM="9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
 DEV_SUPPLY_PROGRAM="Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
@@ -86,6 +95,22 @@ elif [[ "${UPGRADE_AUTHORITY_PLAN}" != "cold-wallet" && "${UPGRADE_AUTHORITY_PLA
   add_check "upgrade authority plan" "FAIL" "UPGRADE_AUTHORITY_PLAN=${UPGRADE_AUTHORITY_PLAN} invalid (cold-wallet|freeze)"
 else
   add_check "upgrade authority plan" "PASS" "${UPGRADE_AUTHORITY_PLAN}"
+fi
+
+# 审计 L-13：初始化时锁必须 >= 86400s（生产），杜绝初始化路径无时锁
+if [[ -z "${INITIAL_ADMIN_DELAY}" ]]; then
+  add_check "initial admin delay" "FAIL" "INITIAL_ADMIN_DELAY must be set (>= 86400) for initialize_*"
+elif awk -v d="${INITIAL_ADMIN_DELAY}" 'BEGIN { exit !(d >= 86400) }'; then
+  add_check "initial admin delay" "PASS" "${INITIAL_ADMIN_DELAY}s"
+else
+  add_check "initial admin delay" "FAIL" "INITIAL_ADMIN_DELAY=${INITIAL_ADMIN_DELAY} < 86400; initialize_* would have no meaningful lock"
+fi
+
+# 审计 N-03：主网管理员应指向 Squads 多签（不阻塞，但必须显式声明）
+if [[ -z "${MULTISIG_ADMIN}" ]]; then
+  add_check "multisig admin" "WARN" "MULTISIG_ADMIN not set; pool/registry admin must point to a Squads multisig PDA before launch"
+else
+  add_check "multisig admin" "PASS" "${MULTISIG_ADMIN}"
 fi
 
 if [[ -z "${DEPLOY_WALLET}" ]]; then
