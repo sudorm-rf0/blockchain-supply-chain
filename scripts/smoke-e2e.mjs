@@ -377,6 +377,11 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
   }
   const scDisc = (name) =>
     createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
+  const scI64 = (v) => {
+    const b = Buffer.alloc(8);
+    b.writeBigInt64LE(BigInt(v));
+    return b;
+  };
   const scU64 = (v) => {
     const b = Buffer.alloc(8);
     b.writeBigUInt64LE(BigInt(v));
@@ -434,7 +439,7 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
         { pubkey: scProgramData, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
-      scDisc("initialize_registry"),
+      Buffer.concat([scDisc("initialize_registry"), scI64(0)]), // 审计 H-06：测试用 0
     );
   }
   const regInfo = await conn.getAccountInfo(registryPda);

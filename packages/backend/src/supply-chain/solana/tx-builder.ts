@@ -55,6 +55,15 @@ export function encodeU64(value: bigint): Buffer {
   return buffer;
 }
 
+/** 注册中心管理员时锁初始值（秒，审计 H-06：生产 48h，合约硬下限 86_400）。 */
+export const INITIAL_REGISTRY_ADMIN_DELAY_SECS = 172_800n;
+
+export function encodeI64(value: bigint): Buffer {
+  const buffer = Buffer.alloc(8);
+  buffer.writeBigInt64LE(value);
+  return buffer;
+}
+
 export function encodeBorshString(value: string): Buffer {
   const bytes = Buffer.from(value, "utf8");
   const length = Buffer.alloc(4);
@@ -141,7 +150,10 @@ export async function buildInitializeRegistryTransaction(
   ];
   return buildTransaction(
     keys,
-    supplyChainDiscriminator("initialize_registry"),
+    Buffer.concat([
+      supplyChainDiscriminator("initialize_registry"),
+      encodeI64(INITIAL_REGISTRY_ADMIN_DELAY_SECS),
+    ]),
     admin,
     connection,
   );

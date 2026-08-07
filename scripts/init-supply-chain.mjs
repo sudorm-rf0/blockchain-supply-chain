@@ -57,6 +57,11 @@ const supplierPda = (key) =>
 
 const disc = (name) =>
   createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
+const i64 = (v) => {
+  const b = Buffer.alloc(8);
+  b.writeBigInt64LE(BigInt(v));
+  return b;
+};
 const latest = () => conn.getLatestBlockhash("confirmed");
 
 async function sendIx(keys, data) {
@@ -81,7 +86,7 @@ if (!(await conn.getAccountInfo(registry))) {
       { pubkey: PROGRAM_DATA, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
-    disc("initialize_registry"),
+    Buffer.concat([disc("initialize_registry"), i64(172_800)]), // 审计 H-06：初始 48h
   );
   console.log(`registry initialized: ${registry.toBase58()}`);
 } else {
