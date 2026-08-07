@@ -121,10 +121,13 @@ describe("trade-finance full lifecycle", () => {
     const pool = await poolSnapshot();
     const vault = await vaultBalance();
     const escrowSum = await allKnownEscrowSum();
-    // 审计 M-01 修正后的恒等式：total_assets = vault + 托管 + active_capital。
-    // （fund 后 active_capital 不再重复计入垫付；escrow_funded 仅用于 NAV 与流动性保护。）
+    // 审计 M-01 修正后的恒等式：total_assets = vault + 托管 + active_capital - 首损资金。
+    // （H-04：平台首损资金不计入池子总资产。）
     const expected =
-      vault + escrowSum + BigInt(pool.activeCapital.toString());
+      vault +
+      escrowSum +
+      BigInt(pool.activeCapital.toString()) -
+      BigInt(pool.firstLossReserve.toString());
     assert.equal(
       pool.totalAssets.toString(),
       expected.toString(),
@@ -511,18 +514,28 @@ describe("trade-finance full lifecycle", () => {
     const platformBalance = await getAccount(connection, platformAta);
     const poolVaultAfterRepay = await getAccount(connection, poolTokenAccount);
 
-    const fee = (USDC(1_000) * 250) / 10_000;
-    const lpDividend = (fee * 4_000) / 10_000;
-    const platformPart = (fee * 5_000) / 10_000;
-    const buyerRebate = (fee * 1_000) / 10_000;
+    // H-04：fee = P × fee_apy_bps(670) × tenor / (10000 × 365 × 86400)
+    const fee =
+      (BigInt(USDC(700)) * 670n * BigInt(30 * 86_400)) /
+      BigInt(10_000 * 365 * 86_400);
+    const lpDividend = (fee * 4000n) / 10000n;
+    const platformPart = (fee * 5000n) / 10000n;
+    const buyerRebate = (fee * 1000n) / 10000n;
 
     assert.equal(dealState.status, 6); // Settled
     assert.equal(poolState.pendingDividends.toString(), lpDividend.toString());
-    assert.equal(platformBalance.amount, BigInt(platformPart));
+    assert.equal(platformBalance.amount, platformPart);
     assert.equal(poolState.activeCapital.toString(), "0");
-    assert.equal(poolState.nav.toString(), "1000100");
-    assert.equal(poolVaultAfterRepay.amount, BigInt(USDC(100_010)));
-    assert.equal(poolState.totalAssets.toString(), USDC(100_010).toString());
+    // H-04：vault 留存 = fee - platform - rebate（total_assets 按实际留存记账）
+    const retained = fee - platformPart - buyerRebate;
+    const expectedVault = BigInt(USDC(100_000)) + retained;
+    assert.equal(poolVaultAfterRepay.amount, expectedVault);
+    assert.equal(poolState.totalAssets.toString(), expectedVault.toString());
+    // nav = (vault - first_loss + active + escrow_funded) / supply
+    assert.equal(
+      poolState.nav.toString(),
+      (expectedVault / 100_000n).toString(),
+    );
     const rebateAfter = await program.account.rebateRecord.fetch(
       rebatePda(buyer.publicKey),
     );
@@ -1848,6 +1861,134 @@ describe("trade-finance full lifecycle", () => {
         poolBefore.redeemWindowUsed.toString(),
         "(M-05)",
       );
+    });
+
+    it("Sets fee params and rejects invalid shares (H-04)", async () => {
+      await program.methods
+        .setFeeParams(
+          new anchor.BN(1000),
+          new anchor.BN(4000),
+          new anchor.BN(5000),
+          new anchor.BN(1000),
+        )
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      const pool = await poolSnapshot();
+      assert.equal(pool.feeApyBps.toString(), "1000");
+      // 非法：分成比例之和 != 10000
+      await assert.rejects(
+        program.methods
+          .setFeeParams(
+            new anchor.BN(1000),
+            new anchor.BN(3000),
+            new anchor.BN(3000),
+            new anchor.BN(3000),
+          )
+          .accounts({
+            poolState: poolStatePda,
+            admin: provider.wallet.publicKey,
+          })
+          .rpc(),
+        /InvalidFeeParams/,
+      );
+      // 恢复默认（基准档 670）
+      await program.methods
+        .setFeeParams(
+          new anchor.BN(670),
+          new anchor.BN(4000),
+          new anchor.BN(5000),
+          new anchor.BN(1000),
+        )
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      assert.equal((await poolSnapshot()).feeApyBps.toString(), "670");
+      console.log("set_fee_params ok (H-04)");
+    });
+
+    it("Deposits first-loss reserve without diluting LP equity (H-04)", async () => {
+      const adminAta = await createAta(provider.wallet.publicKey);
+      await mintTo(
+        connection,
+        payer,
+        usdcMint,
+        adminAta,
+        payer.publicKey,
+        USDC(10_000),
+      );
+      const before = await poolSnapshot();
+      const vaultBefore = await vaultBalance();
+      const totalBefore = before.totalAssets;
+      const navBefore = before.nav;
+
+      await program.methods
+        .depositFirstLoss(new anchor.BN(USDC(5_000)))
+        .accounts({
+          poolState: poolStatePda,
+          admin: provider.wallet.publicKey,
+          depositorTokenAccount: adminAta,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+          usdcMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      const after = await poolSnapshot();
+      assert.equal(
+        after.firstLossReserve.toString(),
+        USDC(5_000).toString(),
+        "首损资金记账应增加",
+      );
+      assert.equal(
+        after.totalAssets.toString(),
+        totalBefore.toString(),
+        "首损注入不应改变 total_assets",
+      );
+      assert.equal(after.nav.toString(), navBefore.toString(), "首损注入不应改变 NAV");
+      assert.equal(
+        (await vaultBalance()) - vaultBefore,
+        BigInt(USDC(5_000)),
+        "首损注入应增加金库现金",
+      );
+      console.log("deposit_first_loss ok (H-04)");
+    });
+
+    it("Withdraws first-loss reserve and enforces minimum (H-04)", async () => {
+      const adminAta = await createAta(provider.wallet.publicKey);
+      await program.methods
+        .withdrawFirstLoss(new anchor.BN(USDC(4_900)))
+        .accounts({
+          poolState: poolStatePda,
+          admin: provider.wallet.publicKey,
+          recipientTokenAccount: adminAta,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+          usdcMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+      assert.equal(
+        (await poolSnapshot()).firstLossReserve.toString(),
+        USDC(100).toString(),
+        "提取后应保留最低首损 100 USDC",
+      );
+      // 再提取会跌破最低余额 -> 拒绝
+      await assert.rejects(
+        program.methods
+          .withdrawFirstLoss(new anchor.BN(1))
+          .accounts({
+            poolState: poolStatePda,
+            admin: provider.wallet.publicKey,
+            recipientTokenAccount: adminAta,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
+            usdcMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .rpc(),
+        /FirstLossInsufficient/,
+      );
+      console.log("withdraw_first_loss ok (H-04)");
     });
   });
 });

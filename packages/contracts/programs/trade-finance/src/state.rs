@@ -21,6 +21,19 @@ pub const REDEEM_WINDOW_SECS: i64 = 86_400;
 /// 测试环境保留 0，避免集成测试等待真实锁定期。
 pub const ADMIN_TRANSFER_DELAY_SECS: i64 = 0;
 
+/// 默认垫付额年化费率（万分位，H-04 基准档 6.70% APR）。
+pub const DEFAULT_FEE_APY_BPS: u64 = 670;
+/// 默认 LP 分成比例（万分位）。
+pub const DEFAULT_LP_SHARE_BPS: u64 = 4000;
+/// 默认平台分成比例（万分位）。
+pub const DEFAULT_PLATFORM_SHARE_BPS: u64 = 5000;
+/// 默认买方返利比例（万分位）。
+pub const DEFAULT_REBATE_SHARE_BPS: u64 = 1000;
+/// 单笔费率上限（占垫付额万分位，H-04 D7：默认 5%P）。
+pub const MAX_SINGLE_FEE_BPS: u64 = 500;
+/// 平台首损资金最低保留（USDC 原始单位，100 USDC）。
+pub const MIN_FIRST_LOSS_ABS: u64 = 100_000_000;
+
 /// TradeDeal.status 常量映射。
 pub mod deal_status {
     pub const PENDING: u8 = 0;
@@ -140,6 +153,16 @@ pub struct PoolState {
     pub pending_admin: Pubkey,
     /// 管理员转移提案时间（审计 H-03）。
     pub pending_admin_proposed_at: i64,
+    /// 垫付额年化费率（万分位，H-04 可治理参数）。
+    pub fee_apy_bps: u64,
+    /// LP 分成比例（万分位，H-04 可治理参数）。
+    pub lp_share_bps: u64,
+    /// 平台分成比例（万分位，H-04 可治理参数）。
+    pub platform_share_bps: u64,
+    /// 买方返利比例（万分位，H-04 可治理参数）。
+    pub rebate_share_bps: u64,
+    /// 平台首损资金（真实 USDC 记账，H-04 首损层；不计入 LP 净值）。
+    pub first_loss_reserve: u64,
 }
 
 impl PoolState {
@@ -169,6 +192,11 @@ impl PoolState {
             + 8  // redeem_window_used (审计 M-05)
             + 32 // pending_admin (审计 H-03)
             + 8  // pending_admin_proposed_at (审计 H-03)
+            + 8  // fee_apy_bps (H-04)
+            + 8  // lp_share_bps (H-04)
+            + 8  // platform_share_bps (H-04)
+            + 8  // rebate_share_bps (H-04)
+            + 8  // first_loss_reserve (H-04)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -210,6 +238,14 @@ impl PoolState {
     /// 当前赎回窗口编号（审计 M-05）。
     pub fn current_redeem_window(&self, now: i64) -> i64 {
         now / REDEEM_WINDOW_SECS
+    }
+
+    /// LP 净值基准 = 金库现金 - 平台首损资金（H-04：首损不计入 LP 权益）。
+    pub fn equity_base(&self, vault_balance: u64) -> Result<u64> {
+        vault_balance
+            .checked_sub(self.first_loss_reserve)
+            .ok_or(TradeFinanceError::MathOverflow)
+            .map_err(Into::into)
     }
 }
 
@@ -316,6 +352,11 @@ mod tests {
             redeem_window_used: 0,
             pending_admin: Pubkey::default(),
             pending_admin_proposed_at: 0,
+            fee_apy_bps: DEFAULT_FEE_APY_BPS,
+            lp_share_bps: DEFAULT_LP_SHARE_BPS,
+            platform_share_bps: DEFAULT_PLATFORM_SHARE_BPS,
+            rebate_share_bps: DEFAULT_REBATE_SHARE_BPS,
+            first_loss_reserve: 0,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
@@ -346,6 +387,11 @@ mod tests {
             redeem_window_used: 0,
             pending_admin: Pubkey::default(),
             pending_admin_proposed_at: 0,
+            fee_apy_bps: DEFAULT_FEE_APY_BPS,
+            lp_share_bps: DEFAULT_LP_SHARE_BPS,
+            platform_share_bps: DEFAULT_PLATFORM_SHARE_BPS,
+            rebate_share_bps: DEFAULT_REBATE_SHARE_BPS,
+            first_loss_reserve: 0,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -373,6 +419,11 @@ mod tests {
             redeem_window_used: 0,
             pending_admin: Pubkey::default(),
             pending_admin_proposed_at: 0,
+            fee_apy_bps: DEFAULT_FEE_APY_BPS,
+            lp_share_bps: DEFAULT_LP_SHARE_BPS,
+            platform_share_bps: DEFAULT_PLATFORM_SHARE_BPS,
+            rebate_share_bps: DEFAULT_REBATE_SHARE_BPS,
+            first_loss_reserve: 0,
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;

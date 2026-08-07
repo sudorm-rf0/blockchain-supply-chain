@@ -48,8 +48,14 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //   8  redeem_window_used (审计 M-05)
 //  32  pending_admin (审计 H-03)
 //   8  pending_admin_proposed_at (审计 H-03)
+//   8  fee_apy_bps (H-04)
+//   8  lp_share_bps (H-04)
+//   8  platform_share_bps (H-04)
+//   8  rebate_share_bps (H-04)
+//   8  first_loss_reserve (H-04)
 const EXPECTED_POOL_STATE_SIZE =
-  8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8;
+  8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8 +
+  8 + 8 + 8 + 8 + 8;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -58,7 +64,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(257);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(297);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 
@@ -103,6 +109,11 @@ describe("chain account layout anchor", () => {
     buf.writeBigUInt64LE(10_000n, 209);   // redeem_window_used
     admin.toBuffer().copy(buf, 217);      // pending_admin
     buf.writeBigInt64LE(1_000n, 249);     // pending_admin_proposed_at
+    buf.writeBigUInt64LE(670n, 257);      // fee_apy_bps
+    buf.writeBigUInt64LE(4000n, 265);     // lp_share_bps
+    buf.writeBigUInt64LE(5000n, 273);     // platform_share_bps
+    buf.writeBigUInt64LE(1000n, 281);     // rebate_share_bps
+    buf.writeBigUInt64LE(50_000n, 289);   // first_loss_reserve
 
     const payload = parsePoolStateBuffer(buf, "pool-pda");
     expect(payload.poolAddress).toBe("pool-pda");
@@ -115,6 +126,9 @@ describe("chain account layout anchor", () => {
     expect(payload.redeemWindowEpoch).toBe("123");
     expect(payload.redeemWindowUsed).toBe("10000");
     expect(payload.pendingAdmin).toBe(admin.toBase58());
+    expect(payload.feeApyBps).toBe("670");
+    expect(payload.lpShareBps).toBe("4000");
+    expect(payload.firstLossReserve).toBe("50000");
   });
 
 
