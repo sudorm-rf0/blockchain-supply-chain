@@ -69,3 +69,9 @@
 - [LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md) "由独立审计方完成合约审计"一项：**⏳ 待进行**（未勾选）。
 - [PHASE2-CLOUD-CHECKLIST.md](PHASE2-CLOUD-CHECKLIST.md) P0 第一项"第三方合约审计"：**⏳ 待进行**，
   材料包与询价模板已备，联系机构询价后即可推进。
+
+## 6. DFR 审计整改状态（2026-08-07）
+
+- 依据 DFR-SC-2026-0143 / DFR-2026-0143，C-01、H-01、H-02、H-03、M-01~M-11、L-02、L-03、L-06、L-08、I-02、I-05 已完成合约层整改（见 docs/AUDIT-KNOWN-RISKS.md）。
+- 测试：Rust 单测 15/15、Anchor 集成 55/55、后端 Jest 146/146、前端 Vitest 48/48。
+- 待办：H-04 费率重构（业务论证）、多签部署、`ADMIN_TRANSFER_DELAY_SECS` 上线前调为 >= 48h、提交 DFR 复测。

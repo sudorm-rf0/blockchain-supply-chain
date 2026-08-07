@@ -24,7 +24,8 @@
 
 ## 3. 资金池结构与不变式
 
-- `total_assets = vault + Σ 订单托管余额`（全局不变式，已由测试守护）
+- `total_assets = vault + Σ 订单托管余额 + active_capital`（全局不变式，DFR M-01 整改后成立；
+  `fund_deal` 不再重复计入 `active_capital`，垫付计入 `escrow_funded`）
 - `reserve_fund` 占 vault 80%（`RESERVE_FUND_PCT_BPS=8000`）
 - `insurance_fund` 占 vault 20%（2000 bps），最低绝对值
   `MIN_INSURANCE_ABS=100_000_000`（100 USDC）

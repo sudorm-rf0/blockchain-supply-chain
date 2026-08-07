@@ -28,5 +28,17 @@ export interface PoolSnapshotPayload {
   utilizationBps: number;
   /// 资金池紧急暂停开关（合约 PoolState.paused）。
   paused: boolean;
+  /// 在途托管垫付（审计 M-01：PoolState.escrow_funded）。
+  escrowFunded: string;
+  /// 赎回定价（审计 M-04：PoolState.redemption_price）。
+  redemptionPrice: string;
+  /// 当前赎回窗口编号（审计 M-05）。
+  redeemWindowEpoch: string;
+  /// 当前窗口已累计赎回（审计 M-05）。
+  redeemWindowUsed: string;
+  /// 待接受的管理员（审计 H-03；全零表示无提案）。
+  pendingAdmin: string;
+  /// 管理员转移提案时间（审计 H-03）。
+  pendingAdminProposedAt: string;
   capturedAt: string;
 }

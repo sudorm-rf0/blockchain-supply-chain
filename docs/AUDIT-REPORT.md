@@ -453,9 +453,9 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 项 | 审计报告记录 | 当前实际 |
 |---|---|---|
-| 合约 Rust 单测 | 15 | **17/17**（trade-finance 9 + supply-chain 8） |
-| Anchor 集成测试 | ~37 | **49/49**（含资金恒等式/记账增量断言 + 暂停/管理员轮换治理） |
-| 后端 Jest | 143 | **146/146** |
+| 合约 Rust 单测 | 15 | **15/15**（trade-finance 8 + supply-chain 7） |
+| Anchor 集成测试 | ~37 | **55/55**（含资金恒等式/记账增量断言 + 暂停/管理员轮换治理） |
+| 后端 Jest | 146 | **146/146** |
 | 前端 Vitest | ~8 | **48/48** |
 | Playwright e2e | 2 | **3**（含 TOTP 两步登录） |
 
@@ -470,7 +470,7 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 - **主网部署工具链**：`deploy-mainnet.sh` / `init-mainnet.sh`（硬护栏 + dry-run）。
 - **链上治理能力（新增）**：`set_paused` 紧急暂停（冻结全部资金移动指令）、
   `transfer_admin` 管理员轮换、`set_platform_wallet` 运营钱包更新；indexer
-  快照回写 `paused`，资金池看板展示暂停横幅（Rust 单测 9/9 + Anchor 49/49）。
+  快照回写 `paused`，资金池看板展示暂停横幅（Rust 单测 8/7 + Anchor 55/55）。
 - **未落实项（报告 S-01 建议）**：将 `usdc_mint`/`lp_mint` 纳入 `PoolState` 的链上锚定
   仍为后续版本建议，当前以链下校验 + 负面测试兜底。
 

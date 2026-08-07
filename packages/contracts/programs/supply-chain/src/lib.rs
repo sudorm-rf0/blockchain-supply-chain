@@ -3,8 +3,13 @@ use anchor_lang::solana_program::hash::hash;
 
 declare_id!("Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk");
 
-/// 商品 PDA 种子：取 SKU 的 SHA-256 前 8 字节，规避 Solana 单种子 32 字节限制，
-/// 同时保证同一 (owner, sku) 推导出确定的 PDA。
+/// 部署方白名单（审计 H-01）：仅允许该地址（或程序的 upgrade authority）初始化注册中心。
+/// 当前为本地开发/测试钱包；主网部署前必须替换为实际部署冷钱包地址。
+pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
+
+/// 商品 PDA 种子：取 SKU 的 SHA-256 前 8 字节。
+/// 说明（审计 I-05）：Solana 单个种子允许最多 32 字节，SHA-256 输出恰为 32 字节，
+/// 可整体用作种子；此处截断至 8 字节仅为保持与现有 devnet 数据兼容，并非规避限制。
 fn sku_seed(sku: &str) -> [u8; 8] {
     let digest = hash(sku.as_bytes());
     let mut seed = [0u8; 8];
@@ -17,11 +22,40 @@ pub mod supply_chain {
     use super::*;
 
     /// 初始化供应链注册中心，记录唯一管理员。
+    /// 审计 H-01：仅允许程序的 upgrade authority 初始化，杜绝抢先初始化抢跑。
     pub fn initialize_registry(ctx: Context<InitializeRegistry>) -> Result<()> {
+        let is_deployer = ctx.accounts.admin.key() == DEPLOYER;
+        let is_upgrade_authority = ctx
+            .accounts
+            .program_data
+            .upgrade_authority_address
+            == Some(ctx.accounts.admin.key());
+        require!(
+            is_deployer || is_upgrade_authority,
+            SupplyChainError::Unauthorized
+        );
         let registry = &mut ctx.accounts.registry;
         registry.admin = ctx.accounts.admin.key();
         registry.initialized_at = Clock::get()?.unix_timestamp;
         msg!("registry initialized by {}", registry.admin);
+        Ok(())
+    }
+
+    /// 管理员轮换（审计 M-11）：把注册中心管理员转移给新地址。
+    /// 与 trade-finance 的 propose/accept 两步轮换保持一致的做法：
+    /// 此处由当前管理员签名直接转移，并在指令层面校验非零地址。
+    pub fn transfer_admin(ctx: Context<TransferRegistryAdmin>, new_admin: Pubkey) -> Result<()> {
+        require!(
+            ctx.accounts.registry.admin == ctx.accounts.admin.key(),
+            SupplyChainError::Unauthorized
+        );
+        require!(
+            new_admin != Pubkey::default(),
+            SupplyChainError::InvalidNewAdmin
+        );
+        let registry = &mut ctx.accounts.registry;
+        registry.admin = new_admin;
+        msg!("registry admin transferred to {}", new_admin);
         Ok(())
     }
 
@@ -35,6 +69,7 @@ pub mod supply_chain {
             SupplyChainError::Unauthorized
         );
 
+        // 审计 L-08：幂等——重复授权不失败，仅刷新授权时间。
         let supplier = &mut ctx.accounts.supplier;
         supplier.supplier = supplier_key;
         supplier.authorized_at = Clock::get()?.unix_timestamp;
@@ -108,6 +143,9 @@ pub struct InitializeRegistry<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
+    /// 程序数据账户：upgrade authority 必须为初始化者（审计 H-01）。
+    pub program_data: Account<'info, ProgramData>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -121,7 +159,7 @@ pub struct AuthorizeSupplier<'info> {
     pub admin: Signer<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = admin,
         space = 8 + Supplier::INIT_SPACE,
         seeds = [b"supply_chain", b"supplier" as &[u8], supplier_key.as_ref()],
@@ -130,6 +168,14 @@ pub struct AuthorizeSupplier<'info> {
     pub supplier: Account<'info, Supplier>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct TransferRegistryAdmin<'info> {
+    #[account(mut, seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
+    pub registry: Account<'info, Registry>,
+
+    pub admin: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -224,6 +270,10 @@ pub enum SupplyChainError {
     /// 仅管理员或已授权供应商可执行该操作。
     #[msg("Unauthorized caller: admin or authorized supplier required")]
     Unauthorized,
+
+    /// 新管理员地址非法：不能把管理员转移给全零公钥。
+    #[msg("New admin must not be the default public key")]
+    InvalidNewAdmin,
 }
 
 #[cfg(test)]

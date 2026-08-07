@@ -42,7 +42,14 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //   1  paused (bool)
 //  32  usdc_mint (Pubkey, S-01 锚定)
 //  32  lp_mint (Pubkey, S-01 锚定)
-const EXPECTED_POOL_STATE_SIZE = 8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32;
+//   8  escrow_funded (审计 M-01)
+//   8  redemption_price (审计 M-04)
+//   8  redeem_window_epoch (审计 M-05)
+//   8  redeem_window_used (审计 M-05)
+//  32  pending_admin (审计 H-03)
+//   8  pending_admin_proposed_at (审计 H-03)
+const EXPECTED_POOL_STATE_SIZE =
+  8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -51,7 +58,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(185);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(257);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 
@@ -90,6 +97,12 @@ describe("chain account layout anchor", () => {
     wallet.toBuffer().copy(buf, 80);      // platform_wallet
     buf.writeBigUInt64LE(990_000n, 112);  // nav
     buf.writeUInt8(1, 120);               // paused
+    buf.writeBigUInt64LE(700_000n, 185);  // escrow_funded
+    buf.writeBigUInt64LE(990_000n, 193);  // redemption_price
+    buf.writeBigInt64LE(123n, 201);       // redeem_window_epoch
+    buf.writeBigUInt64LE(10_000n, 209);   // redeem_window_used
+    admin.toBuffer().copy(buf, 217);      // pending_admin
+    buf.writeBigInt64LE(1_000n, 249);     // pending_admin_proposed_at
 
     const payload = parsePoolStateBuffer(buf, "pool-pda");
     expect(payload.poolAddress).toBe("pool-pda");
@@ -97,6 +110,11 @@ describe("chain account layout anchor", () => {
     expect(payload.activeCapital).toBe("500000");
     expect(payload.nav).toBe("990000");
     expect(payload.paused).toBe(true);
+    expect(payload.escrowFunded).toBe("700000");
+    expect(payload.redemptionPrice).toBe("990000");
+    expect(payload.redeemWindowEpoch).toBe("123");
+    expect(payload.redeemWindowUsed).toBe("10000");
+    expect(payload.pendingAdmin).toBe(admin.toBase58());
   });
 
 

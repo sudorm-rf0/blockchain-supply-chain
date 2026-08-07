@@ -44,8 +44,13 @@ describe("supply-chain permissioned registration", () => {
   const program: any = anchor.workspace.SupplyChain;
   const connection = provider.connection;
   const REGISTRY = () => registryPda(program.programId);
+  function programDataPda(programId: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [programId.toBuffer()],
+      new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
+    )[0];
+  }
 
-  let admin: anchor.web3.Keypair;
   let supplierA: anchor.web3.Keypair;
   let supplierB: anchor.web3.Keypair;
   let stranger: anchor.web3.Keypair;
@@ -59,12 +64,11 @@ describe("supply-chain permissioned registration", () => {
   }
 
   before(async () => {
-    admin = anchor.web3.Keypair.generate();
     supplierA = anchor.web3.Keypair.generate();
     supplierB = anchor.web3.Keypair.generate();
     stranger = anchor.web3.Keypair.generate();
     await Promise.all(
-      [admin, supplierA, supplierB, stranger].map((keypair) =>
+      [supplierA, supplierB, stranger].map((keypair) =>
         airdrop(keypair.publicKey),
       ),
     );
@@ -75,14 +79,14 @@ describe("supply-chain permissioned registration", () => {
       .initializeRegistry()
       .accounts({
         registry: REGISTRY(),
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
+        programData: programDataPda(program.programId),
         systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
       .rpc();
 
     const registry = await program.account.registry.fetch(REGISTRY());
-    assert.equal(registry.admin.toBase58(), admin.publicKey.toBase58());
+    assert.equal(registry.admin.toBase58(), provider.wallet.publicKey.toBase58());
     assert.ok(registry.initializedAt.gt(new anchor.BN(0)));
     console.log("Registry PDA:", REGISTRY().toBase58());
     console.log("Registry admin:", registry.admin.toBase58());
@@ -94,11 +98,11 @@ describe("supply-chain permissioned registration", () => {
         .initializeRegistry()
         .accounts({
           registry: REGISTRY(),
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
+          programData: programDataPda(program.programId),
           systemProgram: SystemProgram.programId,
         })
-        .signers([admin])
-        .rpc(),
+          .rpc(),
       /already in use|already initialized|AccountDiscriminatorAlreadySet|ConstraintSeeds/i,
     );
     console.log("Second registry init rejected");
@@ -106,21 +110,20 @@ describe("supply-chain permissioned registration", () => {
 
   it("Registers a product as the admin", async () => {
     const sku = "SKU-ADMIN-001";
-    const product = productPda(program.programId, admin.publicKey, sku);
+    const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await program.methods
       .registerProduct(sku, new anchor.BN(100))
       .accounts({
         registry: REGISTRY(),
         product,
-        owner: admin.publicKey,
+        owner: provider.wallet.publicKey,
         supplier: null,
         systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
       .rpc();
 
     const p = await program.account.product.fetch(product);
-    assert.equal(p.owner.toBase58(), admin.publicKey.toBase58());
+    assert.equal(p.owner.toBase58(), provider.wallet.publicKey.toBase58());
     assert.equal(p.sku, sku);
     assert.equal(p.units.toString(), "100");
     assert.ok(p.createdAt.gt(new anchor.BN(0)));
@@ -150,19 +153,18 @@ describe("supply-chain permissioned registration", () => {
 
   it("Rejects empty SKU", async () => {
     const sku = "";
-    const product = productPda(program.programId, admin.publicKey, sku);
+    const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await assert.rejects(
       program.methods
         .registerProduct(sku, new anchor.BN(10))
         .accounts({
           registry: REGISTRY(),
           product,
-          owner: admin.publicKey,
+          owner: provider.wallet.publicKey,
           supplier: null,
           systemProgram: SystemProgram.programId,
         })
-        .signers([admin])
-        .rpc(),
+          .rpc(),
       /EmptySku|SKU must not be empty/,
     );
     console.log("Empty SKU rejected");
@@ -170,19 +172,18 @@ describe("supply-chain permissioned registration", () => {
 
   it("Rejects zero units", async () => {
     const sku = "SKU-ZERO-UNITS";
-    const product = productPda(program.programId, admin.publicKey, sku);
+    const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await assert.rejects(
       program.methods
         .registerProduct(sku, new anchor.BN(0))
         .accounts({
           registry: REGISTRY(),
           product,
-          owner: admin.publicKey,
+          owner: provider.wallet.publicKey,
           supplier: null,
           systemProgram: SystemProgram.programId,
         })
-        .signers([admin])
-        .rpc(),
+          .rpc(),
       /InvalidUnits|Units must be greater than zero/,
     );
     console.log("Zero units rejected");
@@ -194,11 +195,10 @@ describe("supply-chain permissioned registration", () => {
       .authorizeSupplier(supplierA.publicKey)
       .accounts({
         registry: REGISTRY(),
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         supplier: pda,
         systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
       .rpc();
 
     const s = await program.account.supplier.fetch(pda);
@@ -270,19 +270,18 @@ describe("supply-chain permissioned registration", () => {
 
   it("Rejects duplicate SKU registration by the same owner", async () => {
     const sku = "SKU-ADMIN-001";
-    const product = productPda(program.programId, admin.publicKey, sku);
+    const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await assert.rejects(
       program.methods
         .registerProduct(sku, new anchor.BN(200))
         .accounts({
           registry: REGISTRY(),
           product,
-          owner: admin.publicKey,
+          owner: provider.wallet.publicKey,
           supplier: null,
           systemProgram: SystemProgram.programId,
         })
-        .signers([admin])
-        .rpc(),
+          .rpc(),
       /already in use|already initialized|AccountDiscriminatorAlreadySet|ConstraintSeeds/i,
     );
     console.log("Duplicate SKU registration rejected");
@@ -294,10 +293,9 @@ describe("supply-chain permissioned registration", () => {
       .revokeSupplier(supplierA.publicKey)
       .accounts({
         registry: REGISTRY(),
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         supplier: pda,
       })
-      .signers([admin])
       .rpc();
     assert.equal(await connection.getAccountInfo(pda), null);
     console.log("Supplier A revoked, account closed:", pda.toBase58());
@@ -328,11 +326,10 @@ describe("supply-chain permissioned registration", () => {
       .authorizeSupplier(supplierA.publicKey)
       .accounts({
         registry: REGISTRY(),
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         supplier: pda,
         systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
       .rpc();
 
     const s = await program.account.supplier.fetch(pda);
@@ -356,5 +353,41 @@ describe("supply-chain permissioned registration", () => {
     assert.equal(p.owner.toBase58(), supplierA.publicKey.toBase58());
     assert.equal(p.units.toString(), "7");
     console.log("Supplier A re-authorized and registered again");
+  });
+
+  it("Transfers registry admin (M-11)", async () => {
+    const newAdmin = anchor.web3.Keypair.generate();
+    await airdrop(newAdmin.publicKey);
+    await program.methods
+      .transferAdmin(newAdmin.publicKey)
+      .accounts({
+        registry: REGISTRY(),
+        admin: provider.wallet.publicKey,
+      })
+      .rpc();
+    const registry = await program.account.registry.fetch(REGISTRY());
+    assert.equal(registry.admin.toBase58(), newAdmin.publicKey.toBase58());
+    // 新管理员可授权供应商
+    await program.methods
+      .transferAdmin(provider.wallet.publicKey)
+      .accounts({ registry: REGISTRY(), admin: newAdmin.publicKey })
+      .signers([newAdmin])
+      .rpc();
+    assert.equal(
+      (await program.account.registry.fetch(REGISTRY())).admin.toBase58(),
+      provider.wallet.publicKey.toBase58(),
+    );
+    console.log("Registry admin transfer ok (M-11)");
+  });
+
+  it("Rejects transferring registry admin to default pubkey", async () => {
+    await assert.rejects(
+      program.methods
+        .transferAdmin(PublicKey.default)
+        .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+        .rpc(),
+      /InvalidNewAdmin/,
+    );
+    console.log("Default-pubkey registry admin transfer rejected");
   });
 });

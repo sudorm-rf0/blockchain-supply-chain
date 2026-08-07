@@ -1,12 +1,23 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
+use anchor_lang::solana_program::program_option::COption;
+use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
+
+
+use crate::state::{
+    LP_MINT_DECIMALS, REDEEM_WINDOW_SECS, ADMIN_TRANSFER_DELAY_SECS, USDC_DECIMALS_FACTOR,
+};
 
 use crate::error::TradeFinanceError;
 use crate::state::{
     deal_status, DocumentRecord, MAX_DOCUMENT_URI_LEN, PoolState, RebateRecord, TradeDeal,
+    DividendClaim,
 };
 
 declare_id!("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
+
+/// 部署方白名单（审计 H-01）：仅允许该地址（或程序的 upgrade authority）初始化资金池。
+/// 当前为本地开发/测试钱包；主网部署前必须替换为实际部署冷钱包地址。
+pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
 
 pub mod error;
 pub mod state;
@@ -47,6 +58,39 @@ pub struct PoolStateInfo {
     pub pending_dividends: u64,
     pub platform_wallet: Pubkey,
     pub nav: u64,
+    pub paused: bool,
+    pub usdc_mint: Pubkey,
+    pub lp_mint: Pubkey,
+    pub escrow_funded: u64,
+    pub redemption_price: u64,
+    pub redeem_window_epoch: i64,
+    pub redeem_window_used: u64,
+    pub pending_admin: Pubkey,
+}
+
+#[event]
+pub struct DealCreatedEvent {
+    pub trade_id: u64,
+    pub buyer: Pubkey,
+    pub seller: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
+pub struct DepositEvent {
+    pub depositor: Pubkey,
+    pub amount: u64,
+    pub lp_shares: u64,
+    pub nav: u64,
+    pub redemption_price: u64,
+}
+
+#[event]
+pub struct DefaultEvent {
+    pub trade_id: u64,
+    pub status: u8,
+    pub recovered: u64,
+    pub insurance_payout: u64,
 }
 
 #[event]
@@ -81,6 +125,8 @@ pub struct RedeemedEvent {
     pub lp_user: Pubkey,
     pub lp_amount: u64,
     pub usdc_out: u64,
+    pub nav: u64,
+    pub redemption_price: u64,
 }
 
 #[event]
@@ -88,6 +134,8 @@ pub struct DividendDistributedEvent {
     pub recipient: Pubkey,
     pub amount: u64,
     pub remaining: u64,
+    /// 该接收方累计已领取（审计 H-02 方案 A 领取台账）。
+    pub total_claimed: u64,
 }
 
 #[event]
@@ -116,6 +164,20 @@ pub struct PlatformWalletUpdatedEvent {
     pub platform_wallet: Pubkey,
 }
 
+#[event]
+pub struct AdminTransferProposedEvent {
+    pub old_admin: Pubkey,
+    pub new_admin: Pubkey,
+    pub proposed_at: i64,
+}
+
+#[event]
+pub struct LpMintUpdatedEvent {
+    pub admin: Pubkey,
+    pub old_lp_mint: Pubkey,
+    pub new_lp_mint: Pubkey,
+}
+
 /// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
 fn validate_advance(from: u8, to: u8) -> Result<()> {
     match (from, to) {
@@ -136,6 +198,34 @@ pub mod trade_finance {
         ctx: Context<InitializePool>,
         platform_wallet: Pubkey,
     ) -> Result<()> {
+        // 审计 H-01：仅允许部署方初始化，杜绝抢先初始化抢跑。
+        // 双通道校验：①调用者为编译期部署方白名单；②调用者为程序 upgrade authority。
+        let is_deployer = ctx.accounts.admin.key() == DEPLOYER;
+        let is_upgrade_authority = ctx
+            .accounts
+            .program_data
+            .upgrade_authority_address
+            == Some(ctx.accounts.admin.key());
+        require!(
+            is_deployer || is_upgrade_authority,
+            TradeFinanceError::Unauthorized
+        );
+        // 审计 C-01：LP mint authority 必须是 pool_authority PDA（链上铸币的前提）。
+        require!(
+            ctx.accounts.lp_mint.mint_authority == COption::Some(ctx.accounts.pool_authority.key()),
+            TradeFinanceError::InvalidLpMintAuthority
+        );
+        // 审计 C-01 / M-09：不允许存在 freeze authority（防止冻结 LP 账户阻断赎回）。
+        require!(
+            ctx.accounts.lp_mint.freeze_authority.is_none(),
+            TradeFinanceError::InvalidLpMintFreezeAuthority
+        );
+        // 审计 L-05：LP mint 精度必须与协议约定一致。
+        require!(
+            ctx.accounts.lp_mint.decimals == LP_MINT_DECIMALS,
+            TradeFinanceError::InvalidMintDecimals
+        );
+
         let pool = &mut ctx.accounts.pool_state;
         pool.admin = ctx.accounts.admin.key();
         pool.platform_wallet = platform_wallet;
@@ -147,6 +237,12 @@ pub mod trade_finance {
         pool.nav = 0;
         pool.usdc_mint = ctx.accounts.usdc_mint.key();
         pool.lp_mint = ctx.accounts.lp_mint.key();
+        pool.escrow_funded = 0;
+        pool.redemption_price = 0;
+        pool.redeem_window_epoch = 0;
+        pool.redeem_window_used = 0;
+        pool.pending_admin = Pubkey::default();
+        pool.pending_admin_proposed_at = 0;
 
         msg!("pool initialized by {}", pool.admin);
         Ok(())
@@ -174,8 +270,9 @@ pub mod trade_finance {
         Ok(())
     }
 
-    /// 管理员轮换：把资金池管理员转移给新地址，降低单点私钥风险。
-    pub fn transfer_admin(ctx: Context<TransferAdmin>, new_admin: Pubkey) -> Result<()> {
+    /// 管理员轮换第一步：提出转移提案（审计 H-03 两步轮换）。
+    /// 由新管理员签名接受后生效（见 accept_admin）。
+    pub fn propose_admin(ctx: Context<ProposeAdmin>, new_admin: Pubkey) -> Result<()> {
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.admin == ctx.accounts.admin.key(),
@@ -185,8 +282,42 @@ pub mod trade_finance {
             new_admin != Pubkey::default(),
             TradeFinanceError::InvalidNewAdmin
         );
+        require!(
+            pool.pending_admin == Pubkey::default(),
+            TradeFinanceError::PendingAdminExists
+        );
         let old_admin = pool.admin;
+        pool.pending_admin = new_admin;
+        pool.pending_admin_proposed_at = Clock::get()?.unix_timestamp;
+        emit!(AdminTransferProposedEvent {
+            old_admin,
+            new_admin,
+            proposed_at: pool.pending_admin_proposed_at,
+        });
+        msg!("admin transfer proposed: {} -> {}", old_admin, new_admin);
+        Ok(())
+    }
+
+    /// 管理员轮换第二步：新管理员签名接受，锁定期结束后生效（审计 H-03）。
+    pub fn accept_admin(ctx: Context<AcceptAdmin>) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.pending_admin == ctx.accounts.new_admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            now >= pool
+                .pending_admin_proposed_at
+                .checked_add(ADMIN_TRANSFER_DELAY_SECS)
+                .ok_or(TradeFinanceError::MathOverflow)?,
+            TradeFinanceError::AdminLockNotElapsed
+        );
+        let old_admin = pool.admin;
+        let new_admin = pool.pending_admin;
         pool.admin = new_admin;
+        pool.pending_admin = Pubkey::default();
+        pool.pending_admin_proposed_at = 0;
         emit!(AdminTransferredEvent {
             old_admin,
             new_admin,
@@ -230,6 +361,14 @@ pub mod trade_finance {
             pending_dividends: pool.pending_dividends,
             platform_wallet: pool.platform_wallet,
             nav: pool.nav,
+            paused: pool.paused,
+            usdc_mint: pool.usdc_mint,
+            lp_mint: pool.lp_mint,
+            escrow_funded: pool.escrow_funded,
+            redemption_price: pool.redemption_price,
+            redeem_window_epoch: pool.redeem_window_epoch,
+            redeem_window_used: pool.redeem_window_used,
+            pending_admin: pool.pending_admin,
         })
     }
 
@@ -240,22 +379,24 @@ pub mod trade_finance {
         file_hash: [u8; 32],
         uri: String,
     ) -> Result<()> {
+        // 审计 L-06：暂停期间冻结存证写入。
+        ctx.accounts.pool_state.ensure_not_paused()?;
         require!(
             !uri.is_empty() && uri.len() <= MAX_DOCUMENT_URI_LEN,
             TradeFinanceError::InvalidDocumentUri
         );
 
-        if let Some(deal) = &ctx.accounts.deal {
-            require!(
-                deal.id == trade_id,
-                TradeFinanceError::TradeNotFound
-            );
-            require!(
-                ctx.accounts.owner.key() == deal.buyer
-                    || ctx.accounts.owner.key() == deal.seller,
-                TradeFinanceError::InvalidDocumentOwner
-            );
-        }
+        // 审计 M-06：订单为必选，且必须与单据命名空间（买方）匹配。
+        let deal = &ctx.accounts.deal;
+        require!(
+            deal.id == trade_id,
+            TradeFinanceError::TradeNotFound
+        );
+        require!(
+            ctx.accounts.owner.key() == deal.buyer
+                || ctx.accounts.owner.key() == deal.seller,
+            TradeFinanceError::InvalidDocumentOwner
+        );
 
         let clock = Clock::get()?;
         let owner = ctx.accounts.owner.key();
@@ -293,6 +434,16 @@ pub mod trade_finance {
             TradeFinanceError::InvalidTenor
         );
 
+        // 审计 M-07：禁止自融资闭环（卖方不得为买方自身或全零地址）。
+        require!(
+            seller != ctx.accounts.buyer.key(),
+            TradeFinanceError::SelfDealing
+        );
+        require!(
+            seller != Pubkey::default(),
+            TradeFinanceError::InvalidSeller
+        );
+
         let tenor = i64::try_from(
             tenor_days
                 .checked_mul(86_400)
@@ -309,8 +460,15 @@ pub mod trade_finance {
             .checked_sub(down_payment)
             .ok_or(TradeFinanceError::MathOverflow)?;
 
-        // 单笔 1% 集中度上限：pool_portion <= total_assets / 100
-        let concentration_limit = ctx.accounts.pool_state.total_assets / 100;
+        // 审计 M-08：集中度上限基于资金池可用流动性（vault - 保险 - 待分红），
+        // 而非包含买方托管的 total_assets。
+        let available = ctx
+            .accounts
+            .pool_token_account
+            .amount
+            .saturating_sub(ctx.accounts.pool_state.insurance_fund)
+            .saturating_sub(ctx.accounts.pool_state.pending_dividends);
+        let concentration_limit = available / 100;
         require!(
             pool_portion <= concentration_limit,
             TradeFinanceError::OverConcentration
@@ -352,6 +510,13 @@ pub mod trade_finance {
             .checked_add(down_payment)
             .ok_or(TradeFinanceError::MathOverflow)?;
 
+        emit!(DealCreatedEvent {
+            trade_id: deal.id,
+            buyer: deal.buyer,
+            seller: deal.seller,
+            amount: deal.amount,
+        });
+
         msg!(
             "deal {} created: buyer={}, seller={}, amount={}",
             deal.id,
@@ -362,7 +527,8 @@ pub mod trade_finance {
         Ok(())
     }
 
-    /// LP 存入稳定币：按 80%/20% 计入风险准备金与保险基金。
+    /// LP 存入稳定币：按 80%/20% 计入风险准备金与保险基金，
+    /// 并在同一指令内按当期 NAV 链上铸造 LP 份额（审计 C-01）。
     pub fn deposit_pool(ctx: Context<DepositPool>, amount: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
@@ -381,6 +547,48 @@ pub mod trade_finance {
         ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
+        let vault_before_deposit = ctx
+            .accounts
+            .pool_token_account
+            .amount
+            .checked_sub(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        let lp_supply = ctx.accounts.lp_mint.supply;
+
+        // 审计 C-01：份额发行收归合约控制——首笔按 1 USDC = 1 LP（显示单位），
+        // 后续按池子总价值定价。
+        let shares = if lp_supply == 0 {
+            amount / USDC_DECIMALS_FACTOR
+        } else {
+            let nav_base = vault_before_deposit
+                .checked_add(pool.active_capital)
+                .ok_or(TradeFinanceError::MathOverflow)?
+                .checked_add(pool.escrow_funded)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            require!(nav_base > 0, TradeFinanceError::MathOverflow);
+            ((amount as u128)
+                .checked_mul(lp_supply as u128)
+                .ok_or(TradeFinanceError::MathOverflow)?
+                / nav_base as u128) as u64
+        };
+        require!(shares > 0, TradeFinanceError::ZeroShareMint);
+
+        let pool_bump = [ctx.bumps.pool_authority];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.lp_mint.to_account_info(),
+                    to: ctx.accounts.depositor_lp_token_account.to_account_info(),
+                    authority: ctx.accounts.pool_authority.to_account_info(),
+                },
+                &[pool_signer],
+            ),
+            shares,
+        )?;
+        ctx.accounts.lp_mint.reload()?;
+
         let reserve_portion = amount
             .checked_mul(RESERVE_FUND_PCT_BPS)
             .ok_or(TradeFinanceError::MathOverflow)?
@@ -403,10 +611,28 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?;
 
         let vault_amount = ctx.accounts.pool_token_account.amount;
-        let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+        let lp_supply_after = ctx.accounts.lp_mint.supply;
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply_after)?;
+        pool.redemption_price = pool.calculate_redemption_price(vault_amount, lp_supply_after)?;
 
-        msg!("pool deposit: {} USDC, nav: {}", amount, pool.nav);
+        emit!(DepositEvent {
+            depositor: ctx.accounts.depositor.key(),
+            amount,
+            lp_shares: shares,
+            nav: pool.nav,
+            redemption_price: pool.redemption_price,
+        });
+
+        msg!(
+            "pool deposit: {} USDC, {} LP minted, nav: {}",
+            amount,
+            shares,
+            pool.nav
+        );
         Ok(())
     }
 
@@ -447,24 +673,51 @@ pub mod trade_finance {
 
         let pool = &mut ctx.accounts.pool_state;
         let total_before = pool.total_assets;
+        // 审计 M-10：total_before 作为 reserve/insurance 按比例扣减的分母，必须 > 0。
+        require!(total_before > 0, TradeFinanceError::InsufficientFunds);
         let reserve_before = pool.reserve_fund;
         let insurance_before = pool.insurance_fund;
         let total_after = total_before
             .checked_sub(usdc_out)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        // 流动性保护：赎回后 vault 现金必须仍 >= 在途应收（active_capital），
-        // 防止把 vault 抽到低于 active_capital 造成流动性风险（审计 L1）。
+        // 流动性保护：赎回后 vault 现金必须仍 >= 在途应收
+        // （active_capital + escrow_funded，审计 M-01 语义修正 + L1）。
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         let vault_after = vault_before
             .checked_sub(usdc_out)
             .ok_or(TradeFinanceError::MathOverflow)?;
         require!(
-            vault_after >= pool.active_capital,
+            vault_after >= outstanding,
             TradeFinanceError::InsufficientFunds
         );
         require!(
-            pool.active_capital <= total_after,
+            outstanding <= total_after,
             TradeFinanceError::InsufficientFunds
         );
+
+        // 审计 M-05：周期累计赎回上限（当前窗口内 used + usdc_out <= vault * 50%）。
+        let now = Clock::get()?.unix_timestamp;
+        let current_window = pool.current_redeem_window(now);
+        if pool.redeem_window_epoch != current_window {
+            pool.redeem_window_epoch = current_window;
+            pool.redeem_window_used = 0;
+        }
+        let window_cap = ((vault_before as u128)
+            .checked_mul(MAX_REDEEM_BPS as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / BPS_BASE as u128) as u64;
+        let window_after = pool
+            .redeem_window_used
+            .checked_add(usdc_out)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        require!(
+            window_after <= window_cap,
+            TradeFinanceError::RedeemWindowExceeded
+        );
+        pool.redeem_window_used = window_after;
 
         let reserve_out = ((reserve_before as u128)
             .checked_mul(usdc_out as u128)
@@ -519,12 +772,20 @@ pub mod trade_finance {
         pool.insurance_fund = insurance_after;
         let vault_after = ctx.accounts.pool_token_account.amount;
         let lp_supply_after = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_after, pool.active_capital, lp_supply_after)?;
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.nav = pool.calculate_nav(vault_after, outstanding, lp_supply_after)?;
+        // 审计 M-04：维护赎回定价（vault / supply），与账面 NAV 分开披露。
+        pool.redemption_price = pool.calculate_redemption_price(vault_after, lp_supply_after)?;
 
         emit!(RedeemedEvent {
             lp_user: ctx.accounts.lp_user.key(),
             lp_amount,
             usdc_out,
+            nav: pool.nav,
+            redemption_price: pool.redemption_price,
         });
 
         msg!(
@@ -572,13 +833,23 @@ pub mod trade_finance {
         ctx.accounts.pool_token_account.reload()?;
 
         let pool = &mut ctx.accounts.pool_state;
-        pool.active_capital = pool
-            .active_capital
+        // 审计 M-03：放款后金库现金不得低于保险基金账面，确保保险赔付有现金支撑。
+        let vault_after = ctx.accounts.pool_token_account.amount;
+        require!(
+            vault_after >= pool.insurance_fund,
+            TradeFinanceError::InsuranceFundNotBacked
+        );
+        // 审计 M-01：垫付计入 escrow_funded（在途托管），不再重复计入 active_capital。
+        pool.escrow_funded = pool
+            .escrow_funded
             .checked_add(funding_amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        let vault_amount = ctx.accounts.pool_token_account.amount;
         let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.nav = pool.calculate_nav(vault_after, outstanding, lp_supply)?;
 
         let deal = &mut ctx.accounts.deal;
         deal.set_status(deal_status::FUNDED)?;
@@ -678,24 +949,41 @@ pub mod trade_finance {
 
         let pool = &mut ctx.accounts.pool_state;
         if released {
+            // 还款期违约：保险赔付仅为 insurance_fund 内部消解，不虚增 total_assets（审计 M-02）。
             pool.insurance_fund = pool
                 .insurance_fund
                 .checked_sub(insurance_payout)
                 .ok_or(TradeFinanceError::MathOverflow)?;
+            // 应收全额核销。
             pool.total_assets = pool
                 .total_assets
                 .checked_sub(pool_portion)
-                .ok_or(TradeFinanceError::MathOverflow)?
-                .checked_add(insurance_payout)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            pool.active_capital = pool
+                .active_capital
+                .checked_sub(pool_portion)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+        } else {
+            // 未释放违约：托管整笔回池，在途垫付消除（审计 M-01）。
+            pool.escrow_funded = pool
+                .escrow_funded
+                .checked_sub(pool_portion)
                 .ok_or(TradeFinanceError::MathOverflow)?;
         }
-        pool.active_capital = pool
+        let outstanding = pool
             .active_capital
-            .checked_sub(pool_portion)
+            .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
         let vault_amount = ctx.accounts.pool_token_account.amount;
         let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
+
+        emit!(DefaultEvent {
+            trade_id,
+            status: deal_status::DEFAULTED,
+            recovered: if released { 0 } else { down_payment + pool_portion },
+            insurance_payout: if released { insurance_payout } else { 0 },
+        });
 
         msg!(
             "deal {} defaulted: liquidated {} USDC collateral, insurance payout {} USDC",
@@ -803,7 +1091,11 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?;
         let vault_amount = ctx.accounts.pool_token_account.amount;
         let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
@@ -912,6 +1204,16 @@ pub mod trade_finance {
             .total_assets
             .checked_sub(collateral_out)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        // 审计 M-01：垫付从"在途托管"转为"应收"。
+        let pool_portion = ctx.accounts.deal.pool_portion;
+        pool.escrow_funded = pool
+            .escrow_funded
+            .checked_sub(pool_portion)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.active_capital = pool
+            .active_capital
+            .checked_add(pool_portion)
+            .ok_or(TradeFinanceError::MathOverflow)?;
 
         emit!(ReleasedEvent {
             trade_id,
@@ -934,8 +1236,17 @@ pub mod trade_finance {
         let pool = &mut ctx.accounts.pool_state;
         let vault_amount = ctx.accounts.pool_token_account.amount;
         let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
-        msg!("pool nav refreshed: {}", pool.nav);
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
+        pool.redemption_price = pool.calculate_redemption_price(vault_amount, lp_supply)?;
+        msg!(
+            "pool nav refreshed: {} (redemption price {})",
+            pool.nav,
+            pool.redemption_price
+        );
         Ok(())
     }
 
@@ -981,14 +1292,30 @@ pub mod trade_finance {
             .total_assets
             .checked_sub(amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         let vault_amount = ctx.accounts.pool_token_account.amount;
         let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, pool.active_capital, lp_supply)?;
+        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
+        pool.redemption_price = pool.calculate_redemption_price(vault_amount, lp_supply)?;
+
+        // 审计 H-02 方案 A：更新分红领取台账，使管理员分配行为可被链上审计。
+        let clock = Clock::get()?;
+        let claim = &mut ctx.accounts.dividend_claim;
+        claim.recipient = ctx.accounts.recipient.key();
+        claim.total_claimed = claim
+            .total_claimed
+            .checked_add(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        claim.last_claim_at = clock.unix_timestamp;
 
         emit!(DividendDistributedEvent {
             recipient: ctx.accounts.recipient.key(),
             amount,
             remaining: pool.pending_dividends,
+            total_claimed: claim.total_claimed,
         });
         msg!(
             "distributed {} USDC dividends to {}; remaining {}",
@@ -996,6 +1323,62 @@ pub mod trade_finance {
             ctx.accounts.recipient.key(),
             pool.pending_dividends
         );
+        Ok(())
+    }
+
+    /// 更新 LP Mint（审计 M-09）：仅允许在资金池暂停、无在途敞口、旧供应量为 0 时执行。
+    pub fn set_lp_mint(ctx: Context<SetLpMint>) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(pool.paused, TradeFinanceError::PoolMustBePaused);
+        require!(
+            pool.active_capital == 0 && pool.escrow_funded == 0,
+            TradeFinanceError::OutstandingCapital
+        );
+        require!(
+            ctx.accounts.old_lp_mint.supply == 0,
+            TradeFinanceError::LpSupplyNotZero
+        );
+        // 新 mint 的属性校验（审计 C-01/L-05/M-09）：authority 为 pool_authority、无 freeze、decimals 匹配。
+        require!(
+            ctx.accounts.new_lp_mint.mint_authority
+                == COption::Some(ctx.accounts.pool_authority.key()),
+            TradeFinanceError::InvalidLpMintAuthority
+        );
+        require!(
+            ctx.accounts.new_lp_mint.freeze_authority.is_none(),
+            TradeFinanceError::InvalidLpMintFreezeAuthority
+        );
+        require!(
+            ctx.accounts.new_lp_mint.decimals == LP_MINT_DECIMALS,
+            TradeFinanceError::InvalidMintDecimals
+        );
+
+        let old_lp_mint = pool.lp_mint;
+        pool.lp_mint = ctx.accounts.new_lp_mint.key();
+        emit!(LpMintUpdatedEvent {
+            admin: pool.admin,
+            old_lp_mint,
+            new_lp_mint: pool.lp_mint,
+        });
+        msg!("lp mint updated: {} -> {}", old_lp_mint, pool.lp_mint);
+        Ok(())
+    }
+
+    /// 关闭已终态订单并退还租金（审计 L-02）。要求托管余额为 0（Accounts 约束）。
+    pub fn close_deal(ctx: Context<CloseDeal>, trade_id: u64) -> Result<()> {
+        let deal = &ctx.accounts.deal;
+        require!(
+            matches!(
+                deal.status,
+                deal_status::SETTLED | deal_status::DEFAULTED
+            ),
+            TradeFinanceError::InvalidStateTransition
+        );
+        msg!("deal {} closed, rent returned to buyer", trade_id);
         Ok(())
     }
 }
@@ -1013,9 +1396,16 @@ pub struct InitializePool<'info> {
     pub pool_state: Account<'info, PoolState>,
     #[account(mut)]
     pub admin: Signer<'info>,
-    /// 锚定的 USDC / LP Mint（审计 S-01）：初始化时写入，无链上约束（池尚不存在）。
+    /// 锚定的 USDC / LP Mint（审计 S-01）：初始化时写入。
     pub usdc_mint: Account<'info, Mint>,
+    /// LP Mint：authority 必须为 pool_authority、无 freeze authority、decimals 匹配（审计 C-01/L-05/M-09）。
     pub lp_mint: Account<'info, Mint>,
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority（同时作为 LP 铸币 authority，审计 C-01）。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+    /// 程序数据账户：upgrade authority 必须为初始化者，杜绝抢先初始化（审计 H-01）。
+    /// 地址与权限在指令体中通过 ProgramData PDA 校验。
+    pub program_data: Account<'info, ProgramData>,
     pub system_program: Program<'info, System>,
 }
 
@@ -1034,11 +1424,20 @@ pub struct SetPaused<'info> {
 }
 
 #[derive(Accounts)]
-pub struct TransferAdmin<'info> {
+pub struct ProposeAdmin<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct AcceptAdmin<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    /// 待接受的新管理员：必须是提案中的 pending_admin（审计 H-03）。
+    pub new_admin: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -1052,6 +1451,9 @@ pub struct SetPlatformWallet<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64, file_hash: [u8; 32], uri: String)]
 pub struct AttestDocument<'info> {
+    #[account(seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
     #[account(mut)]
     pub owner: Signer<'info>,
 
@@ -1062,6 +1464,7 @@ pub struct AttestDocument<'info> {
         seeds = [
             b"trade_finance",
             b"document" as &[u8],
+            buyer.key().as_ref(),
             trade_id.to_le_bytes().as_ref(),
             file_hash.as_ref()
         ],
@@ -1069,8 +1472,21 @@ pub struct AttestDocument<'info> {
     )]
     pub document: Account<'info, DocumentRecord>,
 
-    /// CHECK: 可选订单账户，用于校验单据归属（0 或未提供 trade_id 时可跳过）。
-    pub deal: Option<Account<'info, TradeDeal>>,
+    /// CHECK: 买方公钥用于推导单据 PDA（审计 M-06：按买方隔离命名空间）。
+    pub buyer: AccountInfo<'info>,
+
+    /// 关联订单：必选，且必须与买方匹配（审计 M-06，杜绝任意地址存证）。
+    #[account(
+        seeds = [
+            b"trade_finance",
+            b"deal" as &[u8],
+            buyer.key().as_ref(),
+            trade_id.to_le_bytes().as_ref()
+        ],
+        bump,
+        constraint = deal.buyer == buyer.key() @ TradeFinanceError::Unauthorized
+    )]
+    pub deal: Account<'info, TradeDeal>,
 
     pub system_program: Program<'info, System>,
 }
@@ -1118,6 +1534,18 @@ pub struct CreateDeal<'info> {
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    /// 资金池金库（审计 M-08：集中度上限改为基于可用流动性）。
+    #[account(
+        mut,
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
 }
 
 #[derive(Accounts)]
@@ -1173,8 +1601,8 @@ pub struct FundDeal<'info> {
         constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
     )]
     pub lp_mint: Account<'info, Mint>,
-}
 
+}
 #[derive(Accounts)]
 #[instruction(trade_id: u64, target_status: u8)]
 pub struct AdvanceDeal<'info> {
@@ -1270,8 +1698,8 @@ pub struct RefreshNav<'info> {
         constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
     )]
     pub lp_mint: Account<'info, Mint>,
-}
 
+}
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct RepayDeal<'info> {
@@ -1347,6 +1775,7 @@ pub struct DistributeDividends<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
+    #[account(mut)]
     pub admin: Signer<'info>,
 
     /// CHECK: 分红接收方钱包，owner 由 recipient_token_account 约束校验。
@@ -1379,8 +1808,18 @@ pub struct DistributeDividends<'info> {
         constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
     )]
     pub lp_mint: Account<'info, Mint>,
-}
 
+    /// 分红领取台账（审计 H-02 方案 A）：记录每个接收方累计领取额，使分配可审计。
+    #[account(
+        init_if_needed,
+        payer = admin,
+        space = DividendClaim::space(),
+        seeds = [b"trade_finance", b"dividend_claim" as &[u8], recipient.key().as_ref()],
+        bump
+    )]
+    pub dividend_claim: Account<'info, DividendClaim>,
+    pub system_program: Program<'info, System>,
+}
 #[derive(Accounts)]
 pub struct DepositPool<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
@@ -1412,9 +1851,18 @@ pub struct DepositPool<'info> {
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
     #[account(
+        mut,
         constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
     )]
     pub lp_mint: Account<'info, Mint>,
+
+    /// 出资人 LP 代币账户（审计 C-01：存入 USDC 后在同一指令内按 NAV 铸造 LP）。
+    #[account(
+        mut,
+        constraint = depositor_lp_token_account.owner == depositor.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = depositor_lp_token_account.mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub depositor_lp_token_account: Account<'info, TokenAccount>,
 }
 
 #[derive(Accounts)]
@@ -1512,4 +1960,60 @@ pub struct DefaultDeal<'info> {
         constraint = pool_state.lp_mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
     )]
     pub lp_mint: Account<'info, Mint>,
+
+}
+#[derive(Accounts)]
+pub struct SetLpMint<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+
+    /// 旧 LP Mint：供应量必须为 0（审计 M-09）。
+    #[account(
+        constraint = pool_state.lp_mint == old_lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub old_lp_mint: Account<'info, Mint>,
+
+    /// 新 LP Mint：authority 必须为 pool_authority、无 freeze authority、decimals 匹配（审计 M-09）。
+    pub new_lp_mint: Account<'info, Mint>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority（新 LP mint 的 authority）。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(trade_id: u64)]
+pub struct CloseDeal<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    /// 买方：推导订单 PDA，并作为租金退还接收方签名关闭（审计 L-02）。
+    #[account(mut)]
+    pub buyer: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [
+            b"trade_finance",
+            b"deal" as &[u8],
+            buyer.key().as_ref(),
+            trade_id.to_le_bytes().as_ref()
+        ],
+        bump,
+        close = buyer,
+        constraint = deal.buyer == buyer.key() @ TradeFinanceError::Unauthorized
+    )]
+    pub deal: Account<'info, TradeDeal>,
+
+    /// 托管账户：必须已清空（余额为 0）方可关闭订单（审计 L-02）。
+    #[account(
+        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = deal_token_account.mint == pool_state.usdc_mint @ TradeFinanceError::WrongTokenMint,
+        constraint = deal_token_account.amount == 0 @ TradeFinanceError::InvalidAmount
+    )]
+    pub deal_token_account: Account<'info, TokenAccount>,
+
+    pub system_program: Program<'info, System>,
 }

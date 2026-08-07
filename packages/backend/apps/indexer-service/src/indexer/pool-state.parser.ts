@@ -1,9 +1,13 @@
+import { PublicKey } from "@solana/web3.js";
 import { PoolSnapshotPayload } from "./payloads";
 
 // 布局锚定：discriminator(8) + admin(32) + total_assets(8) + active_capital(8)
 // + reserve_fund(8) + insurance_fund(8) + pending_dividends(8) + platform_wallet(32)
-// + nav(8) + paused(1) = 121。与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 185;
+// + nav(8) + paused(1) + usdc_mint(32) + lp_mint(32) + escrow_funded(8)
+// + redemption_price(8) + redeem_window_epoch(8) + redeem_window_used(8)
+// + pending_admin(32) + pending_admin_proposed_at(8) = 257。
+// 与 state.rs PoolState::space() 逐字段一致。
+export const POOL_STATE_ACCOUNT_SIZE = 257;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;
@@ -16,6 +20,13 @@ const OFFSET_INSURANCE_FUND = OFFSET_RESERVE_FUND + U64_SIZE;
 const OFFSET_PENDING_DIVIDENDS = OFFSET_INSURANCE_FUND + U64_SIZE;
 const OFFSET_NAV = OFFSET_PENDING_DIVIDENDS + U64_SIZE + PUBKEY_SIZE;
 const OFFSET_PAUSED = OFFSET_NAV + U64_SIZE;
+// paused(1) 之后为 usdc_mint(32)、lp_mint(32)，再后为 escrow_funded。
+const OFFSET_ESCROW_FUNDED = OFFSET_PAUSED + 1 + PUBKEY_SIZE + PUBKEY_SIZE;
+const OFFSET_REDEMPTION_PRICE = OFFSET_ESCROW_FUNDED + U64_SIZE;
+const OFFSET_REDEEM_WINDOW_EPOCH = OFFSET_REDEMPTION_PRICE + U64_SIZE;
+const OFFSET_REDEEM_WINDOW_USED = OFFSET_REDEEM_WINDOW_EPOCH + U64_SIZE;
+const OFFSET_PENDING_ADMIN = OFFSET_REDEEM_WINDOW_USED + U64_SIZE;
+const OFFSET_PENDING_ADMIN_PROPOSED_AT = OFFSET_PENDING_ADMIN + PUBKEY_SIZE;
 
 export function parsePoolStateBuffer(
   data: Buffer,
@@ -34,8 +45,17 @@ export function parsePoolStateBuffer(
   const nav = data.readBigUInt64LE(OFFSET_NAV);
   const utilizationBps =
     totalAssets > 0n ? Number((activeCapital * 10_000n) / totalAssets) : 0;
-  // 紧急暂停开关位于账户末尾（nav 之后）；历史账户（120 字节）视为未暂停。
-  const paused = data.length > OFFSET_PAUSED ? data.readUInt8(OFFSET_PAUSED) === 1 : false;
+  const paused = data.readUInt8(OFFSET_PAUSED) === 1;
+  const escrowFunded = data.readBigUInt64LE(OFFSET_ESCROW_FUNDED);
+  const redemptionPrice = data.readBigUInt64LE(OFFSET_REDEMPTION_PRICE);
+  const redeemWindowEpoch = data.readBigInt64LE(OFFSET_REDEEM_WINDOW_EPOCH);
+  const redeemWindowUsed = data.readBigUInt64LE(OFFSET_REDEEM_WINDOW_USED);
+  const pendingAdmin = new PublicKey(
+    data.subarray(OFFSET_PENDING_ADMIN, OFFSET_PENDING_ADMIN + PUBKEY_SIZE),
+  ).toBase58();
+  const pendingAdminProposedAt = data.readBigInt64LE(
+    OFFSET_PENDING_ADMIN_PROPOSED_AT,
+  );
 
   return {
     poolAddress,
@@ -47,6 +67,12 @@ export function parsePoolStateBuffer(
     nav: nav.toString(10),
     utilizationBps,
     paused,
+    escrowFunded: escrowFunded.toString(10),
+    redemptionPrice: redemptionPrice.toString(10),
+    redeemWindowEpoch: redeemWindowEpoch.toString(10),
+    redeemWindowUsed: redeemWindowUsed.toString(10),
+    pendingAdmin,
+    pendingAdminProposedAt: pendingAdminProposedAt.toString(10),
     capturedAt: capturedAt.toISOString(),
   };
 }

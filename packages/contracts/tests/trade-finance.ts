@@ -121,10 +121,14 @@ describe("trade-finance full lifecycle", () => {
     const pool = await poolSnapshot();
     const vault = await vaultBalance();
     const escrowSum = await allKnownEscrowSum();
+    // 审计 M-01 修正后的恒等式：total_assets = vault + 托管 + active_capital。
+    // （fund 后 active_capital 不再重复计入垫付；escrow_funded 仅用于 NAV 与流动性保护。）
+    const expected =
+      vault + escrowSum + BigInt(pool.activeCapital.toString());
     assert.equal(
       pool.totalAssets.toString(),
-      (vault + escrowSum).toString(),
-      `${label}: total_assets(${pool.totalAssets}) 应等于 vault(${vault}) + 托管(${escrowSum})`,
+      expected.toString(),
+      `${label}: total_assets(${pool.totalAssets}) 应等于 vault(${vault}) + 托管(${escrowSum}) + active(${pool.activeCapital})`,
     );
   }
 
@@ -141,15 +145,38 @@ describe("trade-finance full lifecycle", () => {
     )[0];
   }
 
-  function documentPda(tradeId: anchor.BN, fileHash: Buffer): PublicKey {
+  function documentPda(
+    tradeId: anchor.BN,
+    fileHash: Buffer,
+    buyerKey: PublicKey,
+  ): PublicKey {
     return PublicKey.findProgramAddressSync(
       [
         Buffer.from("trade_finance"),
         Buffer.from("document"),
+        buyerKey.toBuffer(),
         tradeId.toArrayLike(Buffer, "le", 8),
         fileHash,
       ],
       program.programId,
+    )[0];
+  }
+
+  function dividendClaimPda(recipient: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("trade_finance"),
+        Buffer.from("dividend_claim"),
+        recipient.toBuffer(),
+      ],
+      program.programId,
+    )[0];
+  }
+
+  function programDataPda(): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [program.programId.toBuffer()],
+      new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
     )[0];
   }
 
@@ -166,26 +193,16 @@ describe("trade-finance full lifecycle", () => {
 
   before(async () => {
     payer = anchor.web3.Keypair.generate();
-    admin = anchor.web3.Keypair.generate();
     buyer = anchor.web3.Keypair.generate();
     seller = anchor.web3.Keypair.generate();
     lp = anchor.web3.Keypair.generate();
     platformWallet = anchor.web3.Keypair.generate();
 
     await Promise.all(
-      [payer, admin, buyer, seller, lp, platformWallet].map((keypair) =>
+      [payer, buyer, seller, lp, platformWallet].map((keypair) =>
         airdrop(keypair.publicKey),
       ),
     );
-
-    usdcMint = await createMint(
-      connection,
-      payer,
-      payer.publicKey,
-      null,
-      USDC_DECIMALS,
-    );
-    lpMint = await createMint(connection, payer, payer.publicKey, null, 0);
 
     poolStatePda = PublicKey.findProgramAddressSync(
       POOL_SEEDS,
@@ -195,6 +212,16 @@ describe("trade-finance full lifecycle", () => {
       POOL_AUTHORITY_SEEDS,
       program.programId,
     )[0];
+
+    usdcMint = await createMint(
+      connection,
+      payer,
+      payer.publicKey,
+      null,
+      USDC_DECIMALS,
+    );
+    // 审计 C-01：LP mint authority 必须是 pool_authority PDA（链上铸币）。
+    lpMint = await createMint(connection, payer, poolAuthorityPda, null, 0);
 
     buyerAta = await createAta(buyer.publicKey);
     sellerAta = await createAta(seller.publicKey);
@@ -219,14 +246,7 @@ describe("trade-finance full lifecycle", () => {
       payer.publicKey,
       USDC(2_000),
     );
-    await mintTo(
-      connection,
-      payer,
-      lpMint,
-      lpTokenAta,
-      payer.publicKey,
-      100_000,
-    );
+    // 审计 C-01：LP 份额由 deposit_pool 链上铸造，不再手动 mintTo。
   });
 
   it("Initializes Pool State", async () => {
@@ -234,12 +254,13 @@ describe("trade-finance full lifecycle", () => {
       .initializePool(platformWallet.publicKey)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         usdcMint,
         lpMint,
+        poolAuthority: poolAuthorityPda,
+        programData: programDataPda(),
         systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
       .rpc();
 
     await program.methods
@@ -253,14 +274,23 @@ describe("trade-finance full lifecycle", () => {
         usdcMint,
         lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
+        depositorLpTokenAccount: lpTokenAta,
       })
       .signers([lp])
       .rpc();
 
     const poolState = await program.account.poolState.fetch(poolStatePda);
-    assert.equal(poolState.admin.toBase58(), admin.publicKey.toBase58());
+    assert.equal(poolState.admin.toBase58(), provider.wallet.publicKey.toBase58());
     assert.equal(poolState.totalAssets.toString(), USDC(100_000).toString());
     assert.equal(poolState.nav.toString(), USDC(1).toString());
+    // 审计 C-01：存入 USDC 后链上铸造 LP（首笔 1 USDC = 1 LP）。
+    const lpBalance = await getAccount(connection, lpTokenAta);
+    assert.equal(lpBalance.amount, BigInt(100_000), "deposit 应链上铸造 100_000 LP");
+    assert.equal(
+      poolState.redemptionPrice.toString(),
+      USDC(1).toString(),
+      "redemption_price 应等于 1 USDC/LP",
+    );
     console.log("Pool admin:", poolState.admin.toBase58());
     console.log("Pool totalAssets:", poolState.totalAssets.toString());
     console.log("Pool nav:", poolState.nav.toString());
@@ -272,13 +302,14 @@ describe("trade-finance full lifecycle", () => {
         .initializePool(platformWallet.publicKey)
         .accounts({
           poolState: poolStatePda,
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
           usdcMint,
           lpMint,
+          poolAuthority: poolAuthorityPda,
+          programData: programDataPda(),
           systemProgram: SystemProgram.programId,
         })
-        .signers([admin])
-        .rpc(),
+          .rpc(),
       /already in use|AccountDiscriminator|ConstraintSeeds/i,
     );
     console.log("Pool re-initialization rejected");
@@ -302,6 +333,8 @@ describe("trade-finance full lifecycle", () => {
         usdcMint,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
       })
       .signers([buyer])
       .rpc();
@@ -325,12 +358,14 @@ describe("trade-finance full lifecycle", () => {
       anchor.web3.Keypair.generate().publicKey.toBytes(),
     );
     const uri = "ipfs://bafybeig7/export-invoice-trade-1.pdf";
-    const doc = documentPda(tradeId, fileHash);
+    const doc = documentPda(tradeId, fileHash, buyer.publicKey);
 
     await program.methods
       .attestDocument(tradeId, fileHash, uri)
       .accounts({
+        poolState: poolStatePda,
         owner: buyer.publicKey,
+        buyer: buyer.publicKey,
         document: doc,
         deal: dealPda(buyer.publicKey, tradeId),
         systemProgram: SystemProgram.programId,
@@ -345,28 +380,34 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(record.uri, uri);
     assert.ok(record.uploadedAt.gt(new anchor.BN(0)));
 
+    // 审计 M-06：无关联订单（deal 必选）的独立存证被拒绝。
     const standaloneHash = Buffer.from(
       anchor.web3.Keypair.generate().publicKey.toBytes(),
     );
     const standaloneUri = "ipfs://bafybeig7/standalone-bill-of-lading.pdf";
-    const standaloneDoc = documentPda(new anchor.BN(0), standaloneHash);
-    await program.methods
-      .attestDocument(new anchor.BN(0), standaloneHash, standaloneUri)
-      .accounts({
-        owner: buyer.publicKey,
-        document: standaloneDoc,
-        deal: null,
-        systemProgram: SystemProgram.programId,
-      })
-      .signers([buyer])
-      .rpc();
-    const standalone = await program.account.documentRecord.fetch(standaloneDoc);
-    assert.equal(standalone.tradeId.toString(), "0");
-    assert.equal(standalone.uri, standaloneUri);
+    await assert.rejects(
+      program.methods
+        .attestDocument(new anchor.BN(0), standaloneHash, standaloneUri)
+        .accounts({
+          poolState: poolStatePda,
+          owner: buyer.publicKey,
+          buyer: buyer.publicKey,
+          document: documentPda(
+            new anchor.BN(0),
+            standaloneHash,
+            buyer.publicKey,
+          ),
+          deal: dealPda(buyer.publicKey, new anchor.BN(0)),
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([buyer])
+        .rpc(),
+      /ConstraintSeeds|AccountNotFound|AccountNotInitialized|TradeNotFound/i,
+    );
+    console.log("Standalone attestation rejected (M-06)");
     console.log("Document PDA:", doc.toBase58());
     console.log("Document URI:", record.uri);
     console.log("Document uploadedAt:", record.uploadedAt.toString());
-    console.log("Standalone document PDA:", standaloneDoc.toBase58());
   });
 
   it("Funds a deal", async () => {
@@ -378,7 +419,7 @@ describe("trade-finance full lifecycle", () => {
       .fundDeal(tradeId)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         buyer: buyer.publicKey,
         deal,
         poolAuthority: poolAuthorityPda,
@@ -388,13 +429,14 @@ describe("trade-finance full lifecycle", () => {
         lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([admin])
       .rpc();
 
     const dealState = await program.account.tradeDeal.fetch(deal);
     const poolState = await program.account.poolState.fetch(poolStatePda);
     assert.equal(dealState.status, 1); // Funded
-    assert.equal(poolState.activeCapital.toString(), USDC(700).toString());
+    // 审计 M-01：垫付计入 escrow_funded（在途托管），active_capital 保持 0。
+    assert.equal(poolState.escrowFunded.toString(), USDC(700).toString());
+    assert.equal(poolState.activeCapital.toString(), "0");
     assert.equal(poolState.totalAssets.toString(), USDC(100_300).toString());
     assert.equal(poolState.nav.toString(), USDC(1).toString());
     const poolVaultAfterFund = await getAccount(connection, poolTokenAccount);
@@ -417,12 +459,11 @@ describe("trade-finance full lifecycle", () => {
         .advanceDeal(tradeId, target)
         .accounts({
           poolState: poolStatePda,
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
           buyer: buyer.publicKey,
           deal,
         })
-        .signers([admin])
-        .rpc();
+          .rpc();
     }
     let dealState = await program.account.tradeDeal.fetch(deal);
     assert.equal(dealState.status, 4); // Delivered
@@ -432,7 +473,7 @@ describe("trade-finance full lifecycle", () => {
       .releaseToSeller(tradeId)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         buyer: buyer.publicKey,
         deal,
         dealTokenAccount,
@@ -440,7 +481,6 @@ describe("trade-finance full lifecycle", () => {
         usdcMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([admin])
       .rpc();
     dealState = await program.account.tradeDeal.fetch(deal);
     assert.equal(dealState.status, 5); // Repaying
@@ -511,6 +551,8 @@ describe("trade-finance full lifecycle", () => {
           usdcMint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
         })
         .signers([buyer])
         .rpc();
@@ -533,7 +575,7 @@ describe("trade-finance full lifecycle", () => {
       .distributeDividends(pending)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         recipient: lp.publicKey,
         recipientTokenAccount: lpAta,
         poolAuthority: poolAuthorityPda,
@@ -541,8 +583,9 @@ describe("trade-finance full lifecycle", () => {
         usdcMint,
         lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
+        dividendClaim: dividendClaimPda(lp.publicKey),
+        systemProgram: SystemProgram.programId,
       })
-      .signers([admin])
       .rpc();
 
     const poolAfter = await program.account.poolState.fetch(poolStatePda);
@@ -569,7 +612,7 @@ describe("trade-finance full lifecycle", () => {
         .distributeDividends(pending.add(new anchor.BN(1)))
         .accounts({
           poolState: poolStatePda,
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
           recipient: lp.publicKey,
           recipientTokenAccount: lpAta,
           poolAuthority: poolAuthorityPda,
@@ -577,9 +620,10 @@ describe("trade-finance full lifecycle", () => {
           usdcMint,
           lpMint,
           tokenProgram: TOKEN_PROGRAM_ID,
+          dividendClaim: dividendClaimPda(lp.publicKey),
+          systemProgram: SystemProgram.programId,
         })
-        .signers([admin])
-        .rpc(),
+          .rpc(),
       /InsufficientDividends/,
     );
     console.log("Over-distribution rejected");
@@ -590,27 +634,26 @@ describe("trade-finance full lifecycle", () => {
       anchor.web3.Keypair.generate().publicKey.toBytes(),
     );
     const uri = "ipfs://bafybeig7/duplicate-doc.pdf";
-    const doc = documentPda(new anchor.BN(0), fileHash);
+    const doc = documentPda(new anchor.BN(1), fileHash, buyer.publicKey);
+    const deal = dealPda(buyer.publicKey, new anchor.BN(1));
+    const attestAccounts = {
+      poolState: poolStatePda,
+      owner: buyer.publicKey,
+      buyer: buyer.publicKey,
+      document: doc,
+      deal,
+      systemProgram: SystemProgram.programId,
+    };
     await program.methods
-      .attestDocument(new anchor.BN(0), fileHash, uri)
-      .accounts({
-        owner: buyer.publicKey,
-        document: doc,
-        deal: null,
-        systemProgram: SystemProgram.programId,
-      })
+      .attestDocument(new anchor.BN(1), fileHash, uri)
+      .accounts(attestAccounts)
       .signers([buyer])
       .rpc();
 
     await assert.rejects(
       program.methods
-        .attestDocument(new anchor.BN(0), fileHash, uri)
-        .accounts({
-          owner: buyer.publicKey,
-          document: doc,
-          deal: null,
-          systemProgram: SystemProgram.programId,
-        })
+        .attestDocument(new anchor.BN(1), fileHash, uri)
+        .accounts(attestAccounts)
         .signers([buyer])
         .rpc(),
       /already in use|AccountDiscriminator|ConstraintSeeds/i,
@@ -636,6 +679,8 @@ describe("trade-finance full lifecycle", () => {
         usdcMint,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
       })
       .signers([buyer])
       .rpc();
@@ -644,7 +689,7 @@ describe("trade-finance full lifecycle", () => {
       .fundDeal(tradeId)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         buyer: buyer.publicKey,
         deal,
         poolAuthority: poolAuthorityPda,
@@ -654,7 +699,6 @@ describe("trade-finance full lifecycle", () => {
         lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([admin])
       .rpc();
 
     const poolBefore = await getAccount(connection, poolTokenAccount);
@@ -664,7 +708,7 @@ describe("trade-finance full lifecycle", () => {
       .defaultDeal(tradeId)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         buyer: buyer.publicKey,
         deal,
         poolAuthority: poolAuthorityPda,
@@ -674,7 +718,6 @@ describe("trade-finance full lifecycle", () => {
         lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([admin])
       .rpc();
 
     const dealState = await program.account.tradeDeal.fetch(deal);
@@ -777,6 +820,8 @@ describe("trade-finance full lifecycle", () => {
       usdcMint,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
+      poolAuthority: poolAuthorityPda,
+      poolTokenAccount,
     });
 
     let edgeBuyer: anchor.web3.Keypair;
@@ -804,11 +849,13 @@ describe("trade-finance full lifecycle", () => {
       usdcMint,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
+      poolAuthority: poolAuthorityPda,
+      poolTokenAccount,
     });
 
     const FUND_ACCOUNTS = (deal: PublicKey, dealTokenAccount: PublicKey) => ({
       poolState: poolStatePda,
-      admin: admin.publicKey,
+      admin: provider.wallet.publicKey,
       buyer: edgeBuyer.publicKey,
       deal,
       poolAuthority: poolAuthorityPda,
@@ -851,14 +898,12 @@ describe("trade-finance full lifecycle", () => {
       await program.methods
         .fundDeal(tradeId)
         .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-        .signers([admin])
-        .rpc();
+          .rpc();
       await assert.rejects(
         program.methods
           .fundDeal(tradeId)
           .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-          .signers([admin])
-          .rpc(),
+              .rpc(),
         /DealNotPending/,
       );
       console.log("Double funding rejected");
@@ -877,8 +922,7 @@ describe("trade-finance full lifecycle", () => {
       await program.methods
         .fundDeal(tradeId)
         .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-        .signers([admin])
-        .rpc();
+          .rpc();
       await assert.rejects(
         program.methods
           .repayDeal(tradeId)
@@ -917,19 +961,17 @@ describe("trade-finance full lifecycle", () => {
       await program.methods
         .fundDeal(tradeId)
         .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-        .signers([admin])
-        .rpc();
+          .rpc();
       await assert.rejects(
         program.methods
           .advanceDeal(tradeId, 4)
           .accounts({
             poolState: poolStatePda,
-            admin: admin.publicKey,
+            admin: provider.wallet.publicKey,
             buyer: edgeBuyer.publicKey,
             deal,
           })
-          .signers([admin])
-          .rpc(),
+              .rpc(),
         /InvalidStateTransition/,
       );
       console.log("Skipped logistics state rejected");
@@ -950,7 +992,7 @@ describe("trade-finance full lifecycle", () => {
           .defaultDeal(tradeId)
           .accounts({
             poolState: poolStatePda,
-            admin: admin.publicKey,
+            admin: provider.wallet.publicKey,
             buyer: edgeBuyer.publicKey,
             deal,
             poolAuthority: poolAuthorityPda,
@@ -960,8 +1002,7 @@ describe("trade-finance full lifecycle", () => {
             lpMint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
-          .signers([admin])
-          .rpc(),
+              .rpc(),
         /InvalidStateTransition/,
       );
       console.log("Default on Pending rejected");
@@ -980,25 +1021,23 @@ describe("trade-finance full lifecycle", () => {
       await program.methods
         .fundDeal(tradeId)
         .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-        .signers([admin])
-        .rpc();
+          .rpc();
       for (const target of [2, 3, 4]) {
         await program.methods
           .advanceDeal(tradeId, target)
           .accounts({
             poolState: poolStatePda,
-            admin: admin.publicKey,
+            admin: provider.wallet.publicKey,
             buyer: edgeBuyer.publicKey,
             deal,
           })
-          .signers([admin])
-          .rpc();
+              .rpc();
       }
       await program.methods
         .releaseToSeller(tradeId)
         .accounts({
           poolState: poolStatePda,
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
           buyer: edgeBuyer.publicKey,
           deal,
           dealTokenAccount,
@@ -1006,15 +1045,14 @@ describe("trade-finance full lifecycle", () => {
           usdcMint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .signers([admin])
-        .rpc();
+          .rpc();
 
       await assert.rejects(
         program.methods
           .defaultDeal(tradeId)
           .accounts({
             poolState: poolStatePda,
-            admin: admin.publicKey,
+            admin: provider.wallet.publicKey,
             buyer: edgeBuyer.publicKey,
             deal,
             poolAuthority: poolAuthorityPda,
@@ -1024,8 +1062,7 @@ describe("trade-finance full lifecycle", () => {
             lpMint,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
-          .signers([admin])
-          .rpc(),
+              .rpc(),
         /DealNotExpired/,
       );
       console.log("Default on unexpired REPAYING deal rejected");
@@ -1044,25 +1081,23 @@ describe("trade-finance full lifecycle", () => {
       await program.methods
         .fundDeal(tradeId)
         .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-        .signers([admin])
-        .rpc();
+          .rpc();
       for (const target of [2, 3, 4]) {
         await program.methods
           .advanceDeal(tradeId, target)
           .accounts({
             poolState: poolStatePda,
-            admin: admin.publicKey,
+            admin: provider.wallet.publicKey,
             buyer: edgeBuyer.publicKey,
             deal,
           })
-          .signers([admin])
-          .rpc();
+              .rpc();
       }
       await program.methods
         .releaseToSeller(tradeId)
         .accounts({
           poolState: poolStatePda,
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
           buyer: edgeBuyer.publicKey,
           deal,
           dealTokenAccount,
@@ -1070,8 +1105,7 @@ describe("trade-finance full lifecycle", () => {
           usdcMint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .signers([admin])
-        .rpc();
+          .rpc();
       await assert.rejects(
         program.methods
           .repayDeal(tradeId)
@@ -1111,6 +1145,8 @@ describe("trade-finance full lifecycle", () => {
           usdcMint,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
         })
         .signers([cashBuyer])
         .rpc();
@@ -1118,7 +1154,7 @@ describe("trade-finance full lifecycle", () => {
         .fundDeal(tradeId)
         .accounts({
           poolState: poolStatePda,
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
           buyer: cashBuyer.publicKey,
           deal,
           poolAuthority: poolAuthorityPda,
@@ -1128,25 +1164,23 @@ describe("trade-finance full lifecycle", () => {
           lpMint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .signers([admin])
-        .rpc();
+          .rpc();
       for (const target of [2, 3, 4]) {
         await program.methods
           .advanceDeal(tradeId, target)
           .accounts({
             poolState: poolStatePda,
-            admin: admin.publicKey,
+            admin: provider.wallet.publicKey,
             buyer: cashBuyer.publicKey,
             deal,
           })
-          .signers([admin])
-          .rpc();
+              .rpc();
       }
       await program.methods
         .releaseToSeller(tradeId)
         .accounts({
           poolState: poolStatePda,
-          admin: admin.publicKey,
+          admin: provider.wallet.publicKey,
           buyer: cashBuyer.publicKey,
           deal,
           dealTokenAccount,
@@ -1154,8 +1188,7 @@ describe("trade-finance full lifecycle", () => {
           usdcMint,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .signers([admin])
-        .rpc();
+          .rpc();
 
       await assert.rejects(
         program.methods
@@ -1181,8 +1214,7 @@ describe("trade-finance full lifecycle", () => {
       await program.methods
         .fundDeal(tradeId)
         .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-        .signers([admin])
-        .rpc();
+          .rpc();
       await assert.rejects(
         program.methods
           .advanceDeal(tradeId, 2)
@@ -1259,6 +1291,8 @@ describe("trade-finance full lifecycle", () => {
             usdcMint,
             tokenProgram: TOKEN_PROGRAM_ID,
             systemProgram: SystemProgram.programId,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
           })
           .signers([poorBuyer])
           .rpc(),
@@ -1308,12 +1342,11 @@ describe("trade-finance full lifecycle", () => {
           .advanceDeal(tradeId, 2)
           .accounts({
             poolState: poolStatePda,
-            admin: admin.publicKey,
+            admin: provider.wallet.publicKey,
             buyer: buyer.publicKey,
             deal,
           })
-          .signers([admin])
-          .rpc(),
+              .rpc(),
         /InvalidStateTransition|Invalid state transition/,
       );
       console.log("Invalid state transition rejected");
@@ -1354,8 +1387,7 @@ describe("trade-finance full lifecycle", () => {
       await program.methods
         .fundDeal(tradeId)
         .accounts(FUND_ACCOUNTS(deal, dealTokenAccount))
-        .signers([admin])
-        .rpc();
+          .rpc();
       // 复用链上已有的 lpMint 作为“不匹配的 USDC mint”：pool_token_account.mint
       // (真实 USDC) != usdc_mint.key() (lpMint)，Anchor 在指令体执行前即拒绝。
       await assert.rejects(
@@ -1365,8 +1397,7 @@ describe("trade-finance full lifecycle", () => {
             ...FUND_ACCOUNTS(deal, dealTokenAccount),
             usdcMint: lpMint,
           })
-          .signers([admin])
-          .rpc(),
+              .rpc(),
         /ConstraintMint|mint/i,
       );
     });
@@ -1425,6 +1456,8 @@ describe("trade-finance full lifecycle", () => {
         usdcMint,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
       })
       .signers([buyer])
       .rpc();
@@ -1445,7 +1478,7 @@ describe("trade-finance full lifecycle", () => {
       .fundDeal(tradeId)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         buyer: buyer.publicKey,
         deal,
         poolAuthority: poolAuthorityPda,
@@ -1455,7 +1488,6 @@ describe("trade-finance full lifecycle", () => {
         lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([admin])
       .rpc();
     assert.equal(
       (await escrowBalance(dealTokenAccount)) - escrowBefore,
@@ -1478,7 +1510,7 @@ describe("trade-finance full lifecycle", () => {
       .defaultDeal(tradeId)
       .accounts({
         poolState: poolStatePda,
-        admin: admin.publicKey,
+        admin: provider.wallet.publicKey,
         buyer: buyer.publicKey,
         deal,
         poolAuthority: poolAuthorityPda,
@@ -1488,7 +1520,6 @@ describe("trade-finance full lifecycle", () => {
         lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([admin])
       .rpc();
     assert.equal(await escrowBalance(dealTokenAccount), 0n, "default 后托管清零");
     assert.equal(
@@ -1523,14 +1554,15 @@ describe("trade-finance full lifecycle", () => {
     });
 
     async function setPausedAs(
-      keypair: anchor.web3.Keypair,
       paused: boolean,
+      signer?: anchor.web3.Keypair,
     ): Promise<void> {
-      await program.methods
-        .setPaused(paused)
-        .accounts({ poolState: poolStatePda, admin: keypair.publicKey })
-        .signers([keypair])
-        .rpc();
+      const adminKey = signer ? signer.publicKey : provider.wallet.publicKey;
+      const call = program.methods.setPaused(paused).accounts({
+        poolState: poolStatePda,
+        admin: adminKey,
+      });
+      await (signer ? call.signers([signer]).rpc() : call.rpc());
     }
 
     before(async () => {
@@ -1539,26 +1571,42 @@ describe("trade-finance full lifecycle", () => {
       await airdrop(govLp.publicKey);
       govLpAta = await createAta(govLp.publicKey);
       govLpTokenAta = await createAtaFor(lpMint, govLp.publicKey);
+      // 审计 C-01：LP 只能通过 deposit_pool 链上铸造获得。
       await mintTo(
         connection,
         payer,
-        lpMint,
-        govLpTokenAta,
+        usdcMint,
+        govLpAta,
         payer.publicKey,
-        100_000,
+        USDC(10_000),
       );
+      await program.methods
+        .depositPool(new anchor.BN(USDC(10_000)))
+        .accounts({
+          poolState: poolStatePda,
+          depositor: govLp.publicKey,
+          depositorTokenAccount: govLpAta,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+          usdcMint,
+          lpMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          depositorLpTokenAccount: govLpTokenAta,
+        })
+        .signers([govLp])
+        .rpc();
     });
 
     it("Admin can pause and unpause the pool", async () => {
-      await setPausedAs(admin, true);
+      await setPausedAs(true);
       assert.equal((await poolSnapshot()).paused, true);
-      await setPausedAs(admin, false);
+      await setPausedAs(false);
       assert.equal((await poolSnapshot()).paused, false);
       console.log("Pool pause/unpause ok");
     });
 
     it("Pause freezes money-moving ops and unpause resumes them", async () => {
-      await setPausedAs(admin, true);
+      await setPausedAs(true);
       // 暂停时赎回被冻结（与建单/放款/还款/违约/释放/分红共用同一守卫）
       await assert.rejects(
         program.methods
@@ -1570,7 +1618,7 @@ describe("trade-finance full lifecycle", () => {
       );
       console.log("Redeem blocked while paused");
 
-      await setPausedAs(admin, false);
+      await setPausedAs(false);
       const lpTokenBefore = await getAccount(connection, govLpTokenAta);
       await program.methods
         .redeemLp(new anchor.BN(1_000))
@@ -1598,67 +1646,87 @@ describe("trade-finance full lifecycle", () => {
       console.log("Non-admin pause rejected");
     });
 
-    it("Transfers admin; old admin loses control, new admin gains it", async () => {
+    it("Proposes and accepts admin transfer (two-step rotation, H-03)", async () => {
       const newAdmin = anchor.web3.Keypair.generate();
       await airdrop(newAdmin.publicKey);
 
+      // 第一步：旧管理员提出提案
       await program.methods
-        .transferAdmin(newAdmin.publicKey)
-        .accounts({ poolState: poolStatePda, admin: admin.publicKey })
-        .signers([admin])
+        .proposeAdmin(newAdmin.publicKey)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      assert.equal(
+        (await poolSnapshot()).pendingAdmin.toBase58(),
+        newAdmin.publicKey.toBase58(),
+      );
+
+      // 提案期间旧管理员仍有权
+      await setPausedAs(true);
+      await setPausedAs(false);
+
+      // 第二步：新管理员签名接受
+      await program.methods
+        .acceptAdmin()
+        .accounts({ poolState: poolStatePda, newAdmin: newAdmin.publicKey })
+        .signers([newAdmin])
         .rpc();
       assert.equal(
         (await poolSnapshot()).admin.toBase58(),
         newAdmin.publicKey.toBase58(),
+      );
+      assert.equal(
+        (await poolSnapshot()).pendingAdmin.toBase58(),
+        PublicKey.default.toBase58(),
       );
 
       // 旧管理员不再有权
       await assert.rejects(
         program.methods
           .setPaused(true)
-          .accounts({ poolState: poolStatePda, admin: admin.publicKey })
-          .signers([admin])
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
           .rpc(),
         /Unauthorized/,
       );
 
       // 新管理员可暂停/恢复
-      await setPausedAs(newAdmin, true);
+      await setPausedAs(true, newAdmin);
       assert.equal((await poolSnapshot()).paused, true);
-      await setPausedAs(newAdmin, false);
+      await setPausedAs(false, newAdmin);
 
-      // 转回原 admin，保持后续测试环境一致
+      // 转回原 admin（provider wallet），保持后续测试环境一致
       await program.methods
-        .transferAdmin(admin.publicKey)
+        .proposeAdmin(provider.wallet.publicKey)
         .accounts({ poolState: poolStatePda, admin: newAdmin.publicKey })
         .signers([newAdmin])
         .rpc();
+      await program.methods
+        .acceptAdmin()
+        .accounts({ poolState: poolStatePda, newAdmin: provider.wallet.publicKey })
+        .rpc();
       assert.equal(
         (await poolSnapshot()).admin.toBase58(),
-        admin.publicKey.toBase58(),
+        provider.wallet.publicKey.toBase58(),
       );
-      console.log("Admin rotation ok");
+      console.log("Admin two-step rotation ok (H-03)");
     });
 
-    it("Rejects transferring admin to the default public key", async () => {
+    it("Rejects proposing admin to the default public key", async () => {
       await assert.rejects(
         program.methods
-          .transferAdmin(PublicKey.default)
-          .accounts({ poolState: poolStatePda, admin: admin.publicKey })
-          .signers([admin])
+          .proposeAdmin(PublicKey.default)
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
           .rpc(),
         /InvalidNewAdmin/,
       );
-      console.log("Default-pubkey admin transfer rejected");
+      console.log("Default-pubkey admin proposal rejected");
     });
 
     it("Admin can update platform wallet; rejects default", async () => {
       const newWallet = anchor.web3.Keypair.generate();
       await program.methods
         .setPlatformWallet(newWallet.publicKey)
-        .accounts({ poolState: poolStatePda, admin: admin.publicKey })
-        .signers([admin])
-        .rpc();
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc();
       assert.equal(
         (await poolSnapshot()).platformWallet.toBase58(),
         newWallet.publicKey.toBase58(),
@@ -1666,19 +1734,121 @@ describe("trade-finance full lifecycle", () => {
       // 恢复原运营钱包，保持后续状态一致
       await program.methods
         .setPlatformWallet(platformWallet.publicKey)
-        .accounts({ poolState: poolStatePda, admin: admin.publicKey })
-        .signers([admin])
-        .rpc();
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc();
       await assert.rejects(
         program.methods
           .setPlatformWallet(PublicKey.default)
-          .accounts({ poolState: poolStatePda, admin: admin.publicKey })
-          .signers([admin])
-          .rpc(),
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+              .rpc(),
         /InvalidPlatformWallet/,
       );
       console.log("Platform wallet update ok");
     });
   });
 });
+
+  describe("remediation: close_deal / set_lp_mint / redeem window (DFR L-02, M-09, M-05)", () => {
+    it("Closes a settled deal and returns rent (L-02)", async () => {
+      const tradeId = new anchor.BN(1);
+      const deal = dealPda(buyer.publicKey, tradeId);
+      const dealTokenAccount = await createAta(deal, true);
+      const stateBefore = await program.account.tradeDeal.fetch(deal);
+      assert.equal(stateBefore.status, 6); // Settled
+      await program.methods
+        .closeDeal(tradeId)
+        .accounts({
+          poolState: poolStatePda,
+          buyer: buyer.publicKey,
+          deal,
+          dealTokenAccount,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([buyer])
+        .rpc();
+      const info = await connection.getAccountInfo(deal);
+      assert.equal(info, null, "close_deal 后订单账户应被关闭");
+      console.log("Settled deal closed, rent returned (L-02)");
+    });
+
+    it("Rejects closing a non-terminal deal", async () => {
+      const tradeIdPending = new anchor.BN(20);
+      const dealPending = dealPda(buyer.publicKey, tradeIdPending);
+      const escrow = await createAta(dealPending, true);
+      await program.methods
+        .createDeal(
+          tradeIdPending,
+          seller.publicKey,
+          new anchor.BN(USDC(100)),
+          new anchor.BN(30),
+        )
+        .accounts({
+          poolState: poolStatePda,
+          buyer: buyer.publicKey,
+          deal: dealPending,
+          buyerTokenAccount: buyerAta,
+          dealTokenAccount: escrow,
+          usdcMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+        })
+        .signers([buyer])
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .closeDeal(tradeIdPending)
+          .accounts({
+            poolState: poolStatePda,
+            buyer: buyer.publicKey,
+            deal: dealPending,
+            dealTokenAccount: escrow,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([buyer])
+          .rpc(),
+        /InvalidStateTransition|InvalidAmount/,
+      );
+      console.log("Non-terminal close rejected (L-02)");
+    });
+
+    it("Rejects set_lp_mint when pool is not paused (M-09)", async () => {
+      const newLpMint = await createMint(
+        connection,
+        payer,
+        poolAuthorityPda,
+        null,
+        0,
+      );
+      await assert.rejects(
+        program.methods
+          .setLpMint()
+          .accounts({
+            poolState: poolStatePda,
+            admin: provider.wallet.publicKey,
+            oldLpMint: lpMint,
+            newLpMint,
+            poolAuthority: poolAuthorityPda,
+          })
+          .rpc(),
+        /PoolMustBePaused/,
+      );
+      console.log("set_lp_mint rejected when not paused (M-09)");
+    });
+
+    it("Tracks redeem window usage (M-05)", async () => {
+      const poolBefore = await poolSnapshot();
+      assert.ok(
+        BigInt(poolBefore.redeemWindowUsed.toString()) > 0n,
+        "redeem 后 redeem_window_used 应大于 0",
+      );
+      console.log(
+        "Redeem window used:",
+        poolBefore.redeemWindowUsed.toString(),
+        "(M-05)",
+      );
+    });
+  });
 });
+

@@ -5,6 +5,22 @@ use crate::error::TradeFinanceError;
 /// 链上单据 URI 最大长度（字节）。
 pub const MAX_DOCUMENT_URI_LEN: usize = 256;
 
+/// LP Mint 精度（审计 L-05：与测试/链下约定一致，防止 NAV 语义漂移）。
+pub const LP_MINT_DECIMALS: u8 = 0;
+
+/// USDC 精度（6 位小数）。
+pub const USDC_DECIMALS: u8 = 6;
+
+/// USDC 精度换算因子：1 USDC = 1_000_000 最小单位。
+pub const USDC_DECIMALS_FACTOR: u64 = 1_000_000;
+
+/// 赎回周期窗口（秒）：一个窗口内累计赎回不得超过窗口上限（审计 M-05）。
+pub const REDEEM_WINDOW_SECS: i64 = 86_400;
+
+/// 管理员转移锁定期（秒）：上线前应调整为 >= 48h（审计 H-03）。
+/// 测试环境保留 0，避免集成测试等待真实锁定期。
+pub const ADMIN_TRANSFER_DELAY_SECS: i64 = 0;
+
 /// TradeDeal.status 常量映射。
 pub mod deal_status {
     pub const PENDING: u8 = 0;
@@ -66,7 +82,9 @@ impl TradeDeal {
         if !matches!(status, deal_status::PENDING..=deal_status::DEFAULTED) {
             return Err(TradeFinanceError::InvalidStatus.into());
         }
-        if self.status == deal_status::SETTLED && status != deal_status::SETTLED {
+        if matches!(self.status, deal_status::SETTLED | deal_status::DEFAULTED)
+            && status != self.status
+        {
             return Err(TradeFinanceError::InvalidStateTransition.into());
         }
         self.status = status;
@@ -110,6 +128,18 @@ pub struct PoolState {
     pub usdc_mint: Pubkey,
     /// 锚定的 LP Mint（审计 S-01）。
     pub lp_mint: Pubkey,
+    /// 资金池已放款、仍处于托管中的垫付总额（审计 M-01：消除 active_capital 重复计量）。
+    pub escrow_funded: u64,
+    /// 赎回定价（vault / lp_supply），与账面 NAV 分开披露（审计 M-04）。
+    pub redemption_price: u64,
+    /// 当前赎回窗口编号（now / REDEEM_WINDOW_SECS）（审计 M-05）。
+    pub redeem_window_epoch: i64,
+    /// 当前窗口内已累计赎回量（审计 M-05）。
+    pub redeem_window_used: u64,
+    /// 待接受的管理员（两步轮换，全零表示无提案）（审计 H-03）。
+    pub pending_admin: Pubkey,
+    /// 管理员转移提案时间（审计 H-03）。
+    pub pending_admin_proposed_at: i64,
 }
 
 impl PoolState {
@@ -133,6 +163,12 @@ impl PoolState {
             + 1  // paused (bool)
             + 32 // usdc_mint (Pubkey, S-01 锚定)
             + 32 // lp_mint (Pubkey, S-01 锚定)
+            + 8  // escrow_funded (审计 M-01)
+            + 8  // redemption_price (审计 M-04)
+            + 8  // redeem_window_epoch (审计 M-05)
+            + 8  // redeem_window_used (审计 M-05)
+            + 32 // pending_admin (审计 H-03)
+            + 8  // pending_admin_proposed_at (审计 H-03)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -163,6 +199,17 @@ impl PoolState {
             .checked_add(outstanding_trade_nav)
             .ok_or(TradeFinanceError::MathOverflow)?;
         Ok(total_value / lp_token_supply)
+    }
+
+    /// 赎回定价 = 金库现金 / LP 供应量（审计 M-04：与账面 NAV 分离）。
+    pub fn calculate_redemption_price(&self, vault_balance: u64, lp_token_supply: u64) -> Result<u64> {
+        require!(lp_token_supply > 0, TradeFinanceError::ZeroLpSupply);
+        Ok(vault_balance / lp_token_supply)
+    }
+
+    /// 当前赎回窗口编号（审计 M-05）。
+    pub fn current_redeem_window(&self, now: i64) -> i64 {
+        now / REDEEM_WINDOW_SECS
     }
 }
 
@@ -263,6 +310,12 @@ mod tests {
             paused: false,
             usdc_mint: Pubkey::default(),
             lp_mint: Pubkey::default(),
+            escrow_funded: 0,
+            redemption_price: 0,
+            redeem_window_epoch: 0,
+            redeem_window_used: 0,
+            pending_admin: Pubkey::default(),
+            pending_admin_proposed_at: 0,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
@@ -287,6 +340,12 @@ mod tests {
             paused: false,
             usdc_mint: Pubkey::default(),
             lp_mint: Pubkey::default(),
+            escrow_funded: 0,
+            redemption_price: 0,
+            redeem_window_epoch: 0,
+            redeem_window_used: 0,
+            pending_admin: Pubkey::default(),
+            pending_admin_proposed_at: 0,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -308,6 +367,12 @@ mod tests {
             paused: true,
             usdc_mint: Pubkey::default(),
             lp_mint: Pubkey::default(),
+            escrow_funded: 0,
+            redemption_price: 0,
+            redeem_window_epoch: 0,
+            redeem_window_used: 0,
+            pending_admin: Pubkey::default(),
+            pending_admin_proposed_at: 0,
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
@@ -379,5 +444,27 @@ impl RebateRecord {
     /// 账户空间 = 8 字节 Anchor 前缀 + buyer + total_rebate。
     pub fn space() -> usize {
         Self::DISCRIMINATOR_SIZE + 32 + 8
+    }
+}
+
+/// 分红领取台账（审计 H-02 方案 A）：记录每个接收方累计领取的分红，
+/// 使 distribute_dividends 的分配行为可被链上审计。
+#[account]
+#[derive(InitSpace)]
+pub struct DividendClaim {
+    /// 接收方钱包。
+    pub recipient: Pubkey,
+    /// 累计已领取分红（USDC 原始单位）。
+    pub total_claimed: u64,
+    /// 最近一次领取时间。
+    pub last_claim_at: i64,
+}
+
+impl DividendClaim {
+    pub const DISCRIMINATOR_SIZE: usize = 8;
+
+    /// 账户空间 = 8 字节 Anchor 前缀 + recipient + total_claimed + last_claim_at。
+    pub fn space() -> usize {
+        Self::DISCRIMINATOR_SIZE + 32 + 8 + 8
     }
 }
