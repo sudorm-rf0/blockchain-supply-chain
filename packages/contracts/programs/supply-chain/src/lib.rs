@@ -23,16 +23,20 @@ pub mod supply_chain {
     pub fn initialize_registry(ctx: Context<InitializeRegistry>) -> Result<()> {
         // 审计 H-01 / N-05：若程序保留 upgrade authority，初始化者必须等于
         // upgrade authority；仅当 upgrade authority 已冻结（None）时回退 DEPLOYER 白名单。
+        // ProgramData 布局（agave 4.1.2 实测）：u32@0(3) + u64 slot@4 + u8 option@12 + Pubkey@13。
         let pd_data = ctx.accounts.program_data.try_borrow_data()?;
-        let ua_tag = u32::from_le_bytes(
-            pd_data[0..4].try_into().map_err(|_| SupplyChainError::Unauthorized)?,
+        let ua_tag = u8::from_le_bytes(
+            pd_data[12..13].try_into().map_err(|_| SupplyChainError::Unauthorized)?,
         );
         let upgrade_authority = if ua_tag == 1 {
-            Some(Pubkey::new_from_array(
-                pd_data[4..36]
+            let ua = Pubkey::new_from_array(
+                pd_data[13..45]
                     .try_into()
                     .map_err(|_| SupplyChainError::Unauthorized)?,
-            ))
+            );
+            // 全零公钥（SystemProgram 占位，anchor test --bpf-program 预加载、
+            // 或 agave 占位）不可签名，视为无有效升级权限，回退 DEPLOYER 白名单。
+            if ua == Pubkey::default() { None } else { Some(ua) }
         } else {
             None
         };

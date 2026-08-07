@@ -100,17 +100,24 @@ pub mod trade_finance {
         // upgrade authority（部署冷钱包），硬编码 DEPLOYER 不生效；
         // 仅当 upgrade authority 已被冻结（None，如 anchor test 部署）时，
         // 回退到编译期 DEPLOYER 白名单。
-        // 原生 ProgramData 布局：offset 0 u32 tag（0=无,1=有），offset 4 Pubkey（tag=1）。
+        // 原生 ProgramData 布局（agave 4.1.2 实测）：
+        //   offset 0: u32 状态（ProgramData 固定 3）
+        //   offset 4: u64 slot
+        //   offset 12: u8 升级权限存在标记（1=有）
+        //   offset 13: Pubkey upgrade_authority
         let pd_data = ctx.accounts.program_data.try_borrow_data()?;
-        let ua_tag = u32::from_le_bytes(
-            pd_data[0..4].try_into().map_err(|_| TradeFinanceError::Unauthorized)?,
+        let ua_tag = u8::from_le_bytes(
+            pd_data[12..13].try_into().map_err(|_| TradeFinanceError::Unauthorized)?,
         );
         let upgrade_authority = if ua_tag == 1 {
-            Some(Pubkey::new_from_array(
-                pd_data[4..36]
+            let ua = Pubkey::new_from_array(
+                pd_data[13..45]
                     .try_into()
                     .map_err(|_| TradeFinanceError::Unauthorized)?,
-            ))
+            );
+            // 全零公钥（SystemProgram 占位，anchor test --bpf-program 预加载、
+            // 或 agave 占位）不可签名，视为无有效升级权限，回退 DEPLOYER 白名单。
+            if ua == Pubkey::default() { None } else { Some(ua) }
         } else {
             None
         };

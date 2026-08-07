@@ -11,7 +11,6 @@ import { AuditService } from "../audit/audit.service";
 import {
   buildAttestDocumentInstructionData,
   buildAttestDocumentTransaction,
-  deriveDealPda,
   deriveDocumentPda,
   getConnection,
   getProgramId,
@@ -63,26 +62,25 @@ export class AttestationService {
       throw new BadRequestException("tradeId does not match the tradeId associated with the file");
     }
     const effectiveTradeId = tradeId !== 0n ? tradeId : this.parseTradeId(file.tradeId);
-    let dealPda: PublicKey | null = null;
-    if (effectiveTradeId !== 0n) {
-      const trade = await this.prisma.tradeDeal.findUnique({
-        where: { dealId: effectiveTradeId.toString(10) },
-      });
-      if (!trade) {
-        throw new BadRequestException("trade not found");
-      }
-      dealPda = deriveDealPda(
-        new PublicKey(trade.buyerWallet),
-        effectiveTradeId,
-      );
+    // 审计 M-06：存证必须关联订单（合约 AttestDocument 的 deal 为必选），
+    // 单据 PDA 与订单 PDA 均按买方推导。
+    if (effectiveTradeId === 0n) {
+      throw new BadRequestException("存证必须关联一个贸易订单 tradeId");
     }
+    const trade = await this.prisma.tradeDeal.findUnique({
+      where: { dealId: effectiveTradeId.toString(10) },
+    });
+    if (!trade) {
+      throw new BadRequestException("trade not found");
+    }
+    const buyer = new PublicKey(trade.buyerWallet);
 
     const fileHash = this.parseFileHash(file.hash);
     if (Buffer.byteLength(file.path, "utf8") > 256) {
       throw new BadRequestException("file path is too long for on-chain URI");
     }
 
-    const documentPda = deriveDocumentPda(effectiveTradeId, fileHash);
+    const documentPda = deriveDocumentPda(buyer, effectiveTradeId, fileHash);
     const existing = await getConnection().getAccountInfo(
       documentPda,
       "confirmed",
@@ -93,10 +91,10 @@ export class AttestationService {
 
     const { transaction, blockhash } = await buildAttestDocumentTransaction({
       owner,
+      buyer,
       tradeId: effectiveTradeId,
       fileHash,
       uri: file.path,
-      dealPda,
     });
 
     const serialized = transaction
@@ -137,7 +135,20 @@ export class AttestationService {
     const tradeId = body.tradeId
       ? this.parseTradeId(body.tradeId)
       : this.parseTradeId(file.tradeId);
-    const expectedDocumentPda = deriveDocumentPda(tradeId, fileHash);
+    if (tradeId === 0n) {
+      throw new BadRequestException("存证必须关联一个贸易订单 tradeId");
+    }
+    const trade = await this.prisma.tradeDeal.findUnique({
+      where: { dealId: tradeId.toString(10) },
+    });
+    if (!trade) {
+      throw new BadRequestException("trade not found");
+    }
+    const expectedDocumentPda = deriveDocumentPda(
+      new PublicKey(trade.buyerWallet),
+      tradeId,
+      fileHash,
+    );
     if (
       body.documentPda &&
       body.documentPda !== expectedDocumentPda.toBase58()

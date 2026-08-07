@@ -56,14 +56,24 @@ export function encodeBorshString(value: string): Buffer {
   return Buffer.concat([length, bytes]);
 }
 
+export function derivePoolStatePda(): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [DOCUMENT_SEED, Buffer.from("pool")],
+    getProgramId(),
+  )[0];
+}
+
 export function deriveDocumentPda(
+  buyer: PublicKey,
   tradeId: bigint,
   fileHash: Buffer,
 ): PublicKey {
+  // 审计 M-06：单据 PDA 按买方隔离命名空间。
   return PublicKey.findProgramAddressSync(
     [
       DOCUMENT_SEED,
       DOCUMENT_PREFIX,
+      buyer.toBuffer(),
       encodeU64(tradeId),
       fileHash,
     ],
@@ -88,10 +98,10 @@ export function deriveDealPda(
 
 export interface AttestDocumentTransactionInput {
   owner: PublicKey;
+  buyer: PublicKey;
   tradeId: bigint;
   fileHash: Buffer;
   uri: string;
-  dealPda?: PublicKey | null;
 }
 
 export function buildAttestDocumentInstructionData(
@@ -120,32 +130,25 @@ export async function buildAttestDocumentTransaction(
   input: AttestDocumentTransactionInput,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
   const programId = getProgramId();
-  const documentPda = deriveDocumentPda(input.tradeId, input.fileHash);
+  // 审计 M-06：单据 PDA 与订单 PDA 均按买方推导。
+  const documentPda = deriveDocumentPda(
+    input.buyer,
+    input.tradeId,
+    input.fileHash,
+  );
+  const dealPda = deriveDealPda(input.buyer, input.tradeId);
   const data = buildAttestDocumentInstructionData(input);
 
-  // AttestDocument accounts: owner(signer), document(init), deal(optional), system_program
+  // AttestDocument accounts（M-06）：pool_state, owner(signer), document(init),
+  // buyer, deal(必选，buyer 必须为订单买方), system_program
   const keys: AccountMeta[] = [
+    { pubkey: derivePoolStatePda(), isSigner: false, isWritable: false },
     { pubkey: input.owner, isSigner: true, isWritable: true },
     { pubkey: documentPda, isSigner: false, isWritable: true },
+    { pubkey: input.buyer, isSigner: false, isWritable: false },
+    { pubkey: dealPda, isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
   ];
-  if (input.dealPda) {
-    keys.push({
-      pubkey: input.dealPda,
-      isSigner: false,
-      isWritable: false,
-    });
-  } else {
-    keys.push({
-      pubkey: programId,
-      isSigner: false,
-      isWritable: false,
-    });
-  }
-  keys.push({
-    pubkey: SystemProgram.programId,
-    isSigner: false,
-    isWritable: false,
-  });
 
   const connection = getConnection();
   const { blockhash } = await connection.getLatestBlockhash("confirmed");

@@ -76,6 +76,8 @@ async function signSend(transactionB64, signer) {
 }
 
 const wallet = Keypair.generate();
+// 审计 H-xx：卖方不得等于买方（SelfDealing 拒绝），使用独立卖方钱包。
+const seller = Keypair.generate();
 await fund(wallet.publicKey);
 await new Promise((r) => setTimeout(r, 1200));
 
@@ -129,9 +131,43 @@ const CRC_TABLE = (() => {
   }
   return table;
 })();
+// 审计 M-06：存证必须关联贸易订单（deal 必选、单据 PDA 按买方隔离）。
+// 因此在存证前先创建并确认一个 PENDING 订单。
+let attestTradeId = "";
+if (USDC_MINT) {
+  const usdc = new PublicKey(USDC_MINT);
+  const buyerAta = (
+    await getOrCreateAssociatedTokenAccount(conn, wallet, usdc, wallet.publicKey)
+  ).address;
+  await mintTo(conn, admin, usdc, buyerAta, admin.publicKey, 100_000_000);
+  const pre = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
+    buyerWallet: wallet.publicKey.toBase58(),
+    sellerWallet: seller.publicKey.toBase58(),
+    // 金额区别于主线贸易流程，避免命中重复订单检测（返回空 transaction）。
+    amount: "30000000",
+    tenor: "30",
+  });
+  await api(
+    TRADE,
+    `/api/trades/${pre.tradeId}/confirm`,
+    reg.accessToken,
+    "POST",
+    {
+      buyerWallet: wallet.publicKey.toBase58(),
+      sellerWallet: seller.publicKey.toBase58(),
+      amount: "30000000",
+      tenor: "30",
+      txSignature: await signSend(pre.transaction, wallet),
+    },
+  );
+  attestTradeId = pre.tradeId;
+  console.log("attest trade created:", attestTradeId);
+}
+
 const png = makePng(Date.now());
 const fd = new FormData();
 fd.append("file", new Blob([png], { type: "image/png" }), "smoke.png");
+if (attestTradeId) fd.append("tradeId", attestTradeId);
 const upRes = await fetch(`${BASE}/api/files`, {
   method: "POST",
   headers: { authorization: `Bearer ${reg.accessToken}` },
@@ -143,6 +179,7 @@ results.upload = true;
 
 const built = await api(BASE, `/api/files/${file.id}/attest`, reg.accessToken, "POST", {
   walletAddress: wallet.publicKey.toBase58(),
+  tradeId: attestTradeId || undefined,
 });
 const sig = await signSend(built.transaction, wallet);
 const confirmed = await api(
@@ -150,7 +187,7 @@ const confirmed = await api(
   `/api/files/${file.id}/attest/confirm`,
   reg.accessToken,
   "POST",
-  { txSignature: sig, documentPda: built.documentPda },
+  { txSignature: sig, documentPda: built.documentPda, tradeId: attestTradeId || undefined },
 );
 results.attest = confirmed.ok === true;
 
@@ -200,7 +237,7 @@ if (USDC_MINT) {
 
   const created = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
     buyerWallet: wallet.publicKey.toBase58(),
-    sellerWallet: wallet.publicKey.toBase58(),
+    sellerWallet: seller.publicKey.toBase58(),
     amount: "50000000",
     tenor: "30",
   });
@@ -211,7 +248,7 @@ if (USDC_MINT) {
     "POST",
     {
       buyerWallet: wallet.publicKey.toBase58(),
-      sellerWallet: wallet.publicKey.toBase58(),
+      sellerWallet: seller.publicKey.toBase58(),
       amount: "50000000",
       tenor: "30",
       txSignature: await signSend(created.transaction, wallet),
@@ -278,7 +315,7 @@ if (USDC_MINT) {
   // 违约场景：第二笔订单，拨款后违约，验证 DEFAULTED（托管整笔回池）
   const defCreated = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
     buyerWallet: wallet.publicKey.toBase58(),
-    sellerWallet: wallet.publicKey.toBase58(),
+    sellerWallet: seller.publicKey.toBase58(),
     amount: "10000000",
     tenor: "30",
   });
@@ -289,7 +326,7 @@ if (USDC_MINT) {
     "POST",
     {
       buyerWallet: wallet.publicKey.toBase58(),
-      sellerWallet: wallet.publicKey.toBase58(),
+      sellerWallet: seller.publicKey.toBase58(),
       amount: "10000000",
       tenor: "30",
       txSignature: await signSend(defCreated.transaction, wallet),
@@ -366,7 +403,8 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
         Buffer.from("supply_chain"),
         Buffer.from("product"),
         owner.toBuffer(),
-        createHash("sha256").update(sku).digest().subarray(0, 8),
+        // 审计 N-04/I-05：完整 SHA-256（32 字节），与合约 sku_seed 一致。
+        createHash("sha256").update(sku).digest(),
       ],
       SC_PROGRAM_ID,
     )[0];
@@ -380,6 +418,12 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
     await conn.confirmTransaction(await conn.sendRawTransaction(tx.serialize()), "confirmed");
   }
 
+  // 程序数据账户：initialize_registry 校验 upgrade authority（审计 H-01/N-05）。
+  const scProgramData = PublicKey.findProgramAddressSync(
+    [SC_PROGRAM_ID.toBuffer()],
+    new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
+  )[0];
+
   // 1) Registry：不存在则由 admin 初始化；已存在则校验 admin 一致。
   if (!(await conn.getAccountInfo(registryPda))) {
     await scSend(
@@ -387,6 +431,7 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
       [
         { pubkey: registryPda, isSigner: false, isWritable: true },
         { pubkey: admin.publicKey, isSigner: true, isWritable: true },
+        { pubkey: scProgramData, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       scDisc("initialize_registry"),

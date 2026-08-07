@@ -211,10 +211,21 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async upsertUser(wallet: string) {
-    return this.prisma.user.upsert({
-      where: { wallet },
-      create: { wallet },
-      update: {},
-    });
+    try {
+      return await this.prisma.user.upsert({
+        where: { wallet },
+        create: { wallet },
+        update: {},
+      });
+    } catch (error) {
+      // trade-service confirm 会并发 upsert 同一钱包用户；P2002 表示已由对方创建。
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return this.prisma.user.findUniqueOrThrow({ where: { wallet } });
+      }
+      throw error;
+    }
   }
 }
