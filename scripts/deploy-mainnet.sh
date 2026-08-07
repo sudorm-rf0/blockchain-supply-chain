@@ -6,6 +6,7 @@
 #   bash scripts/deploy-mainnet.sh --yes --generate-keypairs   # 自动生成全新 Program keypair
 #   bash scripts/deploy-mainnet.sh --dry-run --yes      # 只打印命令不执行
 #   bash scripts/deploy-mainnet.sh --yes --freeze-upgrade-authority  # 部署后冻结升级权限
+#   bash scripts/deploy-mainnet.sh --yes --upgrade-authority <MULTISIG_PDA>  # 部署后把 UA 交给多签（N-03 推荐）
 #
 # 环境变量（必填，见 infra/config/production.env.example）：
 #   SOLANA_RPC_URL         主网 RPC（拒绝 localhost/devnet）
@@ -24,12 +25,14 @@ CONFIRM=0
 DRY_RUN=0
 GENERATE_KEYS=0
 FREEZE=0
+MULTISIG_PDA=""
 for arg in "$@"; do
   case "$arg" in
     --yes) CONFIRM=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --generate-keypairs) GENERATE_KEYS=1 ;;
     --freeze-upgrade-authority) FREEZE=1 ;;
+    --upgrade-authority) [[ $# -ge 2 ]] && { MULTISIG_PDA="$2"; shift; } || { echo "--upgrade-authority needs an arg" >&2; exit 1; } ;;
     *) echo "unknown arg: $arg" >&2; exit 1 ;;
   esac
 done
@@ -103,6 +106,7 @@ if [[ "${DRY_RUN}" == "1" ]]; then
   solana program deploy ${ROOT}/packages/contracts/target/deploy/trade_finance.so --program-id ${TRADE_KEYPAIR}
   solana program deploy ${ROOT}/packages/contracts/target/deploy/supply_chain.so --program-id ${SUPPLY_KEYPAIR}
   bash ${ROOT}/scripts/verify-contract-deployment.sh
+  # optional: solana program set-upgrade-authority <PID> --new-upgrade-authority <MULTISIG_PDA>
 CMDS
   exit 0
 fi
@@ -130,7 +134,15 @@ log "==> [4/6] 部署 supply_chain (${SUPPLY_PROGRAM_ID})"
 solana program deploy target/deploy/supply_chain.so \
   --program-id "${SUPPLY_KEYPAIR}" --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
 
-# ---------- 7. 冻结升级权限（可选） ----------
+# ---------- 7. 把 upgrade authority 交给多签（可选，N-03） ----------
+if [[ -n "${MULTISIG_PDA}" ]]; then
+  log "==> [7/8] 把 upgrade authority 交给多签 ${MULTISIG_PDA}"
+  solana program set-upgrade-authority "${TRADE_PROGRAM_ID}" --new-upgrade-authority "${MULTISIG_PDA}" --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
+  solana program set-upgrade-authority "${SUPPLY_PROGRAM_ID}" --new-upgrade-authority "${MULTISIG_PDA}" --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
+  log "  UA 已移交多签；后续初始化需由多签执行（见 Squads 手册场景 A）"
+fi
+
+# ---------- 8. 冻结升级权限（可选，与 UA=多签互斥） ----------
 if [[ "${FREEZE}" == "1" ]]; then
   log "==> [5/6] 冻结 upgrade authority（--final，不可逆）"
   solana program set-upgrade-authority "${TRADE_PROGRAM_ID}" --final --url "${SOLANA_RPC_URL}" 2>&1 | tee -a "${LOG_FILE}"
@@ -139,7 +151,7 @@ if [[ "${FREEZE}" == "1" ]]; then
 fi
 
 # ---------- 8. 验证 ----------
-log "==> [6/6] 验证部署"
+log "==> [8/8] 验证部署"
 SOLANA_RPC_URL="${SOLANA_RPC_URL}" \
   TRADE_FINANCE_PROGRAM_ID="${TRADE_PROGRAM_ID}" \
   USDC_MINT="${USDC_MINT}" LP_MINT="${LP_MINT}" \
