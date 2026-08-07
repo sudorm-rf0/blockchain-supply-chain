@@ -40,5 +40,15 @@ export interface PoolSnapshotPayload {
   pendingAdmin: string;
   /// 管理员转移提案时间（审计 H-03）。
   pendingAdminProposedAt: string;
+  /// 垫付额年化费率（万分位，H-04）。
+  feeApyBps: string;
+  /// LP 分成比例（万分位，H-04）。
+  lpShareBps: string;
+  /// 平台分成比例（万分位，H-04）。
+  platformShareBps: string;
+  /// 买方返利比例（万分位，H-04）。
+  rebateShareBps: string;
+  /// 平台首损资金（H-04）。
+  firstLossReserve: string;
   capturedAt: string;
 }

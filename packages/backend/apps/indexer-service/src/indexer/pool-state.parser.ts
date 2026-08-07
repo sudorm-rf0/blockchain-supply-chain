@@ -5,9 +5,10 @@ import { PoolSnapshotPayload } from "./payloads";
 // + reserve_fund(8) + insurance_fund(8) + pending_dividends(8) + platform_wallet(32)
 // + nav(8) + paused(1) + usdc_mint(32) + lp_mint(32) + escrow_funded(8)
 // + redemption_price(8) + redeem_window_epoch(8) + redeem_window_used(8)
-// + pending_admin(32) + pending_admin_proposed_at(8) = 257。
+// + pending_admin(32) + pending_admin_proposed_at(8) + fee_apy_bps(8)
+// + lp_share_bps(8) + platform_share_bps(8) + rebate_share_bps(8) + first_loss_reserve(8) = 297。
 // 与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 257;
+export const POOL_STATE_ACCOUNT_SIZE = 297;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;
@@ -27,6 +28,11 @@ const OFFSET_REDEEM_WINDOW_EPOCH = OFFSET_REDEMPTION_PRICE + U64_SIZE;
 const OFFSET_REDEEM_WINDOW_USED = OFFSET_REDEEM_WINDOW_EPOCH + U64_SIZE;
 const OFFSET_PENDING_ADMIN = OFFSET_REDEEM_WINDOW_USED + U64_SIZE;
 const OFFSET_PENDING_ADMIN_PROPOSED_AT = OFFSET_PENDING_ADMIN + PUBKEY_SIZE;
+const OFFSET_FEE_APY_BPS = OFFSET_PENDING_ADMIN_PROPOSED_AT + U64_SIZE;
+const OFFSET_LP_SHARE_BPS = OFFSET_FEE_APY_BPS + U64_SIZE;
+const OFFSET_PLATFORM_SHARE_BPS = OFFSET_LP_SHARE_BPS + U64_SIZE;
+const OFFSET_REBATE_SHARE_BPS = OFFSET_PLATFORM_SHARE_BPS + U64_SIZE;
+const OFFSET_FIRST_LOSS_RESERVE = OFFSET_REBATE_SHARE_BPS + U64_SIZE;
 
 export function parsePoolStateBuffer(
   data: Buffer,
@@ -56,6 +62,11 @@ export function parsePoolStateBuffer(
   const pendingAdminProposedAt = data.readBigInt64LE(
     OFFSET_PENDING_ADMIN_PROPOSED_AT,
   );
+  const feeApyBps = data.readBigUInt64LE(OFFSET_FEE_APY_BPS);
+  const lpShareBps = data.readBigUInt64LE(OFFSET_LP_SHARE_BPS);
+  const platformShareBps = data.readBigUInt64LE(OFFSET_PLATFORM_SHARE_BPS);
+  const rebateShareBps = data.readBigUInt64LE(OFFSET_REBATE_SHARE_BPS);
+  const firstLossReserve = data.readBigUInt64LE(OFFSET_FIRST_LOSS_RESERVE);
 
   return {
     poolAddress,
@@ -73,6 +84,11 @@ export function parsePoolStateBuffer(
     redeemWindowUsed: redeemWindowUsed.toString(10),
     pendingAdmin,
     pendingAdminProposedAt: pendingAdminProposedAt.toString(10),
+    feeApyBps: feeApyBps.toString(10),
+    lpShareBps: lpShareBps.toString(10),
+    platformShareBps: platformShareBps.toString(10),
+    rebateShareBps: rebateShareBps.toString(10),
+    firstLossReserve: firstLossReserve.toString(10),
     capturedAt: capturedAt.toISOString(),
   };
 }

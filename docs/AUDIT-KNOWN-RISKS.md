@@ -63,9 +63,17 @@
 | I-02 | get_pool_info 缺字段 | 补齐 paused/usdc_mint/lp_mint/escrow_funded/redemption_price/窗口/待接受管理员 |
 | I-05 | sku_seed 注释 | 修正为准确的技术说明 |
 
+### H-04 进度（2026-08-07）
+
+- 合约层已落地：`fee_apy_bps` 参数化（默认 670 = 6.7% APR）、分配比例可治理（`set_fee_params`）、
+  `first_loss_reserve` 首损层（`deposit_first_loss`/`withdraw_first_loss`）、单笔费率上限
+  `MAX_SINGLE_FEE_BPS`（5%P）、NAV 口径剔除首损、`repay_deal` 按日计息记账修正（dust 偏差）。
+- 待业务方决策：目标违约率（默认按 2%）、首损池实际注资规模（建议在途 6%）、费率参数最终值
+  （见 docs/H-04-费率重构方案.md）。
+
 ### 仍未整改（需业务/运营决策或后续版本）
 
-- H-04（费率/期限定价重构——需业务与风控论证）
+- H-04 参数最终值（需业务与风控按真实违约数据确认）
 - L-01（ATA 强制约束）、L-04（逾期罚息）、L-05（LP decimals 校验已做，见 C-01）、L-07（清盘路径）、L-09（商品撤销标记）
 - I-01（lib.rs 模块拆分）、I-03（proptest/trident 模糊测试，需工具链）
 - 多签部署（Squads）、时锁参数调优（`ADMIN_TRANSFER_DELAY_SECS` 上线前设为 >= 48h）

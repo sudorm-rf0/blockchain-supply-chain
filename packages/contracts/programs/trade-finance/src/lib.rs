@@ -5,6 +5,8 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 use crate::state::{
     LP_MINT_DECIMALS, REDEEM_WINDOW_SECS, ADMIN_TRANSFER_DELAY_SECS, USDC_DECIMALS_FACTOR,
+    DEFAULT_FEE_APY_BPS, DEFAULT_LP_SHARE_BPS, DEFAULT_PLATFORM_SHARE_BPS, DEFAULT_REBATE_SHARE_BPS,
+    MAX_SINGLE_FEE_BPS, MIN_FIRST_LOSS_ABS,
 };
 
 use crate::error::TradeFinanceError;
@@ -178,6 +180,29 @@ pub struct LpMintUpdatedEvent {
     pub new_lp_mint: Pubkey,
 }
 
+#[event]
+pub struct FeeParamsUpdatedEvent {
+    pub admin: Pubkey,
+    pub fee_apy_bps: u64,
+    pub lp_share_bps: u64,
+    pub platform_share_bps: u64,
+    pub rebate_share_bps: u64,
+}
+
+#[event]
+pub struct FirstLossDepositedEvent {
+    pub admin: Pubkey,
+    pub amount: u64,
+    pub first_loss_reserve: u64,
+}
+
+#[event]
+pub struct FirstLossWithdrawnEvent {
+    pub admin: Pubkey,
+    pub amount: u64,
+    pub first_loss_reserve: u64,
+}
+
 /// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
 fn validate_advance(from: u8, to: u8) -> Result<()> {
     match (from, to) {
@@ -243,6 +268,11 @@ pub mod trade_finance {
         pool.redeem_window_used = 0;
         pool.pending_admin = Pubkey::default();
         pool.pending_admin_proposed_at = 0;
+        pool.fee_apy_bps = DEFAULT_FEE_APY_BPS;
+        pool.lp_share_bps = DEFAULT_LP_SHARE_BPS;
+        pool.platform_share_bps = DEFAULT_PLATFORM_SHARE_BPS;
+        pool.rebate_share_bps = DEFAULT_REBATE_SHARE_BPS;
+        pool.first_loss_reserve = 0;
 
         msg!("pool initialized by {}", pool.admin);
         Ok(())
@@ -616,8 +646,11 @@ pub mod trade_finance {
             .active_capital
             .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply_after)?;
-        pool.redemption_price = pool.calculate_redemption_price(vault_amount, lp_supply_after)?;
+        pool.nav = pool.calculate_nav(pool.equity_base(vault_amount)?, outstanding, lp_supply_after)?;
+        pool.redemption_price = pool.calculate_redemption_price(
+            pool.equity_base(vault_amount)?,
+            lp_supply_after,
+        )?;
 
         emit!(DepositEvent {
             depositor: ctx.accounts.depositor.key(),
@@ -691,6 +724,11 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?;
         require!(
             vault_after >= outstanding,
+            TradeFinanceError::InsufficientFunds
+        );
+        // H-04：首损资金不可被 LP 赎回。
+        require!(
+            vault_after >= pool.first_loss_reserve,
             TradeFinanceError::InsufficientFunds
         );
         require!(
@@ -776,9 +814,12 @@ pub mod trade_finance {
             .active_capital
             .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        pool.nav = pool.calculate_nav(vault_after, outstanding, lp_supply_after)?;
-        // 审计 M-04：维护赎回定价（vault / supply），与账面 NAV 分开披露。
-        pool.redemption_price = pool.calculate_redemption_price(vault_after, lp_supply_after)?;
+        pool.nav = pool.calculate_nav(pool.equity_base(vault_after)?, outstanding, lp_supply_after)?;
+        // 审计 M-04 + H-04：维护赎回定价（剔除首损后的 LP 可赎回现金 / supply）。
+        pool.redemption_price = pool.calculate_redemption_price(
+            pool.equity_base(vault_after)?,
+            lp_supply_after,
+        )?;
 
         emit!(RedeemedEvent {
             lp_user: ctx.accounts.lp_user.key(),
@@ -849,7 +890,7 @@ pub mod trade_finance {
             .active_capital
             .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        pool.nav = pool.calculate_nav(vault_after, outstanding, lp_supply)?;
+        pool.nav = pool.calculate_nav(pool.equity_base(vault_after)?, outstanding, lp_supply)?;
 
         let deal = &mut ctx.accounts.deal;
         deal.set_status(deal_status::FUNDED)?;
@@ -949,15 +990,26 @@ pub mod trade_finance {
 
         let pool = &mut ctx.accounts.pool_state;
         if released {
-            // 还款期违约：保险赔付仅为 insurance_fund 内部消解，不虚增 total_assets（审计 M-02）。
+            // 还款期违约：应收核销；保险赔付为保险基金内部消解（不虚增 total_assets，审计 M-02）。
             pool.insurance_fund = pool
                 .insurance_fund
                 .checked_sub(insurance_payout)
                 .ok_or(TradeFinanceError::MathOverflow)?;
-            // 应收全额核销。
+            // H-04 首损层：剩余损失先由平台首损资金承担（真实补偿 LP）。
+            let remaining_loss = pool_portion
+                .checked_sub(insurance_payout)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            let first_loss_used = remaining_loss.min(pool.first_loss_reserve);
+            pool.first_loss_reserve = pool
+                .first_loss_reserve
+                .checked_sub(first_loss_used)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            // 应收全额核销（-P），首损承担部分回补总资产（+first_loss_used）。
             pool.total_assets = pool
                 .total_assets
                 .checked_sub(pool_portion)
+                .ok_or(TradeFinanceError::MathOverflow)?
+                .checked_add(first_loss_used)
                 .ok_or(TradeFinanceError::MathOverflow)?;
             pool.active_capital = pool
                 .active_capital
@@ -976,7 +1028,7 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?;
         let vault_amount = ctx.accounts.pool_token_account.amount;
         let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
+        pool.nav = pool.calculate_nav(pool.equity_base(vault_amount)?, outstanding, lp_supply)?;
 
         emit!(DefaultEvent {
             trade_id,
@@ -1009,20 +1061,31 @@ pub mod trade_finance {
 
         let amount = deal.amount;
         let pool_portion = deal.pool_portion;
-        let fee = amount
-            .checked_mul(FEE_PCT_BPS)
+        // H-04：fee = P × fee_apy_bps × tenor / (10000 × 365 × 86400)。
+        let pool_ref = &ctx.accounts.pool_state;
+        let fee = ((pool_portion as u128)
+            .checked_mul(pool_ref.fee_apy_bps as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_mul(deal.tenor as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / (BPS_BASE as u128 * 365 * 86_400)) as u64;
+        // H-04 D7：单笔费率上限（占垫付额）。
+        let max_fee = pool_portion
+            .checked_mul(MAX_SINGLE_FEE_BPS)
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
+        require!(fee <= max_fee, TradeFinanceError::MaxFeeExceeded);
+        require!(fee > 0, TradeFinanceError::InvalidAmount);
         let platform_part = fee
-            .checked_mul(PLATFORM_FEE_PCT_BPS)
+            .checked_mul(pool_ref.platform_share_bps)
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
         let buyer_rebate = fee
-            .checked_mul(BUYER_REBATE_PCT_BPS)
+            .checked_mul(pool_ref.rebate_share_bps)
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
         let lp_dividend = fee
-            .checked_mul(LP_DIVIDEND_PCT_BPS)
+            .checked_mul(pool_ref.lp_share_bps)
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
 
@@ -1081,9 +1144,16 @@ pub mod trade_finance {
 
         let pool = &mut ctx.accounts.pool_state;
         pool.add_pending_dividends(lp_dividend)?;
+        // H-04/L-04：total_assets 按 vault 实际留存（fee - platform - rebate）记账，
+        // 消除取整 dust 导致的恒等式偏差。
+        let retained = fee
+            .checked_sub(platform_part)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_sub(buyer_rebate)
+            .ok_or(TradeFinanceError::MathOverflow)?;
         pool.total_assets = pool
             .total_assets
-            .checked_add(lp_dividend)
+            .checked_add(retained)
             .ok_or(TradeFinanceError::MathOverflow)?;
         pool.active_capital = pool
             .active_capital
@@ -1095,7 +1165,7 @@ pub mod trade_finance {
             .active_capital
             .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
+        pool.nav = pool.calculate_nav(pool.equity_base(vault_amount)?, outstanding, lp_supply)?;
 
         let clock = Clock::get()?;
         let deal = &mut ctx.accounts.deal;
@@ -1240,8 +1310,11 @@ pub mod trade_finance {
             .active_capital
             .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
-        pool.redemption_price = pool.calculate_redemption_price(vault_amount, lp_supply)?;
+        pool.nav = pool.calculate_nav(pool.equity_base(vault_amount)?, outstanding, lp_supply)?;
+        pool.redemption_price = pool.calculate_redemption_price(
+            pool.equity_base(vault_amount)?,
+            lp_supply,
+        )?;
         msg!(
             "pool nav refreshed: {} (redemption price {})",
             pool.nav,
@@ -1298,8 +1371,11 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?;
         let vault_amount = ctx.accounts.pool_token_account.amount;
         let lp_supply = ctx.accounts.lp_mint.supply;
-        pool.nav = pool.calculate_nav(vault_amount, outstanding, lp_supply)?;
-        pool.redemption_price = pool.calculate_redemption_price(vault_amount, lp_supply)?;
+        pool.nav = pool.calculate_nav(pool.equity_base(vault_amount)?, outstanding, lp_supply)?;
+        pool.redemption_price = pool.calculate_redemption_price(
+            pool.equity_base(vault_amount)?,
+            lp_supply,
+        )?;
 
         // 审计 H-02 方案 A：更新分红领取台账，使管理员分配行为可被链上审计。
         let clock = Clock::get()?;
@@ -1379,6 +1455,148 @@ pub mod trade_finance {
             TradeFinanceError::InvalidStateTransition
         );
         msg!("deal {} closed, rent returned to buyer", trade_id);
+        Ok(())
+    }
+
+    /// 更新费率与分配参数（H-04 治理）。应置于多签/时锁（H-03）之后。
+    pub fn set_fee_params(
+        ctx: Context<SetFeeParams>,
+        fee_apy_bps: u64,
+        lp_share_bps: u64,
+        platform_share_bps: u64,
+        rebate_share_bps: u64,
+    ) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        let total_share = lp_share_bps
+            .checked_add(platform_share_bps)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_add(rebate_share_bps)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        require!(total_share == BPS_BASE, TradeFinanceError::InvalidFeeParams);
+        require!(fee_apy_bps > 0 && fee_apy_bps <= 5000, TradeFinanceError::InvalidFeeParams);
+        pool.fee_apy_bps = fee_apy_bps;
+        pool.lp_share_bps = lp_share_bps;
+        pool.platform_share_bps = platform_share_bps;
+        pool.rebate_share_bps = rebate_share_bps;
+        emit!(FeeParamsUpdatedEvent {
+            admin: pool.admin,
+            fee_apy_bps,
+            lp_share_bps,
+            platform_share_bps,
+            rebate_share_bps,
+        });
+        msg!(
+            "fee params updated: apy={} lp={} platform={} rebate={}",
+            fee_apy_bps,
+            lp_share_bps,
+            platform_share_bps,
+            rebate_share_bps
+        );
+        Ok(())
+    }
+
+    /// 平台注入首损资金（H-04）：真实 USDC 进入金库，计入 first_loss_reserve（不计 LP 净值）。
+    pub fn deposit_first_loss(ctx: Context<DepositFirstLoss>, amount: u64) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(amount > 0, TradeFinanceError::InvalidAmount);
+
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.depositor_token_account.to_account_info(),
+                    to: ctx.accounts.pool_token_account.to_account_info(),
+                    authority: ctx.accounts.admin.to_account_info(),
+                },
+            ),
+            amount,
+        )?;
+        ctx.accounts.pool_token_account.reload()?;
+
+        pool.first_loss_reserve = pool
+            .first_loss_reserve
+            .checked_add(amount)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        emit!(FirstLossDepositedEvent {
+            admin: ctx.accounts.admin.key(),
+            amount,
+            first_loss_reserve: pool.first_loss_reserve,
+        });
+        msg!(
+            "first-loss reserve: {} USDC deposited, total {}",
+            amount,
+            pool.first_loss_reserve
+        );
+        Ok(())
+    }
+
+    /// 治理提取首损资金（H-04）：仅允许提取至最低保留余额之上。
+    pub fn withdraw_first_loss(ctx: Context<WithdrawFirstLoss>, amount: u64) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(amount > 0, TradeFinanceError::InvalidAmount);
+        let remaining = pool
+            .first_loss_reserve
+            .checked_sub(amount)
+            .ok_or(TradeFinanceError::FirstLossInsufficient)?;
+        require!(
+            remaining >= MIN_FIRST_LOSS_ABS,
+            TradeFinanceError::FirstLossInsufficient
+        );
+        // 提取后金库现金必须仍覆盖首损剩余 + 在途垫付。
+        let vault_after = ctx
+            .accounts
+            .pool_token_account
+            .amount
+            .checked_sub(amount)
+            .ok_or(TradeFinanceError::InsufficientFunds)?;
+        let outstanding = pool
+            .active_capital
+            .checked_add(pool.escrow_funded)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        require!(
+            vault_after >= remaining.checked_add(outstanding).ok_or(TradeFinanceError::MathOverflow)?,
+            TradeFinanceError::InsufficientFunds
+        );
+
+        let pool_bump = [ctx.bumps.pool_authority];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.pool_token_account.to_account_info(),
+                    to: ctx.accounts.recipient_token_account.to_account_info(),
+                    authority: ctx.accounts.pool_authority.to_account_info(),
+                },
+            )
+            .with_signer(&[pool_signer]),
+            amount,
+        )?;
+        ctx.accounts.pool_token_account.reload()?;
+
+        pool.first_loss_reserve = remaining;
+        emit!(FirstLossWithdrawnEvent {
+            admin: ctx.accounts.admin.key(),
+            amount,
+            first_loss_reserve: pool.first_loss_reserve,
+        });
+        msg!(
+            "first-loss reserve: {} USDC withdrawn, remaining {}",
+            amount,
+            pool.first_loss_reserve
+        );
         Ok(())
     }
 }
@@ -2016,4 +2234,79 @@ pub struct CloseDeal<'info> {
     pub deal_token_account: Account<'info, TokenAccount>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SetFeeParams<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct DepositFirstLoss<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    /// 平台运营钱包（注入首损资金）。
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        mut,
+        constraint = depositor_token_account.owner == admin.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = depositor_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub depositor_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub usdc_mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct WithdrawFirstLoss<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        mut,
+        constraint = recipient_token_account.owner == admin.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = recipient_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub recipient_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
+        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub usdc_mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }

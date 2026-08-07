@@ -168,4 +168,16 @@ pub enum TradeFinanceError {
     /// 账本不变式被破坏（调试断言）。
     #[msg("Invariant violated")]
     InvariantViolated,
+
+    /// 费率参数非法：分配比例之和必须等于 10000，且费率不得超过上限。
+    #[msg("Invalid fee parameters")]
+    InvalidFeeParams,
+
+    /// 单笔费率超过上限（H-04 D7 保护）。
+    #[msg("Fee exceeds the single-transaction cap")]
+    MaxFeeExceeded,
+
+    /// 首损资金不足：无法完成提取。
+    #[msg("First-loss reserve is insufficient")]
+    FirstLossInsufficient,
 }
