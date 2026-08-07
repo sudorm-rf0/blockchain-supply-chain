@@ -92,3 +92,13 @@ DFR 复测确认首次审计 1 Critical + 4 High 已代码级修复，并识别 
 | N-06 | 首损计入 LP 权益 | Medium | 铸造/赎回/redemption_price 全部基于 equity_base（剔除首损），首损不可被 LP 赎回 |
 
 测试：Rust 22/22、Anchor 62/62、Jest 146/146、Vitest 48/48。
+
+## DFR 第三轮复测（DFR-2026-0145）整改（2026-08-07）
+
+| 编号 | 标题 | 严重性 | 整改 |
+|------|------|--------|------|
+| H-05 | set_admin_delay 时锁自废后门 | High | `set_admin_delay` 设硬下限 `MIN_ADMIN_DELAY_SECS=86400`，不得下调；初始时锁由 `initialize_pool` 注入（生产 48h） |
+| M-12 | supply-chain 一步管理员转移 | Medium | `transfer_admin` 改为两步轮换（propose_registry_admin + accept_registry_admin）+ 锁定期字段 + set_registry_admin_delay |
+| L-11 | 分红接收方自由指定 | Low | `distribute_dividends` 仅允许向 LP 持有者发放，且单次不超过其按 LP 占比应得份额 |
+
+测试：Rust 22/22、Anchor 63/63。

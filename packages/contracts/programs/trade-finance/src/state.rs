@@ -17,10 +17,14 @@ pub const USDC_DECIMALS_FACTOR: u64 = 1_000_000;
 /// 赎回周期窗口（秒）：一个窗口内累计赎回不得超过窗口上限（审计 M-05）。
 pub const REDEEM_WINDOW_SECS: i64 = 86_400;
 
-/// 管理员转移锁定期（秒，审计 H-03/N-02）：默认 48h。
-/// 存储于 PoolState.pending_admin_delay_secs，可由治理指令 set_admin_delay 调整；
-/// 集成测试通过 set_admin_delay(0) 模拟即时生效，生产默认 172_800。
+/// 管理员转移锁定期（秒，审计 H-03/N-02/H-05）：默认 48h。
+/// 存储于 PoolState.pending_admin_delay_secs；由 initialize_pool 注入初始值，
+/// set_admin_delay 仅允许调整为不低于 MIN_ADMIN_DELAY_SECS（防时锁自废后门）。
 pub const ADMIN_TRANSFER_DELAY_SECS: i64 = 172_800;
+
+/// 管理员时锁硬下限（秒，审计 H-05）：set_admin_delay 不得将锁定期设为此值以下。
+/// 集成测试通过 initialize_pool 注入较小的初始值验证锁定期行为，生产默认 48h。
+pub const MIN_ADMIN_DELAY_SECS: i64 = 86_400;
 
 /// 默认垫付额年化费率（万分位，H-04 基准档 6.70% APR）。
 pub const DEFAULT_FEE_APY_BPS: u64 = 670;

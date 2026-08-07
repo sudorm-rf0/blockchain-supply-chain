@@ -254,7 +254,7 @@ describe("trade-finance full lifecycle", () => {
 
   it("Initializes Pool State", async () => {
     await program.methods
-      .initializePool(platformWallet.publicKey)
+      .initializePool(platformWallet.publicKey, new anchor.BN(1))
       .accounts({
         poolState: poolStatePda,
         admin: provider.wallet.publicKey,
@@ -297,17 +297,12 @@ describe("trade-finance full lifecycle", () => {
     console.log("Pool admin:", poolState.admin.toBase58());
     console.log("Pool totalAssets:", poolState.totalAssets.toString());
     console.log("Pool nav:", poolState.nav.toString());
-    // 审计 N-02：测试环境将管理员转移时锁设为 0（生产默认 48h，见 set_risk 治理）。
-    await program.methods
-      .setAdminDelay(new anchor.BN(0))
-      .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
-      .rpc();
   });
 
   it("Rejects re-initializing the pool", async () => {
     await assert.rejects(
       program.methods
-        .initializePool(platformWallet.publicKey)
+        .initializePool(platformWallet.publicKey, new anchor.BN(1))
         .accounts({
           poolState: poolStatePda,
           admin: provider.wallet.publicKey,
@@ -596,6 +591,7 @@ describe("trade-finance full lifecycle", () => {
         admin: provider.wallet.publicKey,
         recipient: lp.publicKey,
         recipientTokenAccount: lpAta,
+        recipientLpTokenAccount: lpTokenAta,
         poolAuthority: poolAuthorityPda,
         poolTokenAccount,
         usdcMint,
@@ -1682,7 +1678,8 @@ describe("trade-finance full lifecycle", () => {
       await setPausedAs(true);
       await setPausedAs(false);
 
-      // 第二步：新管理员签名接受
+      // 第二步：新管理员签名接受（等待锁定期 1s 过去）
+      await new Promise((r) => setTimeout(r, 1500));
       await program.methods
         .acceptAdmin()
         .accounts({ poolState: poolStatePda, newAdmin: newAdmin.publicKey })
@@ -1717,6 +1714,7 @@ describe("trade-finance full lifecycle", () => {
         .accounts({ poolState: poolStatePda, admin: newAdmin.publicKey })
         .signers([newAdmin])
         .rpc();
+      await new Promise((r) => setTimeout(r, 1500));
       await program.methods
         .acceptAdmin()
         .accounts({ poolState: poolStatePda, newAdmin: provider.wallet.publicKey })
@@ -2092,18 +2090,15 @@ describe("trade-finance full lifecycle", () => {
       console.log("Mint/redeem price consistent with first-loss (N-01/N-06)");
     });
 
-    it("Enforces admin transfer lock when delay > 0 (N-02)", async () => {
-      // 把时锁设为 48h -> propose 后立即 accept 被拒 -> 恢复 0
-      await program.methods
-        .setAdminDelay(new anchor.BN(172_800))
-        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
-        .rpc();
+    it("Enforces admin transfer lock (N-02/H-05)", async () => {
+      // initialize 注入 1s 锁定期：锁定期内 accept 被拒，到期后成功。
       const tmpAdmin = anchor.web3.Keypair.generate();
       await airdrop(tmpAdmin.publicKey);
       await program.methods
         .proposeAdmin(tmpAdmin.publicKey)
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
+      // 锁定期内（< 1s）accept 被拒
       await assert.rejects(
         program.methods
           .acceptAdmin()
@@ -2112,11 +2107,8 @@ describe("trade-finance full lifecycle", () => {
           .rpc(),
         /AdminLockNotElapsed/,
       );
-      // 撤销提案并恢复时锁 0
-      await program.methods
-        .setAdminDelay(new anchor.BN(0))
-        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
-        .rpc();
+      // 到期后 accept 成功
+      await new Promise((r) => setTimeout(r, 1500));
       await program.methods
         .acceptAdmin()
         .accounts({ poolState: poolStatePda, newAdmin: tmpAdmin.publicKey })
@@ -2128,6 +2120,7 @@ describe("trade-finance full lifecycle", () => {
         .accounts({ poolState: poolStatePda, admin: tmpAdmin.publicKey })
         .signers([tmpAdmin])
         .rpc();
+      await new Promise((r) => setTimeout(r, 1500));
       await program.methods
         .acceptAdmin()
         .accounts({ poolState: poolStatePda, newAdmin: provider.wallet.publicKey })
@@ -2137,6 +2130,34 @@ describe("trade-finance full lifecycle", () => {
         provider.wallet.publicKey.toBase58(),
       );
       console.log("Admin lock enforced (N-02)");
+    });
+
+    it("Rejects lowering admin lock below hard floor (H-05)", async () => {
+      // 时锁硬下限 86400s：设 0 或小值被拒
+      await assert.rejects(
+        program.methods
+          .setAdminDelay(new anchor.BN(0))
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /InvalidFeeParams/,
+      );
+      await assert.rejects(
+        program.methods
+          .setAdminDelay(new anchor.BN(100))
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /InvalidFeeParams/,
+      );
+      // 设为 86400（下限）成功，恢复 1（无法恢复，测试放最后，不影响后续轮换）
+      await program.methods
+        .setAdminDelay(new anchor.BN(86_400))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      assert.equal(
+        (await poolSnapshot()).pendingAdminDelaySecs.toString(),
+        "86400",
+      );
+      console.log("set_admin_delay hard floor enforced (H-05)");
     });
   });
 });
