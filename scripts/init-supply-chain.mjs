@@ -19,6 +19,11 @@ const RPC = process.env.SOLANA_RPC_URL ?? "http://localhost:8899";
 const PROGRAM_ID = new PublicKey(
   process.env.SUPPLY_CHAIN_PROGRAM_ID ?? "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk",
 );
+// 程序数据账户：initialize_registry 用于校验 upgrade authority（审计 H-01/N-05）。
+const PROGRAM_DATA = PublicKey.findProgramAddressSync(
+  [PROGRAM_ID.toBuffer()],
+  new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
+)[0];
 const keypairPath =
   process.env.SOLANA_KEYPAIR_PATH ??
   `${homedir()}/.config/solana/id.json`;
@@ -73,6 +78,7 @@ if (!(await conn.getAccountInfo(registry))) {
     [
       { pubkey: registry, isSigner: false, isWritable: true },
       { pubkey: admin.publicKey, isSigner: true, isWritable: true },
+      { pubkey: PROGRAM_DATA, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     disc("initialize_registry"),

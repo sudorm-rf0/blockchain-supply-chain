@@ -18,8 +18,9 @@
    单人是否可重复领取；`recipient`/`recipient_token_account` 绑定是否可绕过。
 2. **买方返利账本 `rebate`**：`init_if_needed` 的 payer/rent 是否可被恶意占用；
    返利累计与 `pending_dividends`/vault 的一致性。
-3. **LP mint authority 在链下（L2）**：合约只销毁 LP 代币，铸币由外部 authority 完成。
-   上线前必须交多签/治理方，否则存在增发风险。
+3. **LP mint authority 在链下（L2）**：~~合约只销毁 LP 代币，铸币由外部 authority 完成，
+   上线前必须交多签/治理方，否则存在增发风险~~ → **已修复（C-01）**：LP mint authority
+   强制为 `pool_authority` PDA，铸币收归合约控制（存款时按 NAV 铸造），增发面收敛到合约校验内。
 4. **`default_deal` 保险路径**：`INSURANCE_PAYOUT_PCT_BPS=1000` 的触发条件与限额；
    托管释放 vs 违约的时序竞争。
 5. **u64 边界**：金额/费用/分红的所有 `checked_*` 运算；除法的取整方向（向下）是否造成

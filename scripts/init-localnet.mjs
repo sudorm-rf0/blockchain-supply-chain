@@ -19,18 +19,24 @@ const adminSecret = JSON.parse(readFileSync(keypairPath, "utf8"));
 const admin = Keypair.fromSecretKey(Uint8Array.from(adminSecret));
 const programId = new PublicKey(PROGRAM_ID);
 
+const poolState = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool")], programId)[0];
+const poolAuthority = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool_usdc")], programId)[0];
+// 程序数据账户：initialize_pool 用于校验 upgrade authority（审计 H-01/N-05）。
+const programData = PublicKey.findProgramAddressSync(
+  [programId.toBuffer()],
+  new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
+)[0];
+
 const usdcMint = await createMint(conn, admin, admin.publicKey, admin.publicKey, 6, Keypair.generate());
 console.log(`USDC_MINT=${usdcMint.toBase58()}`);
-const lpMint = await createMint(conn, admin, admin.publicKey, admin.publicKey, 6, Keypair.generate());
+// 审计 C-01/L-05/M-09：LP mint authority 必须是 poolAuthority PDA、decimals=0、无 freeze authority；
+// LP 份额由合约在存款时铸造，脚本不再手工铸币。
+const lpMint = await createMint(conn, admin, poolAuthority, null, 0, Keypair.generate());
 console.log(`LP_MINT=${lpMint.toBase58()}`);
 
 const adminAta = await createAssociatedTokenAccount(conn, admin, usdcMint, admin.publicKey);
 await mintTo(conn, admin, usdcMint, adminAta, admin.publicKey, DEPOSIT_USDC * 2n);
 const adminLpAta = await createAssociatedTokenAccount(conn, admin, lpMint, admin.publicKey);
-await mintTo(conn, admin, lpMint, adminLpAta, admin.publicKey, 1_000_000_000);
-
-const poolState = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool")], programId)[0];
-const poolAuthority = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool_usdc")], programId)[0];
 const poolTokenAccount = (await getOrCreateAssociatedTokenAccount(conn, admin, usdcMint, poolAuthority, true)).address;
 
 const disc = (name) => createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
@@ -47,10 +53,17 @@ if (!(await conn.getAccountInfo(poolState))) {
       { pubkey: admin.publicKey, isSigner: true, isWritable: true },
       { pubkey: usdcMint, isSigner: false, isWritable: false },
       { pubkey: lpMint, isSigner: false, isWritable: false },
+      { pubkey: poolAuthority, isSigner: false, isWritable: false },
+      { pubkey: programData, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     programId,
-    data: Buffer.concat([disc("initialize_pool"), admin.publicKey.toBuffer()]),
+    data: Buffer.concat([
+      disc("initialize_pool"),
+      admin.publicKey.toBuffer(),
+      // initial_delay_secs（H-03 两步转移延迟，测试/初始化用 0）
+      u64(0n),
+    ]),
   }));
   tx.sign(admin);
   await conn.confirmTransaction(await conn.sendRawTransaction(tx.serialize()), "confirmed");
@@ -69,7 +82,8 @@ tx.add(new TransactionInstruction({
     { pubkey: poolTokenAccount, isSigner: false, isWritable: true },
     { pubkey: usdcMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-    { pubkey: lpMint, isSigner: false, isWritable: false },
+    { pubkey: lpMint, isSigner: false, isWritable: true },
+    { pubkey: adminLpAta, isSigner: false, isWritable: true },
   ],
   programId,
   data: Buffer.concat([disc("deposit_pool"), u64(DEPOSIT_USDC)]),

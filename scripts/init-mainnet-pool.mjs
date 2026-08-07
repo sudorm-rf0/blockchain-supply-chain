@@ -67,6 +67,11 @@ const poolAuthority = PublicKey.findProgramAddressSync(
   [Buffer.from("trade_finance"), Buffer.from("pool_usdc")],
   programId,
 )[0];
+// 程序数据账户：initialize_pool 用于校验 upgrade authority（审计 H-01/N-05）。
+const programData = PublicKey.findProgramAddressSync(
+  [programId.toBuffer()],
+  new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
+)[0];
 
 const disc = (name) => createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
 const u64 = (v) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(v); return b; };
@@ -88,6 +93,8 @@ console.log(`  Pool 已初始化: ${poolExists}`);
 // 只读推导 ATA（dry-run 安全，不产生任何写操作）
 const adminAta = await getAssociatedTokenAddress(usdcMint, admin.publicKey);
 const poolTokenAccount = await getAssociatedTokenAddress(usdcMint, poolAuthority, true);
+// 审计 C-01：存款时合约按 NAV 铸造 LP 到出资人 LP 账户。
+const adminLpAta = await getAssociatedTokenAddress(lpMint, admin.publicKey);
 
 let adminBalance = 0;
 if (await conn.getAccountInfo(adminAta)) {
@@ -122,10 +129,17 @@ if (!poolExists) {
       { pubkey: admin.publicKey, isSigner: true, isWritable: true },
       { pubkey: usdcMint, isSigner: false, isWritable: false },
       { pubkey: lpMint, isSigner: false, isWritable: false },
+      { pubkey: poolAuthority, isSigner: false, isWritable: false },
+      { pubkey: programData, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     programId,
-    data: Buffer.concat([disc("initialize_pool"), admin.publicKey.toBuffer()]),
+    data: Buffer.concat([
+      disc("initialize_pool"),
+      admin.publicKey.toBuffer(),
+      // initial_delay_secs（H-03 两步转移延迟，测试/初始化用 0）
+      u64(0n),
+    ]),
   }));
   tx.sign(admin);
   await conn.confirmTransaction(await conn.sendRawTransaction(tx.serialize()), "confirmed");
@@ -151,7 +165,8 @@ if (!SKIP_DEPOSIT) {
       { pubkey: poolVault, isSigner: false, isWritable: true },
       { pubkey: usdcMint, isSigner: false, isWritable: false },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: lpMint, isSigner: false, isWritable: false },
+      { pubkey: lpMint, isSigner: false, isWritable: true },
+      { pubkey: adminLpAta, isSigner: false, isWritable: true },
     ],
     programId,
     data: Buffer.concat([disc("deposit_pool"), u64(depositLamports)]),
