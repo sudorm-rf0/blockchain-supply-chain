@@ -45,9 +45,9 @@ devnet 部署（当前已验证）:
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
 测试结果（最新 CI/local）:
-  Anchor 集成: 62/62 通过（含 create/fund/default 记账增量断言 + 治理 + 审计整改回归）
+  Anchor 集成: 64/64 通过（含 create/fund/default 记账增量断言 + 治理 + 审计整改回归）
   后端 Jest: 146/146
-  前端 Vitest: 48/48
+  前端 Vitest: 50/50
 
 说明:
   - 本包不含任何私钥/keypair，仅供审计代码审查。
