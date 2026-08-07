@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { createHmac } from "node:crypto";
+import { createSignedWebhook } from "@supply-chain/common";
 
 @Injectable()
 export class NotifierService {
@@ -20,13 +20,21 @@ export class NotifierService {
       ...payload,
       occurredAt: new Date().toISOString(),
     });
-    const timestamp = Date.now();
-    const signature = createHmac(
-      "sha256",
-      process.env.WEBHOOK_SECRET ?? "",
-    )
-      .update(`${timestamp}.${body}`)
-      .digest("hex");
+    // OFF-AUTH-1 / OFF-WH-1：URL 配置后签名密钥不允许为空（fail-closed），
+    // 签名串含 nonce，接收方可做重放去重 + 时间窗校验。
+    const secret = process.env.WEBHOOK_SECRET ?? "";
+    if (!secret) {
+      throw new Error(
+        "WEBHOOK_SECRET must be set when REPAYMENT_NOTIFY_URL is configured",
+      );
+    }
+    if (
+      process.env.NODE_ENV === "production" &&
+      secret.length < 32
+    ) {
+      throw new Error("WEBHOOK_SECRET must be >= 32 chars in production");
+    }
+    const { signature, timestamp, nonce } = createSignedWebhook(secret, body);
     const maxAttempts = 3;
     const delayMs = Number(process.env.WEBHOOK_RETRY_DELAY_MS ?? 300);
 
@@ -38,6 +46,7 @@ export class NotifierService {
             "content-type": "application/json",
             "x-webhook-signature": signature,
             "x-webhook-timestamp": String(timestamp),
+            "x-webhook-nonce": nonce,
           },
           body,
           signal: AbortSignal.timeout(5_000),

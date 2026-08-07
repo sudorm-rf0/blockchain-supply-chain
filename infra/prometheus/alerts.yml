@@ -55,6 +55,15 @@ groups:
         annotations:
           summary: "Node.js heap above 512 MiB on {{ $labels.instance }}"
 
+      - alert: RedisDegraded
+        expr: increase(redis_operation_failures[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis operation failures detected"
+          description: "Redis operations failed in the last 5 minutes. incr failures mean login rate-limit (brute-force protection) is fail-open; check Redis connectivity and restore before attackers bypass lockout."
+
       - alert: CspViolationDetected
         expr: increase(csp_violations_total[5m]) > 0
         for: 1m

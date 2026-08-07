@@ -69,6 +69,23 @@ echo "==> [3.5/5] apply backup cronjob"
 kubectl apply -n "${NAMESPACE}" -f k8s/postgres-backup-cronjob.yaml
 kubectl apply -n "${NAMESPACE}" -f k8s/postgres-backup-drill-cronjob.yaml
 
+echo "==> [3.55/5] apply network policies (OFF-NET-1 least-privilege egress)"
+if [[ "${DEPLOY_NETWORK_POLICIES:-1}" != "0" ]]; then
+  kubectl apply -n "${NAMESPACE}" -f k8s/network-policies.yaml
+  if [[ -f "k8s/network-policies.generated.yaml" ]]; then
+    # 收紧密级的外部出口策略（由 generate-network-policies.sh 生成）：
+    # 应用后删除兜底宽放段，实现最小化出口。
+    kubectl apply -n "${NAMESPACE}" -f k8s/network-policies.generated.yaml
+    kubectl delete networkpolicy allow-egress-external -n "${NAMESPACE}" --ignore-not-found
+    echo "==> hardened egress policy applied; wide-open allow-egress-external removed"
+  else
+    echo "WARN: k8s/network-policies.generated.yaml not found; external egress remains wide-open." >&2
+    echo "WARN: run scripts/generate-network-policies.sh with SOLANA_RPC_CIDR/RISK_WEBHOOK_CIDR/S3_CIDR before launch (OFF-NET-1)." >&2
+  fi
+else
+  echo "SKIP: DEPLOY_NETWORK_POLICIES=0, not applying network policies"
+fi
+
 if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
   echo "==> [3.6/5] apply monitoring stack"
   BB_TARGETS="$(mktemp /tmp/blackbox-targets.XXXXXX.yml)"
@@ -119,10 +136,6 @@ if [[ "${DEPLOY_MONITORING}" == "1" ]]; then
   kubectl rollout status deployment/alertmanager -n "${NAMESPACE}" --timeout=300s
 fi
 
-if [[ "${DEPLOY_NETWORK_POLICIES}" == "1" ]]; then
-  echo "==> [3.7/5] apply network policies"
-  kubectl apply -n "${NAMESPACE}" -f k8s/network-policies.yaml
-fi
 
 echo "==> [4/5] prisma migrate deploy"
 if [[ "${SKIP_MIGRATE}" != "1" ]]; then
