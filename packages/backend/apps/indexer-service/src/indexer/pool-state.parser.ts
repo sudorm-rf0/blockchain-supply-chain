@@ -7,9 +7,9 @@ import { PoolSnapshotPayload } from "./payloads";
 // + redemption_price(8) + redeem_window_epoch(8) + redeem_window_used(8)
 // + pending_admin(32) + pending_admin_proposed_at(8) + fee_apy_bps(8)
 // + lp_share_bps(8) + platform_share_bps(8) + rebate_share_bps(8) + first_loss_reserve(8)
-// + min_insurance_abs(8) + overdue_fee_apy_bps(8) = 313。
+// + min_insurance_abs(8) + overdue_fee_apy_bps(8) + pending_admin_delay_secs(8) = 321。
 // 与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 313;
+export const POOL_STATE_ACCOUNT_SIZE = 321;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;
@@ -36,6 +36,7 @@ const OFFSET_REBATE_SHARE_BPS = OFFSET_PLATFORM_SHARE_BPS + U64_SIZE;
 const OFFSET_FIRST_LOSS_RESERVE = OFFSET_REBATE_SHARE_BPS + U64_SIZE;
 const OFFSET_MIN_INSURANCE_ABS = OFFSET_FIRST_LOSS_RESERVE + U64_SIZE;
 const OFFSET_OVERDUE_FEE_APY_BPS = OFFSET_MIN_INSURANCE_ABS + U64_SIZE;
+const OFFSET_PENDING_ADMIN_DELAY_SECS = OFFSET_OVERDUE_FEE_APY_BPS + U64_SIZE;
 
 export function parsePoolStateBuffer(
   data: Buffer,
@@ -72,6 +73,7 @@ export function parsePoolStateBuffer(
   const firstLossReserve = data.readBigUInt64LE(OFFSET_FIRST_LOSS_RESERVE);
   const minInsuranceAbs = data.readBigUInt64LE(OFFSET_MIN_INSURANCE_ABS);
   const overdueFeeApyBps = data.readBigUInt64LE(OFFSET_OVERDUE_FEE_APY_BPS);
+  const pendingAdminDelaySecs = data.readBigInt64LE(OFFSET_PENDING_ADMIN_DELAY_SECS);
 
   return {
     poolAddress,
@@ -96,6 +98,7 @@ export function parsePoolStateBuffer(
     firstLossReserve: firstLossReserve.toString(10),
     minInsuranceAbs: minInsuranceAbs.toString(10),
     overdueFeeApyBps: overdueFeeApyBps.toString(10),
+    pendingAdminDelaySecs: pendingAdminDelaySecs.toString(10),
     capturedAt: capturedAt.toISOString(),
   };
 }

@@ -25,8 +25,8 @@ function productPda(
   owner: PublicKey,
   sku: string,
 ): PublicKey {
-  // 与合约 sku_seed 保持一致：SKU 的 SHA-256 前 8 字节。
-  const skuHash = createHash("sha256").update(sku).digest().subarray(0, 8);
+  // 与合约 sku_seed 保持一致：SKU 的完整 SHA-256（32 字节，审计 N-04）。
+  const skuHash = createHash("sha256").update(sku).digest();
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("supply_chain"),

@@ -54,5 +54,7 @@ export interface PoolSnapshotPayload {
   minInsuranceAbs: string;
   /// 逾期罚息年化费率（万分位，L-04）。
   overdueFeeApyBps: string;
+  /// 管理员转移锁定期（秒，N-02）。
+  pendingAdminDelaySecs: string;
   capturedAt: string;
 }

@@ -7,14 +7,11 @@ declare_id!("Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk");
 /// 当前为本地开发/测试钱包；主网部署前必须替换为实际部署冷钱包地址。
 pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
 
-/// 商品 PDA 种子：取 SKU 的 SHA-256 前 8 字节。
-/// 说明（审计 I-05）：Solana 单个种子允许最多 32 字节，SHA-256 输出恰为 32 字节，
-/// 可整体用作种子；此处截断至 8 字节仅为保持与现有 devnet 数据兼容，并非规避限制。
-fn sku_seed(sku: &str) -> [u8; 8] {
-    let digest = hash(sku.as_bytes());
-    let mut seed = [0u8; 8];
-    seed.copy_from_slice(&digest.to_bytes()[..8]);
-    seed
+/// 商品 PDA 种子：SKU 的完整 SHA-256（32 字节）哈希。
+/// 审计 N-04/I-05：Solana 单个种子允许最多 32 字节，SHA-256 输出恰为 32 字节，
+/// 使用完整哈希消除 8 字节截断的碰撞风险（PDA 唯一性由 owner + 完整哈希保证）。
+fn sku_seed(sku: &str) -> [u8; 32] {
+    hash(sku.as_bytes()).to_bytes()
 }
 
 #[program]
@@ -24,16 +21,26 @@ pub mod supply_chain {
     /// 初始化供应链注册中心，记录唯一管理员。
     /// 审计 H-01：仅允许程序的 upgrade authority 初始化，杜绝抢先初始化抢跑。
     pub fn initialize_registry(ctx: Context<InitializeRegistry>) -> Result<()> {
-        let is_deployer = ctx.accounts.admin.key() == DEPLOYER;
-        let is_upgrade_authority = ctx
-            .accounts
-            .program_data
-            .upgrade_authority_address
-            == Some(ctx.accounts.admin.key());
-        require!(
-            is_deployer || is_upgrade_authority,
-            SupplyChainError::Unauthorized
+        // 审计 H-01 / N-05：若程序保留 upgrade authority，初始化者必须等于
+        // upgrade authority；仅当 upgrade authority 已冻结（None）时回退 DEPLOYER 白名单。
+        let pd_data = ctx.accounts.program_data.try_borrow_data()?;
+        let ua_tag = u32::from_le_bytes(
+            pd_data[0..4].try_into().map_err(|_| SupplyChainError::Unauthorized)?,
         );
+        let upgrade_authority = if ua_tag == 1 {
+            Some(Pubkey::new_from_array(
+                pd_data[4..36]
+                    .try_into()
+                    .map_err(|_| SupplyChainError::Unauthorized)?,
+            ))
+        } else {
+            None
+        };
+        let allowed = match upgrade_authority {
+            Some(ua) => ua == ctx.accounts.admin.key(),
+            None => ctx.accounts.admin.key() == DEPLOYER,
+        };
+        require!(allowed, SupplyChainError::Unauthorized);
         let registry = &mut ctx.accounts.registry;
         registry.admin = ctx.accounts.admin.key();
         registry.initialized_at = Clock::get()?.unix_timestamp;
@@ -162,8 +169,9 @@ pub struct InitializeRegistry<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
-    /// 程序数据账户：upgrade authority 必须为初始化者（审计 H-01）。
-    pub program_data: Account<'info, ProgramData>,
+    /// 程序数据账户（原生格式，手动解析）：upgrade authority 必须为初始化者（审计 H-01/N-05）。
+    /// CHECK: 仅用于读取 upgrade authority，不反序列化 anchor 结构。
+    pub program_data: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -331,22 +339,20 @@ mod tests {
     }
 
     #[test]
-    fn sku_seed_is_8_bytes_deterministic_and_distinct() {
+    fn sku_seed_is_32_bytes_deterministic_and_distinct() {
         let a = sku_seed("SKU-ADMIN-001");
         let b = sku_seed("SKU-ADMIN-001");
         let c = sku_seed("SKU-SUPPLIER-002");
-        assert_eq!(a.len(), 8);
+        assert_eq!(a.len(), 32, "审计 N-04：应使用完整 32 字节哈希");
         assert_eq!(a, b, "同一 SKU 必须推导出相同种子");
         assert_ne!(a, c, "不同 SKU 必须推导出不同种子");
     }
 
     #[test]
-    fn sku_seed_matches_sha256_prefix() {
+    fn sku_seed_matches_full_sha256() {
         let sku = "SKU-ADMIN-001";
         let digest = hash(sku.as_bytes());
-        let mut expected = [0u8; 8];
-        expected.copy_from_slice(&digest.to_bytes()[..8]);
-        assert_eq!(sku_seed(sku), expected);
+        assert_eq!(sku_seed(sku), digest.to_bytes());
     }
 
     #[test]

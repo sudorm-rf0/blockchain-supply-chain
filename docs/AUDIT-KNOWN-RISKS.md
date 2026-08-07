@@ -77,3 +77,18 @@
 - L-01（ATA 强制约束）、L-04（逾期罚息）、L-05（LP decimals 校验已做，见 C-01）、L-07（清盘路径）、L-09（商品撤销标记）
 - I-01（lib.rs 模块拆分）、I-03（proptest/trident 模糊测试，需工具链）
 - 多签部署（Squads）、时锁参数调优（`ADMIN_TRANSFER_DELAY_SECS` 上线前设为 >= 48h）
+
+## DFR 复测（DFR-2026-0144）整改（2026-08-07）
+
+DFR 复测确认首次审计 1 Critical + 4 High 已代码级修复，并识别 6 项新发现，整改如下：
+
+| 编号 | 标题 | 严重性 | 整改 |
+|------|------|--------|------|
+| N-01 | NAV 与份额铸造/赎回用价不一致 | Medium | 铸造/赎回统一为纯现金权益基准（equity_base = vault - first_loss），消除套利；NAV 账面披露（redemption_price 分离） |
+| N-02 | 管理员转移时锁为 0 | Medium | `pending_admin_delay_secs` 参数化，默认 172_800（48h），新增 `set_admin_delay` 治理；集成测试验证时锁生效 |
+| N-03 | 单管理员无多签/角色分离 | Medium | 运营层：admin 可指向 Squads 多签 PDA（代码已支持），需上线部署 |
+| N-04 | sku_seed 8 字节碰撞 | Low | 改用完整 SHA-256（32 字节）种子 |
+| N-05 | DEPLOYER 硬编码测试钱包 | Medium | 初始化规则改为：upgrade authority 存在则必须匹配（冷钱包），仅 UA 冻结时回退 DEPLOYER |
+| N-06 | 首损计入 LP 权益 | Medium | 铸造/赎回/redemption_price 全部基于 equity_base（剔除首损），首损不可被 LP 赎回 |
+
+测试：Rust 22/22、Anchor 62/62、Jest 146/146、Vitest 48/48。

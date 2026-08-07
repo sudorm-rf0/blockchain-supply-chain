@@ -297,6 +297,11 @@ describe("trade-finance full lifecycle", () => {
     console.log("Pool admin:", poolState.admin.toBase58());
     console.log("Pool totalAssets:", poolState.totalAssets.toString());
     console.log("Pool nav:", poolState.nav.toString());
+    // 审计 N-02：测试环境将管理员转移时锁设为 0（生产默认 48h，见 set_risk 治理）。
+    await program.methods
+      .setAdminDelay(new anchor.BN(0))
+      .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+      .rpc();
   });
 
   it("Rejects re-initializing the pool", async () => {
@@ -2019,6 +2024,119 @@ describe("trade-finance full lifecycle", () => {
       assert.equal(pool.minInsuranceAbs.toString(), "100000000");
       assert.equal(pool.overdueFeeApyBps.toString(), "0");
       console.log("set_risk_params ok (L-07/L-04)");
+    });
+
+    it("Mints and redeems at consistent cash price with first-loss (N-01/N-06)", async () => {
+      // 当前池首损保留 100 USDC；验证新 LP 铸造价 = 赎回价 = equity_base / supply。
+      const pool = await poolSnapshot();
+      const fl = BigInt(pool.firstLossReserve.toString());
+      const vaultBefore = await vaultBalance();
+      const supplyBefore = BigInt(
+        (await getMint(connection, lpMint)).supply.toString(),
+      );
+      const equityBefore = vaultBefore - fl;
+
+      // 新 LP：deposit 后铸造份额按 equity_base 定价
+      const newLp = anchor.web3.Keypair.generate();
+      await airdrop(newLp.publicKey);
+      const newLpUsdcAta = await createAta(newLp.publicKey);
+      const newLpTokenAta = await createAtaFor(lpMint, newLp.publicKey);
+      await mintTo(
+        connection,
+        payer,
+        usdcMint,
+        newLpUsdcAta,
+        payer.publicKey,
+        USDC(1_000),
+      );
+      const depositAmount = BigInt(USDC(1_000));
+      const expectedShares = (depositAmount * supplyBefore) / equityBefore;
+
+      await program.methods
+        .depositPool(new anchor.BN(depositAmount.toString()))
+        .accounts({
+          poolState: poolStatePda,
+          depositor: newLp.publicKey,
+          depositorTokenAccount: newLpUsdcAta,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+          usdcMint,
+          lpMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          depositorLpTokenAccount: newLpTokenAta,
+        })
+        .signers([newLp])
+        .rpc();
+
+      const lpBalance = BigInt(
+        (await getAccount(connection, newLpTokenAta)).amount.toString(),
+      );
+      assert.ok(
+        lpBalance >= expectedShares - 2n && lpBalance <= expectedShares + 2n,
+        `铸造价应按 equity_base 定价：got ${lpBalance}, expected ~${expectedShares}`,
+      );
+
+      // 赎回价与铸造价一致（equity_base / supply）
+      const poolAfter = await poolSnapshot();
+      const vaultAfter = await vaultBalance();
+      const supplyAfter = BigInt(
+        (await getMint(connection, lpMint)).supply.toString(),
+      );
+      const equityAfter = vaultAfter - BigInt(poolAfter.firstLossReserve.toString());
+      const redemptionPrice = equityAfter / supplyAfter;
+      assert.equal(
+        poolAfter.redemptionPrice.toString(),
+        redemptionPrice.toString(),
+        "redemption_price 应为 equity_base / supply（N-01/N-06）",
+      );
+      console.log("Mint/redeem price consistent with first-loss (N-01/N-06)");
+    });
+
+    it("Enforces admin transfer lock when delay > 0 (N-02)", async () => {
+      // 把时锁设为 48h -> propose 后立即 accept 被拒 -> 恢复 0
+      await program.methods
+        .setAdminDelay(new anchor.BN(172_800))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      const tmpAdmin = anchor.web3.Keypair.generate();
+      await airdrop(tmpAdmin.publicKey);
+      await program.methods
+        .proposeAdmin(tmpAdmin.publicKey)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .acceptAdmin()
+          .accounts({ poolState: poolStatePda, newAdmin: tmpAdmin.publicKey })
+          .signers([tmpAdmin])
+          .rpc(),
+        /AdminLockNotElapsed/,
+      );
+      // 撤销提案并恢复时锁 0
+      await program.methods
+        .setAdminDelay(new anchor.BN(0))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await program.methods
+        .acceptAdmin()
+        .accounts({ poolState: poolStatePda, newAdmin: tmpAdmin.publicKey })
+        .signers([tmpAdmin])
+        .rpc();
+      // 转回原 admin
+      await program.methods
+        .proposeAdmin(provider.wallet.publicKey)
+        .accounts({ poolState: poolStatePda, admin: tmpAdmin.publicKey })
+        .signers([tmpAdmin])
+        .rpc();
+      await program.methods
+        .acceptAdmin()
+        .accounts({ poolState: poolStatePda, newAdmin: provider.wallet.publicKey })
+        .rpc();
+      assert.equal(
+        (await poolSnapshot()).admin.toBase58(),
+        provider.wallet.publicKey.toBase58(),
+      );
+      console.log("Admin lock enforced (N-02)");
     });
   });
 });

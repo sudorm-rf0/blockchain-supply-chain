@@ -94,18 +94,30 @@ pub mod trade_finance {
         ctx: Context<InitializePool>,
         platform_wallet: Pubkey,
     ) -> Result<()> {
-        // 审计 H-01：仅允许部署方初始化，杜绝抢先初始化抢跑。
-        // 双通道校验：①调用者为编译期部署方白名单；②调用者为程序 upgrade authority。
-        let is_deployer = ctx.accounts.admin.key() == DEPLOYER;
-        let is_upgrade_authority = ctx
-            .accounts
-            .program_data
-            .upgrade_authority_address
-            == Some(ctx.accounts.admin.key());
-        require!(
-            is_deployer || is_upgrade_authority,
-            TradeFinanceError::Unauthorized
+        // 审计 H-01 / N-05：仅允许部署方初始化，杜绝抢先初始化抢跑。
+        // 规则：若程序保留 upgrade authority（主网部署常态），初始化者必须等于
+        // upgrade authority（部署冷钱包），硬编码 DEPLOYER 不生效；
+        // 仅当 upgrade authority 已被冻结（None，如 anchor test 部署）时，
+        // 回退到编译期 DEPLOYER 白名单。
+        // 原生 ProgramData 布局：offset 0 u32 tag（0=无,1=有），offset 4 Pubkey（tag=1）。
+        let pd_data = ctx.accounts.program_data.try_borrow_data()?;
+        let ua_tag = u32::from_le_bytes(
+            pd_data[0..4].try_into().map_err(|_| TradeFinanceError::Unauthorized)?,
         );
+        let upgrade_authority = if ua_tag == 1 {
+            Some(Pubkey::new_from_array(
+                pd_data[4..36]
+                    .try_into()
+                    .map_err(|_| TradeFinanceError::Unauthorized)?,
+            ))
+        } else {
+            None
+        };
+        let allowed = match upgrade_authority {
+            Some(ua) => ua == ctx.accounts.admin.key(),
+            None => ctx.accounts.admin.key() == DEPLOYER,
+        };
+        require!(allowed, TradeFinanceError::Unauthorized);
         // 审计 C-01：LP mint authority 必须是 pool_authority PDA（链上铸币的前提）。
         require!(
             ctx.accounts.lp_mint.mint_authority == COption::Some(ctx.accounts.pool_authority.key()),
@@ -146,6 +158,7 @@ pub mod trade_finance {
         pool.first_loss_reserve = 0;
         pool.min_insurance_abs = DEFAULT_MIN_INSURANCE_ABS;
         pool.overdue_fee_apy_bps = 0;
+        pool.pending_admin_delay_secs = ADMIN_TRANSFER_DELAY_SECS;
 
         msg!("pool initialized by {}", pool.admin);
         Ok(())
@@ -212,7 +225,7 @@ pub mod trade_finance {
         require!(
             now >= pool
                 .pending_admin_proposed_at
-                .checked_add(ADMIN_TRANSFER_DELAY_SECS)
+                .checked_add(pool.pending_admin_delay_secs)
                 .ok_or(TradeFinanceError::MathOverflow)?,
             TradeFinanceError::AdminLockNotElapsed
         );
@@ -463,11 +476,9 @@ pub mod trade_finance {
         let shares = if lp_supply == 0 {
             amount / USDC_DECIMALS_FACTOR
         } else {
-            let nav_base = vault_before_deposit
-                .checked_add(pool.active_capital)
-                .ok_or(TradeFinanceError::MathOverflow)?
-                .checked_add(pool.escrow_funded)
-                .ok_or(TradeFinanceError::MathOverflow)?;
+            // 审计 N-01/N-06：铸币定价与赎回一致，采用纯现金权益基准
+            // （equity_base = vault - first_loss，不含应收），消除铸造/赎回套利。
+            let nav_base = pool.equity_base(vault_before_deposit)?;
             require!(nav_base > 0, TradeFinanceError::MathOverflow);
             ((amount as u128)
                 .checked_mul(lp_supply as u128)
@@ -559,8 +570,10 @@ pub mod trade_finance {
         let vault_before = ctx.accounts.pool_token_account.amount;
         require!(vault_before > 0, TradeFinanceError::InsufficientFunds);
 
+        // 审计 N-01/N-06：赎回按 LP 权益现金基准（vault - first_loss）兑付，首损不可赎回。
+        let equity_before = ctx.accounts.pool_state.equity_base(vault_before)?;
         let usdc_out = ((lp_amount as u128)
-            .checked_mul(vault_before as u128)
+            .checked_mul(equity_before as u128)
             .ok_or(TradeFinanceError::MathOverflow)?
             / lp_supply as u128) as u64;
         require!(
@@ -1528,6 +1541,25 @@ pub mod trade_finance {
         );
         Ok(())
     }
+
+    /// 调整管理员转移锁定期（审计 N-02）：默认 48h，可经治理下调（测试/紧急）或上调。
+    /// 生产环境应保持 >= 172_800 秒。
+    pub fn set_admin_delay(ctx: Context<SetAdminDelay>, delay_secs: i64) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(delay_secs >= 0, TradeFinanceError::InvalidFeeParams);
+        pool.pending_admin_delay_secs = delay_secs;
+        emit!(RiskParamsUpdatedEvent {
+            admin: pool.admin,
+            min_insurance_abs: pool.min_insurance_abs,
+            overdue_fee_apy_bps: pool.overdue_fee_apy_bps,
+        });
+        msg!("admin transfer delay set to {}s", delay_secs);
+        Ok(())
+    }
 }
 
 // ==== 分段标识: 账户约束 ====
@@ -1550,9 +1582,9 @@ pub struct InitializePool<'info> {
     /// CHECK: 资金池 USDC 托管账户的 PDA authority（同时作为 LP 铸币 authority，审计 C-01）。
     #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
-    /// 程序数据账户：upgrade authority 必须为初始化者，杜绝抢先初始化（审计 H-01）。
-    /// 地址与权限在指令体中通过 ProgramData PDA 校验。
-    pub program_data: Account<'info, ProgramData>,
+    /// 程序数据账户（原生格式，手动解析）：upgrade authority 必须为初始化者（审计 H-01/N-05）。
+    /// CHECK: 仅用于读取 upgrade authority，不反序列化 anchor 结构。
+    pub program_data: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -2242,6 +2274,14 @@ pub struct WithdrawFirstLoss<'info> {
 
 #[derive(Accounts)]
 pub struct SetRiskParams<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetAdminDelay<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
