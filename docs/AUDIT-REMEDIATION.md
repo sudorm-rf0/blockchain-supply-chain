@@ -3,6 +3,17 @@
 本表汇总内部安全评估（`AUDIT-REPORT.md` / `CERTIK-REPORT.md`）及早期专项审计
 （`CONTRACT-AUDIT.md`）中的全部发现与整改状态，供真实第三方审计时核对。
 
+## 〇、独立复测整改（2026-08-08，对应 SECURITY-AUDIT-REPORT 独立审查）
+
+| 编号 | 问题 | 整改 |
+|---|---|---|
+| **C-1（Critical）** | `initialize_pool`/`initialize_registry` 的 `program_data` 账户未绑定地址 → 攻击者可传入自己程序的 ProgramData 伪造 upgrade authority，抢跑初始化夺取管理员 | ✅ **修复**：两程序初始化前强制 `program_data.key() == 本程序 ProgramData PDA`（`BPF_LOADER_UPGRADEABLE` + `find_program_address`）；新增 Rust 单测锚定 PDA；anchor 66/66 通过 |
+| **H-3（High）** | `deposit_pool` 以实时金库余额定价 → 直接捐赠抬高份额定价基准，首存者+捐赠可抽干后续存款人 | ✅ **修复**：`PoolState` 新增权威记账 `tracked_vault`（仅由程序出入金更新），全部 8 个资金指令同步维护；deposit/redeem 等入口校验实时余额 == tracked_vault（VaultMismatch 拒绝外部捐赠）；新增 H-3 捐赠回归测试 |
+| **L-1（Low）** | `repay_deal` 强制 `fee > 0` → 微单（fee 向下取整为 0）无法结清（DoS） | ✅ **修复**：允许 fee=0 纯还本路径 |
+| **M-1（审计误判，未改）** | 报告称未释放违约 `total_assets` 少计 `pool_portion` | ⚠️ 复核：M-01 已把放款记入 `escrow_funded`（非 active_capital），未释放违约减 `escrow_funded` 即正确；`total_assets` 不变满足 INV-1，报告结论基于旧代码，**无需修改**（已用记账增量测试验证） |
+| **H-2（High）** | `test-deployer` 特性若被编译进主网构建 → 硬编码 DEPLOYER 成为初始化后门 | ✅ **脚本防护**：precheck 校验 `test-deployer` 未设为默认特性、主网部署命令不携带该特性（回归即 FAIL） |
+| **M-3（Medium）** | 先冻结 upgrade authority 后初始化 → 生产路径拒绝初始化（部署变砖） | ✅ **脚本防护**：deploy-mainnet.sh 冻结前校验资金池/注册中心 PDA 已在链上，否则中止 |
+
 ## 一、本次整改完成（2026-08-07 批次）
 
 | 编号 | 问题 | 整改 |

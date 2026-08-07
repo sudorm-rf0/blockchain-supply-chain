@@ -97,6 +97,14 @@ else
   add_check "upgrade authority plan" "PASS" "${UPGRADE_AUTHORITY_PLAN}"
 fi
 
+# 独立复测 H-2：test-deployer 特性是主网后门开关，禁止默认启用或在主网构建命令中出现
+if grep -qE '^default\s*=.*test-deployer' "${ROOT}/packages/contracts/programs/trade-finance/Cargo.toml" "${ROOT}/packages/contracts/programs/supply-chain/Cargo.toml" 2>/dev/null; then
+  add_check "test-deployer default feature" "FAIL" "test-deployer 被设为默认特性，主网构建将引入 DEPLOYER 初始化后门"
+fi
+if grep -qE '--features.*test-deployer' "${ROOT}/scripts/deploy-mainnet.sh" 2>/dev/null; then
+  add_check "deploy build features" "FAIL" "deploy-mainnet.sh 构建命令携带 test-deployer 特性"
+fi
+
 # 审计 L-13：初始化时锁必须 >= 86400s（生产），杜绝初始化路径无时锁
 if [[ -z "${INITIAL_ADMIN_DELAY}" ]]; then
   add_check "initial admin delay" "FAIL" "INITIAL_ADMIN_DELAY must be set (>= 86400) for initialize_*"

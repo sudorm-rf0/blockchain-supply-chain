@@ -180,4 +180,9 @@ pub enum TradeFinanceError {
     /// 首损资金不足：无法完成提取。
     #[msg("First-loss reserve is insufficient")]
     FirstLossInsufficient,
+
+    /// 金库余额与权威记账不一致（独立复测 H-3）：存在外部直接捐赠等未入账资金，
+    /// 拒绝出入金以防份额定价被操纵。
+    #[msg("Vault balance does not match the tracked ledger")]
+    VaultMismatch,
 }

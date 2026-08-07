@@ -12,6 +12,9 @@ pub const MIN_REGISTRY_ADMIN_DELAY_SECS: i64 = 86_400;
 #[cfg(feature = "test-deployer")]
 pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
 
+/// BPF Loader Upgradeable 程序 ID（ProgramData PDA 推导基准，审计 C-1）。
+pub const BPF_LOADER_UPGRADEABLE: Pubkey = pubkey!("BPFLoaderUpgradeab1e11111111111111111111111");
+
 /// 商品 PDA 种子：SKU 的完整 SHA-256（32 字节）哈希。
 /// 审计 N-04/I-05：Solana 单个种子允许最多 32 字节，SHA-256 输出恰为 32 字节，
 /// 使用完整哈希消除 8 字节截断的碰撞风险（PDA 唯一性由 owner + 完整哈希保证）。
@@ -32,6 +35,16 @@ pub mod supply_chain {
         // 审计 H-01 / N-05：若程序保留 upgrade authority，初始化者必须等于
         // upgrade authority；仅当 upgrade authority 已冻结（None）时回退 DEPLOYER 白名单。
         // ProgramData 布局（agave 4.1.2 实测）：u32@0(3) + u64 slot@4 + u8 option@12 + Pubkey@13。
+        // 独立复测 C-1（Critical）：program_data 必须绑定到本程序的 ProgramData PDA，
+        // 否则攻击者可传入任意账户伪造 upgrade authority 抢跑初始化夺权。先绑定再读取。
+        let expected_program_data = Pubkey::find_program_address(
+            &[ctx.program_id.key().as_ref()],
+            &BPF_LOADER_UPGRADEABLE,
+        ).0;
+        require!(
+            ctx.accounts.program_data.key() == expected_program_data,
+            SupplyChainError::Unauthorized
+        );
         let pd_data = ctx.accounts.program_data.try_borrow_data()?;
         let ua_tag = u8::from_le_bytes(
             pd_data[12..13].try_into().map_err(|_| SupplyChainError::Unauthorized)?,

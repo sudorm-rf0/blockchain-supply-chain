@@ -176,6 +176,9 @@ pub struct PoolState {
     pub overdue_fee_apy_bps: u64,
     /// 管理员转移锁定期（秒，审计 N-02；默认 48h，可由 set_admin_delay 治理调整）。
     pub pending_admin_delay_secs: i64,
+    /// 权威金库记账（独立复测 H-3）：仅由经过本程序的出入金更新，外部直接捐赠
+    /// 不改变份额定价基准；deposit/redeem 等入口校验实时金库余额 == tracked_vault。
+    pub tracked_vault: u64,
 }
 
 impl PoolState {
@@ -213,6 +216,7 @@ impl PoolState {
             + 8  // min_insurance_abs (L-07)
             + 8  // overdue_fee_apy_bps (L-04)
             + 8  // pending_admin_delay_secs (N-02)
+            + 8  // tracked_vault (独立复测 H-3)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -228,6 +232,16 @@ impl PoolState {
     /// 读取/查询与管理员配置（set_paused/transfer_admin/set_platform_wallet）不受限。
     pub fn ensure_not_paused(&self) -> Result<()> {
         require!(!self.paused, TradeFinanceError::PoolPaused);
+        Ok(())
+    }
+
+    /// 金库一致性守卫（独立复测 H-3）：实时余额必须等于权威记账 tracked_vault，
+    /// 否则说明存在外部直接捐赠等未入账资金，拒绝后续出入金以防定价操纵。
+    pub fn ensure_vault_consistent(&self, live_balance: u64) -> Result<()> {
+        require!(
+            live_balance == self.tracked_vault,
+            TradeFinanceError::VaultMismatch
+        );
         Ok(())
     }
 
@@ -376,6 +390,7 @@ mod tests {
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
+            tracked_vault: 0,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
@@ -414,11 +429,23 @@ mod tests {
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
+            tracked_vault: 0,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
         pool.add_pending_dividends(50).unwrap();
         assert_eq!(pool.pending_dividends, 150);
+    }
+
+    #[test]
+    fn c1_program_data_pda_matches_known() {
+        let prog: Pubkey = Pubkey::from_str_const("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
+        let (pda, _bump) = Pubkey::find_program_address(&[prog.as_ref()], &crate::BPF_LOADER_UPGRADEABLE);
+        assert_eq!(pda.to_string(), "AXqfpDV8A1tYH3CffphnjLg4J8Z4MyMx5Z3CQTfABKZ2");
+        assert_eq!(
+            crate::BPF_LOADER_UPGRADEABLE.to_string(),
+            "BPFLoaderUpgradeab1e11111111111111111111111"
+        );
     }
 
     #[test]
@@ -449,6 +476,7 @@ mod tests {
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
+            tracked_vault: 0,
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
@@ -503,6 +531,7 @@ mod tests {
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
+            tracked_vault: 0,
         }
     }
 

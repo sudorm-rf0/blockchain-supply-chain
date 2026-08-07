@@ -9,6 +9,7 @@ import {
   getMint,
   getAssociatedTokenAddressSync,
   mintTo,
+  transfer,
 } from "@solana/spl-token";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 
@@ -2218,6 +2219,67 @@ describe("trade-finance full lifecycle", () => {
         "时锁保持 48h，未被下调",
       );
       console.log("H-05 PoC attack sequence blocked (regression)");
+    });
+
+    it("Rejects external vault donations (H-3 regression)", async () => {
+      // 独立复测 H-3：直接向金库 ATA 捐赠（绕过 deposit_pool），
+      // 此后 deposit/redeem 必须因 VaultMismatch 被拒，杜绝份额定价操纵。
+      const donor = anchor.web3.Keypair.generate();
+      await airdrop(donor.publicKey);
+      const donorAta = await createAta(donor.publicKey);
+      await mintTo(connection, payer, usdcMint, donorAta, payer.publicKey, USDC(1_000));
+      const vaultBefore = await vaultBalance();
+      await transfer(
+        connection,
+        donor,
+        donorAta,
+        poolTokenAccount,
+        donor.publicKey,
+        USDC(1_000),
+      );
+      assert.equal(
+        await vaultBalance(),
+        vaultBefore + BigInt(USDC(1_000)),
+        "donation should reach the vault",
+      );
+
+      await assert.rejects(
+        program.methods
+          .depositPool(new anchor.BN(USDC(1)))
+          .accounts({
+            poolState: poolStatePda,
+            depositor: lp.publicKey,
+            depositorTokenAccount: lpAta,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
+            usdcMint,
+            lpMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            depositorLpTokenAccount: lpTokenAta,
+          })
+          .signers([lp])
+          .rpc(),
+        /Vault balance does not match|VaultMismatch/,
+      );
+      await assert.rejects(
+        program.methods
+          .redeemLp(new anchor.BN(1))
+          .accounts({
+            poolState: poolStatePda,
+            lpUser: lp.publicKey,
+            lpUserTokenAccount: lpTokenAta,
+            lpUserUsdcTokenAccount: lpAta,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
+            usdcMint,
+            lpMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([lp])
+          .rpc(),
+        /Vault balance does not match|VaultMismatch/,
+      );
+      console.log("External donation rejected (H-3 regression)");
     });
   });
 });
