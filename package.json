@@ -39,5 +39,6 @@
     "turbo": "^2.0.3",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.66.0"
-  }
+  },
+  "description": "Solana blockchain supply chain finance monorepo (contracts / backend / frontend)"
 }
