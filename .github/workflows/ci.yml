@@ -344,6 +344,12 @@ jobs:
           cargo test --manifest-path programs/supply-chain/Cargo.toml
           cargo test --manifest-path programs/trade-finance/Cargo.toml
 
+      - name: Reproducible build check (two builds identical)
+        working-directory: packages/contracts
+        run: |
+          bash ../scripts/reproducible-build.sh --verify-twice | tail -8
+          # 链上字节码对比（部署后）：scripts/verify-reproducible.sh
+
   e2e:
     runs-on: [self-hosted, macOS, ARM64]
     needs: changes
