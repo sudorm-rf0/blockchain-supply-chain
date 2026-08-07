@@ -73,8 +73,8 @@ devnet 部署（当前已验证）:
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
 测试结果（审计可核验，基于本包内容）:
-  Anchor 集成: 65/65 通过（trade-finance.ts 48 + supply-chain.ts 17，含资金恒等式/记账增量断言 + 治理 + 审计整改回归）
-  Rust 单元（含 proptest）: 22/22（trade-finance 14 + supply-chain 8）
+  Anchor 集成: 66/66 通过（trade-finance.ts 49 + supply-chain.ts 17，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归）
+  Rust 单元（含 proptest）: 23/23（trade-finance 15 + supply-chain 8）
 
 说明:
   - 本包不含任何私钥/keypair，仅供审计代码审查。
