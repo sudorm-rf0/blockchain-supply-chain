@@ -359,19 +359,28 @@ describe("supply-chain permissioned registration", () => {
     const newAdmin = anchor.web3.Keypair.generate();
     await airdrop(newAdmin.publicKey);
     await program.methods
-      .transferAdmin(newAdmin.publicKey)
+      .proposeRegistryAdmin(newAdmin.publicKey)
       .accounts({
         registry: REGISTRY(),
         admin: provider.wallet.publicKey,
       })
       .rpc();
+    await program.methods
+      .acceptRegistryAdmin()
+      .accounts({ registry: REGISTRY(), newAdmin: newAdmin.publicKey })
+      .signers([newAdmin])
+      .rpc();
     const registry = await program.account.registry.fetch(REGISTRY());
     assert.equal(registry.admin.toBase58(), newAdmin.publicKey.toBase58());
     // 新管理员可授权供应商
     await program.methods
-      .transferAdmin(provider.wallet.publicKey)
+      .proposeRegistryAdmin(provider.wallet.publicKey)
       .accounts({ registry: REGISTRY(), admin: newAdmin.publicKey })
       .signers([newAdmin])
+      .rpc();
+    await program.methods
+      .acceptRegistryAdmin()
+      .accounts({ registry: REGISTRY(), newAdmin: provider.wallet.publicKey })
       .rpc();
     assert.equal(
       (await program.account.registry.fetch(REGISTRY())).admin.toBase58(),
@@ -383,7 +392,7 @@ describe("supply-chain permissioned registration", () => {
   it("Rejects transferring registry admin to default pubkey", async () => {
     await assert.rejects(
       program.methods
-        .transferAdmin(PublicKey.default)
+        .proposeRegistryAdmin(PublicKey.default)
         .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
         .rpc(),
       /InvalidNewAdmin/,

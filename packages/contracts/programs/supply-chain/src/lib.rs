@@ -44,14 +44,19 @@ pub mod supply_chain {
         let registry = &mut ctx.accounts.registry;
         registry.admin = ctx.accounts.admin.key();
         registry.initialized_at = Clock::get()?.unix_timestamp;
+        registry.pending_admin = Pubkey::default();
+        registry.pending_admin_proposed_at = 0;
+        registry.admin_delay_secs = 0;
         msg!("registry initialized by {}", registry.admin);
         Ok(())
     }
 
-    /// 管理员轮换（审计 M-11）：把注册中心管理员转移给新地址。
-    /// 与 trade-finance 的 propose/accept 两步轮换保持一致的做法：
-    /// 此处由当前管理员签名直接转移，并在指令层面校验非零地址。
-    pub fn transfer_admin(ctx: Context<TransferRegistryAdmin>, new_admin: Pubkey) -> Result<()> {
+    /// 管理员轮换第一步：提出转移提案（审计 M-11/M-12）。
+    /// 由新管理员签名接受后生效（见 accept_registry_admin）。
+    pub fn propose_registry_admin(
+        ctx: Context<ProposeRegistryAdmin>,
+        new_admin: Pubkey,
+    ) -> Result<()> {
         require!(
             ctx.accounts.registry.admin == ctx.accounts.admin.key(),
             SupplyChainError::Unauthorized
@@ -61,8 +66,53 @@ pub mod supply_chain {
             SupplyChainError::InvalidNewAdmin
         );
         let registry = &mut ctx.accounts.registry;
-        registry.admin = new_admin;
-        msg!("registry admin transferred to {}", new_admin);
+        require!(
+            registry.pending_admin == Pubkey::default(),
+            SupplyChainError::PendingAdminExists
+        );
+        registry.pending_admin = new_admin;
+        registry.pending_admin_proposed_at = Clock::get()?.unix_timestamp;
+        msg!(
+            "registry admin transfer proposed: {} -> {}",
+            registry.admin,
+            new_admin
+        );
+        Ok(())
+    }
+
+    /// 管理员轮换第二步：新管理员签名接受，锁定期结束后生效（审计 M-12）。
+    pub fn accept_registry_admin(ctx: Context<AcceptRegistryAdmin>) -> Result<()> {
+        let registry = &mut ctx.accounts.registry;
+        require!(
+            registry.pending_admin == ctx.accounts.new_admin.key(),
+            SupplyChainError::Unauthorized
+        );
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            now >= registry
+                .pending_admin_proposed_at
+                .checked_add(registry.admin_delay_secs)
+                .ok_or(SupplyChainError::MathOverflow)?,
+            SupplyChainError::AdminLockNotElapsed
+        );
+        let old_admin = registry.admin;
+        registry.admin = registry.pending_admin;
+        registry.pending_admin = Pubkey::default();
+        registry.pending_admin_proposed_at = 0;
+        msg!("registry admin transferred: {} -> {}", old_admin, registry.admin);
+        Ok(())
+    }
+
+    /// 调整注册中心管理员转移锁定期（审计 M-12；生产建议 >= 86400s）。
+    pub fn set_registry_admin_delay(ctx: Context<SetRegistryAdminDelay>, delay_secs: i64) -> Result<()> {
+        let registry = &mut ctx.accounts.registry;
+        require!(
+            registry.admin == ctx.accounts.admin.key(),
+            SupplyChainError::Unauthorized
+        );
+        require!(delay_secs >= 0, SupplyChainError::InvalidNewAdmin);
+        registry.admin_delay_secs = delay_secs;
+        msg!("registry admin delay set to {}s", delay_secs);
         Ok(())
     }
 
@@ -199,7 +249,24 @@ pub struct AuthorizeSupplier<'info> {
 }
 
 #[derive(Accounts)]
-pub struct TransferRegistryAdmin<'info> {
+pub struct ProposeRegistryAdmin<'info> {
+    #[account(mut, seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
+    pub registry: Account<'info, Registry>,
+
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct AcceptRegistryAdmin<'info> {
+    #[account(mut, seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
+    pub registry: Account<'info, Registry>,
+
+    /// 待接受的新管理员：必须是提案中的 pending_admin（审计 M-12）。
+    pub new_admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetRegistryAdminDelay<'info> {
     #[account(mut, seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
     pub registry: Account<'info, Registry>,
 
@@ -282,6 +349,12 @@ pub struct Registry {
     pub admin: Pubkey,
     /// 注册中心初始化时间。
     pub initialized_at: i64,
+    /// 待接受的管理员（两步轮换，全零表示无提案，审计 M-12）。
+    pub pending_admin: Pubkey,
+    /// 管理员转移提案时间（审计 M-12）。
+    pub pending_admin_proposed_at: i64,
+    /// 管理员转移锁定期（秒，审计 M-12；生产建议 >= 86400）。
+    pub admin_delay_secs: i64,
 }
 
 #[account]
@@ -329,6 +402,18 @@ pub enum SupplyChainError {
     /// 商品已处于失效状态。
     #[msg("Product is already revoked")]
     AlreadyRevoked,
+
+    /// 已存在未完成的管理员转移提案。
+    #[msg("An admin transfer is already pending")]
+    PendingAdminExists,
+
+    /// 管理员转移锁定期尚未结束。
+    #[msg("Admin transfer lock period has not elapsed")]
+    AdminLockNotElapsed,
+
+    /// 算术溢出。
+    #[msg("Math overflow")]
+    MathOverflow,
 }
 
 #[cfg(test)]

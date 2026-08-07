@@ -4,7 +4,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 
 use crate::state::{
-    LP_MINT_DECIMALS, ADMIN_TRANSFER_DELAY_SECS, USDC_DECIMALS_FACTOR,
+    LP_MINT_DECIMALS, ADMIN_TRANSFER_DELAY_SECS, MIN_ADMIN_DELAY_SECS, USDC_DECIMALS_FACTOR,
     DEFAULT_FEE_APY_BPS, DEFAULT_LP_SHARE_BPS, DEFAULT_PLATFORM_SHARE_BPS, DEFAULT_REBATE_SHARE_BPS,
     DEFAULT_MIN_INSURANCE_ABS,
     MAX_SINGLE_FEE_BPS, MIN_FIRST_LOSS_ABS,
@@ -93,6 +93,7 @@ pub mod trade_finance {
     pub fn initialize_pool(
         ctx: Context<InitializePool>,
         platform_wallet: Pubkey,
+        initial_delay_secs: i64,
     ) -> Result<()> {
         // 审计 H-01 / N-05：仅允许部署方初始化，杜绝抢先初始化抢跑。
         // 规则：若程序保留 upgrade authority（主网部署常态），初始化者必须等于
@@ -158,7 +159,9 @@ pub mod trade_finance {
         pool.first_loss_reserve = 0;
         pool.min_insurance_abs = DEFAULT_MIN_INSURANCE_ABS;
         pool.overdue_fee_apy_bps = 0;
-        pool.pending_admin_delay_secs = ADMIN_TRANSFER_DELAY_SECS;
+        // 审计 H-05：初始时锁由部署方注入（生产 172_800s，测试可注入小值验证锁定期行为）。
+        require!(initial_delay_secs >= 0, TradeFinanceError::InvalidFeeParams);
+        pool.pending_admin_delay_secs = initial_delay_secs;
 
         msg!("pool initialized by {}", pool.admin);
         Ok(())
@@ -1251,6 +1254,20 @@ pub mod trade_finance {
             pool.pending_dividends >= amount,
             TradeFinanceError::InsufficientDividends
         );
+        // 审计 L-11：仅允许向 LP 持有者发放分红，且单次不超过其按 LP 占比应得份额，
+        // 消除管理员向任意地址定向转移/超比例倾斜的裁量权。
+        let recipient_lp_balance = ctx.accounts.recipient_lp_token_account.amount;
+        require!(
+            recipient_lp_balance > 0,
+            TradeFinanceError::InvalidAmount
+        );
+        let lp_supply = ctx.accounts.lp_mint.supply;
+        require!(lp_supply > 0, TradeFinanceError::ZeroLpSupply);
+        let share_cap = ((pool.pending_dividends as u128)
+            .checked_mul(recipient_lp_balance as u128)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / lp_supply as u128) as u64;
+        require!(amount <= share_cap, TradeFinanceError::InvalidAmount);
 
         let pool_bump = [ctx.bumps.pool_authority];
         let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
@@ -1549,7 +1566,11 @@ pub mod trade_finance {
             pool.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
         );
-        require!(delay_secs >= 0, TradeFinanceError::InvalidFeeParams);
+        // 审计 H-05：不得将时锁下调至硬下限（86_400s）以下，杜绝"置零自废后门"。
+        require!(
+            delay_secs >= MIN_ADMIN_DELAY_SECS,
+            TradeFinanceError::InvalidFeeParams
+        );
         pool.pending_admin_delay_secs = delay_secs;
         emit!(RiskParamsUpdatedEvent {
             admin: pool.admin,
@@ -1965,6 +1986,13 @@ pub struct DistributeDividends<'info> {
         associated_token::authority = recipient
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
+
+    /// 接收方 LP 持仓（审计 L-11：仅向 LP 持有者分红，且按占比限制单次金额）。
+    #[account(
+        associated_token::mint = lp_mint,
+        associated_token::authority = recipient
+    )]
+    pub recipient_lp_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
     #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
