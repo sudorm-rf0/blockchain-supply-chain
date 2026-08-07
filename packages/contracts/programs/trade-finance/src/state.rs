@@ -17,9 +17,10 @@ pub const USDC_DECIMALS_FACTOR: u64 = 1_000_000;
 /// 赎回周期窗口（秒）：一个窗口内累计赎回不得超过窗口上限（审计 M-05）。
 pub const REDEEM_WINDOW_SECS: i64 = 86_400;
 
-/// 管理员转移锁定期（秒）：上线前应调整为 >= 48h（审计 H-03）。
-/// 测试环境保留 0，避免集成测试等待真实锁定期。
-pub const ADMIN_TRANSFER_DELAY_SECS: i64 = 0;
+/// 管理员转移锁定期（秒，审计 H-03/N-02）：默认 48h。
+/// 存储于 PoolState.pending_admin_delay_secs，可由治理指令 set_admin_delay 调整；
+/// 集成测试通过 set_admin_delay(0) 模拟即时生效，生产默认 172_800。
+pub const ADMIN_TRANSFER_DELAY_SECS: i64 = 172_800;
 
 /// 默认垫付额年化费率（万分位，H-04 基准档 6.70% APR）。
 pub const DEFAULT_FEE_APY_BPS: u64 = 670;
@@ -169,6 +170,8 @@ pub struct PoolState {
     pub min_insurance_abs: u64,
     /// 逾期罚息年化费率（万分位，审计 L-04；默认 0 表示未启用）。
     pub overdue_fee_apy_bps: u64,
+    /// 管理员转移锁定期（秒，审计 N-02；默认 48h，可由 set_admin_delay 治理调整）。
+    pub pending_admin_delay_secs: i64,
 }
 
 impl PoolState {
@@ -205,6 +208,7 @@ impl PoolState {
             + 8  // first_loss_reserve (H-04)
             + 8  // min_insurance_abs (L-07)
             + 8  // overdue_fee_apy_bps (L-04)
+            + 8  // pending_admin_delay_secs (N-02)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -367,6 +371,7 @@ mod tests {
             first_loss_reserve: 0,
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
+            pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
@@ -404,6 +409,7 @@ mod tests {
             first_loss_reserve: 0,
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
+            pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -438,6 +444,7 @@ mod tests {
             first_loss_reserve: 0,
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
+            pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
@@ -491,6 +498,7 @@ mod tests {
             first_loss_reserve: 0,
             min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
             overdue_fee_apy_bps: 0,
+            pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
         }
     }
 
