@@ -161,6 +161,35 @@ jobs:
           grep -q "launch-preflight 完成" /tmp/preflight-ok.log
           grep -q "Squads多签创建与Admin迁移手册" /tmp/preflight-ok.log
 
+  network-policy:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Network policy generator is fail-closed (OFF-NET-1)
+        run: |
+          set -euo pipefail
+          bash -n scripts/generate-network-policies.sh
+          # 1) 无 CIDR 必须失败（不再静默宽放）
+          set +e
+          OUT=/tmp/np-missing.yaml bash scripts/generate-network-policies.sh >/tmp/np-missing.log 2>&1
+          rc=$?
+          set -e
+          [ "$rc" -ne 0 ] || { echo "expected fail-closed when CIDRs missing"; exit 1; }
+          grep -q "missing required egress CIDRs" /tmp/np-missing.log
+          # 2) 0.0.0.0/0 必须被拒绝
+          set +e
+          OUT=/tmp/np-wide.yaml SOLANA_RPC_CIDR=0.0.0.0/0 RISK_WEBHOOK_CIDR=198.51.100.5/32 S3_CIDR=192.0.2.0/24             bash scripts/generate-network-policies.sh >/tmp/np-wide.log 2>&1
+          rc=$?
+          set -e
+          [ "$rc" -ne 0 ] || { echo "expected reject wide-open 0.0.0.0/0"; exit 1; }
+          # 3) 合法 CIDR 生成且不含宽放
+          OUT=/tmp/np-ok.yaml SOLANA_RPC_CIDR=203.0.113.0/24 RISK_WEBHOOK_CIDR=198.51.100.5/32 S3_CIDR=192.0.2.0/24             bash scripts/generate-network-policies.sh >/dev/null
+          ! grep -q "0.0.0.0/0\|::/0" /tmp/np-ok.yaml
+          grep -q "203.0.113.0/24" /tmp/np-ok.yaml
+
   vps-deploy:
     runs-on: [self-hosted, macOS, ARM64]
     needs: changes

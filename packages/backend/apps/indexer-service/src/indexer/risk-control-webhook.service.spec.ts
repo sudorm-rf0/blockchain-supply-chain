@@ -1,5 +1,7 @@
 import { RiskControlWebhookService } from "./risk-control-webhook.service";
 
+const TEST_SECRET = "test-webhook-secret-0123456789abcdef";
+
 const deal = {
   id: "deal-pda",
   dealId: "123456789",
@@ -20,13 +22,15 @@ describe("RiskControlWebhookService", () => {
     fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
     process.env.WEBHOOK_RETRY_DELAY_MS = "1";
+    process.env.WEBHOOK_SECRET = TEST_SECRET;
   });
 
   afterEach(() => {
     delete process.env.WEBHOOK_RETRY_DELAY_MS;
+    delete process.env.WEBHOOK_SECRET;
   });
 
-  it("delivers a signed defaulted webhook", async () => {
+  it("delivers a signed defaulted webhook with nonce", async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200 });
     const service = new RiskControlWebhookService();
     await service.notifyDefaulted(deal as never);
@@ -42,12 +46,22 @@ describe("RiskControlWebhookService", () => {
     expect(url).toContain("/risk/defaulted");
     expect(init.headers["x-webhook-signature"]).toMatch(/^[0-9a-f]{64}$/);
     expect(init.headers["x-webhook-timestamp"]).toMatch(/^\d+$/);
+    expect(init.headers["x-webhook-nonce"]).toMatch(/^[0-9a-f]{32}$/);
     const body = JSON.parse(init.body) as {
       event: string;
       deal: { dealId: string };
     };
     expect(body.event).toBe("deal.defaulted");
     expect(body.deal.dealId).toBe("123456789");
+  });
+
+  it("fails closed when WEBHOOK_SECRET is missing", async () => {
+    delete process.env.WEBHOOK_SECRET;
+    const service = new RiskControlWebhookService();
+    await expect(service.notifyDefaulted(deal as never)).rejects.toThrow(
+      "WEBHOOK_SECRET must be set",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("fails loudly when the risk service rejects the webhook", async () => {

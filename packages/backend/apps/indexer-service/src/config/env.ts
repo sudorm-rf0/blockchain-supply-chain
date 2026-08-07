@@ -20,10 +20,6 @@ export const INDEXER_ENV = {
     "RISK_WEBHOOK_URL",
     "http://localhost:8080/risk/defaulted",
   ),
-  webhookSecret: env(
-    "WEBHOOK_SECRET",
-    "supply-chain-dev-webhook-secret",
-  ),
   syncQueueName: env("SYNC_QUEUE_NAME", "sync-queue"),
   port: envNumber("INDEXER_PORT", 3003),
 } as const;

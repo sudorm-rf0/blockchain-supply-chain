@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { createHmac } from "node:crypto";
+import { createSignedWebhook } from "@supply-chain/common";
 import { INDEXER_ENV } from "../config/env";
 import type { TradeDeal } from "@prisma/client";
 
@@ -25,11 +25,20 @@ export class RiskControlWebhookService {
       },
     };
 
-    const timestamp = Date.now();
     const body = JSON.stringify(payload);
-    const signature = createHmac("sha256", INDEXER_ENV.webhookSecret)
-      .update(`${timestamp}.${body}`)
-      .digest("hex");
+    // OFF-AUTH-1 / OFF-WH-1：风控 webhook 的签名密钥不允许为空或 dev 固定值
+    // （fail-closed），签名串含 nonce 供接收方重放去重 + 时间窗校验。
+    const secret = process.env.WEBHOOK_SECRET ?? "";
+    if (!secret) {
+      throw new Error("WEBHOOK_SECRET must be set when RISK_WEBHOOK_URL is configured");
+    }
+    if (
+      process.env.NODE_ENV === "production" &&
+      secret.length < 32
+    ) {
+      throw new Error("WEBHOOK_SECRET must be >= 32 chars in production");
+    }
+    const { signature, timestamp, nonce } = createSignedWebhook(secret, body);
     const maxAttempts = 3;
     const delayMs = Number(process.env.WEBHOOK_RETRY_DELAY_MS ?? 300);
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -40,6 +49,7 @@ export class RiskControlWebhookService {
             "content-type": "application/json",
             "x-webhook-signature": signature,
             "x-webhook-timestamp": String(timestamp),
+            "x-webhook-nonce": nonce,
           },
           body,
           signal: AbortSignal.timeout(5_000),

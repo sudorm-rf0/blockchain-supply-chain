@@ -495,3 +495,33 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
   1. 真实 VPS/K8s 部署 + 全链路冒烟（工具链已备：`deploy/vps` + `deploy-mainnet.sh`）。
   2. 主网 RPC 付费套餐 + 主网配置（`SOLANA_RPC_URL`/Program ID/USDC/LP）。
   3. 主网小额真实资金灰度 → 放量（见 `docs/MAINNET-MIGRATION.md`）。
+
+---
+
+## 9. Multichain-0149 链下发现闭环（2026-08-08）
+
+> 依据 `Multichain-2026-0149_综合审计报告` 核实的链下缺口，项目侧已完成代码级整改并验证。
+
+### 9.1 已闭环
+
+| 编号 | 发现 | 整改 |
+| --- | --- | --- |
+| OFF-AUTH-1 | 生产 JWT/WEBHOOK 密钥替换，禁用 dev 固定值 | ① `auth.service.ts` TOTP 加密密钥移除 `?? "dev-secret"` 兜底，缺失即抛错；② indexer `WEBHOOK_SECRET` 默认值由 dev 固定值改为空；③ notifier / risk-webhook 发送端 fail-closed（URL 配置后密钥为空拒绝发送，生产强制 >= 32 字符）；④ trade/indexer 启动校验新增 `secrets: ["WEBHOOK_SECRET"]`；⑤ 相关 `.env.example` 更新 |
+| OFF-REDIS-1 | Redis 不可用防暴破降级无告警 | ① `RedisService` 模块级失败计数 + error 日志 + Sentry；② `/metrics` 新增 `redis_operation_failures` / `redis_last_failure_timestamp_seconds`；③ `infra/prometheus/alerts.yml` 新增 `RedisDegraded` 告警（promtool 校验 10 条规则通过）；④ 登录路径检测到计数增长即 `logger.error` + `captureException` |
+| OFF-NET-1 | NetworkPolicy 默认出口宽放 | ① `scripts/generate-network-policies.sh` 改 fail-closed（缺 CIDR / `0.0.0.0/0` 拒绝生成；`ALLOW_WIDE_OPEN=1` 仅限本地）；② `deploy.sh` 检测到 generated 文件后自动应用收紧密级策略并删除 `allow-egress-external`；③ `verify-monitoring.sh` 新增 netpol 检查（`REQUIRE_HARDENED_NETPOL=1` 强制）；④ CI 新增 `network-policy` job |
+| OFF-WH-1 | Webhook 签名防重放/时序比较 | ① 签名串改为 `${timestamp}.${nonce}.${body}`，新增 `x-webhook-nonce` 头（notifier + risk-webhook）；② `@supply-chain/common` 新增 `verifyWebhookSignature`（常量时间比较 + 5 分钟时间窗 + nonce 去重）；③ 新增单测覆盖篡改/过期/换 nonce/换密钥/空密钥 |
+
+### 9.2 仍为执行/决策项（非代码缺陷）
+
+- **DEP-MSIG-1**：主网 `pool.admin` / `registry.admin` 指向 Squads 多签 PDA（≥3/5）——上线前置。
+- **DEP-UA-1**：`UPGRADE_AUTHORITY_PLAN`（cold-wallet / freeze）决策并写入部署包。
+- **OPS-BAK-1**：生产备份同步对象存储 + 每季度恢复演练。
+- **ECO-PARAM-1**：`fee_apy_bps` / 分配比例 / 首损注资规模由业务与风控确认。
+
+### 9.3 验证
+
+- 后端 Jest：**155/155 通过**（26 suites，含新增 webhook 签名/防重放、fail-closed 用例）。
+- TypeScript：main backend / indexer / pool / trade 四套 `tsc --noEmit` 全通过。
+- ESLint：通过。
+- `promtool check rules`：alerts.yml 10 条规则通过。
+- `generate-network-policies.sh`：fail-closed（无 CIDR / `0.0.0.0/0` 拒绝）+ 合法 CIDR 生成无宽放，本地验证通过。

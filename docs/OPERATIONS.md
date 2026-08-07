@@ -7,7 +7,7 @@
 | `DATABASE_URL` | 本地 Postgres | Prisma 连接串 |
 | `REDIS_URL` | `redis://localhost:6380` | 缓存、队列、锁、防暴破 |
 | `SOLANA_RPC_URL` | `http://localhost:8899` | 正式环境必须替换；**支持逗号分隔多个 Key**（如 `https://a.helius...?key=1,https://b...?key=2`，逐个轮询分摊配额/限流） |
-| `JWT_SECRET` | dev 固定值 | 生产强制 >= 32 字符 |
+| `JWT_SECRET` | 空（启动强制） | 生产强制 >= 32 字符；代码无 dev 兜底（OFF-AUTH-1） |
 | `THROTTLE_LIMIT` | `120` | 每分钟每 IP 上限 |
 | `MAX_UPLOADS_PER_DAY` | `200` | 每用户每日上传上限 |
 | `ALLOWED_ORIGIN` | 空 | 写请求 Origin 白名单 |
@@ -18,7 +18,7 @@
 | `USDC_MINT` / `LP_MINT` | dev 占位 | 正式代币 |
 | `RISK_WEBHOOK_URL` | 空 | 违约事件通知 |
 | `REPAYMENT_NOTIFY_URL` | 空 | 还款到期通知（IM/邮件 Webhook，HMAC 签名同 `WEBHOOK_SECRET`） |
-| `WEBHOOK_SECRET` | dev 值 | Webhook HMAC 签名密钥 |
+| `WEBHOOK_SECRET` | 空（fail-closed） | Webhook HMAC 签名密钥；URL 配置后为空直接拒绝发送，生产强制 >= 32 字符（OFF-AUTH-1） |
 | `SENTRY_DSN` | 空 | 配置后 500 自动上报 |
 | `CLAMAV_HOST` / `CLAMAV_PORT` | 空 / 3310 | clamd TCP 杀毒；生产必须配置 |
 | `SCAN_URL` | 空 | 备选 HTTP 杀毒服务（`{clean: boolean}`） |
@@ -137,9 +137,11 @@ bash scripts/generate-network-policies.sh
 kubectl apply -f k8s/network-policies.generated.yaml -n supply-chain
 ```
 
-生成后删除 `k8s/network-policies.yaml` 中的宽放段（`allow-egress-external`），
-实现最小化出口。三个用途可分别配置：`SOLANA_RPC_CIDR`、
-`RISK_WEBHOOK_CIDR`、`S3_CIDR`；未配置的用途保持宽放。
+生成脚本为 **fail-closed**（OFF-NET-1）：三个用途 CIDR
+（`SOLANA_RPC_CIDR` / `RISK_WEBHOOK_CIDR` / `S3_CIDR`）缺任一即失败，
+不再静默回退 `0.0.0.0/0`；本地开发确需宽放显式传 `ALLOW_WIDE_OPEN=1`。
+`deploy.sh` 检测到 `k8s/network-policies.generated.yaml` 后自动应用收紧密级
+策略并删除宽放段 `allow-egress-external`。
 
 K8s 环境每天 02:00 自动 `pg_dump -Fc` 到 `postgres-backups` PVC，保留
 7 天。生产必须把备份同步到对象存储并每季度做恢复演练。
@@ -148,8 +150,11 @@ K8s 环境每天 02:00 自动 `pg_dump -Fc` 到 `postgres-backups` PVC，保留
 
 ### Redis 不可用
 
-- 登录锁定、文件缓存、提款锁静默降级（返回 0/空），功能不中断但
-  防暴破失效，应立即恢复 Redis。
+- 登录锁定、文件缓存、提款锁降级（返回 0/空），功能不中断但
+  防暴破失效。**已接入告警（OFF-REDIS-1）**：Redis 操作失败会写入
+  `error` 日志、上报 Sentry、暴露 `redis_operation_failures` 指标，
+  Prometheus 告警 `RedisDegraded`（5 分钟内有失败即触发）。恢复后计数
+  清零需重启进程（模块级计数）。
 - `docker compose restart redis` 或 `kubectl rollout restart deployment/redis`。
 
 ### 数据库不可用
@@ -211,7 +216,10 @@ node scripts/scan-uploads.mjs <目录>     # 指定其他目录
   初始化 Registry 并授权供应商（幂等）；管理端「供应链管理」页
   （`/admin/supply-chain`）可完成初始化/授权/撤销/注册商品（钱包签名）。
 - 违约事件会调用 `RISK_WEBHOOK_URL`，签名头
-  `x-webhook-signature`（HMAC-SHA256）与 `x-webhook-timestamp`。
+  `x-webhook-signature`（HMAC-SHA256，签名串 `${timestamp}.${nonce}.${body}`）、
+  `x-webhook-timestamp` 与 `x-webhook-nonce`（OFF-WH-1）。接收方校验参考
+  `@supply-chain/common` 的 `verifyWebhookSignature`：常量时间比较 +
+  5 分钟时间窗防重放 + nonce 去重。
 - **紧急暂停（链上熔断）**：管理员钱包调用 `set_paused(true)` 可冻结全部
   资金移动指令（建单/存款/放款/推进/释放/还款/违约/赎回/分红），只读与存证
   不受限；恢复用 `set_paused(false)`。暂停状态由 indexer 回写快照，资金池

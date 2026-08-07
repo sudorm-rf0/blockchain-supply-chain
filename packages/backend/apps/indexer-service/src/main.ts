@@ -11,7 +11,7 @@ import { assertStartupEnv, validateStartupEnv } from "../../../src/shared/env-ch
 import { INDEXER_ENV } from "./config/env";
 
 async function bootstrap(): Promise<void> {
-  assertStartupEnv(validateStartupEnv({ required: ["DATABASE_URL"], redisRequired: true, rpcRequired: true }));
+  assertStartupEnv(validateStartupEnv({ required: ["DATABASE_URL"], secrets: ["WEBHOOK_SECRET"], redisRequired: true, rpcRequired: true }));
   initSentry("indexer-service");
   const app = await NestFactory.create(AppModule);
   app.use(compression());

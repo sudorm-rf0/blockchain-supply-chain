@@ -143,11 +143,11 @@ spec:
       app: supply-chain
   policyTypes: ["Egress"]
   egress:
-    # 兜底宽放：默认允许全部外部 80/443。
-    # 上线前用 scripts/generate-network-policies.sh 按用途收紧密级：
-    #   SOLANA_RPC_CIDR / RISK_WEBHOOK_CIDR / S3_CIDR
-    # 生成 k8s/network-policies.generated.yaml（gitignored）后 apply，
-    # 再把本兜底段删除，实现最小化出口。
+    # 兜底宽放：默认允许全部外部 80/443（仅开发/初始部署）。
+    # 上线前必须用 scripts/generate-network-policies.sh 按用途收紧密级
+    # （fail-closed，OFF-NET-1）：SOLANA_RPC_CIDR / RISK_WEBHOOK_CIDR / S3_CIDR。
+    # deploy.sh 检测到 k8s/network-policies.generated.yaml 后会自动应用
+    # 收紧密级策略并删除本宽放段，实现最小化出口。
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

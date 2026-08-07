@@ -4,13 +4,14 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
 import { PublicKey } from "@solana/web3.js";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
-import { RedisService } from "@supply-chain/common";
+import { getRedisFailureCount, RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
 import { signJwt } from "@supply-chain/common";
 import {
@@ -20,6 +21,7 @@ import {
   REFRESH_TOKEN_TTL_SECONDS,
 } from "./session";
 import { invalidateUserState } from "@supply-chain/common";
+import { captureException } from "../shared/sentry";
 import { createHmac } from "node:crypto";
 
 const scryptAsync = promisify(scrypt) as (
@@ -104,9 +106,13 @@ function totpUri(secret: string, accountName: string): string {
 }
 
 function totpEncryptionKey(): Buffer {
-  return createHash("sha256")
-    .update(`${process.env.JWT_SECRET ?? "dev-secret"}:totp`)
-    .digest();
+  // 启动期已由 validateStartupEnv 强制 JWT_SECRET（>= 32 字符），此处不再允许任何
+  // dev 固定值兜底（OFF-AUTH-1）：缺失时直接失败，而不是用弱密钥加密 TOTP。
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET must be set (>= 32 chars) before TOTP encryption");
+  }
+  return createHash("sha256").update(`${secret}:totp`).digest();
 }
 
 function encryptTotpSecret(secret: string): string {
@@ -155,6 +161,7 @@ export interface SessionResult {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
@@ -229,6 +236,7 @@ export class AuthService {
     body: { email: string; password: string; totpCode?: string },
     clientIp?: string,
   ): Promise<SessionResult | { requiresTotp: true }> {
+    const redisFailuresBefore = getRedisFailureCount();
     const failKey = `login:fail:${body.email}`;
     const fails = await this.redis.incr(failKey);
     if (fails === 1) {
@@ -241,6 +249,16 @@ export class AuthService {
       if (ipFails === 1) {
         await this.redis.expire(ipKey, 15 * 60);
       }
+    }
+    if (getRedisFailureCount() > redisFailuresBefore) {
+      // OFF-REDIS-1：Redis 不可用时防暴破计数 fail-open，禁止静默降级。
+      this.logger.error(
+        "REDIS_DEGRADED: login rate-limit counters failed (fail-open). " +
+          "Redis unavailable or unreachable; brute-force protection is degraded.",
+      );
+      captureException(
+        new Error("REDIS_DEGRADED: login rate-limit fail-open (Redis unavailable)"),
+      );
     }
     if (fails >= 5 || (ipKey && ipFails >= 20)) {
       throw new HttpException(

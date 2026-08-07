@@ -136,11 +136,34 @@ check_grafana() {
   fi
 }
 
+
+check_network_policies() {
+  local gen="k8s/network-policies.generated.yaml"
+  if [[ ! -f "${gen}" ]]; then
+    if [[ "${REQUIRE_HARDENED_NETPOL:-0}" == "1" ]]; then
+      add_check "network-policies-hardened" "FAIL" "${gen} missing; run scripts/generate-network-policies.sh (OFF-NET-1)"
+    else
+      add_check "network-policies-hardened" "SKIP" "${gen} not present (dev); set REQUIRE_HARDENED_NETPOL=1 to enforce"
+    fi
+    return 0
+  fi
+  if rg -q "0.0.0.0/0|::/0" "${gen}"; then
+    add_check "network-policies-hardened" "FAIL" "${gen} still contains wide-open egress (0.0.0.0/0)"
+    return 0
+  fi
+  if [[ "$(rg -c 'cidr: ' "${gen}" || true)" -lt 3 ]]; then
+    add_check "network-policies-hardened" "FAIL" "${gen} missing egress CIDR entries"
+    return 0
+  fi
+  add_check "network-policies-hardened" "PASS" "${gen} has least-privilege egress (no 0.0.0.0/0)"
+}
+
 start_ts="$(date +%s)"
 validate_alerts
 validate_recording_rules
 check_service_metrics
 check_prometheus_config
+check_network_policies
 check_prometheus
 check_grafana
 duration="$(( $(date +%s) - start_ts ))"

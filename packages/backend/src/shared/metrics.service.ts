@@ -1,10 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import {
   Counter,
+  Gauge,
   Histogram,
   Registry,
   collectDefaultMetrics,
 } from "prom-client";
+import {
+  getRedisFailureCount,
+  getRedisLastFailureAt,
+} from "@supply-chain/common";
 
 @Injectable()
 export class MetricsService {
@@ -12,6 +17,8 @@ export class MetricsService {
   private readonly requests: Counter;
   private readonly duration: Histogram;
   private readonly cspViolations: Counter;
+  private readonly redisFailures: Gauge;
+  private readonly redisLastFailureAt: Gauge;
 
   constructor() {
     collectDefaultMetrics({ register: this.registry });
@@ -33,6 +40,25 @@ export class MetricsService {
       help: "Total CSP violation reports received from browsers",
       labelNames: ["directive", "disposition"],
       registers: [this.registry],
+    });
+    // OFF-REDIS-1：Redis 操作失败计数（模块级共享，跨服务实例一致）。
+    // >0 表示出现过失败（incr 失败 = 登录防暴破 fail-open），供告警联动。
+    this.redisFailures = new Gauge({
+      name: "redis_operation_failures",
+      help: "Total Redis operation failures observed by this process",
+      registers: [this.registry],
+      collect: () => {
+        this.redisFailures.set(getRedisFailureCount());
+      },
+    });
+    this.redisLastFailureAt = new Gauge({
+      name: "redis_last_failure_timestamp_seconds",
+      help: "Unix timestamp (seconds) of the last Redis operation failure, 0 if none",
+      registers: [this.registry],
+      collect: () => {
+        const last = getRedisLastFailureAt();
+        this.redisLastFailureAt.set(last ? last / 1000 : 0);
+      },
     });
   }
 
