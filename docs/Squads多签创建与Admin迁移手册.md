@@ -43,25 +43,32 @@ npx @sqds/cli create --threshold 3 --members <成员1,成员2,成员3,成员4,�
 
 ---
 
-## 2. 场景 A：全新初始化（admin 直接 = 多签 PDA，推荐）
+## 2. 场景 A：全新初始化，admin 一步到位 = 多签（推荐）
 
-> 适用于主网 Program **尚未初始化**。这样无需迁移，一步到位。
+> 机制要点：合约 `initialize_*` 写入的 `admin = signer.key()`，且生产构建要求
+> `signer == upgrade authority`（或 UA 冻结时 == DEPLOYER，生产禁止回退）。
+> 因此要让 `pool.admin` 直接 = 多签，**初始化交易必须由多签执行，且多签是 upgrade authority**。
 
-1. **部署**：`bash scripts/deploy-mainnet.sh --yes --generate-keypairs`（冷钱包部署，保留 UA）
-2. **初始化资金池**：`initialize_pool` 交易中：
-   - `admin`（signer）= **冷钱包**（满足 H-01/N-05：admin == upgrade authority）
-   - `PoolState.admin`（写入值）= **多签 PDA** —— 即指令参数/账户传多签 PDA 作为新 admin 地址
-   - `platform_wallet` = 平台运营钱包
-   - `initial_delay_secs` ≥ 86400（生产强制）
-   - 用改造后的 `scripts/init-localnet.mjs`（把 admin 地址改为多签 PDA）执行
-3. **初始化注册中心**：`initialize_registry(initial_delay_secs)` 同理，`registry.admin` = 多签 PDA
-4. **验证**：见第 4 节
+1. **部署（UA=冷钱包）**：`bash scripts/deploy-mainnet.sh --yes --generate-keypairs`
+2. **把 upgrade authority 交给多签**（冷钱包签名）：
+   ```bash
+   solana program set-upgrade-authority <TRADE_PID> --new-upgrade-authority <MULTISIG_PDA> --url <主网RPC> --keypair <冷钱包>
+   solana program set-upgrade-authority <SUPPLY_PID> --new-upgrade-authority <MULTISIG_PDA> --url <主网RPC> --keypair <冷钱包>
+   ```
+3. **由多签执行初始化**（Squads UI：Create transaction → 添加 `initialize_pool` 指令）：
+   - `admin`（signer）= **多签 PDA**（Squads 以多签身份签名）
+   - 账户：pool_state / admin / program_data / usdc_mint / lp_mint / pool_authority / system_program
+   - 参数：`platform_wallet` = 平台运营钱包；`initial_delay_secs` ≥ 86400（生产，建议 172800）
+   - 签名人投票 → Execute
+4. **supply-chain 同理**：多签执行 `initialize_registry(initial_delay_secs)`，`registry.admin` = 多签
+5. **验证**：见第 4 节；precheck `MULTISIG_ADMIN` = PASS
 
-> 初始化后 `pool.admin` / `registry.admin` 即为多签 PDA；此后 fund/release/default/分红等管理操作**均需多签发起并投票通过**。
+> 采用此路径后 `pool.admin` / `registry.admin` 即多签 PDA，且 upgrade authority 也在多签——
+> 后续升级/冻结由多签治理，符合 DFR-0148 的 UA 处置建议（cold-wallet 交给多签或 freeze）。
 
----
+## 3. 场景 B：已有池子迁移（冷钱包初始化后 / devnet / 灰度池 → 多签）
 
-## 3. 场景 B：已有池子迁移（devnet/灰度池 → 多签）
+> 若不采用场景 A（多签初始化），冷钱包初始化后 `admin=冷钱包`，须走本场景迁移（含 48h 时锁）。
 
 > 适用于 **已初始化** 的资金池（如灰度期单签 admin）迁移到多签。
 
