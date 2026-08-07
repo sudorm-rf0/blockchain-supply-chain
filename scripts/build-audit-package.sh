@@ -20,6 +20,14 @@ cp -R "${ROOT}/packages/contracts/programs/trade-finance" "${PKG_DIR}/contracts/
 cp -R "${ROOT}/packages/contracts/programs/supply-chain" "${PKG_DIR}/contracts/programs/"
 cp "${ROOT}/packages/contracts/Cargo.toml" "${PKG_DIR}/contracts/" 2>/dev/null || true
 cp "${ROOT}/packages/contracts/Anchor.toml" "${PKG_DIR}/contracts/" 2>/dev/null || true
+cp "${ROOT}/packages/contracts/Cargo.lock" "${PKG_DIR}/contracts/" 2>/dev/null || true
+cp "${ROOT}/packages/contracts/package.json" "${PKG_DIR}/contracts/" 2>/dev/null || true
+cp "${ROOT}/packages/contracts/tsconfig.json" "${PKG_DIR}/contracts/" 2>/dev/null || true
+cp "${ROOT}/packages/contracts/eslint.config.mjs" "${PKG_DIR}/contracts/" 2>/dev/null || true
+mkdir -p "${PKG_DIR}/contracts/scripts"
+for f in clean-test-ledger.sh test.sh test-anchor.sh; do
+  [[ -f "${ROOT}/packages/contracts/scripts/${f}" ]] && cp "${ROOT}/packages/contracts/scripts/${f}" "${PKG_DIR}/contracts/scripts/"
+done
 
 # 2) 合约测试（含不变量/边界用例）
 cp "${ROOT}/packages/contracts/tests/"*.ts "${PKG_DIR}/contracts/tests/" 2>/dev/null || true
@@ -27,11 +35,31 @@ cp "${ROOT}/packages/contracts/tests/"*.ts "${PKG_DIR}/contracts/tests/" 2>/dev/
 # 3) 文档
 for f in CONTRACT-AUDIT.md AUDIT-REPORT.md CERTIK-REPORT.md AUDIT-DELIVERY.md \
          AUDIT-REMEDIATION.md AUDIT-ECONOMIC-MODEL.md AUDIT-KNOWN-RISKS.md \
-         MAINNET-MIGRATION.md LAUNCH-CHECKLIST.md; do
+         MAINNET-MIGRATION.md LAUNCH-CHECKLIST.md CONTRACT-THREAT-MODEL.md \
+         CONTRACT-INVARIANTS.md OPERATIONS.md H-04-费率重构方案.md \
+         上线准备-DFR-0148通过.md; do
   [[ -f "${ROOT}/docs/${f}" ]] && cp "${ROOT}/docs/${f}" "${PKG_DIR}/docs/"
 done
 
-# 4) 部署信息（Program ID / 账户，脱敏：不包含私钥）
+# 4) 治理/部署校验脚本（审计 N-03/N-05 部署侧证据，docs 引用；不含私钥）
+mkdir -p "${PKG_DIR}/scripts"
+for f in precheck-mainnet-deploy.sh verify-contract-deployment.sh verify-deployment.sh \
+         deploy-mainnet.sh init-mainnet.sh reconcile.sh health-check.sh; do
+  [[ -f "${ROOT}/scripts/${f}" ]] && cp "${ROOT}/scripts/${f}" "${PKG_DIR}/scripts/"
+done
+
+# 5) 历史审计报告 / PoC（可选来源：AUDIT_REPORTS_DIR 或仓库 reports/）
+#    I-07 要求随包交付历轮 DFR 报告与 PoC，供交付物级复核。
+REPORTS_SRC="${AUDIT_REPORTS_DIR:-${ROOT}/reports}"
+if [[ -d "${REPORTS_SRC}" ]]; then
+  mkdir -p "${PKG_DIR}/reports"
+  cp -R "${REPORTS_SRC}/." "${PKG_DIR}/reports/"
+  echo "  (reports 已随包：$(find "${PKG_DIR}/reports" -type f | wc -l | tr -d ' ') 个文件)"
+else
+  echo "  ⚠️ 未找到 reports 源（AUDIT_REPORTS_DIR 或 repo/reports），跳过历史报告；I-07 要求签署包必须包含 reports/"
+fi
+
+# 6) 部署信息（Program ID / 账户，脱敏：不包含私钥）
 cat > "${PKG_DIR}/deployment-info.txt" <<INFO
 Blockchain Supply Chain - 审计部署信息
 日期: $(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -44,17 +72,17 @@ devnet 部署（当前已验证）:
   USDC (devnet测试): 2MTv8NwqdaquHfMwBVB9ap3ZP7foF1erALDYXWK2GKVc
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
-测试结果（最新 CI/local）:
-  Anchor 集成: 64/64 通过（含 create/fund/default 记账增量断言 + 治理 + 审计整改回归）
-  后端 Jest: 146/146
-  前端 Vitest: 50/50
+测试结果（审计可核验，基于本包内容）:
+  Anchor 集成: 65/65 通过（trade-finance.ts 48 + supply-chain.ts 17，含资金恒等式/记账增量断言 + 治理 + 审计整改回归）
+  Rust 单元（含 proptest）: 22/22（trade-finance 14 + supply-chain 8）
 
 说明:
   - 本包不含任何私钥/keypair，仅供审计代码审查。
   - 主网 Program ID 为部署时新生成（见 docs/MAINNET-MIGRATION.md）。
+  - 后端/前端测试不在本合约审计包范围内；相关测试与 CI 结果见仓库 CI 与 AUDIT-REPORT.md。
 INFO
 
-# 5) 清单
+# 7) 清单
 cat > "${PKG_DIR}/README.md" <<README
 # 审计材料包 ${STAMP}
 
@@ -70,7 +98,7 @@ cat > "${PKG_DIR}/README.md" <<README
 default 保险路径 / u64 边界 / 集中度 / supply-chain 权限）。
 README
 
-# 6) 打包
+# 8) 打包
 cd "${OUT_DIR}"
 tar -czf "${PKG_TAR}" "$(basename "${PKG_DIR}")"
 echo "✅ 审计材料包已生成：${PKG_TAR}"
