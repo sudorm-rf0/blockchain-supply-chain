@@ -117,3 +117,10 @@ DFR 复测确认首次审计 1 Critical + 4 High 已代码级修复，并识别 
 
 - **N-03（单管理员缺多签）**：合约 `pool.admin` / `registry.admin` 已支持指向任意地址（含 Squads 多签 PDA）；主网部署必须指向多签（≥3/5），并由 `precheck-mainnet-deploy.sh`（MULTISIG_ADMIN 检查）与 MAINNET-MIGRATION.md 前置条件强制。
 - **N-05（DEPLOYER 硬编码测试钱包）**：初始化守卫已实现"upgrade authority 存在则必须匹配、仅 UA 冻结时回退 DEPLOYER"；`test.sh` 在测试环境动态注入 DEPLOYER。主网部署保留冷钱包 UA 或冻结，`precheck-mainnet-deploy.sh` 校验部署钱包 != 测试 DEPLOYER 且声明 UA 处置计划。
+
+## N-05 / L-13 代码级解决（2026-08-07，feature 区分生产/测试）
+
+- **N-05（DEPLOYER 生产回退）**：DEPLOYER 常量改为 `#[cfg(feature = "test-deployer")]` 测试专用；生产构建（无该 feature）中 upgrade authority 冻结（None）时**初始化被禁止**，彻底消除"测试钱包在生产可初始化"的回退路径。
+- **L-13（初始化时锁下限）**：`initialize_pool` / `initialize_registry` 的初始时锁在生产构建强制 `>= 86_400s`（MIN_ADMIN_DELAY_SECS / MIN_REGISTRY_ADMIN_DELAY_SECS）；测试构建允许小值验证锁定期。
+- 构建方式：测试 `anchor test -- --features test-deployer`（test.sh 已配置）；生产 `anchor build`（无 feature）。
+- 测试：Rust 22/22、Anchor 65/65（两种构建均验证通过）。

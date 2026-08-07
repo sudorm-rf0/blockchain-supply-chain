@@ -123,7 +123,10 @@ pub mod trade_finance {
         };
         let allowed = match upgrade_authority {
             Some(ua) => ua == ctx.accounts.admin.key(),
+            #[cfg(feature = "test-deployer")]
             None => ctx.accounts.admin.key() == DEPLOYER,
+            #[cfg(not(feature = "test-deployer"))]
+            None => false, // 生产：UA 冻结时禁止初始化，杜绝测试钱包回退（审计 N-05）
         };
         require!(allowed, TradeFinanceError::Unauthorized);
         // 审计 C-01：LP mint authority 必须是 pool_authority PDA（链上铸币的前提）。
@@ -166,8 +169,15 @@ pub mod trade_finance {
         pool.first_loss_reserve = 0;
         pool.min_insurance_abs = DEFAULT_MIN_INSURANCE_ABS;
         pool.overdue_fee_apy_bps = 0;
-        // 审计 H-05：初始时锁由部署方注入（生产 172_800s，测试可注入小值验证锁定期行为）。
+        // 审计 H-05/L-13：初始时锁由部署方注入。
+        // 测试构建允许小值验证锁定期；生产构建强制 >= MIN_ADMIN_DELAY_SECS。
+        #[cfg(feature = "test-deployer")]
         require!(initial_delay_secs >= 0, TradeFinanceError::InvalidFeeParams);
+        #[cfg(not(feature = "test-deployer"))]
+        require!(
+            initial_delay_secs >= MIN_ADMIN_DELAY_SECS,
+            TradeFinanceError::InvalidFeeParams
+        );
         pool.pending_admin_delay_secs = initial_delay_secs;
 
         msg!("pool initialized by {}", pool.admin);
