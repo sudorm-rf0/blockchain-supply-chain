@@ -349,10 +349,10 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 模块 | 测试数 | 通过 |
 |------|--------|------|
-| `trade-finance::state::tests` | 7 | ✅ |
+| `trade-finance::state::tests` | 13 | ✅ |
 | `trade-finance::test_id` | 1 | ✅ |
-| `supply-chain::tests` | 7 | ✅ |
-| **合计** | **16** | **16 / 16** |
+| `supply-chain::tests` | 8 | ✅ |
+| **合计** | **22** | **22 / 22** |
 
 覆盖场景：过期判断、状态转换合法性、非法状态码拒绝、SETTLED 锁定、NAV 溢出保护、`pending_dividends` 溢出保护、PDA 稳定性/确定/唯一性、账户空间精简、错误消息稳定性。
 
@@ -360,9 +360,9 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 测试文件 | 用例数 | 说明 |
 |----------|--------|------|
-| `trade-finance.ts` | 36 | 完整生命周期 + 边界场景 + mint 不匹配负面测试 + 不变量断言 + 暂停/管理员轮换治理 |
-| `supply-chain.ts` | 13 | 管理员授权/撤销、供应商注册、无授权拒绝 |
-| **合计** | **49** | |
+| `trade-finance.ts` | 46 | 完整生命周期 + 边界场景 + 暂停/管理员轮换治理 + 审计整改（H-04 费用参数化、M 系列、L/I/N 系列） |
+| `supply-chain.ts` | 16 | 管理员授权/撤销、供应商注册、无授权拒绝、registry admin 两步转移（M-11） |
+| **合计** | **62** | |
 
 ### 5.3 后端 Jest 测试
 
@@ -462,8 +462,8 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 
 | 项 | 审计报告记录 | 当前实际 |
 |---|---|---|
-| 合约 Rust 单测 | 15 | **15/15**（trade-finance 8 + supply-chain 7） |
-| Anchor 集成测试 | ~37 | **55/55**（含资金恒等式/记账增量断言 + 暂停/管理员轮换治理） |
+| 合约 Rust 单测 | 15 | **22/22**（trade-finance 14 + supply-chain 8） |
+| Anchor 集成测试 | ~37 | **62/62**（含资金恒等式/记账增量断言 + 治理 + 审计整改回归） |
 | 后端 Jest | 146 | **146/146** |
 | 前端 Vitest | ~8 | **48/48** |
 | Playwright e2e | 2 | **3**（含 TOTP 两步登录） |
