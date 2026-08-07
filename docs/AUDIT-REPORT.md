@@ -211,7 +211,7 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 2. 在调用处（`pool.service.ts:requestWithdrawal`、`repayment-due-notifier.service.ts`）增加 `try/catch`，将 Redis 故障映射为 `ServiceUnavailableException("服务暂时不可用，请稍后重试")`
 3. 区分"锁被持有"（`setNX` 返回 `false`）和"Redis 不可达"（`setNX` 抛出异常）
 
-**审计确认：** 修复已部署，后端全部 143 个单元测试通过。
+**审计确认：** 修复已部署，后端全部 146 个单元测试通过。
 
 ---
 
@@ -360,8 +360,8 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 | 指标 | 数值 |
 |------|------|
 | Test Suites | 24 |
-| Test Cases | 143 |
-| 通过率 | **100%** (143/143) |
+| Test Cases | 146 |
+| 通过率 | **100%** (146/146) |
 
 ### 5.4 前端测试
 
@@ -455,7 +455,7 @@ PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED → REPAYING �
 |---|---|---|
 | 合约 Rust 单测 | 15 | **17/17**（trade-finance 9 + supply-chain 8） |
 | Anchor 集成测试 | ~37 | **49/49**（含资金恒等式/记账增量断言 + 暂停/管理员轮换治理） |
-| 后端 Jest | 143 | **143/143** |
+| 后端 Jest | 143 | **146/146** |
 | 前端 Vitest | ~8 | **48/48** |
 | Playwright e2e | 2 | **3**（含 TOTP 两步登录） |
 
