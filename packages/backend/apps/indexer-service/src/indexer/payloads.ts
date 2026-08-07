@@ -50,5 +50,9 @@ export interface PoolSnapshotPayload {
   rebateShareBps: string;
   /// 平台首损资金（H-04）。
   firstLossReserve: string;
+  /// 赎回后保险基金最低余额（L-07 可治理）。
+  minInsuranceAbs: string;
+  /// 逾期罚息年化费率（万分位，L-04）。
+  overdueFeeApyBps: string;
   capturedAt: string;
 }

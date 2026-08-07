@@ -33,6 +33,8 @@ pub const DEFAULT_REBATE_SHARE_BPS: u64 = 1000;
 pub const MAX_SINGLE_FEE_BPS: u64 = 500;
 /// 平台首损资金最低保留（USDC 原始单位，100 USDC）。
 pub const MIN_FIRST_LOSS_ABS: u64 = 100_000_000;
+/// 默认赎回后保险基金最低余额（USDC 原始单位，100 USDC，审计 L-07 可治理）。
+pub const DEFAULT_MIN_INSURANCE_ABS: u64 = 100_000_000;
 
 /// TradeDeal.status 常量映射。
 pub mod deal_status {
@@ -163,6 +165,10 @@ pub struct PoolState {
     pub rebate_share_bps: u64,
     /// 平台首损资金（真实 USDC 记账，H-04 首损层；不计入 LP 净值）。
     pub first_loss_reserve: u64,
+    /// 赎回后保险基金最低余额（USDC 原始单位，审计 L-07 可治理，支持清盘路径）。
+    pub min_insurance_abs: u64,
+    /// 逾期罚息年化费率（万分位，审计 L-04；默认 0 表示未启用）。
+    pub overdue_fee_apy_bps: u64,
 }
 
 impl PoolState {
@@ -197,6 +203,8 @@ impl PoolState {
             + 8  // platform_share_bps (H-04)
             + 8  // rebate_share_bps (H-04)
             + 8  // first_loss_reserve (H-04)
+            + 8  // min_insurance_abs (L-07)
+            + 8  // overdue_fee_apy_bps (L-04)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -357,6 +365,8 @@ mod tests {
             platform_share_bps: DEFAULT_PLATFORM_SHARE_BPS,
             rebate_share_bps: DEFAULT_REBATE_SHARE_BPS,
             first_loss_reserve: 0,
+            min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
+            overdue_fee_apy_bps: 0,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
@@ -392,6 +402,8 @@ mod tests {
             platform_share_bps: DEFAULT_PLATFORM_SHARE_BPS,
             rebate_share_bps: DEFAULT_REBATE_SHARE_BPS,
             first_loss_reserve: 0,
+            min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
+            overdue_fee_apy_bps: 0,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -424,6 +436,8 @@ mod tests {
             platform_share_bps: DEFAULT_PLATFORM_SHARE_BPS,
             rebate_share_bps: DEFAULT_REBATE_SHARE_BPS,
             first_loss_reserve: 0,
+            min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
+            overdue_fee_apy_bps: 0,
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
@@ -446,6 +460,127 @@ mod tests {
         };
         let error = deal.is_expired(0).unwrap_err();
         assert!(error.to_string().contains("MathOverflow"));
+    }
+
+    // ---- 属性测试（审计 I-03）：proptest 覆盖状态空间组合 ----
+    use proptest::prelude::*;
+
+    fn test_pool() -> PoolState {
+        PoolState {
+            admin: Pubkey::default(),
+            total_assets: 0,
+            active_capital: 0,
+            reserve_fund: 0,
+            insurance_fund: 0,
+            pending_dividends: 0,
+            platform_wallet: Pubkey::default(),
+            nav: 0,
+            paused: false,
+            usdc_mint: Pubkey::default(),
+            lp_mint: Pubkey::default(),
+            escrow_funded: 0,
+            redemption_price: 0,
+            redeem_window_epoch: 0,
+            redeem_window_used: 0,
+            pending_admin: Pubkey::default(),
+            pending_admin_proposed_at: 0,
+            fee_apy_bps: DEFAULT_FEE_APY_BPS,
+            lp_share_bps: DEFAULT_LP_SHARE_BPS,
+            platform_share_bps: DEFAULT_PLATFORM_SHARE_BPS,
+            rebate_share_bps: DEFAULT_REBATE_SHARE_BPS,
+            first_loss_reserve: 0,
+            min_insurance_abs: DEFAULT_MIN_INSURANCE_ABS,
+            overdue_fee_apy_bps: 0,
+        }
+    }
+
+    proptest! {
+        /// NAV 单调性：金库现金不减少时 NAV 不减少。
+        #[test]
+        fn nav_is_monotonic_in_vault(
+            active in 0u64..1_000_000_000,
+            supply in 1u64..1_000_000,
+            v1 in 0u64..1_000_000_000,
+            delta in 0u64..1_000_000,
+        ) {
+            let pool = test_pool();
+            let nav1 = pool.calculate_nav(v1, active, supply).unwrap();
+            let nav2 = pool.calculate_nav(v1 + delta, active, supply).unwrap();
+            prop_assert!(nav2 >= nav1);
+        }
+
+        /// equity_base：首损超过金库现金时返回 Err，否则为 vault - first_loss。
+        #[test]
+        fn equity_base_consistent(
+            vault in 0u64..1_000_000_000,
+            first_loss in 0u64..1_000_000_000,
+        ) {
+            let mut pool = test_pool();
+            pool.first_loss_reserve = first_loss;
+            if vault >= first_loss {
+                prop_assert_eq!(pool.equity_base(vault).unwrap(), vault - first_loss);
+            } else {
+                prop_assert!(pool.equity_base(vault).is_err());
+            }
+        }
+
+        /// 赎回窗口随时间单调不减。
+        #[test]
+        fn redeem_window_monotonic(
+            t in 0i64..1_000_000_000i64,
+            delta in 0i64..1_000_000i64,
+        ) {
+            let pool = test_pool();
+            let w1 = pool.current_redeem_window(t);
+            let w2 = pool.current_redeem_window(t + delta);
+            prop_assert!(w2 >= w1);
+        }
+
+        /// set_status 任意输入不 panic（返回 Ok 或 Err）。
+        #[test]
+        fn set_status_never_panics(
+            status in 0u8..=255u8,
+            target in 0u8..=255u8,
+        ) {
+            let mut deal = TradeDeal {
+                id: 1,
+                buyer: Pubkey::default(),
+                seller: Pubkey::default(),
+                amount: 1_000_000,
+                down_payment: 300_000,
+                pool_portion: 700_000,
+                tenor: 86_400,
+                status,
+                created_at: 0,
+                repaid_at: 0,
+            };
+            let _ = deal.set_status(target);
+        }
+
+        /// is_expired 单调：时间推进后过期判断不会从 true 变 false。
+        #[test]
+        fn is_expired_monotonic(
+            created in 0i64..1_000_000,
+            tenor in 0i64..1_000_000,
+            t1 in 0i64..3_000_000,
+            delta in 0i64..1_000_000,
+        ) {
+            let deal = TradeDeal {
+                id: 1,
+                buyer: Pubkey::default(),
+                seller: Pubkey::default(),
+                amount: 1_000_000,
+                down_payment: 300_000,
+                pool_portion: 700_000,
+                tenor,
+                status: deal_status::REPAYING,
+                created_at: created,
+                repaid_at: 0,
+            };
+            let e1 = deal.is_expired(t1).unwrap();
+            let e2 = deal.is_expired(t1 + delta).unwrap();
+            prop_assert!(e2 || !e1);
+        }
     }
 }
 

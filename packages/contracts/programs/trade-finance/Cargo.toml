@@ -14,3 +14,6 @@ anchor-spl = "=0.31.1"
 
 [features]
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dev-dependencies]
+proptest = "1"

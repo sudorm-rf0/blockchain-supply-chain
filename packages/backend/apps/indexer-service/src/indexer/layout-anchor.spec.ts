@@ -53,9 +53,11 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //   8  platform_share_bps (H-04)
 //   8  rebate_share_bps (H-04)
 //   8  first_loss_reserve (H-04)
+//   8  min_insurance_abs (L-07)
+//   8  overdue_fee_apy_bps (L-04)
 const EXPECTED_POOL_STATE_SIZE =
   8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8 +
-  8 + 8 + 8 + 8 + 8;
+  8 + 8 + 8 + 8 + 8 + 8 + 8;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -64,7 +66,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(297);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(313);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 
@@ -114,6 +116,8 @@ describe("chain account layout anchor", () => {
     buf.writeBigUInt64LE(5000n, 273);     // platform_share_bps
     buf.writeBigUInt64LE(1000n, 281);     // rebate_share_bps
     buf.writeBigUInt64LE(50_000n, 289);   // first_loss_reserve
+    buf.writeBigUInt64LE(100_000_000n, 297); // min_insurance_abs
+    buf.writeBigUInt64LE(0n, 305);           // overdue_fee_apy_bps
 
     const payload = parsePoolStateBuffer(buf, "pool-pda");
     expect(payload.poolAddress).toBe("pool-pda");
@@ -129,6 +133,8 @@ describe("chain account layout anchor", () => {
     expect(payload.feeApyBps).toBe("670");
     expect(payload.lpShareBps).toBe("4000");
     expect(payload.firstLossReserve).toBe("50000");
+    expect(payload.minInsuranceAbs).toBe("100000000");
+    expect(payload.overdueFeeApyBps).toBe("0");
   });
 
 

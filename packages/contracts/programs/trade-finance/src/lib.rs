@@ -6,6 +6,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 use crate::state::{
     LP_MINT_DECIMALS, REDEEM_WINDOW_SECS, ADMIN_TRANSFER_DELAY_SECS, USDC_DECIMALS_FACTOR,
     DEFAULT_FEE_APY_BPS, DEFAULT_LP_SHARE_BPS, DEFAULT_PLATFORM_SHARE_BPS, DEFAULT_REBATE_SHARE_BPS,
+    DEFAULT_MIN_INSURANCE_ABS,
     MAX_SINGLE_FEE_BPS, MIN_FIRST_LOSS_ABS,
 };
 
@@ -22,7 +23,10 @@ declare_id!("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
 pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
 
 pub mod error;
+pub mod events;
 pub mod state;
+
+use events::*;
 
 // ==== 分段标识: 业务常量 ====
 /// 首付比例，3000 bps = 30.00%。
@@ -68,139 +72,6 @@ pub struct PoolStateInfo {
     pub redeem_window_epoch: i64,
     pub redeem_window_used: u64,
     pub pending_admin: Pubkey,
-}
-
-#[event]
-pub struct DealCreatedEvent {
-    pub trade_id: u64,
-    pub buyer: Pubkey,
-    pub seller: Pubkey,
-    pub amount: u64,
-}
-
-#[event]
-pub struct DepositEvent {
-    pub depositor: Pubkey,
-    pub amount: u64,
-    pub lp_shares: u64,
-    pub nav: u64,
-    pub redemption_price: u64,
-}
-
-#[event]
-pub struct DefaultEvent {
-    pub trade_id: u64,
-    pub status: u8,
-    pub recovered: u64,
-    pub insurance_payout: u64,
-}
-
-#[event]
-pub struct FundedEvent {
-    pub trade_id: u64,
-    pub amount: u64,
-}
-
-#[event]
-pub struct DealStatusChangedEvent {
-    pub trade_id: u64,
-    pub status: u8,
-}
-
-#[event]
-pub struct ReleasedEvent {
-    pub trade_id: u64,
-    pub amount: u64,
-}
-
-#[event]
-pub struct DocumentAttestedEvent {
-    pub trade_id: u64,
-    pub owner: Pubkey,
-    pub file_hash: [u8; 32],
-    pub uri: String,
-    pub uploaded_at: i64,
-}
-
-#[event]
-pub struct RedeemedEvent {
-    pub lp_user: Pubkey,
-    pub lp_amount: u64,
-    pub usdc_out: u64,
-    pub nav: u64,
-    pub redemption_price: u64,
-}
-
-#[event]
-pub struct DividendDistributedEvent {
-    pub recipient: Pubkey,
-    pub amount: u64,
-    pub remaining: u64,
-    /// 该接收方累计已领取（审计 H-02 方案 A 领取台账）。
-    pub total_claimed: u64,
-}
-
-#[event]
-pub struct BuyerRebateEvent {
-    pub buyer: Pubkey,
-    pub trade_id: u64,
-    pub amount: u64,
-    pub total: u64,
-}
-
-#[event]
-pub struct PoolPausedEvent {
-    pub admin: Pubkey,
-    pub paused: bool,
-}
-
-#[event]
-pub struct AdminTransferredEvent {
-    pub old_admin: Pubkey,
-    pub new_admin: Pubkey,
-}
-
-#[event]
-pub struct PlatformWalletUpdatedEvent {
-    pub admin: Pubkey,
-    pub platform_wallet: Pubkey,
-}
-
-#[event]
-pub struct AdminTransferProposedEvent {
-    pub old_admin: Pubkey,
-    pub new_admin: Pubkey,
-    pub proposed_at: i64,
-}
-
-#[event]
-pub struct LpMintUpdatedEvent {
-    pub admin: Pubkey,
-    pub old_lp_mint: Pubkey,
-    pub new_lp_mint: Pubkey,
-}
-
-#[event]
-pub struct FeeParamsUpdatedEvent {
-    pub admin: Pubkey,
-    pub fee_apy_bps: u64,
-    pub lp_share_bps: u64,
-    pub platform_share_bps: u64,
-    pub rebate_share_bps: u64,
-}
-
-#[event]
-pub struct FirstLossDepositedEvent {
-    pub admin: Pubkey,
-    pub amount: u64,
-    pub first_loss_reserve: u64,
-}
-
-#[event]
-pub struct FirstLossWithdrawnEvent {
-    pub admin: Pubkey,
-    pub amount: u64,
-    pub first_loss_reserve: u64,
 }
 
 /// 校验物流状态推进是否合法：Funded -> InTransit -> CustomsClear -> Delivered。
@@ -273,6 +144,8 @@ pub mod trade_finance {
         pool.platform_share_bps = DEFAULT_PLATFORM_SHARE_BPS;
         pool.rebate_share_bps = DEFAULT_REBATE_SHARE_BPS;
         pool.first_loss_reserve = 0;
+        pool.min_insurance_abs = DEFAULT_MIN_INSURANCE_ABS;
+        pool.overdue_fee_apy_bps = 0;
 
         msg!("pool initialized by {}", pool.admin);
         Ok(())
@@ -769,7 +642,7 @@ pub mod trade_finance {
             .checked_sub(insurance_out)
             .ok_or(TradeFinanceError::MathOverflow)?;
         require!(
-            insurance_after >= MIN_INSURANCE_ABS,
+            insurance_after >= pool.min_insurance_abs,
             TradeFinanceError::InsuranceRatioTooLow
         );
 
@@ -1089,8 +962,32 @@ pub mod trade_finance {
             .ok_or(TradeFinanceError::MathOverflow)?
             / BPS_BASE;
 
+        // 审计 L-04：逾期罚息（overdue_fee_apy_bps 默认 0 未启用；启用后按逾期天数加收）。
+        let now = Clock::get()?.unix_timestamp;
+        let overdue_fee = if pool_ref.overdue_fee_apy_bps > 0 {
+            let deadline = deal
+                .created_at
+                .checked_add(deal.tenor)
+                .ok_or(TradeFinanceError::MathOverflow)?;
+            if now > deadline {
+                let overdue_days = (now - deadline) / 86_400;
+                ((pool_portion as u128)
+                    .checked_mul(pool_ref.overdue_fee_apy_bps as u128)
+                    .ok_or(TradeFinanceError::MathOverflow)?
+                    .checked_mul(overdue_days as u128)
+                    .ok_or(TradeFinanceError::MathOverflow)?
+                    / (BPS_BASE as u128 * 365)) as u64
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
         let repayment_total = pool_portion
             .checked_add(fee)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_add(overdue_fee)
             .ok_or(TradeFinanceError::MathOverflow)?;
         require!(
             ctx.accounts.buyer_token_account.amount >= repayment_total,
@@ -1154,6 +1051,8 @@ pub mod trade_finance {
         pool.total_assets = pool
             .total_assets
             .checked_add(retained)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_add(overdue_fee)
             .ok_or(TradeFinanceError::MathOverflow)?;
         pool.active_capital = pool
             .active_capital
@@ -1599,6 +1498,36 @@ pub mod trade_finance {
         );
         Ok(())
     }
+
+    /// 更新风控参数（审计 L-07/L-04）：保险基金最低余额（支持清盘路径）、逾期罚息年化费率。
+    pub fn set_risk_params(
+        ctx: Context<SetRiskParams>,
+        min_insurance_abs: u64,
+        overdue_fee_apy_bps: u64,
+    ) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            overdue_fee_apy_bps <= 5000,
+            TradeFinanceError::InvalidFeeParams
+        );
+        pool.min_insurance_abs = min_insurance_abs;
+        pool.overdue_fee_apy_bps = overdue_fee_apy_bps;
+        emit!(RiskParamsUpdatedEvent {
+            admin: pool.admin,
+            min_insurance_abs,
+            overdue_fee_apy_bps,
+        });
+        msg!(
+            "risk params updated: min_insurance_abs={}, overdue_fee_apy_bps={}",
+            min_insurance_abs,
+            overdue_fee_apy_bps
+        );
+        Ok(())
+    }
 }
 
 // ==== 分段标识: 账户约束 ====
@@ -1734,15 +1663,15 @@ pub struct CreateDeal<'info> {
 
     #[account(
         mut,
-        constraint = buyer_token_account.owner == buyer.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = buyer_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = buyer
     )]
     pub buyer_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = deal_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = deal
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
 
@@ -1760,8 +1689,8 @@ pub struct CreateDeal<'info> {
     /// 资金池金库（审计 M-08：集中度上限改为基于可用流动性）。
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 }
@@ -1798,15 +1727,15 @@ pub struct FundDeal<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = deal_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = deal
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
 
@@ -1872,15 +1801,15 @@ pub struct ReleaseToSeller<'info> {
 
     #[account(
         mut,
-        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = deal_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = deal
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = seller_token_account.owner == deal.seller @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = seller_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = deal.seller
     )]
     pub seller_token_account: Account<'info, TokenAccount>,
 
@@ -1903,8 +1832,8 @@ pub struct RefreshNav<'info> {
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -1943,15 +1872,15 @@ pub struct RepayDeal<'info> {
 
     #[account(
         mut,
-        constraint = buyer_token_account.owner == buyer.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = buyer_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = buyer
     )]
     pub buyer_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = platform_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint,
-        constraint = platform_token_account.owner == pool_state.platform_wallet @ TradeFinanceError::WrongTokenAccountOwner
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_state.platform_wallet
     )]
     pub platform_token_account: Account<'info, TokenAccount>,
 
@@ -1961,8 +1890,8 @@ pub struct RepayDeal<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -2001,8 +1930,8 @@ pub struct DistributeDividends<'info> {
 
     #[account(
         mut,
-        constraint = recipient_token_account.owner == recipient.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = recipient_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = recipient
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
 
@@ -2012,8 +1941,8 @@ pub struct DistributeDividends<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -2047,8 +1976,8 @@ pub struct DepositPool<'info> {
 
     #[account(
         mut,
-        constraint = depositor_token_account.owner == depositor.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = depositor_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = depositor
     )]
     pub depositor_token_account: Account<'info, TokenAccount>,
 
@@ -2058,8 +1987,8 @@ pub struct DepositPool<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -2077,8 +2006,8 @@ pub struct DepositPool<'info> {
     /// 出资人 LP 代币账户（审计 C-01：存入 USDC 后在同一指令内按 NAV 铸造 LP）。
     #[account(
         mut,
-        constraint = depositor_lp_token_account.owner == depositor.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = depositor_lp_token_account.mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = lp_mint,
+        associated_token::authority = depositor
     )]
     pub depositor_lp_token_account: Account<'info, TokenAccount>,
 }
@@ -2092,15 +2021,15 @@ pub struct RedeemLp<'info> {
 
     #[account(
         mut,
-        constraint = lp_user_token_account.owner == lp_user.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = lp_user_token_account.mint == lp_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = lp_mint,
+        associated_token::authority = lp_user
     )]
     pub lp_user_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = lp_user_usdc_token_account.owner == lp_user.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = lp_user_usdc_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = lp_user
     )]
     pub lp_user_usdc_token_account: Account<'info, TokenAccount>,
 
@@ -2110,8 +2039,8 @@ pub struct RedeemLp<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -2157,15 +2086,15 @@ pub struct DefaultDeal<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
     #[account(
         mut,
-        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = deal_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = deal
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
 
@@ -2227,8 +2156,8 @@ pub struct CloseDeal<'info> {
 
     /// 托管账户：必须已清空（余额为 0）方可关闭订单（审计 L-02）。
     #[account(
-        constraint = deal_token_account.owner == deal.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = deal_token_account.mint == pool_state.usdc_mint @ TradeFinanceError::WrongTokenMint,
+        associated_token::mint = pool_state.usdc_mint,
+        associated_token::authority = deal,
         constraint = deal_token_account.amount == 0 @ TradeFinanceError::InvalidAmount
     )]
     pub deal_token_account: Account<'info, TokenAccount>,
@@ -2255,8 +2184,8 @@ pub struct DepositFirstLoss<'info> {
 
     #[account(
         mut,
-        constraint = depositor_token_account.owner == admin.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = depositor_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = admin
     )]
     pub depositor_token_account: Account<'info, TokenAccount>,
 
@@ -2266,8 +2195,8 @@ pub struct DepositFirstLoss<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -2288,8 +2217,8 @@ pub struct WithdrawFirstLoss<'info> {
 
     #[account(
         mut,
-        constraint = recipient_token_account.owner == admin.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = recipient_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = admin
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
 
@@ -2299,8 +2228,8 @@ pub struct WithdrawFirstLoss<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.owner == pool_authority.key() @ TradeFinanceError::WrongTokenAccountOwner,
-        constraint = pool_token_account.mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool_authority
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -2309,4 +2238,12 @@ pub struct WithdrawFirstLoss<'info> {
     )]
     pub usdc_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct SetRiskParams<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
 }
