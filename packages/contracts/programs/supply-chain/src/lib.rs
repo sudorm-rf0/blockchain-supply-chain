@@ -6,8 +6,10 @@ declare_id!("Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk");
 /// 注册中心管理员时锁硬下限（秒，审计 H-06）：set_registry_admin_delay 不得低于此值。
 pub const MIN_REGISTRY_ADMIN_DELAY_SECS: i64 = 86_400;
 
-/// 部署方白名单（审计 H-01）：仅允许该地址（或程序的 upgrade authority）初始化注册中心。
-/// 当前为本地开发/测试钱包；主网部署前必须替换为实际部署冷钱包地址。
+/// 部署方白名单（审计 H-01/N-05）：**仅测试构建启用**（feature `test-deployer`）。
+/// 生产构建不含 DEPLOYER，upgrade authority 冻结（None）后初始化被禁止，
+/// 彻底消除"硬编码测试钱包在生产可初始化"的回退路径。
+#[cfg(feature = "test-deployer")]
 pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
 
 /// 商品 PDA 种子：SKU 的完整 SHA-256（32 字节）哈希。
@@ -48,7 +50,10 @@ pub mod supply_chain {
         };
         let allowed = match upgrade_authority {
             Some(ua) => ua == ctx.accounts.admin.key(),
+            #[cfg(feature = "test-deployer")]
             None => ctx.accounts.admin.key() == DEPLOYER,
+            #[cfg(not(feature = "test-deployer"))]
+            None => false, // 生产：UA 冻结时禁止初始化，杜绝测试钱包回退（审计 N-05）
         };
         require!(allowed, SupplyChainError::Unauthorized);
         let registry = &mut ctx.accounts.registry;
@@ -56,10 +61,15 @@ pub mod supply_chain {
         registry.initialized_at = Clock::get()?.unix_timestamp;
         registry.pending_admin = Pubkey::default();
         registry.pending_admin_proposed_at = 0;
-        // 审计 H-06/L-13：初始时锁由部署方注入。生产必须注入 >= 86400s
-        // （由 precheck-mainnet-deploy.sh INITIAL_ADMIN_DELAY 强制）；测试环境可注入小值
-        // 验证锁定期行为，与 set_registry_admin_delay 的 86400 硬下限共同构成防御纵深。
+        // 审计 H-06/L-13：初始时锁由部署方注入。
+        // 测试构建允许小值验证锁定期；生产构建强制 >= MIN_REGISTRY_ADMIN_DELAY_SECS。
+        #[cfg(feature = "test-deployer")]
         require!(initial_delay_secs >= 0, SupplyChainError::InvalidNewAdmin);
+        #[cfg(not(feature = "test-deployer"))]
+        require!(
+            initial_delay_secs >= MIN_REGISTRY_ADMIN_DELAY_SECS,
+            SupplyChainError::InvalidNewAdmin
+        );
         registry.admin_delay_secs = initial_delay_secs;
         msg!("registry initialized by {}", registry.admin);
         Ok(())
