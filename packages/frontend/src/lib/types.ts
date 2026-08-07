@@ -146,6 +146,24 @@ export interface PoolOverview {
   outstandingAmount: string;
   /// 资金池紧急暂停状态（合约 PoolState.paused，由 indexer 快照回写）。
   paused: boolean;
+  /// 在途托管垫付（USDC 原始单位，审计 M-01）。
+  escrowFunded: string;
+  /// 当前赎回单价（USDC 原始单位，审计 M-04）。
+  redemptionPrice: string;
+  /// H-04 年化费率（bps，垫付额）。
+  feeApyBps: string;
+  /// H-04 逾期费率（bps）。
+  overdueFeeApyBps: string;
+  /// 首损准备金（USDC 原始单位，H-04 first-loss tranche）。
+  firstLossReserve: string;
+  /// 费用分成 LP（bps，H-04）。
+  lpShareBps: string;
+  /// 费用分成 平台（bps，H-04）。
+  platformShareBps: string;
+  /// 费用分成 买方返利（bps，H-04）。
+  rebateShareBps: string;
+  /// 待确认新管理员（两步转移 H-03，无则为 null）。
+  pendingAdmin: string | null;
   trend: PoolTrendPoint[];
 }
 

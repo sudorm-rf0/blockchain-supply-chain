@@ -219,6 +219,9 @@ node scripts/scan-uploads.mjs <目录>     # 指定其他目录
 - **管理员轮换**：`transfer_admin(<新管理员>)` 把资金池管理员转移给新地址
   （不可为全零公钥）；`set_platform_wallet(<新钱包>)` 更新平台运营钱包。
   三者均仅限当前管理员调用并写入链上事件。
+- **治理参数监控**：indexer 快照回写 H-04 费率/分成、首损准备金、在途托管、
+  赎回单价/窗口、两步转移待确认管理员等治理字段；资金池看板「链上治理参数」
+  卡片可直接查看，可用于费率/首损偏离告警。
 - 合约升级后必须重新生成 Prisma 无关、更新 Indexer 解析器并跑
   `cd packages/contracts && pnpm test`；改 PoolState/TradeDeal 布局必须同步
   `apps/indexer-service/src/indexer/*-parser.ts` 与 `layout-anchor.spec.ts`。
