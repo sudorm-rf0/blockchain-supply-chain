@@ -9,7 +9,7 @@
 - [ ] 第三方合约审计通过，高危/中危已修复并复测（含 2026-08-06 新加的分红/返利逻辑）
 - [ ] 主网 RPC 已就绪（Helius/QuickNode **付费档**，devnet 免费档 20.9 RPS/26% 429 不达标）
 - [ ] 主网部署钱包为**独立冷钱包**，有足够 SOL；`upgrade authority` 私钥离线保管
-- [ ] LP mint authority 已交多签/治理方（审计 L2：铸币权不能在链下个人手里）
+- [ ] LP mint authority 必须是 `pool_authority` PDA（审计 C-01：铸币收归合约控制，`createMint(poolAuthority, 0 decimals, 无 freeze)`；脚本 `init-mainnet-pool.mjs` 会校验）
 - [ ] 真实供应商钱包地址已收集
 
 ## 1. 链上需要"重建"的部分（devnet 状态不会迁移）
@@ -20,7 +20,7 @@
 | supply-chain Program ID | `Dcxixk89...C6Lk` | **新 ID** |
 | PoolState | `FyPxzVPL...` | 主网 USDC 重新 `initialize_pool` + 真实存款 |
 | USDC Mint | 测试 `2MTv8Nw...` | 主网 `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
-| LP Mint | 测试 `HkPYrCPb...` | 新建（authority 交多签） |
+| LP Mint | 测试 `HkPYrCPb...` | 新建（authority = poolAuthority PDA，0 decimals） |
 | Registry/供应商 | `FcLKzAMh...` | 重新 `init-supply-chain.mjs` 授权真实供应商 |
 | 测试订单/文件/用户 | 冒烟残留 | 不迁移，主网全新 |
 
