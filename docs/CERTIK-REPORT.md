@@ -46,7 +46,7 @@
 
 **全平台安全评级：A−（优秀，具备生产就绪条件）**
 
-该项目在工程质量和安全实践方面表现出了**显著高于行业平均水准**的成熟度。从 JWT → httpOnly Cookie 的认证迁移、多维度合约账户校验（PDA 种子 + Token Account 所有权/铸币 + Signer）、四层纵深防御（Guard 层 + Service 层 + 合约层 + 数据层）、全链路自动化测试（146 个后端单测 + 49 个合约集成测试 + 前端 E2E），到 Redis 故障容忍、Prisma 连接池保护、Kubernetes NetworkPolicy 微分段——均体现了严谨的安全工程思维。
+该项目在工程质量和安全实践方面表现出了**显著高于行业平均水准**的成熟度。从 JWT → httpOnly Cookie 的认证迁移、多维度合约账户校验（PDA 种子 + Token Account 所有权/铸币 + Signer）、四层纵深防御（Guard 层 + Service 层 + 合约层 + 数据层）、全链路自动化测试（146 个后端单测 + 55 个合约集成测试 + 前端 E2E），到 Redis 故障容忍、Prisma 连接池保护、Kubernetes NetworkPolicy 微分段——均体现了严谨的安全工程思维。
 
 ### 关键指标
 
@@ -447,7 +447,7 @@ pnpm audit --prod
 | 层 | 框架 | 用例数 | 通过率 |
 |----|------|--------|--------|
 | 合约 Rust 单元 | `cargo test` | 16 | 100% |
-| 合约集成 | Anchor TS (`anchor test`) | 43 | 100% |
+| 合约集成 | Anchor TS (`anchor test`) | 55 | 100% |
 | 后端单元 | Jest | 146 (25 suites) | 100% |
 | 后端类型 | TypeScript strict | 4 服务 | 100% |
 | 前端单元 | Vitest | 48 | 100% |

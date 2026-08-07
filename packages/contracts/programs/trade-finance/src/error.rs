@@ -109,4 +109,63 @@ pub enum TradeFinanceError {
     /// 平台钱包地址非法：不能把收款钱包设为全零公钥。
     #[msg("Platform wallet must not be the default public key")]
     InvalidPlatformWallet,
+    /// 铸币数量非法：按当期 NAV 折算的 LP 份额为 0。
+    #[msg("Computed LP share is zero")]
+    ZeroShareMint,
+
+    /// LP Mint authority 非法：必须为 pool_authority PDA。
+    #[msg("LP mint authority must be the pool authority PDA")]
+    InvalidLpMintAuthority,
+
+    /// LP Mint 存在 freeze authority：不允许冻结 LP 账户。
+    #[msg("LP mint must not have a freeze authority")]
+    InvalidLpMintFreezeAuthority,
+
+    /// LP Mint 精度非法：与协议约定的 decimals 不一致。
+    #[msg("LP mint decimals mismatch")]
+    InvalidMintDecimals,
+
+    /// 卖方不能是买方自身：禁止自融资闭环。
+    #[msg("Seller must not be the buyer")]
+    SelfDealing,
+
+    /// 卖方地址非法：不能是全零公钥。
+    #[msg("Seller must not be the default public key")]
+    InvalidSeller,
+
+    /// 该操作要求资金池处于暂停状态。
+    #[msg("Pool must be paused for this operation")]
+    PoolMustBePaused,
+
+    /// 该操作要求资金池无在途敞口。
+    #[msg("Active capital must be zero for this operation")]
+    OutstandingCapital,
+
+    /// 该操作要求旧 LP Mint 供应量为 0。
+    #[msg("LP supply must be zero for this operation")]
+    LpSupplyNotZero,
+
+    /// 周期内赎回超限：赎回超出当前时间窗口的累计上限。
+    #[msg("Redeem exceeds the periodic window limit")]
+    RedeemWindowExceeded,
+
+    /// 金库现金不足以覆盖保险基金：禁止继续放款。
+    #[msg("Vault cash would fall below the insurance fund")]
+    InsuranceFundNotBacked,
+
+    /// 已存在未完成的管理员转移提案。
+    #[msg("An admin transfer is already pending")]
+    PendingAdminExists,
+
+    /// 不存在待接受的管理员转移提案。
+    #[msg("No pending admin transfer")]
+    NoPendingAdmin,
+
+    /// 管理员转移锁定期尚未结束。
+    #[msg("Admin transfer lock period has not elapsed")]
+    AdminLockNotElapsed,
+
+    /// 账本不变式被破坏（调试断言）。
+    #[msg("Invariant violated")]
+    InvariantViolated,
 }
