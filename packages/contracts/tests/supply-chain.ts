@@ -76,7 +76,7 @@ describe("supply-chain permissioned registration", () => {
 
   it("Initializes the registry with an admin", async () => {
     await program.methods
-      .initializeRegistry()
+      .initializeRegistry(new anchor.BN(1))
       .accounts({
         registry: REGISTRY(),
         admin: provider.wallet.publicKey,
@@ -95,7 +95,7 @@ describe("supply-chain permissioned registration", () => {
   it("Rejects a second registry initialization", async () => {
     await assert.rejects(
       program.methods
-        .initializeRegistry()
+        .initializeRegistry(new anchor.BN(1))
         .accounts({
           registry: REGISTRY(),
           admin: provider.wallet.publicKey,
@@ -365,6 +365,7 @@ describe("supply-chain permissioned registration", () => {
         admin: provider.wallet.publicKey,
       })
       .rpc();
+    await new Promise((r) => setTimeout(r, 1500));
     await program.methods
       .acceptRegistryAdmin()
       .accounts({ registry: REGISTRY(), newAdmin: newAdmin.publicKey })
@@ -378,6 +379,7 @@ describe("supply-chain permissioned registration", () => {
       .accounts({ registry: REGISTRY(), admin: newAdmin.publicKey })
       .signers([newAdmin])
       .rpc();
+    await new Promise((r) => setTimeout(r, 1500));
     await program.methods
       .acceptRegistryAdmin()
       .accounts({ registry: REGISTRY(), newAdmin: provider.wallet.publicKey })
@@ -445,5 +447,51 @@ describe("supply-chain permissioned registration", () => {
       /AlreadyRevoked/,
     );
     console.log("Product revoked and re-revoke rejected (L-09)");
+  });
+
+  it("Blocks H-06 supply-chain timelock bypass (hard floor)", async () => {
+    const attacker = anchor.web3.Keypair.generate();
+    await airdrop(attacker.publicKey);
+    await program.methods
+      .proposeRegistryAdmin(attacker.publicKey)
+      .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+      .rpc();
+    // 锁定期内（1s）accept 被拒
+    await assert.rejects(
+      program.methods
+        .acceptRegistryAdmin()
+        .accounts({ registry: REGISTRY(), newAdmin: attacker.publicKey })
+        .signers([attacker])
+        .rpc(),
+      /AdminLockNotElapsed/,
+    );
+    // setRegistryAdminDelay(0)/(100) 被硬下限拒绝（H-06 修复）
+    await assert.rejects(
+      program.methods
+        .setRegistryAdminDelay(new anchor.BN(0))
+        .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+        .rpc(),
+      /InvalidNewAdmin/,
+    );
+    await assert.rejects(
+      program.methods
+        .setRegistryAdminDelay(new anchor.BN(100))
+        .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+        .rpc(),
+      /InvalidNewAdmin/,
+    );
+    // 设为下限 86400 成功；攻击者无法接管
+    await program.methods
+      .setRegistryAdminDelay(new anchor.BN(86_400))
+      .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+      .rpc();
+    const registry = await program.account.registry.fetch(REGISTRY());
+    assert.equal(
+      registry.admin.toBase58(),
+      provider.wallet.publicKey.toBase58(),
+      "H-06 修复后攻击者不应接管注册中心",
+    );
+    assert.equal(registry.adminDelaySecs.toString(), "86400");
+    console.log("H-06 supply-chain timelock bypass blocked");
   });
 });
