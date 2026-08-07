@@ -110,6 +110,45 @@ jobs:
           test -x scripts/rollback-drill.sh
           test -x scripts/precheck-mainnet-deploy.sh
 
+  launch-preflight:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Preflight script syntax
+        run: bash -n scripts/launch-preflight.sh
+
+      - name: Preflight rejects missing governance vars
+        run: |
+          set +e
+          bash scripts/launch-preflight.sh >/tmp/preflight-missing.log 2>&1
+          rc=$?
+          set -e
+          [ "$rc" -ne 0 ] || { echo "expected non-zero exit when vars missing"; exit 1; }
+          grep -q "缺少必填环境变量" /tmp/preflight-missing.log
+
+      - name: Preflight rejects invalid governance values
+        run: |
+          set +e
+          SOLANA_RPC_URL=https://api.mainnet-beta.solana.com           DEPLOY_WALLET=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v           TRADE_FINANCE_PROGRAM_ID=11111111111111111111111111111111           SUPPLY_CHAIN_PROGRAM_ID=TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA           USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v           LP_MINT=11111111111111111111111111111111           MULTISIG_ADMIN=11111111111111111111111111111111           UPGRADE_AUTHORITY_PLAN=invalid INITIAL_ADMIN_DELAY=172800           bash scripts/launch-preflight.sh --skip-precheck >/tmp/preflight-ua.log 2>&1
+          rc_ua=$?
+          UPGRADE_AUTHORITY_PLAN=cold-wallet INITIAL_ADMIN_DELAY=3600           bash scripts/launch-preflight.sh --skip-precheck >/tmp/preflight-delay.log 2>&1
+          rc_delay=$?
+          DEPLOY_WALLET=3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8           UPGRADE_AUTHORITY_PLAN=cold-wallet INITIAL_ADMIN_DELAY=172800           bash scripts/launch-preflight.sh --skip-precheck >/tmp/preflight-deployer.log 2>&1
+          rc_deployer=$?
+          set -e
+          [ "$rc_ua" -ne 0 ] || { echo "expected reject: invalid UA plan"; exit 1; }
+          [ "$rc_delay" -ne 0 ] || { echo "expected reject: delay < 86400"; exit 1; }
+          [ "$rc_deployer" -ne 0 ] || { echo "expected reject: DEPLOY_WALLET == test DEPLOYER"; exit 1; }
+
+      - name: Preflight dry-run with placeholder governance vars (skip-precheck)
+        run: |
+          SOLANA_RPC_URL=https://api.mainnet-beta.solana.com           DEPLOY_WALLET=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v           TRADE_FINANCE_PROGRAM_ID=11111111111111111111111111111111           SUPPLY_CHAIN_PROGRAM_ID=TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA           USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v           LP_MINT=11111111111111111111111111111111           MULTISIG_ADMIN=11111111111111111111111111111111           UPGRADE_AUTHORITY_PLAN=cold-wallet INITIAL_ADMIN_DELAY=172800           bash scripts/launch-preflight.sh --skip-precheck | tee /tmp/preflight-ok.log
+          grep -q "launch-preflight 完成" /tmp/preflight-ok.log
+          grep -q "Squads多签创建与Admin迁移手册" /tmp/preflight-ok.log
+
   vps-deploy:
     runs-on: [self-hosted, macOS, ARM64]
     needs: changes
