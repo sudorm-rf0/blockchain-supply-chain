@@ -56,7 +56,9 @@ pub mod supply_chain {
         registry.initialized_at = Clock::get()?.unix_timestamp;
         registry.pending_admin = Pubkey::default();
         registry.pending_admin_proposed_at = 0;
-        // 审计 H-06：初始时锁由部署方注入（生产 172_800s，测试可注入小值验证锁定期）。
+        // 审计 H-06/L-13：初始时锁由部署方注入。生产必须注入 >= 86400s
+        // （由 precheck-mainnet-deploy.sh INITIAL_ADMIN_DELAY 强制）；测试环境可注入小值
+        // 验证锁定期行为，与 set_registry_admin_delay 的 86400 硬下限共同构成防御纵深。
         require!(initial_delay_secs >= 0, SupplyChainError::InvalidNewAdmin);
         registry.admin_delay_secs = initial_delay_secs;
         msg!("registry initialized by {}", registry.admin);
