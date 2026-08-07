@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 前置依赖：workflow 'Start isolated Postgres and Redis' step 会先启动隔离的 Postgres(15432)/Redis(16379) 容器并等待就绪。
+# 前置依赖：workflow 'Start isolated Postgres and Redis' step 会用 Docker healthcheck 启动隔离的 Postgres(15432)/Redis(16379) 容器并等待 healthy。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

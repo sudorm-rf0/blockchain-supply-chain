@@ -411,33 +411,38 @@ jobs:
 
       - name: Start isolated Postgres and Redis
         run: |
-          docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1 || true
-          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
+          set +e
+          docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1
+          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1
           docker run -d --name supply-chain-pg-ci \
+            --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
-          docker run -d --name supply-chain-redis-ci -p 16379:6379 redis:7
-          ready=0
+          pg_run_rc=$?
+          docker run -d --name supply-chain-redis-ci \
+            --health-cmd "redis-cli ping" --health-interval 2s --health-retries 30 \
+            -p 16379:6379 redis:7
+          redis_run_rc=$?
+          if [[ "$pg_run_rc" != "0" || "$redis_run_rc" != "0" ]]; then
+            echo "::error::docker run failed (pg=$pg_run_rc redis=$redis_run_rc)"
+            exit 2
+          fi
           for i in $(seq 1 60); do
-            if docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null 2>&1 && \
-               docker exec supply-chain-redis-ci redis-cli ping >/dev/null 2>&1; then
-              ready=1
-              break
+            pg_health="$(docker inspect -f '{{.State.Health.Status}}' supply-chain-pg-ci 2>/dev/null)"
+            redis_health="$(docker inspect -f '{{.State.Health.Status}}' supply-chain-redis-ci 2>/dev/null)"
+            if [[ "$pg_health" == "healthy" && "$redis_health" == "healthy" ]]; then
+              exit 0
             fi
             sleep 1
           done
-          if [[ "$ready" != "1" ]]; then
-            echo "::error::Postgres/Redis failed to become ready in 60s"
-            echo "--- docker ps ---"
-            docker ps -a --filter "name=supply-chain"
-            echo "--- postgres logs ---"
-            docker logs supply-chain-pg-ci 2>&1 | tail -30
-            echo "--- redis logs ---"
-            docker logs supply-chain-redis-ci 2>&1 | tail -30
-            exit 2
-          fi
-          docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null
-          docker exec supply-chain-redis-ci redis-cli ping >/dev/null
+          echo "::error::Postgres/Redis not healthy after 60s (pg=$pg_health redis=$redis_health)"
+          echo "--- docker ps ---"
+          docker ps -a --filter "name=supply-chain"
+          echo "--- postgres logs ---"
+          docker logs supply-chain-pg-ci 2>&1 | tail -40
+          echo "--- redis logs ---"
+          docker logs supply-chain-redis-ci 2>&1 | tail -40
+          exit 2
 
       - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
@@ -535,33 +540,38 @@ jobs:
 
       - name: Start isolated Postgres and Redis
         run: |
-          docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1 || true
-          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1 || true
+          set +e
+          docker rm -f supply-chain-pg-ci supply-chain-redis-ci >/dev/null 2>&1
+          docker rm -f supply-chain-postgres-ci >/dev/null 2>&1
           docker run -d --name supply-chain-pg-ci \
+            --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=supply_chain -p 15432:5432 postgres:15
-          docker run -d --name supply-chain-redis-ci -p 16379:6379 redis:7
-          ready=0
+          pg_run_rc=$?
+          docker run -d --name supply-chain-redis-ci \
+            --health-cmd "redis-cli ping" --health-interval 2s --health-retries 30 \
+            -p 16379:6379 redis:7
+          redis_run_rc=$?
+          if [[ "$pg_run_rc" != "0" || "$redis_run_rc" != "0" ]]; then
+            echo "::error::docker run failed (pg=$pg_run_rc redis=$redis_run_rc)"
+            exit 2
+          fi
           for i in $(seq 1 60); do
-            if docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null 2>&1 && \
-               docker exec supply-chain-redis-ci redis-cli ping >/dev/null 2>&1; then
-              ready=1
-              break
+            pg_health="$(docker inspect -f '{{.State.Health.Status}}' supply-chain-pg-ci 2>/dev/null)"
+            redis_health="$(docker inspect -f '{{.State.Health.Status}}' supply-chain-redis-ci 2>/dev/null)"
+            if [[ "$pg_health" == "healthy" && "$redis_health" == "healthy" ]]; then
+              exit 0
             fi
             sleep 1
           done
-          if [[ "$ready" != "1" ]]; then
-            echo "::error::Postgres/Redis failed to become ready in 60s"
-            echo "--- docker ps ---"
-            docker ps -a --filter "name=supply-chain"
-            echo "--- postgres logs ---"
-            docker logs supply-chain-pg-ci 2>&1 | tail -30
-            echo "--- redis logs ---"
-            docker logs supply-chain-redis-ci 2>&1 | tail -30
-            exit 2
-          fi
-          docker exec supply-chain-pg-ci pg_isready -U postgres >/dev/null
-          docker exec supply-chain-redis-ci redis-cli ping >/dev/null
+          echo "::error::Postgres/Redis not healthy after 60s (pg=$pg_health redis=$redis_health)"
+          echo "--- docker ps ---"
+          docker ps -a --filter "name=supply-chain"
+          echo "--- postgres logs ---"
+          docker logs supply-chain-pg-ci 2>&1 | tail -40
+          echo "--- redis logs ---"
+          docker logs supply-chain-redis-ci 2>&1 | tail -40
+          exit 2
 
       - uses: pnpm/action-setup@v6
         if: runner.os == 'Linux'
