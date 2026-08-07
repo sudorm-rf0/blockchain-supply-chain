@@ -7,7 +7,7 @@
 
 | 编号 | 问题 | 整改 |
 |---|---|---|
-| **S-01 / M-01 / CK-001** | PoolState 未链上锚定 USDC/LP Mint | ✅ **链上锚定**：`PoolState` 新增 `usdc_mint`/`lp_mint` 字段并写入；全部资金指令（create/fund/release/repay/dividends/deposit/redeem/default）对 mint 字段加 `require_keys_eq!` 约束；indexer 布局/偏移同步（size 121→185）；初始化脚本/测试同步；Anchor 测试 **49/49**（含 mint 不匹配负面用例） |
+| **S-01 / M-01 / CK-001** | PoolState 未链上锚定 USDC/LP Mint | ✅ **链上锚定**：`PoolState` 新增 `usdc_mint`/`lp_mint` 字段并写入；全部资金指令（create/fund/release/repay/dividends/deposit/redeem/default）对 mint 字段加 `require_keys_eq!` 约束；indexer 布局/偏移同步（size 121→185）；初始化脚本/测试同步；Anchor 测试 **62/62**（含 mint 不匹配负面用例） |
 | **S-02** | `initialize_pool` 二次初始化 | ✅ 已由 Anchor `init` 约束覆盖（re-init 拒绝测试通过） |
 | **B-01** | `exportCsv` offset 分页性能退化 | ✅ 改 keyset 分页（唯一主键 `id` 游标，`orderBy createdAt,id`） |
 | **F-01 / CK-008** | 3 处 `<img>` 未用 Next.js Image | ✅ 改用 `next/image`（`unoptimized`，本地 blob 预览合规） |
@@ -21,7 +21,7 @@
 
 | 编号 | 问题 | 状态 |
 |---|---|---|
-| H1-H4（CONTRACT-AUDIT） | 还款费用未收足/LP 分红无支撑、违约垫付卡死托管、释放未扣抵押金、create 虚增总资产 | ✅ 已修复并有 43→49 集成测试守护 |
+| H1-H4（CONTRACT-AUDIT） | 还款费用未收足/LP 分红无支撑、违约垫付卡死托管、释放未扣抵押金、create 虚增总资产 | ✅ 已修复并有 49→62 集成测试守护 |
 | L1 | `redeem_lp` 流动性保护偏弱 | ✅ `vault_after >= active_capital` |
 | M-02 / CK-002 | `setNX` 故障沉默误报业务冲突 | ✅ 已修复（降级 503） |
 | L-01 / CK-003 | `tenor` 字段单位不一致 | ✅ 全链路统一秒 |

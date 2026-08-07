@@ -45,7 +45,7 @@ devnet 部署（当前已验证）:
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
 测试结果（最新 CI/local）:
-  Anchor 集成: 49/49 通过（含 create/fund/default 记账增量断言 + 暂停/管理员轮换治理）
+  Anchor 集成: 62/62 通过（含 create/fund/default 记账增量断言 + 治理 + 审计整改回归）
   后端 Jest: 146/146
   前端 Vitest: 48/48
 
