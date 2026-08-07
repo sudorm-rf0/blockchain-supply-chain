@@ -147,9 +147,10 @@ pub mod supply_chain {
         require!(product.active, SupplyChainError::AlreadyRevoked);
         product.active = false;
         msg!(
-            "product revoked: owner={}, sku={}",
+            "product revoked: owner={}, sku={} (arg={})",
             product.owner,
-            product.sku
+            product.sku,
+            sku
         );
         Ok(())
     }
