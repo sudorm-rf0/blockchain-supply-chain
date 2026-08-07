@@ -122,11 +122,8 @@ solana program deploy --url "$CLUSTER" --keypair "$WALLET" \
   --program-id packages/contracts/target/deploy/trade_finance-keypair.json >/dev/null
 
 export PATH="$ROOT/packages/contracts/node_modules/.bin:$PATH"
-# 审计 H-01/N-05：initialize_* 要求初始化者 == 程序 upgrade authority（部署钱包）。
-# 显式把 anchor provider 钱包指到部署钱包，避免 CI/本地环境差异导致 Unauthorized。
-export ANCHOR_WALLET="$WALLET"
 (
   cd packages/contracts
-  echo ">> running anchor test suite against $CLUSTER (wallet=$(basename "$WALLET")) ..."
+  echo ">> running anchor test suite against $CLUSTER ..."
   anchor test --skip-local-validator --skip-deploy --provider.cluster "$CLUSTER"
 )
