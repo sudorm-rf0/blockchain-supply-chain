@@ -471,14 +471,17 @@ export async function buildCreateDealTransaction(
 ): Promise<{ transaction: Transaction; blockhash: string }> {
   const prog = programId();
   const poolState = derivePoolStatePda(prog);
+  const poolAuthority = derivePoolAuthorityPda(prog);
   const dealPda = deriveDealPda(prog, input.buyer, input.id);
   const dealTokenAccount = deriveAssociatedTokenAccount(dealPda, input.usdcMint);
+  const poolTokenAccount = deriveAssociatedTokenAccount(poolAuthority, input.usdcMint);
 
   const data = buildCreateDealInstructionData(input);
 
-  // Contract CreateDeal account ordering:
+  // Contract CreateDeal account ordering（审计 M-08）：
   // pool_state, buyer(signer), deal(init), buyer_token_account,
-  // deal_token_account, usdc_mint, token_program, system_program
+  // deal_token_account, usdc_mint, token_program, system_program,
+  // pool_authority, pool_token_account
   const keys: AccountMeta[] = [
     { pubkey: poolState, isSigner: false, isWritable: true },
     { pubkey: input.buyer, isSigner: true, isWritable: true },
@@ -488,6 +491,8 @@ export async function buildCreateDealTransaction(
     { pubkey: input.usdcMint, isSigner: false, isWritable: false },
     { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
     { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+    { pubkey: poolAuthority, isSigner: false, isWritable: false },
+    { pubkey: poolTokenAccount, isSigner: false, isWritable: true },
   ];
 
   const { blockhash } = await getCachedBlockhash(connection);

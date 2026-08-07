@@ -62,9 +62,9 @@ export function encodeBorshString(value: string): Buffer {
   return Buffer.concat([length, bytes]);
 }
 
-/** 与合约 sku_seed 一致：SKU 的 SHA-256 前 8 字节。 */
+/** 与合约 sku_seed 一致（审计 N-04/I-05）：SKU 的完整 SHA-256 32 字节。 */
 export function skuSeed(sku: string): Buffer {
-  return createHash("sha256").update(sku).digest().subarray(0, 8);
+  return createHash("sha256").update(sku).digest();
 }
 
 export function deriveRegistryPda(programId: PublicKey): PublicKey {
@@ -121,13 +121,22 @@ export function serializeTransaction(transaction: Transaction): string {
     .toString("base64");
 }
 
+export function deriveProgramDataPda(programId: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [programId.toBuffer()],
+    new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"),
+  )[0];
+}
+
 export async function buildInitializeRegistryTransaction(
   admin: PublicKey,
   connection: Connection,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
+  // 审计 H-01/N-05：initialize_registry 需要 program_data 账户校验 upgrade authority。
   const keys: AccountMeta[] = [
     { pubkey: deriveRegistryPda(getProgramId()), isSigner: false, isWritable: true },
     { pubkey: admin, isSigner: true, isWritable: true },
+    { pubkey: deriveProgramDataPda(getProgramId()), isSigner: false, isWritable: false },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
   ];
   return buildTransaction(
