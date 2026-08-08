@@ -34,6 +34,9 @@ INITIAL_ADMIN_DELAY="${INITIAL_ADMIN_DELAY:-}"
 TOKEN_PROGRAM="TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 DEV_TRADE_PROGRAM="9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
 DEV_SUPPLY_PROGRAM="Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+# 审计 M-05：部署字节码 declare_id! 必须与部署 keypair 的 Program ID 一致
+TRADE_KEYPAIR="${TRADE_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/trade_finance-keypair.json}"
+SUPPLY_KEYPAIR="${SUPPLY_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/supply_chain-keypair.json}"
 
 checks=()
 
@@ -104,6 +107,30 @@ fi
 if grep -qE '--features.*test-deployer' "${ROOT}/scripts/deploy-mainnet.sh" 2>/dev/null; then
   add_check "deploy build features" "FAIL" "deploy-mainnet.sh 构建命令携带 test-deployer 特性"
 fi
+
+# 审计 M-05：部署字节码 declare_id! 必须与部署 keypair 的 Program ID 一致
+# （否则 C-1 program_data PDA 绑定与全部账户派生按旧 ID 计算，主网程序不可用）
+declare_id_of() {
+  grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "$1" 2>/dev/null \
+    | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"' | head -1
+}
+check_declare_id_consistency() {
+  local name="$1" kp="$2" lib="$3"
+  if [[ ! -f "${kp}" ]]; then
+    add_check "M-05 ${name} Program ID 一致性" "WARN" "keypair 不存在（${kp}）；主网部署前需先生成/指定"
+    return
+  fi
+  local kp_id declare_id
+  kp_id="$(solana-keygen pubkey "${kp}" 2>/dev/null || true)"
+  declare_id="$(declare_id_of "${lib}")"
+  if [[ -n "${kp_id}" && -n "${declare_id}" && "${kp_id}" == "${declare_id}" ]]; then
+    add_check "M-05 ${name} Program ID 一致性" "PASS" "keypair ID == declare_id! (${declare_id})"
+  else
+    add_check "M-05 ${name} Program ID 一致性" "FAIL" "keypair(${kp_id:-?}) != declare_id!(${declare_id:-?})；需先 anchor keys sync / deploy-mainnet.sh --generate-keypairs 同步后重建"
+  fi
+}
+check_declare_id_consistency "trade" "${TRADE_KEYPAIR}" "${ROOT}/packages/contracts/programs/trade-finance/src/lib.rs"
+check_declare_id_consistency "supply" "${SUPPLY_KEYPAIR}" "${ROOT}/packages/contracts/programs/supply-chain/src/lib.rs"
 
 # 审计 L-13：初始化时锁必须 >= 86400s（生产），杜绝初始化路径无时锁
 if [[ -z "${INITIAL_ADMIN_DELAY}" ]]; then
