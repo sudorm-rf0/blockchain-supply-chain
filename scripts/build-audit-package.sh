@@ -73,7 +73,7 @@ devnet 部署（当前已验证）:
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
 测试结果（审计可核验，基于本包内容）:
-  Anchor 集成: 68/68 通过（trade-finance.ts 49 + supply-chain.ts 17 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归）
+  Anchor 集成: 69/69 通过（trade-finance.ts 50 + supply-chain.ts 17 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归 + H-1 治理时锁）
   Rust 单元（含 proptest）: 24/24（trade-finance 15 + supply-chain 9，其中 supply-chain 含 1 proptest）
 
 说明:
@@ -89,8 +89,10 @@ devnet 部署（当前已验证）:
   - N-13: withdraw_first_loss 偿付检查改用 tracked_vault（捐赠不再虚增可提取额度）。
   - M-05: deploy 脚本同步 declare_id! 与部署 keypair ID（含 Anchor.toml [programs.mainnet]），
     precheck 增加 Program ID 一致性检查。
-  - anchor test 实测: 68/68 通过（本地 validator + test-deployer 构建复验，
-    含 H-3 捐赠回归、N-01/N-06 定价一致性、C-1 拒绝回归）。
+  - H-1: 价值转移 setters（改平台钱包/提首损/换 LP mint/费率/风控）两阶段 propose->execute
+    治理时锁（等待 pending_admin_delay_secs，生产 >= 86400s）。
+  - anchor test 实测: 69/69 通过（本地 validator + test-deployer 构建复验，
+    含 H-3 捐赠回归、N-01/N-06 定价一致性、C-1 拒绝回归、H-1 时锁）。
 INFO
 
 # 7) 清单
