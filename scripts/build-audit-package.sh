@@ -74,7 +74,7 @@ devnet 部署（当前已验证）:
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
 测试结果（审计可核验，基于本包内容）:
-  Anchor 集成: 69/69 通过（trade-finance.ts 50 + supply-chain.ts 17 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归 + H-1 治理时锁）
+  Anchor 集成: 70/70 通过（trade-finance.ts 51 + supply-chain.ts 17 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归 + H-1 治理时锁）
   Rust 单元（含 proptest）: 24/24（trade-finance 15 + supply-chain 9，其中 supply-chain 含 1 proptest）
 
 说明:
@@ -107,7 +107,7 @@ devnet 部署（当前已验证）:
   - H-2: 已根除 test-deployer feature 与 DEPLOYER 白名单；UA 校验仅接受 == upgrade authority，
     None（冻结）一律拒绝；测试改用 test-build（仅放宽 initial_delay）。
   - N-new: NAV/redemption_price 全部改用权威记账 tracked_vault 计算（含 fund 放款后口径）。
-  - anchor test 实测: 69/69 通过（本地 validator + test-build 构建复验，
+  - anchor test 实测: 70/70 通过（本地 validator + test-build 构建复验，
     含 H-3 捐赠回归、N-01/N-06 定价一致性、C-1 拒绝回归、H-1 时锁）。
 INFO
 
