@@ -2221,9 +2221,10 @@ describe("trade-finance full lifecycle", () => {
       console.log("H-05 PoC attack sequence blocked (regression)");
     });
 
-    it("Rejects external vault donations (H-3 regression)", async () => {
-      // 独立复测 H-3：直接向金库 ATA 捐赠（绕过 deposit_pool），
-      // 此后 deposit/redeem 必须因 VaultMismatch 被拒，杜绝份额定价操纵。
+    it("External vault donations cannot manipulate pricing (H-3 regression)", async () => {
+      // 独立复测 H-3：直接向金库 ATA 捐赠（绕过 deposit_pool）。定价基于权威
+      // tracked_vault，捐赠不进入定价基准；存取不被锁定（无施害 DoS），
+      // 捐赠成为不可申领的协议盈余（redeem 不会兑付它）。
       const donor = anchor.web3.Keypair.generate();
       await airdrop(donor.publicKey);
       const donorAta = await createAta(donor.publicKey);
@@ -2237,49 +2238,40 @@ describe("trade-finance full lifecycle", () => {
         donor.publicKey,
         USDC(1_000),
       );
+      const vaultAfterDonation = await vaultBalance();
       assert.equal(
-        await vaultBalance(),
+        vaultAfterDonation,
         vaultBefore + BigInt(USDC(1_000)),
         "donation should reach the vault",
       );
 
-      await assert.rejects(
-        program.methods
-          .depositPool(new anchor.BN(USDC(1)))
-          .accounts({
-            poolState: poolStatePda,
-            depositor: lp.publicKey,
-            depositorTokenAccount: lpAta,
-            poolAuthority: poolAuthorityPda,
-            poolTokenAccount,
-            usdcMint,
-            lpMint,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            depositorLpTokenAccount: lpTokenAta,
-          })
-          .signers([lp])
-          .rpc(),
-        /Vault balance does not match|VaultMismatch/,
+      // 捐赠后存取仍可用（不锁死），且赎回只按权威记账兑付——捐赠留在金库不可申领。
+      const lpSupplyBefore = (await getMint(connection, lpMint)).supply;
+      await program.methods
+        .redeemLp(new anchor.BN(1))
+        .accounts({
+          poolState: poolStatePda,
+          lpUser: lp.publicKey,
+          lpUserTokenAccount: lpTokenAta,
+          lpUserUsdcTokenAccount: lpAta,
+          poolAuthority: poolAuthorityPda,
+          poolTokenAccount,
+          usdcMint,
+          lpMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([lp])
+        .rpc();
+      // 赎回后金库仍应保留捐赠（未申领），且 LP 供应减少 1。
+      const vaultAfterRedeem = await vaultBalance();
+      assert.ok(
+        vaultAfterRedeem >= vaultAfterDonation - BigInt(USDC(1_000)) &&
+          vaultAfterRedeem < vaultAfterDonation,
+        "redeem 只兑付权威记账部分，捐赠应保留在 vault 中不可申领",
       );
-      await assert.rejects(
-        program.methods
-          .redeemLp(new anchor.BN(1))
-          .accounts({
-            poolState: poolStatePda,
-            lpUser: lp.publicKey,
-            lpUserTokenAccount: lpTokenAta,
-            lpUserUsdcTokenAccount: lpAta,
-            poolAuthority: poolAuthorityPda,
-            poolTokenAccount,
-            usdcMint,
-            lpMint,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .signers([lp])
-          .rpc(),
-        /Vault balance does not match|VaultMismatch/,
-      );
-      console.log("External donation rejected (H-3 regression)");
+      const lpSupplyAfter = (await getMint(connection, lpMint)).supply;
+      assert.equal(lpSupplyAfter, lpSupplyBefore - 1n, "LP 供应应减少 1");
+      console.log("External donation is inert surplus, cannot manipulate pricing (H-3 regression)");
     });
   });
 });
