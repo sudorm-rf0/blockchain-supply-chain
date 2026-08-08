@@ -91,6 +91,15 @@ pub struct AdminTransferProposedEvent {
     pub proposed_at: i64,
 }
 #[event]
+pub struct MultisigProposedEvent {
+    pub new_multisig: Pubkey,
+    pub proposed_at: i64,
+}
+#[event]
+pub struct MultisigAcceptedEvent {
+    pub multisig: Option<Pubkey>,
+}
+#[event]
 pub struct LpMintUpdatedEvent {
     pub admin: Pubkey,
     pub old_lp_mint: Pubkey,

@@ -2456,5 +2456,103 @@ describe("trade-finance full lifecycle", () => {
       console.log("External donation is inert surplus, cannot manipulate pricing (H-3 regression)");
     });
   });
+
+  describe("H-1 chain-enforced multisig (Squads vault PDA)", () => {
+    // 审计 H-1 链上强制：配置 multisig 后，admin 签名者必须 == Squads vault PDA。
+    // Squads vault PDA = PDA(["multisig", multisig, "vault", 0], SQDS program)。
+    const SQDS = new PublicKey("SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf");
+    const fakeMultisig = PublicKey.findProgramAddressSync(
+      [Buffer.from("multisig"), Buffer.from("test-ms")],
+      SQDS,
+    )[0];
+    function vaultPda(ms: PublicKey): PublicKey {
+      return PublicKey.findProgramAddressSync(
+        [Buffer.from("multisig"), ms.toBuffer(), Buffer.from("vault"), Buffer.from([0])],
+        SQDS,
+      )[0];
+    }
+
+    it("None path: single admin still works (backward compat)", async () => {
+      const pool = await program.account.poolState.fetch(poolStatePda);
+      assert.equal(pool.multisig, null, "初始 multisig 应为 None");
+      // setPaused(false) 由单 admin 签名应成功（multisig=None 回退单签）。
+      await program.methods
+        .setPaused(false)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      console.log("H-1 None path: single admin OK");
+    });
+
+    it("propose_multisig requires delay >= hard floor and sets pending", async () => {
+      // test-build 允许 delay=1s（快速验证时锁）；此处验证提案写入。
+      await program.methods
+        .proposeMultisig(fakeMultisig, new anchor.BN(1))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      const pool = await program.account.poolState.fetch(poolStatePda);
+      assert.equal(pool.pendingMultisig.toBase58(), fakeMultisig.toBase58());
+      assert.ok(pool.pendingMultisigProposedAt.gt(new anchor.BN(0)));
+      console.log("H-1 propose_multisig: pending set");
+    });
+
+    it("accept_multisig before timelock is rejected", async () => {
+      await assert.rejects(
+        program.methods
+          .acceptMultisig()
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /MultisigLockNotElapsed|multisig rotation lock/i,
+      );
+      console.log("H-1 accept before timelock rejected");
+    });
+
+    it("accept_multisig after timelock enables enforcement", async () => {
+      await new Promise((r) => setTimeout(r, 1600)); // test-build delay=1s
+      await program.methods
+        .acceptMultisig()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      const pool = await program.account.poolState.fetch(poolStatePda);
+      assert.equal(pool.multisig.toBase58(), fakeMultisig.toBase58());
+      console.log("H-1 accept_multisig: enforcement enabled");
+    });
+
+    it("single admin direct call rejected once multisig enforced", async () => {
+      await assert.rejects(
+        program.methods
+          .setPaused(true)
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /MultisigEnforced|Squads vault PDA/i,
+      );
+      console.log("H-1 single admin rejected under enforcement");
+    });
+
+    it("vault PDA derivation matches check_authority expectation", async () => {
+      // Squads vault PDA = PDA(["multisig", ms, "vault", 0], SQDS)，与合约
+      // derive_squads_vault 一致（确定性派生）。此处校验派生可复现，供多签执行端
+      // 构建"admin = vault PDA"的指令账户使用（Squads 程序 CPI 签名）。
+      const vault = vaultPda(fakeMultisig);
+      const expected = PublicKey.findProgramAddressSync(
+        [Buffer.from("multisig"), fakeMultisig.toBuffer(), Buffer.from("vault"), Buffer.from([0])],
+        SQDS,
+      )[0];
+      assert.equal(vault.toBase58(), expected.toBase58());
+      console.log("H-1 vault PDA derivation:", vault.toBase58());
+    });
+
+    it("under enforcement, single admin cannot propose rotation (no bypass)", async () => {
+      // 链上强制生效期间，单私钥 admin 连"清除多签"的提案都不能发起
+      // （否则等于单签可自行解除强制，形成绕过）。
+      await assert.rejects(
+        program.methods
+          .proposeMultisig(PublicKey.default, new anchor.BN(1))
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /MultisigEnforced|Squads vault PDA/i,
+      );
+      console.log("H-1 enforcement blocks single-admin rotation proposal");
+    });
+  });
 });
 

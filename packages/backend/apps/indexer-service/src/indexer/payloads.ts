@@ -56,5 +56,13 @@ export interface PoolSnapshotPayload {
   overdueFeeApyBps: string;
   /// 管理员转移锁定期（秒，N-02）。
   pendingAdminDelaySecs: string;
+  /// 链上强制多签（审计 H-1）：配置后 admin 签名者必须为 Squads vault PDA；null=单管理员。
+  multisig: string | null;
+  /// 待接受的多签地址（两步轮换；proposed_at=0 表示无提案）。
+  pendingMultisig: string;
+  /// 多签轮换提案时间（秒）。
+  pendingMultisigProposedAt: string;
+  /// 多签轮换锁定期（秒）。
+  pendingMultisigDelaySecs: string;
   capturedAt: string;
 }
