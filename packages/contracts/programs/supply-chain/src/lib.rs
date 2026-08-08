@@ -45,6 +45,11 @@ pub mod supply_chain {
             ctx.accounts.program_data.key() == expected_program_data,
             SupplyChainError::Unauthorized
         );
+        // 独立复测 N-3：ProgramData 账户必须由 BPF Loader Upgradeable 拥有（防伪/健壮性）。
+        require!(
+            ctx.accounts.program_data.owner == &BPF_LOADER_UPGRADEABLE,
+            SupplyChainError::Unauthorized
+        );
         let pd_data = ctx.accounts.program_data.try_borrow_data()?;
         let ua_tag = u8::from_le_bytes(
             pd_data[12..13].try_into().map_err(|_| SupplyChainError::Unauthorized)?,
