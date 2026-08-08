@@ -24,6 +24,7 @@ LEDGER_DIR=".anchor/test-ledger"
 RPC_PORT="${RPC_PORT:-8899}"
 
 bash scripts/clean-test-ledger.sh
+mkdir -p "$(dirname "$LEDGER_DIR")"
 mkdir -p "$HOME/.config/solana"
 if [[ ! -f "$HOME/.config/solana/id.json" ]]; then
   solana-keygen new --force --no-bip39-passphrase -o "$HOME/.config/solana/id.json" >/dev/null
