@@ -134,9 +134,11 @@ devnet 部署（当前已验证）:
   本地多签迁移演练: run.sh PASS（propose_admin → 时锁 → accept_admin）
   devnet 治理投票: devnet-governance-test.mjs PASS ×2
     （真实 Squads 3-of-5：建测试多签 → 提案转账 0.001 SOL → 3 票 approve → 多签执行）
-  链上强制多签（H-1 根治）: PoolState/Registry.multisig 配置后，admin 签名者必须 ==
-    Squads vault PDA（PDA["multisig", ms, "vault", 0]）；单签在链上被拒（MultisigEnforced）。
-    回归 trade 7 + supply 4 用例全绿。
+  链上多签闸门（H-1，第 6 轮）: PoolState/Registry.multisig 配置后，admin 签名者必须 ==
+    Squads vault PDA（PDA["multisig", ms, "vault", multisig_vault_index]）；单签在链上被拒
+    （MultisigEnforced）。默认关闭（multisig=None），precheck 已把 MULTISIG_ADMIN 改为硬失败；
+    vault 索引参数化（勿硬编码 0）。回归 trade 7 + supply 4 用例全绿；正路径脚本
+    devnet-multisig-admin-test.mjs 待 devnet blockhash 服务恢复后执行（上游故障）。
   GitHub CI: success（contracts + e2e + launch-preflight + scripts-lint）
 
 说明:
@@ -156,6 +158,14 @@ devnet 部署（当前已验证）:
   - 后端 jest 155/155；前端 vitest 50/50 + tsc/lint 0 error；ci-e2e 10/10 + smoke 全断言
   - 本地多签迁移演练 run.sh PASS；devnet 治理投票 PASS ×2
   - GitHub CI: success（contracts + e2e + launch-preflight，见仓库 gh run list）
+
+更新（2026-08-09 第七轮 / 第 6 轮审计放行前置）:
+  - precheck: MULTISIG_ADMIN WARN -> 硬失败（未配置多签禁止上线）。
+  - vault 索引参数化：PoolState/Registry 增加 multisig_vault_index /
+    pending_multisig_vault_index；propose_multisig(new, delay, vault_index)。
+  - 正路径脚本 devnet-multisig-admin-test.mjs：真实 Squads VaultTransaction 包裹
+    合约 admin 指令 → 3/5 批准 → 执行 → 断言成功（devnet 恢复后执行）。
+  - 文档诚实修订：H-1 表述为"闸门已实现、默认关闭、需部署配置 + 正路径验证后判定根治"。
 
 更新（2026-08-09 第六轮 / H-1 链上强制多签）:
   - 链上强制多签实现（H-1 根治，判据 a）：PoolState/Registry 新增 multisig 字段 +
