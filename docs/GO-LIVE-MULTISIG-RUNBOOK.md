@@ -19,6 +19,13 @@
 > 说明：演练用「模拟多签签名者」执行 accept（合约侧通路验证）；真实主网由 Squads 3-of-5 程序
 > 以多签 PDA 身份签名执行同一指令。Squads 创建见第 1 步。
 
+## 0.5 演练记录（2026-08-08 · devnet）
+
+已用项目 5 个成员公钥在 devnet 创建并链上验证 3-of-5 多签：
+`MULTISIG_PDA=2NJfQrv4egYZzbmuHJNjAHyitM9TUMD9m5aFNJP3hZD5`
+（程序 `SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf`，创建脚本 `scripts/multisig-rehearsal/squads-create.mjs`，幂等可复跑）。
+devnet 旧池 admin 为 TEST_DEPLOYER（keypair 不在本机），故 admin 迁移在本地 validator 已验证（见 §0）；主网按 §1-3 执行，PDA 以主网实际创建为准。
+
 ## 1. 创建 Squads 多签（3-of-5，主网）
 
 - 推荐 **app.squads.so**（可视化）：

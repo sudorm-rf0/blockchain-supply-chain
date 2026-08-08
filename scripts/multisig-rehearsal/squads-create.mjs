@@ -41,6 +41,13 @@ if (bal < 5_000_000) { console.error("❌ payer 余额不足 0.005 SOL（需支�
 const [multisigPda] = getMultisigPda({ createKey: payer.publicKey });
 console.log("multisig PDA (将作为合约 admin):", multisigPda.toBase58());
 
+// Squads V4 (SQDS4ep65) 要求 treasury == ProgramConfig.treasury（全局收款地址）
+const [programConfigPda] = (await import("@sqds/multisig")).getProgramConfigPda({ programId: new PublicKey(PROGRAM_ADDRESS) });
+const programConfigAcc = await conn.getAccountInfo(programConfigPda);
+if (!programConfigAcc) { console.error("❌ 找不到 Squads ProgramConfig 账户"); process.exit(1); }
+const treasury = new PublicKey(programConfigAcc.data.subarray(8, 40));
+console.log("Squads treasury:", treasury.toBase58());
+
 // 幂等：已存在则验证
 const existing = await accounts.Multisig.fromAccountAddress(conn, multisigPda).catch(() => null);
 if (existing) {
@@ -56,7 +63,7 @@ if (existing) {
 try {
   const sig = await rpc.multisigCreateV2({
     connection: conn,
-    treasury: payer.publicKey,
+    treasury,
     createKey: payer,
     creator: payer, // 2.x API 要求 Keypair（内部 tx.sign([creator, createKey])）
     multisigPda,
