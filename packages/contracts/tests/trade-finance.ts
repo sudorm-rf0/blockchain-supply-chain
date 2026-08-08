@@ -2125,6 +2125,46 @@ describe("trade-finance full lifecycle", () => {
       console.log("withdraw_first_loss propose/execute ok (H-04 + H-1)");
     });
 
+    it("Paused pool blocks execute_withdraw_first_loss (L-10)", async () => {
+      // 审计 L-10（supply-chain-project-evaluation 2026-08-08）：治理出金类指令
+      // （首损提取）纳入 paused 紧急冻结覆盖。
+      const adminAta = await createAta(provider.wallet.publicKey);
+      await program.methods
+        .proposeWithdrawFirstLoss(new anchor.BN(1))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await waitForGovTimelock(program, connection, poolStatePda);
+      await program.methods
+        .setPaused(true)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await assert.rejects(
+        program.methods
+          .executeWithdrawFirstLoss()
+          .accounts({
+            poolState: poolStatePda,
+            admin: provider.wallet.publicKey,
+            recipientTokenAccount: adminAta,
+            poolAuthority: poolAuthorityPda,
+            poolTokenAccount,
+            usdcMint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .rpc(),
+        /PoolPaused/,
+      );
+      // 恢复 + 清理待执行提案
+      await program.methods
+        .setPaused(false)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await program.methods
+        .cancelPendingGovAction()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      console.log("paused blocks withdraw_first_loss (L-10)");
+    });
+
     it("Sets risk params via propose/execute (L-07/L-04 + H-1)", async () => {
       await program.methods
         .proposeSetRiskParams(new anchor.BN(50_000_000), new anchor.BN(500))

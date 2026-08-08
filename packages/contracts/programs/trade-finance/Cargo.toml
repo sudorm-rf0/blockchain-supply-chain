@@ -12,6 +12,9 @@ crate-type = ["cdylib", "lib"]
 anchor-lang = { version = "=0.31.1", features = ["init-if-needed"] }
 anchor-spl = "=0.31.1"
 
+# 审计（supply-chain-project-evaluation 2026-08-08）：测试构建开关。
+# 仅放宽 initialize_* 的 initial_delay 下限（验证治理时锁），不含任何白名单/后门。
+# 主网/生产构建禁止携带（precheck-mainnet-deploy.sh 强制校验），上线前保持锁定。
 [features]
 test-build = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]

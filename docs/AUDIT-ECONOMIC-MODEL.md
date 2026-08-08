@@ -42,7 +42,7 @@
 - 单次上限 `MAX_REDEEM_BPS=5000`（50% 当期 vault）
 - 流动性保护：赎回后 `vault_after >= active_capital`（审计 L1 已加强）
 - 保险池不得低于 `MIN_INSURANCE_ABS`
-- LP 代币由链下 mint authority 铸币（审计 L2：上线前必须交多签/治理方）
+- LP 代币由合约链上铸币（mint authority = pool_authority PDA，审计 C-01 硬约束；早期「链下铸币交多签」表述已更正）
 
 ## 6. 集中度限制
 
