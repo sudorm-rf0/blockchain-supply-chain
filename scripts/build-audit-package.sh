@@ -13,6 +13,9 @@ PKG_TAR="${OUT_DIR}/audit-package-${STAMP}.tar.gz"
 if [[ -d "${PKG_DIR}" ]]; then
   mv "${PKG_DIR}" "/tmp/.trash-audit-package-$(date +%s)" 2>/dev/null || true
 fi
+if [[ -f "${PKG_TAR}" ]]; then
+  mv "${PKG_TAR}" "/tmp/.trash-audit-package-$(date +%s).tar.gz" 2>/dev/null || true
+fi
 mkdir -p "${PKG_DIR}/contracts/programs" "${PKG_DIR}/contracts/tests" "${PKG_DIR}/docs"
 
 # 1) 合约源码
@@ -37,7 +40,11 @@ for f in CONTRACT-AUDIT.md AUDIT-REPORT.md CERTIK-REPORT.md AUDIT-DELIVERY.md \
          AUDIT-REMEDIATION.md AUDIT-ECONOMIC-MODEL.md AUDIT-KNOWN-RISKS.md \
          MAINNET-MIGRATION.md LAUNCH-CHECKLIST.md CONTRACT-THREAT-MODEL.md \
          CONTRACT-INVARIANTS.md OPERATIONS.md H-04-费率重构方案.md \
-         上线准备-DFR-0148通过.md; do
+         上线准备-DFR-0148通过.md TEST-EVIDENCE-20260808.md 端到端冒烟清单.md \
+         Squads多签创建与Admin迁移手册.md GO-LIVE-MULTISIG-RUNBOOK.md \
+         首损池注资与运营SOP.md 可复现构建.md 上线优化清单.md \
+         链下系统上线检查清单.md 主网上线Go-Live检查清单.md \
+         上线审批与业务决策清单.md CLOUD-RESOURCE-REPORT.md; do
   [[ -f "${ROOT}/docs/${f}" ]] && cp "${ROOT}/docs/${f}" "${PKG_DIR}/docs/"
 done
 
@@ -48,6 +55,27 @@ for f in precheck-mainnet-deploy.sh verify-contract-deployment.sh verify-deploym
          verify-audit-artifact.sh; do
   [[ -f "${ROOT}/scripts/${f}" ]] && cp "${ROOT}/scripts/${f}" "${PKG_DIR}/scripts/"
 done
+# 4b) Squads 多签演练/治理投票脚本（I-07 交付物级证据；不含私钥）
+if [[ -d "${ROOT}/scripts/multisig-rehearsal" ]]; then
+  mkdir -p "${PKG_DIR}/scripts/multisig-rehearsal"
+  cp -R "${ROOT}/scripts/multisig-rehearsal/." "${PKG_DIR}/scripts/multisig-rehearsal/"
+  find "${PKG_DIR}/scripts/multisig-rehearsal" -name ".probe-*" -delete 2>/dev/null || true
+fi
+
+# 4c) 审计整改证据（audit-fixes：PoC/回归/整改说明，来源 AUDIT_FIXES_DIR 或 WorkBuddy 最新审计源）
+AUDIT_FIXES_SRC="${AUDIT_FIXES_DIR:-}"
+if [[ -z "${AUDIT_FIXES_SRC}" ]]; then
+  for cand in "${ROOT}/audit-fixes" "${ROOT}/docs/audit-fixes"; do
+    if [[ -d "${cand}" ]]; then AUDIT_FIXES_SRC="${cand}"; break; fi
+  done
+fi
+if [[ -n "${AUDIT_FIXES_SRC}" && -d "${AUDIT_FIXES_SRC}" ]]; then
+  mkdir -p "${PKG_DIR}/audit-fixes"
+  cp -R "${AUDIT_FIXES_SRC}/." "${PKG_DIR}/audit-fixes/"
+  echo "  (audit-fixes 已随包：$(find "${PKG_DIR}/audit-fixes" -type f | wc -l | tr -d ' ') 个文件)"
+else
+  echo "  ⚠️ 未找到 audit-fixes 源（AUDIT_FIXES_DIR 或 repo/audit-fixes），跳过整改证据目录"
+fi
 
 # 5) 历史审计报告 / PoC（可选来源：AUDIT_REPORTS_DIR 或仓库 reports/）
 #    I-07 要求随包交付历轮 DFR 报告与 PoC，供交付物级复核。
@@ -76,6 +104,13 @@ devnet 部署（当前已验证）:
 测试结果（审计可核验，基于本包内容）:
   Anchor 集成: 70/70 通过（trade-finance.ts 51 + supply-chain.ts 17 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归 + H-1 治理时锁）
   Rust 单元（含 proptest）: 24/24（trade-finance 15 + supply-chain 9，其中 supply-chain 含 1 proptest）
+  后端 jest: 155/155；前端 vitest: 50/50 + tsc/lint 0 error
+  本地端到端 ci-e2e: 10/10 API + smoke-e2e 全断言
+    （含 D2 账期未到 REPAYING 违约被拒 repaymentDefaultGuard、F5 revoke_supplier/revoke_product/撤销后注册被拒）
+  本地多签迁移演练: run.sh PASS（propose_admin → 时锁 → accept_admin）
+  devnet 治理投票: devnet-governance-test.mjs PASS ×2
+    （真实 Squads 3-of-5：建测试多签 → 提案转账 0.001 SOL → 3 票 approve → 多签执行）
+  GitHub CI: success（contracts + e2e + launch-preflight + scripts-lint）
 
 说明:
   - 本包不含任何私钥/keypair，仅供审计代码审查。
@@ -85,14 +120,25 @@ devnet 部署（当前已验证）:
   - 包 SHA-256: 以 scripts/verify-audit-artifact.sh 输出为准（重新打包后自动更新）。
   - 一致性校验: bash scripts/verify-audit-artifact.sh audit-package-<日期>.tar.gz
     解包后关键源码/测试文件与仓库 main 逐文件 diff 全一致（当前 12 项全 ✅）。
-  - 部署字节码一致性: 主网部署前用 `solana program dump` 拉取链上 ProgramData，
-    与仓库 `anchor build` / `cargo build-sbf --arch v3`（无 test-build）产物比对 sha256。
+  - 部署字节码一致性: 主网部署前用「solana program dump」拉取链上 ProgramData，
+    与仓库「anchor build / cargo build-sbf --arch v3（无 test-build）」产物比对 sha256。
 
 真实构建 + 全量测试复验（审计 §3 门槛，已由真实仓库执行）:
-  - anchor test: 69/69 通过（trade 50 + supply 17 + c1 2，本地 validator + UA=当前钱包部署）
+  - anchor test: 70/70 通过（trade 51 + supply 17 + c1 2，本地 validator + UA=当前钱包部署）
   - cargo test: 24/24（trade 15 + supply 9 含 1 proptest）
-  - 后端 jest 155/155；前端 vitest 50/50 + tsc/lint 0 error；ci-e2e 10/10
-  - GitHub CI: success（contracts + e2e，见仓库 gh run list）
+  - 后端 jest 155/155；前端 vitest 50/50 + tsc/lint 0 error；ci-e2e 10/10 + smoke 全断言
+  - 本地多签迁移演练 run.sh PASS；devnet 治理投票 PASS ×2
+  - GitHub CI: success（contracts + e2e + launch-preflight，见仓库 gh run list）
+
+更新（2026-08-08 第五轮 / 测试完备性收尾）:
+  - devnet-governance-test.mjs：真实 Squads 3-of-5 治理投票测试（proposal→vote→execute）
+    PASS ×2；修复 devnet 确认延迟竞争（每条交易 confirm 后再下一步）+ 移除多余 proposalActivate
+    （isDraft=false 直接 Active）。
+  - ci-e2e.sh：构建前移走旧 .so（与 test.sh 一致的 SBFv3 修复，避免本地重复跑部署非 v3 字节码）。
+  - smoke-e2e.mjs：新增 D2 负向（账期未到 REPAYING 违约链上拒绝 DealNotExpired）+
+    F5 撤销（revoke_supplier 账户关闭 / revoke_product active=false / 撤销后注册被拒）。
+  - ci.yml：scripts-lint 增加 node --check 校验 scripts/*.mjs。
+  - 端到端冒烟清单：D2（负向）/F5 已闭环；D2 正向需账期到期（30 天），由 Anchor 集成覆盖到期判定。
 
 更新（2026-08-08 第四轮 / 方案 B + N-01 精度 + 复测整改）:
   - LP mint 精度: 0 -> 6（审计 N-01：1 USDC = 1 LP，首笔 1:1 铸造）。
