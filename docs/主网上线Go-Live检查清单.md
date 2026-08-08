@@ -9,7 +9,7 @@
 ## 0. 上线前状态确认（必须先满足）
 
 - [ ] DFR-2026-0148 无保留意见（通过）已取得（✅ 已取得）
-- [ ] 生产构建**不带** `test-deployer` feature（`anchor build` 默认）
+- [ ] 生产构建**不带** `test-build` feature（`anchor build` 默认）
 - [ ] 测试套件通过：Rust 22/22、Anchor 65/65
 - [ ] 主网 RPC 付费档就绪（Helius/QuickNode）
 

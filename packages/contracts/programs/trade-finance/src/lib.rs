@@ -20,10 +20,6 @@ use crate::state::{
 
 declare_id!("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
 
-/// 部署方白名单（审计 H-01/N-05）：仅允许该地址（或程序的 upgrade authority）初始化。
-/// 测试/CI 由 scripts/test.sh 动态替换为当前部署钱包；主网构建前必须替换为部署冷钱包地址。
-pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
-
 pub mod error;
 pub mod events;
 pub mod state;
@@ -99,11 +95,9 @@ pub mod trade_finance {
         platform_wallet: Pubkey,
         initial_delay_secs: i64,
     ) -> Result<()> {
-        // 审计 H-01 / N-05：仅允许部署方初始化，杜绝抢先初始化抢跑。
-        // 规则：若程序保留 upgrade authority（主网部署常态），初始化者必须等于
-        // upgrade authority（部署冷钱包），硬编码 DEPLOYER 不生效；
-        // 仅当 upgrade authority 已被冻结（None，如 anchor test 部署）时，
-        // 回退到编译期 DEPLOYER 白名单。
+        // 审计 H-01 / N-05 / H-2：仅允许程序的 upgrade authority 初始化，杜绝抢先初始化抢跑。
+        // 已根除 DEPLOYER 白名单（test-deployer 特性删除）：无论何种构建，UA 冻结（None）
+        // 一律禁止初始化，不存在任何"硬编码测试钱包回退"后门（审计 H-2 整改）。
         // 原生 ProgramData 布局（agave 4.1.2 实测）：
         //   offset 0: u32 状态（ProgramData 固定 3）
         //   offset 4: u64 slot
@@ -135,18 +129,15 @@ pub mod trade_finance {
                     .try_into()
                     .map_err(|_| TradeFinanceError::Unauthorized)?,
             );
-            // 全零公钥（SystemProgram 占位，anchor test --bpf-program 预加载、
-            // 或 agave 占位）不可签名，视为无有效升级权限，回退 DEPLOYER 白名单。
+            // 全零公钥（SystemProgram 占位等）不可签名，视为无有效升级权限。
             if ua == Pubkey::default() { None } else { Some(ua) }
         } else {
             None
         };
+        // 审计 H-2：UA 必须显式等于初始化者；None（冻结）一律拒绝，无任何回退路径。
         let allowed = match upgrade_authority {
             Some(ua) => ua == ctx.accounts.admin.key(),
-            #[cfg(feature = "test-deployer")]
-            None => ctx.accounts.admin.key() == DEPLOYER,
-            #[cfg(not(feature = "test-deployer"))]
-            None => false, // 生产：UA 冻结时禁止初始化，杜绝测试钱包回退（审计 N-05）
+            None => false,
         };
         require!(allowed, TradeFinanceError::Unauthorized);
         // 审计 C-01：LP mint authority 必须是 pool_authority PDA（链上铸币的前提）。
@@ -192,10 +183,11 @@ pub mod trade_finance {
         pool.min_insurance_abs = DEFAULT_MIN_INSURANCE_ABS;
         pool.overdue_fee_apy_bps = 0;
         // 审计 H-05/L-13：初始时锁由部署方注入。
-        // 测试构建允许小值验证锁定期；生产构建强制 >= MIN_ADMIN_DELAY_SECS。
-        #[cfg(feature = "test-deployer")]
+        // 测试构建（feature test-build，无任何白名单后门）允许小值验证锁定期；
+        // 生产构建强制 >= MIN_ADMIN_DELAY_SECS。
+        #[cfg(feature = "test-build")]
         require!(initial_delay_secs >= 0, TradeFinanceError::InvalidFeeParams);
-        #[cfg(not(feature = "test-deployer"))]
+        #[cfg(not(feature = "test-build"))]
         require!(
             initial_delay_secs >= MIN_ADMIN_DELAY_SECS,
             TradeFinanceError::InvalidFeeParams
@@ -547,7 +539,8 @@ pub mod trade_finance {
             .checked_add(amount)
             .ok_or(TradeFinanceError::MathOverflow)?;
 
-        let vault_amount = ctx.accounts.pool_token_account.amount;
+        // 审计 N-new：NAV/赎回价以权威记账 tracked_vault 为口径（外部捐赠不计入）。
+        let vault_amount = pool.tracked_vault;
         let lp_supply_after = ctx.accounts.lp_mint.supply;
         let outstanding = pool
             .active_capital
@@ -723,7 +716,8 @@ pub mod trade_finance {
             .checked_sub(reserve_out)
             .ok_or(TradeFinanceError::MathOverflow)?;
         pool.insurance_fund = insurance_after;
-        let vault_after = ctx.accounts.pool_token_account.amount;
+        // 审计 N-new：NAV/赎回价以权威记账 tracked_vault 为口径（外部捐赠不计入）。
+        let vault_after = pool.tracked_vault;
         let lp_supply_after = ctx.accounts.lp_mint.supply;
         let outstanding = pool
             .active_capital
@@ -791,7 +785,12 @@ pub mod trade_finance {
 
         let pool = &mut ctx.accounts.pool_state;
         // 审计 M-03：放款后金库现金不得低于保险基金账面，确保保险赔付有现金支撑。
-        let vault_after = ctx.accounts.pool_token_account.amount;
+        // 审计 N-new：偿付/NAV 一律以权威记账 tracked_vault 为口径（放款后 = 扣减前 - funding_amount），
+        // 外部捐赠不再虚高 NAV/偿付能力。
+        let vault_after = pool
+            .tracked_vault
+            .checked_sub(funding_amount)
+            .ok_or(TradeFinanceError::InsufficientFunds)?;
         require!(
             vault_after >= pool.insurance_fund,
             TradeFinanceError::InsuranceFundNotBacked
@@ -955,7 +954,8 @@ pub mod trade_finance {
             .active_capital
             .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        let vault_amount = ctx.accounts.pool_token_account.amount;
+        // 审计 N-new：NAV/赎回价以权威记账 tracked_vault 为口径（外部捐赠不计入）。
+        let vault_amount = pool.tracked_vault;
         let lp_supply = ctx.accounts.lp_mint.supply;
         pool.nav = pool.calculate_nav(pool.equity_base(vault_amount)?, outstanding, lp_supply)?;
 
@@ -1125,7 +1125,8 @@ pub mod trade_finance {
             .active_capital
             .checked_sub(pool_portion)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        let vault_amount = ctx.accounts.pool_token_account.amount;
+        // 审计 N-new：NAV/赎回价以权威记账 tracked_vault 为口径（外部捐赠不计入）。
+        let vault_amount = pool.tracked_vault;
         let lp_supply = ctx.accounts.lp_mint.supply;
         let outstanding = pool
             .active_capital
@@ -1270,7 +1271,8 @@ pub mod trade_finance {
             TradeFinanceError::Unauthorized
         );
         let pool = &mut ctx.accounts.pool_state;
-        let vault_amount = ctx.accounts.pool_token_account.amount;
+        // 审计 N-new：NAV/赎回价以权威记账 tracked_vault 为口径（外部捐赠不计入）。
+        let vault_amount = pool.tracked_vault;
         let lp_supply = ctx.accounts.lp_mint.supply;
         let outstanding = pool
             .active_capital
@@ -1355,7 +1357,8 @@ pub mod trade_finance {
             .active_capital
             .checked_add(pool.escrow_funded)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        let vault_amount = ctx.accounts.pool_token_account.amount;
+        // 审计 N-new：NAV/赎回价以权威记账 tracked_vault 为口径（外部捐赠不计入）。
+        let vault_amount = pool.tracked_vault;
         let lp_supply = ctx.accounts.lp_mint.supply;
         pool.nav = pool.calculate_nav(pool.equity_base(vault_amount)?, outstanding, lp_supply)?;
         pool.redemption_price = pool.calculate_redemption_price(

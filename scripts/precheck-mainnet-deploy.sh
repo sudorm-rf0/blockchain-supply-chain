@@ -100,12 +100,12 @@ else
   add_check "upgrade authority plan" "PASS" "${UPGRADE_AUTHORITY_PLAN}"
 fi
 
-# 独立复测 H-2：test-deployer 特性是主网后门开关，禁止默认启用或在主网构建命令中出现
-if grep -qE '^default\s*=.*test-deployer' "${ROOT}/packages/contracts/programs/trade-finance/Cargo.toml" "${ROOT}/packages/contracts/programs/supply-chain/Cargo.toml" 2>/dev/null; then
-  add_check "test-deployer default feature" "FAIL" "test-deployer 被设为默认特性，主网构建将引入 DEPLOYER 初始化后门"
+# 独立复测 H-2：test-build 特性是主网后门开关，禁止默认启用或在主网构建命令中出现
+if grep -qE '^default\s*=.*test-build' "${ROOT}/packages/contracts/programs/trade-finance/Cargo.toml" "${ROOT}/packages/contracts/programs/supply-chain/Cargo.toml" 2>/dev/null; then
+  add_check "test-build default feature" "FAIL" "test-build 被设为默认特性，主网构建将引入测试构建特性（仅放宽 initial_delay，无白名单后门；主网仍禁止）"
 fi
-if grep -qE '--features.*test-deployer' "${ROOT}/scripts/deploy-mainnet.sh" 2>/dev/null; then
-  add_check "deploy build features" "FAIL" "deploy-mainnet.sh 构建命令携带 test-deployer 特性"
+if grep -qE '--features.*test-build' "${ROOT}/scripts/deploy-mainnet.sh" 2>/dev/null; then
+  add_check "deploy build features" "FAIL" "deploy-mainnet.sh 构建命令携带 test-build 特性"
 fi
 
 # 审计 M-05：部署字节码 declare_id! 必须与部署 keypair 的 Program ID 一致

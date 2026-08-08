@@ -90,9 +90,9 @@ solana airdrop 100 --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >
 
 cd "$ROOT/packages/contracts"
 echo "PHASE anchor-build" >&2
-cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-deployer >/dev/null || {
+cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-build >/dev/null || {
   echo "sbf build failed; retrying once with offline cargo cache" >&2
-  CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-deployer >/dev/null
+  CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-build >/dev/null
 }
 echo "PHASE anchor-deploy" >&2
 solana program deploy "$ROOT/packages/contracts/target/deploy/trade_finance.so" \
@@ -100,7 +100,7 @@ solana program deploy "$ROOT/packages/contracts/target/deploy/trade_finance.so" 
   --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >/dev/null
 
 echo "PHASE anchor-build-supply-chain" >&2
-cargo build-sbf --manifest-path programs/supply-chain/Cargo.toml --arch v3 --features test-deployer >/dev/null
+cargo build-sbf --manifest-path programs/supply-chain/Cargo.toml --arch v3 --features test-build >/dev/null
 solana program deploy "$ROOT/packages/contracts/target/deploy/supply_chain.so" \
   --program-id "$ROOT/packages/contracts/target/deploy/supply_chain-keypair.json" \
   --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >/dev/null
