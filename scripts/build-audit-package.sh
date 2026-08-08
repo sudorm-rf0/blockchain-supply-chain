@@ -44,7 +44,8 @@ done
 # 4) 治理/部署校验脚本（审计 N-03/N-05 部署侧证据，docs 引用；不含私钥）
 mkdir -p "${PKG_DIR}/scripts"
 for f in precheck-mainnet-deploy.sh verify-contract-deployment.sh verify-deployment.sh \
-         deploy-mainnet.sh init-mainnet.sh reconcile.sh health-check.sh; do
+         deploy-mainnet.sh init-mainnet.sh reconcile.sh health-check.sh \
+         verify-audit-artifact.sh; do
   [[ -f "${ROOT}/scripts/${f}" ]] && cp "${ROOT}/scripts/${f}" "${PKG_DIR}/scripts/"
 done
 
@@ -80,6 +81,18 @@ devnet 部署（当前已验证）:
   - 本包不含任何私钥/keypair，仅供审计代码审查。
   - 主网 Program ID 为部署时新生成（见 docs/MAINNET-MIGRATION.md）。
   - 后端/前端测试不在本合约审计包范围内；相关测试与 CI 结果见仓库 CI 与 AUDIT-REPORT.md。
+版本锁定（审计 §3：以本包为唯一权威部署候选）:
+  - 包 SHA-256: 以 scripts/verify-audit-artifact.sh 输出为准（重新打包后自动更新）。
+  - 一致性校验: bash scripts/verify-audit-artifact.sh audit-package-<日期>.tar.gz
+    解包后关键源码/测试文件与仓库 main 逐文件 diff 全一致（当前 12 项全 ✅）。
+  - 部署字节码一致性: 主网部署前用 `solana program dump` 拉取链上 ProgramData，
+    与仓库 `anchor build` / `cargo build-sbf --arch v3`（无 test-build）产物比对 sha256。
+
+真实构建 + 全量测试复验（审计 §3 门槛，已由真实仓库执行）:
+  - anchor test: 69/69 通过（trade 50 + supply 17 + c1 2，本地 validator + UA=当前钱包部署）
+  - cargo test: 24/24（trade 15 + supply 9 含 1 proptest）
+  - 后端 jest 155/155；前端 vitest 50/50 + tsc/lint 0 error；ci-e2e 10/10
+  - GitHub CI: success（contracts + e2e，见仓库 gh run list）
 
 更新（2026-08-08 第四轮 / 方案 B + N-01 精度 + 复测整改）:
   - LP mint 精度: 0 -> 6（审计 N-01：1 USDC = 1 LP，首笔 1:1 铸造）。
