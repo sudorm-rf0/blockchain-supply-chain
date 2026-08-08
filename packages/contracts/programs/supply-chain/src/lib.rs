@@ -186,16 +186,28 @@ pub mod supply_chain {
     }
 
     /// 注册商品：仅管理员或已授权供应商可调用；SKU 非空、数量大于 0。
+    /// 审计 D-01（第三轮）：新增 supplier_key 参数用于对 supplier PDA 做
+    /// seeds/has_one 约束（与 revoke/authorize 对齐）；管理员注册时 supplier=None，
+    /// supplier_key 被忽略。
     pub fn register_product(
         ctx: Context<RegisterProduct>,
         sku: String,
         units: u64,
+        supplier_key: Pubkey,
     ) -> Result<()> {
         require!(!sku.is_empty(), SupplyChainError::EmptySku);
         require!(sku.len() <= 64, SupplyChainError::SkuTooLong);
         require!(units > 0, SupplyChainError::InvalidUnits);
 
         let caller = ctx.accounts.owner.key();
+        // 审计 D-01：供应商路径强制 supplier.supplier == supplier_key（与 seeds 派生一致），
+        // 管理员路径（supplier=None）跳过；与 Authorize/Revoke 的 PDA 派生对齐。
+        if let Some(supplier) = &ctx.accounts.supplier {
+            require!(
+                supplier.supplier == supplier_key,
+                SupplyChainError::SupplierMismatch
+            );
+        }
         let is_admin = ctx.accounts.registry.admin == caller;
         // 供应商授权记录由 caller 公钥推导：即便传入他人的授权账户，
         // supplier.supplier == caller 也会拒绝，因此必须本人才可注册。
@@ -351,7 +363,7 @@ pub struct RevokeProduct<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(sku: String, units: u64)]
+#[instruction(sku: String, units: u64, supplier_key: Pubkey)]
 pub struct RegisterProduct<'info> {
     #[account(seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
     pub registry: Account<'info, Registry>,
@@ -373,8 +385,17 @@ pub struct RegisterProduct<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
 
-    /// 供应商授权记录（可选）：管理员注册时留空，供应商注册时传入其授权 PDA。
-    /// 账户存在性 + supplier 字段与签名者比对，共同保证只有已授权供应商可注册。
+    /// 供应商授权记录（可选）：管理员注册时留空（None），供应商注册时传入其授权 PDA。
+    /// 审计 D-01（第三轮）：补充与 AuthorizeSupplier/RevokeSupplier 一致的
+    /// seeds + has_one 约束；供应商路径强制校验 PDA 派生与 Supplier.supplier 一致性，
+    /// 管理员路径（supplier=None）整体跳过。账户存在性 + supplier 字段与签名者比对，
+    /// 共同保证只有已授权供应商可注册。
+    /// supplier_key 为 instruction 参数（见 #[instruction]），Anchor 对
+    /// Option<Account> 在 None 时跳过全部约束，Some 时强制 seeds/has_one 校验。
+    #[account(
+        seeds = [b"supply_chain", b"supplier" as &[u8], supplier_key.as_ref()],
+        bump
+    )]
     pub supplier: Option<Account<'info, Supplier>>,
 
     pub system_program: Program<'info, System>,
@@ -452,6 +473,10 @@ pub enum SupplyChainError {
     /// 算术溢出。
     #[msg("Math overflow")]
     MathOverflow,
+
+    /// 审计 D-01：传入的 supplier 账户与 supplier_key 不匹配（seeds/has_one 校验失败）。
+    #[msg("Supplier account does not match supplied key")]
+    SupplierMismatch,
 }
 
 #[cfg(test)]

@@ -11,6 +11,21 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# 审计 M-04（第三轮）：路径自适应 —— 真实仓库布局 packages/contracts，
+# 审计包布局 contracts/，两者均可直接执行；backend 目录不存在时告警跳过。
+if [[ -d "${ROOT}/packages/contracts" ]]; then
+  CONTRACTS_DIR="${ROOT}/packages/contracts"
+else
+  CONTRACTS_DIR="${ROOT}/contracts"
+fi
+if [[ -d "${ROOT}/packages/backend" ]]; then
+  BACKEND_DIR="${ROOT}/packages/backend"
+elif [[ -d "${ROOT}/backend" ]]; then
+  BACKEND_DIR="${ROOT}/backend"
+else
+  BACKEND_DIR=""
+fi
 RPC="${SOLANA_RPC_URL:-https://api.devnet.solana.com}"
 PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID:-9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3}"
 USDC_MINT="${USDC_MINT:-}"
@@ -42,8 +57,13 @@ account_exists() {
 }
 
 pool_pda() {
+  # 审计 M-04：backend 目录缺失（审计包内无 backend/）时返回空并由调用处 SKIP。
+  if [[ -z "${BACKEND_DIR}" ]]; then
+    echo ""
+    return
+  fi
   (
-    cd "${ROOT}/packages/backend"
+    cd "${BACKEND_DIR}"
     node - "${PROGRAM_ID}" <<'NODE'
 const { PublicKey } = require("@solana/web3.js");
 const programId = new PublicKey(process.argv[2]);
@@ -71,7 +91,9 @@ fi
 # --------------- Pool state ---------------
 if [[ "${REQUIRE_POOL}" == "1" ]]; then
   POOL_PDA="$(pool_pda)"
-  if [[ "$(account_exists "${POOL_PDA}")" == "true" ]]; then
+  if [[ -z "${POOL_PDA}" ]]; then
+    add_check "pool state initialized" "SKIP" "backend 缺失（审计包内无 backend/），跳过 PDA 计算"
+  elif [[ "$(account_exists "${POOL_PDA}")" == "true" ]]; then
     add_check "pool state initialized" "PASS" "${POOL_PDA}"
   else
     add_check "pool state initialized" "FAIL" "${POOL_PDA} not found"

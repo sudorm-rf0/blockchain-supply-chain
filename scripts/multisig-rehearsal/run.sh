@@ -3,7 +3,15 @@
 set -euo pipefail
 export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/active_release/bin:$PATH"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-LEDGER="$ROOT/packages/contracts/.anchor/test-ledger"
+
+# 审计 M-04（第三轮）：路径自适应 —— 真实仓库布局 packages/contracts，
+# 审计包布局 contracts/，两者均可直接执行。
+if [[ -d "${ROOT}/packages/contracts" ]]; then
+  CONTRACTS_DIR="${ROOT}/packages/contracts"
+else
+  CONTRACTS_DIR="${ROOT}/contracts"
+fi
+LEDGER="${CONTRACTS_DIR}/.anchor/test-ledger"
 RPC_PORT=8899
 
 # 清理
@@ -12,7 +20,7 @@ tmux kill-server 2>/dev/null || true
 rm -rf "$LEDGER"
 
 # 构建 test-build（先移走旧 .so 避免缓存）
-cd "$ROOT/packages/contracts"
+cd "${CONTRACTS_DIR}"
 for so in target/deploy/trade_finance.so target/deploy/supply_chain.so; do
   [[ -f "$so" ]] && mv "$so" "$so.pre.$$"
 done

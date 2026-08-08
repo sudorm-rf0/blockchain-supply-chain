@@ -13,6 +13,21 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# 审计 M-04（第三轮）：路径自适应 —— 真实仓库布局 packages/contracts，
+# 审计包布局 contracts/，两者均可直接执行；backend 目录不存在时告警跳过。
+if [[ -d "${ROOT}/packages/contracts" ]]; then
+  CONTRACTS_DIR="${ROOT}/packages/contracts"
+else
+  CONTRACTS_DIR="${ROOT}/contracts"
+fi
+if [[ -d "${ROOT}/packages/backend" ]]; then
+  BACKEND_DIR="${ROOT}/packages/backend"
+elif [[ -d "${ROOT}/backend" ]]; then
+  BACKEND_DIR="${ROOT}/backend"
+else
+  BACKEND_DIR=""
+fi
 RPC="${SOLANA_RPC_URL:-}"
 DEPLOY_WALLET="${DEPLOY_WALLET:-}"
 TRADE_PROGRAM="${TRADE_FINANCE_PROGRAM_ID:-}"
@@ -35,8 +50,8 @@ TOKEN_PROGRAM="TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 DEV_TRADE_PROGRAM="9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
 DEV_SUPPLY_PROGRAM="Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
 # 审计 M-05：部署字节码 declare_id! 必须与部署 keypair 的 Program ID 一致
-TRADE_KEYPAIR="${TRADE_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/trade_finance-keypair.json}"
-SUPPLY_KEYPAIR="${SUPPLY_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/supply_chain-keypair.json}"
+TRADE_KEYPAIR="${TRADE_KEYPAIR:-${CONTRACTS_DIR}/target/deploy/mainnet/trade_finance-keypair.json}"
+SUPPLY_KEYPAIR="${SUPPLY_KEYPAIR:-${CONTRACTS_DIR}/target/deploy/mainnet/supply_chain-keypair.json}"
 
 checks=()
 
@@ -59,8 +74,14 @@ account_exists() {
 }
 
 pool_pda() {
+  # 审计 M-04：backend 目录缺失（审计包内无 backend/）时无法从 backend 解析
+  # @solana/web3.js，退化为返回空并由调用处标记 SKIP，而不是让脚本中断。
+  if [[ -z "${BACKEND_DIR}" ]]; then
+    echo ""
+    return
+  fi
   (
-    cd "${ROOT}/packages/backend"
+    cd "${BACKEND_DIR}"
     node - "${TRADE_PROGRAM}" <<'NODE'
 const { PublicKey } = require("@solana/web3.js");
 const programId = new PublicKey(process.argv[2]);
@@ -101,7 +122,7 @@ else
 fi
 
 # 独立复测 H-2：test-build 特性是主网后门开关，禁止默认启用或在主网构建命令中出现
-if grep -qE '^default\s*=.*test-build' "${ROOT}/packages/contracts/programs/trade-finance/Cargo.toml" "${ROOT}/packages/contracts/programs/supply-chain/Cargo.toml" 2>/dev/null; then
+if grep -qE '^default\s*=.*test-build' "${CONTRACTS_DIR}/programs/trade-finance/Cargo.toml" "${CONTRACTS_DIR}/programs/supply-chain/Cargo.toml" 2>/dev/null; then
   add_check "test-build default feature" "FAIL" "test-build 被设为默认特性，主网构建将引入测试构建特性（仅放宽 initial_delay，无白名单后门；主网仍禁止）"
 fi
 if grep -qE '--features.*test-build' "${ROOT}/scripts/deploy-mainnet.sh" 2>/dev/null; then
@@ -129,12 +150,12 @@ check_declare_id_consistency() {
     add_check "M-05 ${name} Program ID 一致性" "FAIL" "keypair(${kp_id:-?}) != declare_id!(${declare_id:-?})；需先 anchor keys sync / deploy-mainnet.sh --generate-keypairs 同步后重建"
   fi
 }
-check_declare_id_consistency "trade" "${TRADE_KEYPAIR}" "${ROOT}/packages/contracts/programs/trade-finance/src/lib.rs"
-check_declare_id_consistency "supply" "${SUPPLY_KEYPAIR}" "${ROOT}/packages/contracts/programs/supply-chain/src/lib.rs"
+check_declare_id_consistency "trade" "${TRADE_KEYPAIR}" "${CONTRACTS_DIR}/programs/trade-finance/src/lib.rs"
+check_declare_id_consistency "supply" "${SUPPLY_KEYPAIR}" "${CONTRACTS_DIR}/programs/supply-chain/src/lib.rs"
 
 # 审计 M-05（supply-chain-audit 2026-08-08）：Anchor.toml [programs.mainnet] 不得仍是
 # devnet 占位 ID；主网部署前必须已用 --generate-keypairs / anchor keys sync 同步。
-ANCHOR_TOML="${ROOT}/packages/contracts/Anchor.toml"
+ANCHOR_TOML="${CONTRACTS_DIR}/Anchor.toml"
 MAINNET_SEC="$(sed -n '/\[programs.mainnet\]/,/^\[/p' "${ANCHOR_TOML}" 2>/dev/null)"
 if [[ -z "${MAINNET_SEC}" ]]; then
   add_check "M-05 mainnet Program ID" "FAIL" "Anchor.toml 缺 [programs.mainnet] 段"
@@ -198,6 +219,9 @@ done
 
 if [[ -n "${TRADE_PROGRAM}" && "${TRADE_PROGRAM}" != "${DEV_TRADE_PROGRAM}" ]]; then
   POOL_PDA="$(pool_pda)"
+  if [[ -z "${POOL_PDA}" ]]; then
+    add_check "pool state" "SKIP" "backend 缺失（审计包内无 backend/），跳过 PDA 计算"
+  else
   EXISTS="$(account_exists "${POOL_PDA}")"
   if [[ "${EXPECT_POOL}" == "absent" && "${EXISTS}" == "true" ]]; then
     add_check "pool state" "FAIL" "already initialized at ${POOL_PDA}; use EXPECT_POOL=present to allow"
@@ -205,6 +229,7 @@ if [[ -n "${TRADE_PROGRAM}" && "${TRADE_PROGRAM}" != "${DEV_TRADE_PROGRAM}" ]]; 
     add_check "pool state" "FAIL" "expected initialized at ${POOL_PDA}"
   else
     add_check "pool state" "PASS" "expected=${EXPECT_POOL} at ${POOL_PDA}"
+  fi
   fi
 fi
 
