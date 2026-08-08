@@ -31,8 +31,15 @@ if [[ ! -f "$HOME/.config/solana/id.json" ]]; then
 fi
 
 echo "test: building programs (anchor build + cargo build-sbf v3)"
-# anchor build 生成 IDL/keypair；cargo build-sbf --arch v3 生成 validator 可部署的 SBFv3 字节码
+# anchor build 生成 IDL/keypair（默认 arch）；cargo build-sbf --arch v3 生成 validator
+# 可部署的 SBFv3 字节码。先移走旧 .so，避免 cargo 缓存命中导致 anchor build 的非 v3
+# 产物残留（本地增量构建的坑，CI 干净环境无此问题）。
 anchor build >/dev/null
+for so in target/deploy/trade_finance.so target/deploy/supply_chain.so; do
+  if [[ -f "$so" ]]; then
+    mv "$so" "${so}.pre-v3.$$"
+  fi
+done
 cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-build >/dev/null
 cargo build-sbf --manifest-path programs/supply-chain/Cargo.toml --arch v3 --features test-build >/dev/null
 
