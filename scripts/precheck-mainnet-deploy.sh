@@ -132,6 +132,18 @@ check_declare_id_consistency() {
 check_declare_id_consistency "trade" "${TRADE_KEYPAIR}" "${ROOT}/packages/contracts/programs/trade-finance/src/lib.rs"
 check_declare_id_consistency "supply" "${SUPPLY_KEYPAIR}" "${ROOT}/packages/contracts/programs/supply-chain/src/lib.rs"
 
+# 审计 M-05（supply-chain-audit 2026-08-08）：Anchor.toml [programs.mainnet] 不得仍是
+# devnet 占位 ID；主网部署前必须已用 --generate-keypairs / anchor keys sync 同步。
+ANCHOR_TOML="${ROOT}/packages/contracts/Anchor.toml"
+MAINNET_SEC="$(sed -n '/\[programs.mainnet\]/,/^\[/p' "${ANCHOR_TOML}" 2>/dev/null)"
+if [[ -z "${MAINNET_SEC}" ]]; then
+  add_check "M-05 mainnet Program ID" "FAIL" "Anchor.toml 缺 [programs.mainnet] 段"
+elif printf '%s' "${MAINNET_SEC}" | grep -qE 'trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"|supply_chain = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"'; then
+  add_check "M-05 mainnet Program ID" "FAIL" "Anchor.toml [programs.mainnet] 仍为 devnet 占位 ID；须先 --generate-keypairs 同步 declare_id! 与 Anchor.toml"
+else
+  add_check "M-05 mainnet Program ID" "PASS" "Anchor.toml [programs.mainnet] 已同步（非 devnet 占位）"
+fi
+
 # 审计 L-13：初始化时锁必须 >= 86400s（生产），杜绝初始化路径无时锁
 if [[ -z "${INITIAL_ADMIN_DELAY}" ]]; then
   add_check "initial admin delay" "FAIL" "INITIAL_ADMIN_DELAY must be set (>= 86400) for initialize_*"

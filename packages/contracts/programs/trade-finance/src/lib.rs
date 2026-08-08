@@ -1581,6 +1581,9 @@ pub mod trade_finance {
     pub fn execute_withdraw_first_loss(
         ctx: Context<ExecuteWithdrawFirstLoss>,
     ) -> Result<()> {
+        // 审计建议（supply-chain-audit 2026-08-08 第 9 条）：首损提取属出金类指令，
+        // 紧急暂停（paused）时一并冻结。
+        ctx.accounts.pool_state.ensure_not_paused()?;
         let pool = &mut ctx.accounts.pool_state;
         let now = Clock::get()?.unix_timestamp;
         require!(
