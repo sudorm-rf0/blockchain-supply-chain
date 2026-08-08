@@ -18,8 +18,25 @@ const USDC_DECIMALS = 6;
 const LP_MINT_DECIMALS = 6;
 const USDC = (amount: number): number => amount * 10 ** USDC_DECIMALS;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-// 审计 H-1：治理时锁等待（初始化注入 delay=1s，等过时锁后再 execute）。
-const WAIT_TIMELOCK = 1100;
+// 审计 H-1：等待治理时锁过（轮询链上 clock 直到 now >= proposed_at + delay + 1）。
+// 比固定 sleep 更稳：CI validator 时钟按 slot 推进，固定延时可能不足 1 秒。
+async function waitForGovTimelock(
+  program: any,
+  connection: anchor.web3.Connection,
+  poolState: anchor.web3.PublicKey,
+): Promise<void> {
+  const pool = await program.account.poolState.fetch(poolState);
+  const target =
+    Number(pool.pendingGovProposedAt.toString()) +
+    Number(pool.pendingAdminDelaySecs.toString()) +
+    1;
+  for (;;) {
+    const slot = await connection.getSlot();
+    const now = await connection.getBlockTime(slot);
+    if (now !== null && now >= target) return;
+    await sleep(300);
+  }
+}
 
 describe("trade-finance full lifecycle", () => {
   const provider = anchor.AnchorProvider.env();
@@ -1769,7 +1786,7 @@ describe("trade-finance full lifecycle", () => {
           .rpc(),
         /GovDelayNotElapsed/,
       );
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await program.methods
         .executePlatformWallet()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
@@ -1783,7 +1800,7 @@ describe("trade-finance full lifecycle", () => {
         .proposePlatformWallet(platformWallet.publicKey)
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await program.methods
         .executePlatformWallet()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
@@ -1919,7 +1936,7 @@ describe("trade-finance full lifecycle", () => {
         .proposeSetLpMint(newLpMint)
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       // 未暂停池子 -> execute 被拒（M-09 语义移到 execute 阶段）
       await assert.rejects(
         program.methods
@@ -1965,7 +1982,7 @@ describe("trade-finance full lifecycle", () => {
         )
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await program.methods
         .executeSetFeeParams()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
@@ -1998,7 +2015,7 @@ describe("trade-finance full lifecycle", () => {
         )
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await program.methods
         .executeSetFeeParams()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
@@ -2061,7 +2078,7 @@ describe("trade-finance full lifecycle", () => {
         .proposeWithdrawFirstLoss(new anchor.BN(USDC(4_900)))
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await program.methods
         .executeWithdrawFirstLoss()
         .accounts({
@@ -2084,7 +2101,7 @@ describe("trade-finance full lifecycle", () => {
         .proposeWithdrawFirstLoss(new anchor.BN(1))
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await assert.rejects(
         program.methods
           .executeWithdrawFirstLoss()
@@ -2113,7 +2130,7 @@ describe("trade-finance full lifecycle", () => {
         .proposeSetRiskParams(new anchor.BN(50_000_000), new anchor.BN(500))
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await program.methods
         .executeSetRiskParams()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
@@ -2137,7 +2154,7 @@ describe("trade-finance full lifecycle", () => {
         .proposeSetRiskParams(new anchor.BN(100_000_000), new anchor.BN(0))
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
-      await sleep(WAIT_TIMELOCK);
+      await waitForGovTimelock(program, connection, poolStatePda);
       await program.methods
         .executeSetRiskParams()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
