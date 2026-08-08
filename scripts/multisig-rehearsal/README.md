@@ -26,6 +26,18 @@ RPC=https://api.devnet.solana.com node scripts/multisig-rehearsal/devnet-governa
   状态竞争）；`isDraft=false` 时提案直接进入 Active，无需 `proposalActivate`。
 - 需 payer 有 devnet SOL（每次约消耗 0.05-0.1 SOL：5 成员转账 + 多签/提案/交易租金）。
 
+## H-1 正路径演练（本地真实 Squads v4，已验证 PASS，2026-08-09）
+```bash
+bash scripts/multisig-rehearsal/run.sh
+# 期望输出：✅ 全部演练通过（admin 迁移 + H-1 正路径）
+# 正路径：真实 Squads VaultTransaction 包裹合约 admin 指令 → 3/5 批准 → 执行成功
+```
+- 说明：`run.sh` 会用 `solana-test-validator --clone` 拉取**真实 Squads v4 程序**
+  （program + ProgramData + ProgramConfig，从 devnet），创建真实 3-of-5 多签，
+  配置合约 `multisig` 后验证：单签被拒（MultisigEnforced）+ 多签 VaultTransaction 执行成功。
+- 这是审计要求的"真实 VaultTransaction 正路径测试"（非 fakeMultisig、非仅负向）。
+- devnet 版本：`RPC=<devnet> node devnet-multisig-admin-test.mjs`（需合约已部署并配置 multisig）。
+
 ## 真实多签创建（需 SOL 的 devnet/主网）
 ```bash
 # @sqds/multisig 已作为项目 devDependency（2.1.4）；payer 需有 SOL 且不能是 Program ID 账户

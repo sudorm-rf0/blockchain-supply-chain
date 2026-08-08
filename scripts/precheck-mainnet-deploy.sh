@@ -183,6 +183,17 @@ if [[ -z "${MULTISIG_ADMIN}" ]]; then
 else
   add_check "multisig admin" "PASS" "${MULTISIG_ADMIN}"
 fi
+# 链上核实（H-1 第 6 轮补丁）：PoolState/Registry.multisig 必须非 None（依赖构建产物 target/idl，
+# 在 build/deploy 环境运行）。脚本 scripts/check-onchain-multisig.mjs 退出码 0 = 已配置。
+if command -v node >/dev/null 2>&1 && [[ -f "${CONTRACTS_DIR}/target/idl/trade_finance.json" ]]; then
+  if node "${ROOT}/scripts/check-onchain-multisig.mjs"; then
+    add_check "on-chain multisig enforced" "PASS" "PoolState/Registry.multisig 均非 None"
+  else
+    add_check "on-chain multisig enforced" "FAIL" "链上 multisig 未配置（运行 scripts/configure-multisig.mjs 后重试）"
+  fi
+else
+  add_check "on-chain multisig enforced" "FAIL" "缺少 node 或 target/idl（请在构建环境运行 precheck 以核实链上 multisig）"
+fi
 
 if [[ -z "${DEPLOY_WALLET}" ]]; then
   add_check "deploy wallet" "FAIL" "DEPLOY_WALLET is required"

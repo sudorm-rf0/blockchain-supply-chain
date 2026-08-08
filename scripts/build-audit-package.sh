@@ -134,11 +134,14 @@ devnet 部署（当前已验证）:
   本地多签迁移演练: run.sh PASS（propose_admin → 时锁 → accept_admin）
   devnet 治理投票: devnet-governance-test.mjs PASS ×2
     （真实 Squads 3-of-5：建测试多签 → 提案转账 0.001 SOL → 3 票 approve → 多签执行）
-  链上多签闸门（H-1，第 6 轮）: PoolState/Registry.multisig 配置后，admin 签名者必须 ==
+  链上多签闸门（H-1，第 6 轮整改后）: PoolState/Registry.multisig 配置后，admin 签名者必须 ==
     Squads vault PDA（PDA["multisig", ms, "vault", multisig_vault_index]）；单签在链上被拒
-    （MultisigEnforced）。默认关闭（multisig=None），precheck 已把 MULTISIG_ADMIN 改为硬失败；
-    vault 索引参数化（勿硬编码 0）。回归 trade 7 + supply 4 用例全绿；正路径脚本
-    devnet-multisig-admin-test.mjs 待 devnet blockhash 服务恢复后执行（上游故障）。
+    （MultisigEnforced）。默认关闭（multisig=None），出厂单管理员不得上线；
+    precheck 已把 MULTISIG_ADMIN 改为硬失败 + on-chain multisig enforced 链上核实；
+    vault 索引参数化（multisig_vault_index 字段，勿硬编码 0）。
+    负向回归 trade 7 + supply 4 用例全绿；**正路径已本地验证 PASS**（真实 Squads v4 程序
+    --clone + 真实多签 VaultTransaction 包裹合约 admin 指令 + 3/5 批准 + 执行成功，
+    见 scripts/multisig-rehearsal/h1-positive-path-local.mjs 与 run.sh 演练）。
   GitHub CI: success（contracts + e2e + launch-preflight + scripts-lint）
 
 说明:
@@ -167,11 +170,15 @@ devnet 部署（当前已验证）:
     合约 admin 指令 → 3/5 批准 → 执行 → 断言成功（devnet 恢复后执行）。
   - 文档诚实修订：H-1 表述为"闸门已实现、默认关闭、需部署配置 + 正路径验证后判定根治"。
 
-更新（2026-08-09 第六轮 / H-1 链上强制多签）:
-  - 链上强制多签实现（H-1 根治，判据 a）：PoolState/Registry 新增 multisig 字段 +
-    propose_multisig/accept_multisig 两步时锁（下限 86400s）；check_authority 接入
-    全部治理/资金指令（trade 21 / supply 6），配置后 admin 必须 == Squads vault PDA，
+更新（2026-08-09 第六轮 / H-1 链上强制多签机制）:
+  - 链上强制多签机制（H-1 链上部分就位；判据 a 需部署期强制配置 + 真实执行演练方可判定根治）：
+    PoolState/Registry 新增 multisig 字段 + propose_multisig/accept_multisig 两步时锁（下限 86400s）；
+    check_authority 接入全部治理/资金指令（trade 21 / supply 6），配置后 admin 必须 == Squads vault PDA，
     单私钥直签在链上被拒。ABI 不变（admin: Signer），尾部追加字段。
+  - 部署期强制（第六轮整改）：出厂 multisig = None（单管理员）；上线前须运行
+    scripts/configure-multisig.mjs 配置真实 Squads 多签，且 precheck 的 on-chain multisig enforced
+    须 = PASS（硬失败门），否则阻断上线。
+  - 正路径：本地真实 Squads v4 演练 PASS（h1-positive-path-local.mjs，单签被拒 + 多签执行成功）；
   - indexer 同步：pool-state.parser.ts size 402→483 + multisig/pending_multisig 解析，
     layout-anchor.spec.ts 布局表 + roundtrip 单测。
   - 回归：anchor 82/82（含 H-1 trade 7 + supply 4）；后端 156/156。
