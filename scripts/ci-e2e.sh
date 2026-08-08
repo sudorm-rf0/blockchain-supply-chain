@@ -90,6 +90,11 @@ solana airdrop 100 --url "${CI_RPC_URL}" --keypair "${CI_SOLANA_HOME}/id.json" >
 
 cd "$ROOT/packages/contracts"
 echo "PHASE anchor-build" >&2
+# 移走旧 .so，避免 cargo 缓存命中导致 anchor build 的非 v3 产物残留（本地增量构建的坑，
+# 与 test.sh 一致；CI 干净环境无此问题，但本地重复跑 e2e 会踩中）。
+for so in target/deploy/trade_finance.so target/deploy/supply_chain.so; do
+  [[ -f "$so" ]] && mv "$so" "${so}.pre-v3.$$"
+done
 cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-build >/dev/null || {
   echo "sbf build failed; retrying once with offline cargo cache" >&2
   CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-build >/dev/null

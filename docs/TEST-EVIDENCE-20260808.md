@@ -16,8 +16,9 @@
 | Rust 单测 supply | `cargo test -p supply-chain` | **9/9**（含 1 proptest） |
 | 后端 | `cd packages/backend && pnpm test -- --runInBand` | **155/155** |
 | 前端 | `cd packages/frontend && pnpm test` | **50/50** + tsc/lint 0 error |
-| 本地端到端 | `bash scripts/ci-e2e.sh` | **10/10** |
-| GitHub CI | run 31252204763（main） | **success**（contracts + e2e + launch-preflight） |
+| 本地端到端 | `bash scripts/ci-e2e.sh` | **10/10 API + smoke-e2e 全断言**（含新增 D2 负向 `repaymentDefaultGuard`、F5 `supplyChainRevokeSupplier/RevokeProduct/RejectRevoked`） |
+| 本地多签迁移演练 | `bash scripts/multisig-rehearsal/run.sh` | **PASS**（propose_admin → 时锁 → accept_admin） |
+| devnet 治理投票 | `RPC=https://api.devnet.solana.com node scripts/multisig-rehearsal/devnet-governance-test.mjs` | **PASS ×2**（3-of-5 提案 → 投票 → 多签执行转账 0.001 SOL） |
 
 ## Anchor 用例构成（70）
 - trade-finance.ts：**51**（含 H-1 治理时锁 propose/execute、L-10 paused 冻结首损提取、H-3 捐赠回归、H-04/05/06 时锁）

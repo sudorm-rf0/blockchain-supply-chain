@@ -110,6 +110,13 @@ jobs:
           test -x scripts/rollback-drill.sh
           test -x scripts/precheck-mainnet-deploy.sh
 
+      - name: Node script syntax check
+        run: |
+          set -euo pipefail
+          for f in scripts/multisig-rehearsal/*.mjs scripts/*.mjs; do
+            node --check "$f"
+          done
+
   launch-preflight:
     runs-on: ubuntu-latest
     needs: changes

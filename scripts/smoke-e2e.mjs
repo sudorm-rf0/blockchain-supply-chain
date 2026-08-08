@@ -361,6 +361,100 @@ if (USDC_MINT) {
     { txSignature: await signSend(defTx.transaction, admin) },
   );
   results.defaultScenario = defConfirm.status === "DEFAULTED";
+
+  // D2 还款期违约保护：第三笔订单，拨款→放行（REPAYING）→账期未到即违约必须被拒绝
+  // （补齐端到端冒烟清单 D2 的负向路径：DealNotExpired 安全门；正向路径需账期到期，
+  // 由 Anchor 集成测试覆盖到期判定，本地/CI 无法真实等待 30 天账期）。
+  const d2 = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
+    buyerWallet: wallet.publicKey.toBase58(),
+    sellerWallet: seller.publicKey.toBase58(),
+    amount: "8000000",
+    tenor: "30",
+  });
+  await api(
+    TRADE,
+    `/api/trades/${d2.tradeId}/confirm`,
+    reg.accessToken,
+    "POST",
+    {
+      buyerWallet: wallet.publicKey.toBase58(),
+      sellerWallet: seller.publicKey.toBase58(),
+      amount: "8000000",
+      tenor: "30",
+      txSignature: await signSend(d2.transaction, wallet),
+    },
+  );
+  const d2Funded = await api(
+    TRADE,
+    `/api/trades/${d2.tradeId}/fund`,
+    adminToken,
+    "POST",
+    { adminWallet: admin.publicKey.toBase58() },
+  );
+  await api(
+    TRADE,
+    `/api/trades/${d2.tradeId}/fund/confirm`,
+    adminToken,
+    "POST",
+    { txSignature: await signSend(d2Funded.transaction, admin) },
+  );
+  for (const target of ["2", "3", "4"]) {
+    const builtAdv = await api(
+      TRADE,
+      `/api/trades/${d2.tradeId}/advance`,
+      adminToken,
+      "POST",
+      { targetStatus: target, adminWallet: admin.publicKey.toBase58() },
+    );
+    await api(
+      TRADE,
+      `/api/trades/${d2.tradeId}/advance/confirm`,
+      adminToken,
+      "POST",
+      {
+        targetStatus: target,
+        adminWallet: admin.publicKey.toBase58(),
+        txSignature: await signSend(builtAdv.transaction, admin),
+      },
+    );
+  }
+  const d2Released = await api(
+    TRADE,
+    `/api/trades/${d2.tradeId}/release`,
+    adminToken,
+    "POST",
+    { adminWallet: admin.publicKey.toBase58() },
+  );
+  const d2ReleaseConfirm = await api(
+    TRADE,
+    `/api/trades/${d2.tradeId}/release/confirm`,
+    adminToken,
+    "POST",
+    { txSignature: await signSend(d2Released.transaction, admin) },
+  );
+  if (d2ReleaseConfirm.status !== "REPAYING") {
+    throw new Error(`D2 前置失败：release 后应 REPAYING，实际 ${d2ReleaseConfirm.status}`);
+  }
+  // 负向断言：账期未到期，default 交易必须在链上被 DealNotExpired 拒绝。
+  const d2DefaultTx = await api(
+    TRADE,
+    `/api/trades/${d2.tradeId}/default`,
+    adminToken,
+    "POST",
+    { adminWallet: admin.publicKey.toBase58() },
+  );
+  let d2Rejected = false;
+  try {
+    await signSend(d2DefaultTx.transaction, admin);
+  } catch (err) {
+    d2Rejected = /DealNotExpired|6008|custom program error/.test(
+      `${err?.message ?? ""} ${err?.transactionLogs?.join(" ") ?? ""}`,
+    );
+  }
+  results.repaymentDefaultGuard = d2Rejected;
+  if (!d2Rejected) {
+    throw new Error("D2 负向断言失败：账期未到期的 REPAYING 订单违约应被拒绝");
+  }
 }
 
 // ---- supply-chain 权限化注册冒烟（默认启用；SKIP_SUPPLY_CHAIN=1 跳过）----
@@ -513,6 +607,69 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
     results.supplyChainRejectUnauthorized = false; // 不应成功
   } catch {
     results.supplyChainRejectUnauthorized = true;
+  }
+
+  // 5) F5 撤销：管理员撤销供应商（账户关闭）→ 撤销其商品（标记失效）→ 撤销后注册被拒。
+  // 补齐端到端冒烟清单 F5（此前仅 Anchor 集成测试覆盖，冒烟缺失）。
+  if (await conn.getAccountInfo(supPda)) {
+    await scSend(
+      admin,
+      [
+        { pubkey: registryPda, isSigner: false, isWritable: false },
+        { pubkey: admin.publicKey, isSigner: true, isWritable: true },
+        { pubkey: supPda, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      Buffer.concat([scDisc("revoke_supplier"), supplier.publicKey.toBuffer()]),
+    );
+  }
+  results.supplyChainRevokeSupplier = !(await conn.getAccountInfo(supPda));
+  if (!results.supplyChainRevokeSupplier) {
+    throw new Error("F5 revoke_supplier 后供应商账户未关闭");
+  }
+
+  // 撤销商品（product 账户标记 active=false；需 admin + owner 参数推导 PDA）。
+  if (await conn.getAccountInfo(prodPda)) {
+    await scSend(
+      admin,
+      [
+        { pubkey: registryPda, isSigner: false, isWritable: false },
+        { pubkey: admin.publicKey, isSigner: true, isWritable: true },
+        { pubkey: supplier.publicKey, isSigner: false, isWritable: false }, // owner（用于推导 product PDA）
+        { pubkey: prodPda, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      Buffer.concat([scDisc("revoke_product"), scStr(sku)]),
+    );
+  }
+  const revokedProd = await conn.getAccountInfo(prodPda);
+  if (!revokedProd) throw new Error("F5 revoke_product 后商品账户缺失");
+  // Product 布局：disc(8) + owner(32) + sku(4 字节长度 + 内容) + units(8) + created_at(8) + active(1)
+  const skuLen = revokedProd.data.readUInt32LE(8 + 32);
+  const prodActive = revokedProd.data.readUInt8(8 + 32 + 4 + skuLen + 8 + 8);
+  results.supplyChainRevokeProduct = prodActive === 0; // 审计 L-09：标记失效
+  if (!results.supplyChainRevokeProduct) {
+    throw new Error(`F5 revoke_product 后商品应 active=false，实际 ${prodActive}`);
+  }
+
+  // 撤销后：该供应商再注册新商品必须被拒绝（复用未授权路径的拒绝逻辑）。
+  const revokedSku = `REVOKED-${Date.now()}`;
+  const revokedProdPda = productPda(supplier.publicKey, revokedSku);
+  try {
+    await scSend(
+      supplier,
+      [
+        { pubkey: registryPda, isSigner: false, isWritable: false },
+        { pubkey: revokedProdPda, isSigner: false, isWritable: true },
+        { pubkey: supplier.publicKey, isSigner: true, isWritable: true },
+        { pubkey: supPda, isSigner: false, isWritable: false }, // 已关闭账户：传 0 地址/无效即拒绝
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      Buffer.concat([scDisc("register_product"), scStr(revokedSku), scU64(1)]),
+    );
+    results.supplyChainRejectRevoked = false; // 不应成功
+  } catch {
+    results.supplyChainRejectRevoked = true;
   }
 }
 
