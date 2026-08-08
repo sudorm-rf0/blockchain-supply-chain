@@ -120,7 +120,7 @@ DFR 复测确认首次审计 1 Critical + 4 High 已代码级修复，并识别 
 
 ## N-05 / L-13 代码级解决（2026-08-07，feature 区分生产/测试）
 
-- **N-05（DEPLOYER 生产回退）**：DEPLOYER 常量改为 `#[cfg(feature = "test-deployer")]` 测试专用；生产构建（无该 feature）中 upgrade authority 冻结（None）时**初始化被禁止**，彻底消除"测试钱包在生产可初始化"的回退路径。
+- **N-05（DEPLOYER 生产回退，已根除）**：`test-deployer` feature 与 `DEPLOYER` 常量已删除（审计 H-2 整改）；UA 校验统一为「初始化者必须等于程序 upgrade authority」，None（冻结）一律拒绝；测试改用 `test-build`（仅放宽 initial_delay，无白名单）。
 - **L-13（初始化时锁下限）**：`initialize_pool` / `initialize_registry` 的初始时锁在生产构建强制 `>= 86_400s`（MIN_ADMIN_DELAY_SECS / MIN_REGISTRY_ADMIN_DELAY_SECS）；测试构建允许小值验证锁定期。
-- 构建方式：测试 `anchor test -- --features test-deployer`（test.sh 已配置）；生产 `anchor build`（无 feature）。
+- 构建方式：测试 `anchor test -- --features test-build`（test.sh 已配置，仅放宽 initial_delay）；生产 `anchor build`（无 feature）。
 - 测试：Rust 22/22、Anchor 65/65（两种构建均验证通过）。

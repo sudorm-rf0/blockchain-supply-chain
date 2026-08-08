@@ -6,12 +6,6 @@ declare_id!("Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk");
 /// 注册中心管理员时锁硬下限（秒，审计 H-06）：set_registry_admin_delay 不得低于此值。
 pub const MIN_REGISTRY_ADMIN_DELAY_SECS: i64 = 86_400;
 
-/// 部署方白名单（审计 H-01/N-05）：**仅测试构建启用**（feature `test-deployer`）。
-/// 生产构建不含 DEPLOYER，upgrade authority 冻结（None）后初始化被禁止，
-/// 彻底消除"硬编码测试钱包在生产可初始化"的回退路径。
-#[cfg(feature = "test-deployer")]
-pub const DEPLOYER: Pubkey = pubkey!("3rF9fK7KL2YmAsdGHFrsGTZHiKrqF7BRCZ88KRZ3nsK8");
-
 /// BPF Loader Upgradeable 程序 ID（ProgramData PDA 推导基准，审计 C-1）。
 pub const BPF_LOADER_UPGRADEABLE: Pubkey = pubkey!("BPFLoaderUpgradeab1e11111111111111111111111");
 
@@ -32,8 +26,8 @@ pub mod supply_chain {
         ctx: Context<InitializeRegistry>,
         initial_delay_secs: i64,
     ) -> Result<()> {
-        // 审计 H-01 / N-05：若程序保留 upgrade authority，初始化者必须等于
-        // upgrade authority；仅当 upgrade authority 已冻结（None）时回退 DEPLOYER 白名单。
+        // 审计 H-01 / N-05 / H-2：仅允许程序的 upgrade authority 初始化；
+        // UA 冻结（None）一律禁止初始化（已根除 DEPLOYER 白名单，审计 H-2 整改）。
         // ProgramData 布局（agave 4.1.2 实测）：u32@0(3) + u64 slot@4 + u8 option@12 + Pubkey@13。
         // 独立复测 C-1（Critical）：program_data 必须绑定到本程序的 ProgramData PDA，
         // 否则攻击者可传入任意账户伪造 upgrade authority 抢跑初始化夺权。先绑定再读取。
@@ -60,18 +54,15 @@ pub mod supply_chain {
                     .try_into()
                     .map_err(|_| SupplyChainError::Unauthorized)?,
             );
-            // 全零公钥（SystemProgram 占位，anchor test --bpf-program 预加载、
-            // 或 agave 占位）不可签名，视为无有效升级权限，回退 DEPLOYER 白名单。
+            // 全零公钥（SystemProgram 占位等）不可签名，视为无有效升级权限。
             if ua == Pubkey::default() { None } else { Some(ua) }
         } else {
             None
         };
+        // 审计 H-2：UA 必须显式等于初始化者；None（冻结）一律拒绝，无任何回退路径。
         let allowed = match upgrade_authority {
             Some(ua) => ua == ctx.accounts.admin.key(),
-            #[cfg(feature = "test-deployer")]
-            None => ctx.accounts.admin.key() == DEPLOYER,
-            #[cfg(not(feature = "test-deployer"))]
-            None => false, // 生产：UA 冻结时禁止初始化，杜绝测试钱包回退（审计 N-05）
+            None => false,
         };
         require!(allowed, SupplyChainError::Unauthorized);
         let registry = &mut ctx.accounts.registry;
@@ -80,10 +71,11 @@ pub mod supply_chain {
         registry.pending_admin = Pubkey::default();
         registry.pending_admin_proposed_at = 0;
         // 审计 H-06/L-13：初始时锁由部署方注入。
-        // 测试构建允许小值验证锁定期；生产构建强制 >= MIN_REGISTRY_ADMIN_DELAY_SECS。
-        #[cfg(feature = "test-deployer")]
+        // 测试构建（feature test-build，无任何白名单后门）允许小值验证锁定期；
+        // 生产构建强制 >= MIN_REGISTRY_ADMIN_DELAY_SECS。
+        #[cfg(feature = "test-build")]
         require!(initial_delay_secs >= 0, SupplyChainError::InvalidNewAdmin);
-        #[cfg(not(feature = "test-deployer"))]
+        #[cfg(not(feature = "test-build"))]
         require!(
             initial_delay_secs >= MIN_REGISTRY_ADMIN_DELAY_SECS,
             SupplyChainError::InvalidNewAdmin

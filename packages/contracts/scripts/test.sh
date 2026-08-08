@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # 测试入口（CI 与本地共用）。
 #
-# anchor test -- --features test-deployer 通过 solana-test-validator --bpf-program 预加载程序，
-# 程序 upgrade authority 为 None，initialize_pool/initialize_registry 走
-# DEPLOYER 白名单。为让任意环境（本机/CI）都能初始化，本脚本在测试前
-# 把两个程序的 DEPLOYER 常量动态替换为当前部署钱包（provider.wallet）地址，
-# 测试结束后恢复源码。
+# 审计 H-2：已根除 test-deployer / DEPLOYER 白名单。
+# 测试程序由本脚本以当前钱包（~/.config/solana/id.json = provider.wallet）作为
+# upgrade authority 用 `solana program deploy` 部署（保留 UA），initialize_*
+# 校验 UA == admin 即通过 —— 无任何白名单回退路径。
+# feature `test-build` 仅放宽 initialize_* 的 initial_delay 下限（验证治理时锁）。
 set -euo pipefail
 
 SOLANA_BIN="${SOLANA_BIN:-$HOME/.local/share/solana/active_release/bin}"
@@ -20,32 +20,52 @@ export COPYFILE_DISABLE=1
 
 cd "$(dirname "$0")/.."
 
+LEDGER_DIR=".anchor/test-ledger"
+RPC_PORT="${RPC_PORT:-8899}"
+
 bash scripts/clean-test-ledger.sh
 mkdir -p "$HOME/.config/solana"
 if [[ ! -f "$HOME/.config/solana/id.json" ]]; then
   solana-keygen new --force --no-bip39-passphrase -o "$HOME/.config/solana/id.json" >/dev/null
 fi
 
-DEPLOYER_PUBKEY="$(solana-keygen pubkey "$HOME/.config/solana/id.json")"
-echo "test: injecting DEPLOYER=$DEPLOYER_PUBKEY"
+echo "test: building programs (anchor build + cargo build-sbf v3)"
+# anchor build 生成 IDL/keypair；cargo build-sbf --arch v3 生成 validator 可部署的 SBFv3 字节码
+anchor build >/dev/null
+cargo build-sbf --manifest-path programs/trade-finance/Cargo.toml --arch v3 --features test-build >/dev/null
+cargo build-sbf --manifest-path programs/supply-chain/Cargo.toml --arch v3 --features test-build >/dev/null
 
-FILES=("programs/trade-finance/src/lib.rs" "programs/supply-chain/src/lib.rs")
-BACKUPS=()
-restore() {
-  for i in "${!FILES[@]}"; do
-    if [ -f "${FILES[$i]}.bak" ]; then
-      mv "${FILES[$i]}.bak" "${FILES[$i]}"
-    fi
-  done
+echo "test: starting local validator (rpc ${RPC_PORT})"
+# 清理可能残留的同 ledger validator
+if command -v pgrep >/dev/null 2>&1; then
+  pgrep -f "solana-test-validator.*${LEDGER_DIR}" | xargs kill 2>/dev/null || true
+fi
+solana-test-validator --quiet --reset --ledger "$LEDGER_DIR" --rpc-port "${RPC_PORT}" \
+  >/tmp/solana-test-validator.log 2>&1 &
+VALIDATOR_PID=$!
+cleanup() {
+  kill "$VALIDATOR_PID" 2>/dev/null || true
 }
-trap restore EXIT
+trap cleanup EXIT
 
-for f in "${FILES[@]}"; do
-  cp "$f" "$f.bak"
-  # 仅替换 DEPLOYER 常量行的公钥（锚定 "pub const DEPLOYER:"，避免误伤
-  # 同文件内其它 pubkey! 字面量，如 BPF_LOADER_UPGRADEABLE）
-  sed -i.bak2 "s/^pub const DEPLOYER: Pubkey = pubkey!(\"[A-Za-z0-9]*\")/pub const DEPLOYER: Pubkey = pubkey!(\"${DEPLOYER_PUBKEY}\")/" "$f"
-  rm -f "$f.bak2"
+for _ in $(seq 1 180); do
+  curl -sf "http://127.0.0.1:${RPC_PORT}/health" >/dev/null 2>&1 && break
+  sleep 1
 done
+if ! curl -sf "http://127.0.0.1:${RPC_PORT}/health" >/dev/null 2>&1; then
+  echo "validator failed to start; log:" >&2
+  tail -30 /tmp/solana-test-validator.log >&2
+  exit 1
+fi
 
-anchor test -- --features test-deployer
+solana config set --url "http://127.0.0.1:${RPC_PORT}" >/dev/null
+solana airdrop 10 >/dev/null
+
+echo "test: deploying programs with upgrade authority = current wallet"
+solana program deploy target/deploy/trade_finance.so \
+  --program-id target/deploy/trade_finance-keypair.json >/dev/null
+solana program deploy target/deploy/supply_chain.so \
+  --program-id target/deploy/supply_chain-keypair.json >/dev/null
+
+echo "test: running anchor tests (--skip-local-validator --skip-deploy)"
+exec anchor test --skip-local-validator --skip-deploy -- --features test-build
