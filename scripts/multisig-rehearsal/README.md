@@ -4,6 +4,7 @@
 |---|---|---|
 | `squads-create.mjs` | 创建 Squads 3-of-5 多签（devnet/主网/本地） | `@sqds/multisig` `@solana/web3.js` |
 | `rehearsal-admin-migration.mjs` | 合约 propose_admin → 时锁 → accept_admin 迁移演练 | `@solana/web3.js` `@solana/spl-token` |
+| `devnet-governance-test.mjs` | 真实 devnet 治理投票测试：建测试多签 → 提案转账 → 3 票 → 多签执行 | `@sqds/multisig` `@solana/web3.js` |
 | `run.sh` | 编排：本地 validator + 部署 test-build 合约 + 跑迁移演练 | Solana/Anchor 工具链 |
 
 ## 本地演练（已验证通过）
@@ -11,6 +12,19 @@
 bash scripts/multisig-rehearsal/run.sh
 # 期望输出：🎉 演练通过：admin 已迁移到（模拟）多签 / RESULT=PASS
 ```
+
+## 真实 devnet 治理投票测试（已验证 PASS，2026-08-08）
+```bash
+RPC=https://api.devnet.solana.com node scripts/multisig-rehearsal/devnet-governance-test.mjs
+# 期望输出：🎉 治理测试通过：3-of-5 提案 → 投票 → 多签执行转账成功 / GOV_TEST_RESULT=PASS
+```
+- 说明：每次运行创建**全新测试多签**（独立 createKey + 5 个临时成员，非项目成员），
+  vault 转入 0.001 SOL 到 payer，完整走通 `vaultTransactionCreate → proposalCreate(isDraft=false) → approve×3 → vaultTransactionExecute`。
+- Squads V4 规则：新建多签 `transaction_index=0`，第一条 vault 交易使用 index 1（链上 `+1` 规则）；
+  `@sqds 2.1.4` 解析器对 `transaction_index` 偏移读到 0 属已知问题，以链上为准。
+- 稳定性修复（2026-08-08）：每条交易 `confirmTransaction` 后再进入下一步（devnet 确认延迟会导致
+  状态竞争）；`isDraft=false` 时提案直接进入 Active，无需 `proposalActivate`。
+- 需 payer 有 devnet SOL（每次约消耗 0.05-0.1 SOL：5 成员转账 + 多签/提案/交易租金）。
 
 ## 真实多签创建（需 SOL 的 devnet/主网）
 ```bash
