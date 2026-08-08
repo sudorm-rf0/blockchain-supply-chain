@@ -61,9 +61,13 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //   8  pending_gov_proposed_at (审计 H-1)
 //   32 pending_gov_pubkey (审计 H-1)
 //   32 pending_gov_u64s (审计 H-1)
+//   1+32 multisig (审计 H-1 链上强制)
+//   32 pending_multisig (审计 H-1)
+//   8  pending_multisig_proposed_at (审计 H-1)
+//   8  pending_multisig_delay_secs (审计 H-1)
 const EXPECTED_POOL_STATE_SIZE =
   8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8 +
-  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 8 + 32 + 32;
+  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 8 + 32 + 32 + 1 + 32 + 32 + 8 + 8;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -72,7 +76,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(402);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(483);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 
@@ -125,6 +129,12 @@ describe("chain account layout anchor", () => {
     buf.writeBigUInt64LE(100_000_000n, 297); // min_insurance_abs
     buf.writeBigUInt64LE(0n, 305);           // overdue_fee_apy_bps
     buf.writeBigInt64LE(172_800n, 313);      // pending_admin_delay_secs
+    // 审计 H-1 链上强制多签（尾部新字段）
+    buf.writeUInt8(1, 402);                    // multisig tag = Some
+    wallet.toBuffer().copy(buf, 403);          // multisig value
+    admin.toBuffer().copy(buf, 435);           // pending_multisig
+    buf.writeBigInt64LE(1_700_000_000n, 467);  // pending_multisig_proposed_at
+    buf.writeBigInt64LE(86_400n, 475);         // pending_multisig_delay_secs
 
     const payload = parsePoolStateBuffer(buf, "pool-pda");
     expect(payload.poolAddress).toBe("pool-pda");
@@ -143,6 +153,19 @@ describe("chain account layout anchor", () => {
     expect(payload.minInsuranceAbs).toBe("100000000");
     expect(payload.overdueFeeApyBps).toBe("0");
     expect(payload.pendingAdminDelaySecs).toBe("172800");
+    expect(payload.multisig).toBe(wallet.toBase58());
+    expect(payload.pendingMultisig).toBe(admin.toBase58());
+    expect(payload.pendingMultisigProposedAt).toBe("1700000000");
+    expect(payload.pendingMultisigDelaySecs).toBe("86400");
+  });
+
+  it("PoolState parses multisig=None as null", () => {
+    const admin = Keypair.generate().publicKey;
+    const buf = Buffer.alloc(POOL_STATE_ACCOUNT_SIZE);
+    admin.toBuffer().copy(buf, 8); // admin
+    const payload = parsePoolStateBuffer(buf, "pool-pda");
+    expect(payload.multisig).toBeNull();
+    expect(payload.pendingMultisigProposedAt).toBe("0");
   });
 
 

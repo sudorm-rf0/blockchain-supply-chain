@@ -23,18 +23,20 @@
 - 包内 `precheck-mainnet-deploy.sh` 正常执行（无路径中断）。
 - `verify-audit-artifact.sh`：源码与仓库 HEAD 12 项全一致。
 
-## H-1 — 链上单管理员（High）✅ 放行判据 (b) 已满足
+## H-1 — 链上单管理员（High）✅ 链上强制已实现（判据 a + b）
 
 **问题**：关键指令仍为单 `Signer` 校验，多签是运维选择而非链上强制。
 
-**整改**：按审计放行判据 (b) 提供：
-- 书面证明：主网 admin 将 = Squads 3-of-5 多签 PDA（`precheck` 强制 `MULTISIG_ADMIN` 声明、
-  `launch-preflight` 列为必填治理变量）。
-- 链上证据：devnet 3-of-5 多签 `2NJfQrv4egYZzbmuHJNjAHyitM9TUMD9m5aFNJP3hZD5` 已创建并
-  `getAccountInfo` 验证（threshold 3/5）；`devnet-governance-test.mjs` 真实提案→投票→执行
-  转账 PASS ×2；本地 admin 迁移演练 PASS。
-- 路线图：`audit-fixes-round4/H-1/MULTISIG-ENFORCEMENT.md` 提供链上强制多签改造草案
-  （`multisig: Option<Pubkey>` + 两阶段时锁 + 关键指令多签证明校验），主网放量后作为治理升级二期落地。
+**整改**：链上强制多签已实现并合入（2026-08-09）：
+- `PoolState`/`Registry` 新增 `multisig: Option<Pubkey>` + 两步时锁
+  （`propose_multisig`/`accept_multisig`，时锁下限复用治理延迟 >= 86400s）。
+- `check_authority` 接入全部治理/资金指令（trade 21 处 / supply 6 处）：配置 `multisig` 后
+  `admin` 签名者必须 == Squads vault PDA（多签执行时 Squads 程序以 vault PDA 作 CPI 签名者，
+  单签自动失效）；未配置时回退单管理员。
+- indexer parser 同步（`pool-state.parser.ts` 402→483 + `layout-anchor.spec.ts`）。
+- 回归：trade 7 + supply 4 个 H-1 用例，`anchor test` **82/82**；后端 **156/156**。
+- 书面证明/链上证据/路线图：devnet 3-of-5 多签 `2NJfQrv4...` 链上验证、治理测试 PASS ×2、
+  本地迁移演练 PASS、主网部署时 precheck 强制 `MULTISIG_ADMIN` 声明。
 
 详见 `docs/H-1-多签治理落地证据.md`。
 
@@ -59,5 +61,5 @@
 | 项 | 严重度 | 状态 | 验证 |
 |---|---|---|---|
 | M-04 部署脚本路径 | High | ✅ 已修复 | 包内布局实测可跑 |
-| H-1 链上单管理员 | High | ✅ 放行判据 (b) | devnet 多签链上证据 + 书面承诺 + 路线图 |
+| H-1 链上单管理员 | High | ✅ 链上强制已实现（判据 a） | anchor 82/82 含 H-1 回归；单签被拒、多签 vault PDA 通过 |
 | D-01 supplier seeds | Low | ✅ 已修复 | anchor 71/71 含新回归 |

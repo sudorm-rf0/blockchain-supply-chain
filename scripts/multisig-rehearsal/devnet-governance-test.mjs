@@ -129,9 +129,13 @@ const after = await conn.getBalance(TARGET);
 console.log("TARGET 余额 before:", before / 1e9, "after:", after / 1e9, "SOL");
 const ok = after - before === AMOUNT;
 console.log(ok ? "🎉 治理测试通过：3-of-5 提案 → 投票 → 多签执行转账成功" : "❌ 执行金额不符");
+// 审计 H-1 链上强制：合约 check_authority 要求 admin 签名者 == Squads vault PDA
+// （seeds ["multisig", ms, "vault", 0]）。此处输出 vault PDA 供多签执行端构造
+// "admin = vault PDA" 的合约指令账户使用，并与合约 derive_squads_vault 一致。
 console.log("=== OUTPUT ===");
 console.log(`GOV_TEST_MULTISIG=${multisigPda.toBase58()}`);
 console.log(`GOV_TEST_VAULT=${vaultPda.toBase58()}`);
 console.log(`GOV_TEST_TRANSFER_AMOUNT_SOL=${AMOUNT / 1e9}`);
 console.log(`GOV_TEST_RESULT=${ok ? "PASS" : "FAIL"}`);
+console.log(`GOV_TEST_VAULT_PDA_FOR_ADMIN=${vaultPda.toBase58()}`); // H-1：链上强制时 admin 用此地址
 process.exit(ok ? 0 : 1);

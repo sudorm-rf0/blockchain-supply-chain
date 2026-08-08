@@ -3,6 +3,40 @@ use anchor_lang::solana_program::hash::hash;
 
 declare_id!("Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk");
 
+/// Squads v4 多签程序 ID（审计 H-1 链上强制，与 trade-finance 一致）。
+pub const SQUADS_PROGRAM_ID: Pubkey = pubkey!("SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf");
+
+/// 派生 Squads vault PDA（seeds: ["multisig", multisig, "vault", u8(index)]）。
+pub fn derive_squads_vault(multisig: &Pubkey, vault_index: u8) -> Pubkey {
+    Pubkey::find_program_address(
+        &[
+            b"multisig".as_ref(),
+            multisig.as_ref(),
+            b"vault".as_ref(),
+            &[vault_index],
+        ],
+        &SQUADS_PROGRAM_ID,
+    )
+    .0
+}
+
+/// 审计 H-1 链上强制：校验调用者授权。
+/// - multisig = Some(ms)：admin 签名者必须 == Squads vault PDA（单签自动失效）。
+/// - multisig = None：回退为单管理员直签（向后兼容）。
+pub fn check_authority(registry: &Registry, admin_key: &Pubkey) -> Result<()> {
+    match registry.multisig {
+        Some(ms) => {
+            let vault = derive_squads_vault(&ms, 0);
+            require!(admin_key == &vault, SupplyChainError::MultisigEnforced);
+            Ok(())
+        }
+        None => {
+            require!(admin_key == &registry.admin, SupplyChainError::Unauthorized);
+            Ok(())
+        }
+    }
+}
+
 /// 注册中心管理员时锁硬下限（秒，审计 H-06）：set_registry_admin_delay 不得低于此值。
 pub const MIN_REGISTRY_ADMIN_DELAY_SECS: i64 = 86_400;
 
@@ -81,6 +115,11 @@ pub mod supply_chain {
             SupplyChainError::InvalidNewAdmin
         );
         registry.admin_delay_secs = initial_delay_secs;
+        // 审计 H-1 链上强制：初始 multisig = None（单管理员），后续可经两步时锁开启。
+        registry.multisig = None;
+        registry.pending_multisig = Pubkey::default();
+        registry.pending_multisig_proposed_at = 0;
+        registry.pending_multisig_delay_secs = 0;
         msg!("registry initialized by {}", registry.admin);
         Ok(())
     }
@@ -91,10 +130,7 @@ pub mod supply_chain {
         ctx: Context<ProposeRegistryAdmin>,
         new_admin: Pubkey,
     ) -> Result<()> {
-        require!(
-            ctx.accounts.registry.admin == ctx.accounts.admin.key(),
-            SupplyChainError::Unauthorized
-        );
+        check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
         require!(
             new_admin != Pubkey::default(),
             SupplyChainError::InvalidNewAdmin
@@ -137,13 +173,67 @@ pub mod supply_chain {
         Ok(())
     }
 
-    /// 调整注册中心管理员转移锁定期（审计 M-12；生产建议 >= 86400s）。
-    pub fn set_registry_admin_delay(ctx: Context<SetRegistryAdminDelay>, delay_secs: i64) -> Result<()> {
+    /// 审计 H-1 链上强制多签：第一步提出多签轮换提案（两步时锁）。
+    /// new_multisig = Pubkey::default() 表示清除多签、回退单管理员。
+    pub fn propose_multisig(
+        ctx: Context<ProposeMultisig>,
+        new_multisig: Pubkey,
+        delay_secs: i64,
+    ) -> Result<()> {
+        check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
         let registry = &mut ctx.accounts.registry;
         require!(
-            registry.admin == ctx.accounts.admin.key(),
-            SupplyChainError::Unauthorized
+            registry.pending_multisig_proposed_at == 0,
+            SupplyChainError::PendingMultisigExists
         );
+        // 复用注册中心时锁下限（生产 >= 86400，审计 H-06/H-1）。
+        #[cfg(feature = "test-build")]
+        require!(delay_secs >= 0, SupplyChainError::InvalidNewAdmin);
+        #[cfg(not(feature = "test-build"))]
+        require!(
+            delay_secs >= MIN_REGISTRY_ADMIN_DELAY_SECS,
+            SupplyChainError::InvalidNewAdmin
+        );
+        registry.pending_multisig = new_multisig;
+        registry.pending_multisig_proposed_at = Clock::get()?.unix_timestamp;
+        registry.pending_multisig_delay_secs = delay_secs;
+        msg!("multisig rotation proposed: {}", new_multisig);
+        Ok(())
+    }
+
+    /// 审计 H-1 链上强制多签：第二步在时锁结束后接受多签轮换。
+    pub fn accept_multisig(ctx: Context<AcceptMultisig>) -> Result<()> {
+        check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
+        let registry = &mut ctx.accounts.registry;
+        require!(
+            registry.pending_multisig_proposed_at != 0,
+            SupplyChainError::NoPendingMultisig
+        );
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            now >= registry
+                .pending_multisig_proposed_at
+                .checked_add(registry.pending_multisig_delay_secs)
+                .ok_or(SupplyChainError::MathOverflow)?,
+            SupplyChainError::MultisigLockNotElapsed
+        );
+        let target = registry.pending_multisig;
+        registry.multisig = if target == Pubkey::default() {
+            None
+        } else {
+            Some(target)
+        };
+        registry.pending_multisig = Pubkey::default();
+        registry.pending_multisig_proposed_at = 0;
+        registry.pending_multisig_delay_secs = 0;
+        msg!("multisig updated: {:?}", registry.multisig);
+        Ok(())
+    }
+
+    /// 调整注册中心管理员转移锁定期（审计 M-12；生产建议 >= 86400s）。
+    pub fn set_registry_admin_delay(ctx: Context<SetRegistryAdminDelay>, delay_secs: i64) -> Result<()> {
+        check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
+        let registry = &mut ctx.accounts.registry;
         // 审计 H-06：不得将时锁下调至硬下限（86_400s）以下，杜绝 supply-chain 侧"置零自废后门"。
         require!(
             delay_secs >= MIN_REGISTRY_ADMIN_DELAY_SECS,
@@ -159,10 +249,7 @@ pub mod supply_chain {
         ctx: Context<AuthorizeSupplier>,
         supplier_key: Pubkey,
     ) -> Result<()> {
-        require!(
-            ctx.accounts.registry.admin == ctx.accounts.admin.key(),
-            SupplyChainError::Unauthorized
-        );
+        check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
 
         // 审计 L-08：幂等——重复授权不失败，仅刷新授权时间。
         let supplier = &mut ctx.accounts.supplier;
@@ -177,10 +264,7 @@ pub mod supply_chain {
         ctx: Context<RevokeSupplier>,
         supplier_key: Pubkey,
     ) -> Result<()> {
-        require!(
-            ctx.accounts.registry.admin == ctx.accounts.admin.key(),
-            SupplyChainError::Unauthorized
-        );
+        check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
         msg!("supplier revoked: {}", supplier_key);
         Ok(())
     }
@@ -239,10 +323,7 @@ pub mod supply_chain {
     /// 标记商品失效（审计 L-09）：供应商被撤销后，管理员可将其名下商品标记失效，
     /// 使链上存在明确的"已撤销"状态。
     pub fn revoke_product(ctx: Context<RevokeProduct>, sku: String) -> Result<()> {
-        require!(
-            ctx.accounts.registry.admin == ctx.accounts.admin.key(),
-            SupplyChainError::Unauthorized
-        );
+        check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
         let product = &mut ctx.accounts.product;
         require!(product.active, SupplyChainError::AlreadyRevoked);
         product.active = false;
@@ -320,6 +401,26 @@ pub struct SetRegistryAdminDelay<'info> {
     #[account(mut, seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
     pub registry: Account<'info, Registry>,
 
+    pub admin: Signer<'info>,
+}
+
+/// 审计 H-1 链上强制多签：第一步提案（当前授权者签名）。
+#[derive(Accounts)]
+pub struct ProposeMultisig<'info> {
+    #[account(mut, seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
+    pub registry: Account<'info, Registry>,
+
+    /// 当前授权者（单签模式=registry.admin；多签模式=Squads vault PDA）。
+    pub admin: Signer<'info>,
+}
+
+/// 审计 H-1 链上强制多签：第二步接受（时锁结束后，当前授权者签名）。
+#[derive(Accounts)]
+pub struct AcceptMultisig<'info> {
+    #[account(mut, seeds = [b"supply_chain", b"registry" as &[u8]], bump)]
+    pub registry: Account<'info, Registry>,
+
+    /// 当前授权者（与 propose 相同授权域）。
     pub admin: Signer<'info>,
 }
 
@@ -414,6 +515,16 @@ pub struct Registry {
     pub pending_admin_proposed_at: i64,
     /// 管理员转移锁定期（秒，审计 M-12；生产建议 >= 86400）。
     pub admin_delay_secs: i64,
+    /// 链上强制多签（审计 H-1 根治）：配置后关键指令的 admin 签名者必须 ==
+    /// Squads vault PDA（多签执行时 Squads 程序以 vault PDA 作 CPI 签名者）。
+    /// None = 单管理员（向后兼容）。
+    pub multisig: Option<Pubkey>,
+    /// 待接受的多签地址（两步轮换，proposed_at == 0 表示无提案）。
+    pub pending_multisig: Pubkey,
+    /// 多签轮换提案时间（秒）。
+    pub pending_multisig_proposed_at: i64,
+    /// 多签轮换锁定期（秒，复用注册中心时锁下限 >= 86400）。
+    pub pending_multisig_delay_secs: i64,
 }
 
 #[account]
@@ -477,6 +588,22 @@ pub enum SupplyChainError {
     /// 审计 D-01：传入的 supplier 账户与 supplier_key 不匹配（seeds/has_one 校验失败）。
     #[msg("Supplier account does not match supplied key")]
     SupplierMismatch,
+
+    /// 审计 H-1 链上强制多签：已配置多签，admin 签名者必须是 Squads vault PDA。
+    #[msg("Multisig enforcement active: admin signer must be the Squads vault PDA")]
+    MultisigEnforced,
+
+    /// 审计 H-1：多签轮换已存在待接受提案。
+    #[msg("A multisig rotation is already pending")]
+    PendingMultisigExists,
+
+    /// 审计 H-1：不存在待接受的多签轮换提案。
+    #[msg("No pending multisig rotation")]
+    NoPendingMultisig,
+
+    /// 审计 H-1：多签轮换锁定期尚未结束。
+    #[msg("Multisig rotation lock period has not elapsed")]
+    MultisigLockNotElapsed,
 }
 
 #[cfg(test)]

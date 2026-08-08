@@ -189,4 +189,19 @@ pub enum TradeFinanceError {
     #[msg("First-loss reserve is insufficient")]
     FirstLossInsufficient,
 
+    /// 审计 H-1 链上强制多签：已配置多签，admin 签名者必须是 Squads vault PDA。
+    #[msg("Multisig enforcement active: admin signer must be the Squads vault PDA")]
+    MultisigEnforced,
+
+    /// 审计 H-1：多签轮换已存在待接受提案。
+    #[msg("A multisig rotation is already pending")]
+    PendingMultisigExists,
+
+    /// 审计 H-1：不存在待接受的多签轮换提案。
+    #[msg("No pending multisig rotation")]
+    NoPendingMultisig,
+
+    /// 审计 H-1：多签轮换锁定期尚未结束。
+    #[msg("Multisig rotation lock period has not elapsed")]
+    MultisigLockNotElapsed,
 }

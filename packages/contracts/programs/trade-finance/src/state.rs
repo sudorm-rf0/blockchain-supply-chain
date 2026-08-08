@@ -200,6 +200,16 @@ pub struct PoolState {
     pub pending_gov_pubkey: Pubkey,
     /// 治理时锁：数值参数（amount / 费率 bps / 风控参数用，按动作解释）。
     pub pending_gov_u64s: [u64; 4],
+    /// 链上强制多签（审计 H-1 根治）：配置后关键资金/治理指令的 admin 签名者
+    /// 必须 == Squads vault PDA（多签执行时 Squads 程序以 vault PDA 作 CPI 签名者，
+    /// 单私钥直签自动失效）。None = 单管理员（向后兼容）。
+    pub multisig: Option<Pubkey>,
+    /// 待接受的多签地址（两步轮换，全零表示无提案）。
+    pub pending_multisig: Pubkey,
+    /// 多签轮换提案时间（秒）。
+    pub pending_multisig_proposed_at: i64,
+    /// 多签轮换锁定期（秒，复用治理时锁下限 >= 86400）。
+    pub pending_multisig_delay_secs: i64,
 }
 
 impl PoolState {
@@ -242,6 +252,11 @@ impl PoolState {
             + 8  // pending_gov_proposed_at (审计 H-1)
             + 32 // pending_gov_pubkey (审计 H-1)
             + 32 // pending_gov_u64s [u64;4] (审计 H-1)
+            + 1  // multisig Option<Pubkey> discriminant (审计 H-1 链上强制)
+            + 32 // multisig value (审计 H-1)
+            + 32 // pending_multisig (审计 H-1)
+            + 8  // pending_multisig_proposed_at (审计 H-1)
+            + 8  // pending_multisig_delay_secs (审计 H-1)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -436,6 +451,10 @@ mod tests {
             pending_gov_proposed_at: 0,
             pending_gov_pubkey: Pubkey::default(),
             pending_gov_u64s: [0; 4],
+            multisig: None,
+            pending_multisig: Pubkey::default(),
+            pending_multisig_proposed_at: 0,
+            pending_multisig_delay_secs: 0,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         // 审计 N-01：NAV 每 LP token（1e6 raw）计，1_000_000 * 1e6 / 1_000 = 1_000_000_000
@@ -482,6 +501,10 @@ mod tests {
             pending_gov_proposed_at: 0,
             pending_gov_pubkey: Pubkey::default(),
             pending_gov_u64s: [0; 4],
+            multisig: None,
+            pending_multisig: Pubkey::default(),
+            pending_multisig_proposed_at: 0,
+            pending_multisig_delay_secs: 0,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -533,6 +556,10 @@ mod tests {
             pending_gov_proposed_at: 0,
             pending_gov_pubkey: Pubkey::default(),
             pending_gov_u64s: [0; 4],
+            multisig: None,
+            pending_multisig: Pubkey::default(),
+            pending_multisig_proposed_at: 0,
+            pending_multisig_delay_secs: 0,
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
@@ -592,6 +619,10 @@ mod tests {
             pending_gov_proposed_at: 0,
             pending_gov_pubkey: Pubkey::default(),
             pending_gov_u64s: [0; 4],
+            multisig: None,
+            pending_multisig: Pubkey::default(),
+            pending_multisig_proposed_at: 0,
+            pending_multisig_delay_secs: 0,
         }
     }
 

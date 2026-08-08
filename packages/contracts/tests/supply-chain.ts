@@ -535,4 +535,80 @@ describe("supply-chain permissioned registration", () => {
     assert.equal(registry.adminDelaySecs.toString(), "86400");
     console.log("H-06 supply-chain timelock bypass blocked");
   });
+
+  describe("H-1 chain-enforced multisig (supply-chain)", () => {
+    const SQDS = new PublicKey("SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf");
+    const fakeMultisig = PublicKey.findProgramAddressSync(
+      [Buffer.from("multisig"), Buffer.from("test-ms-sc")],
+      SQDS,
+    )[0];
+    function vaultPda(ms: PublicKey): PublicKey {
+      return PublicKey.findProgramAddressSync(
+        [Buffer.from("multisig"), ms.toBuffer(), Buffer.from("vault"), Buffer.from([0])],
+        SQDS,
+      )[0];
+    }
+
+    it("None path: single admin still works", async () => {
+      const reg = await program.account.registry.fetch(REGISTRY());
+      assert.equal(reg.multisig, null, "初始 multisig 应为 None");
+      await program.methods
+        .setRegistryAdminDelay(new anchor.BN(86_400))
+        .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+        .rpc();
+      console.log("H-1 SC None path OK");
+    });
+
+    it("propose_multisig sets pending; accept before timelock rejected", async () => {
+      await program.methods
+        .proposeMultisig(fakeMultisig, new anchor.BN(1))
+        .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+        .rpc();
+      const reg = await program.account.registry.fetch(REGISTRY());
+      assert.equal(reg.pendingMultisig.toBase58(), fakeMultisig.toBase58());
+      await assert.rejects(
+        program.methods
+          .acceptMultisig()
+          .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+          .rpc(),
+        /MultisigLockNotElapsed|multisig rotation lock/i,
+      );
+      console.log("H-1 SC propose + pre-timelock reject OK");
+    });
+
+    it("accept_multisig after timelock enables enforcement; single admin rejected", async () => {
+      await new Promise((r) => setTimeout(r, 1600));
+      await program.methods
+        .acceptMultisig()
+        .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
+        .rpc();
+      const reg = await program.account.registry.fetch(REGISTRY());
+      assert.equal(reg.multisig.toBase58(), fakeMultisig.toBase58());
+      // enforcement 后单签授权供应商被拒（无绕过）。传完整账户以触达授权校验。
+      const supPda = supplierPda(program.programId, provider.wallet.publicKey);
+      await assert.rejects(
+        program.methods
+          .authorizeSupplier(provider.wallet.publicKey)
+          .accounts({
+            registry: REGISTRY(),
+            admin: provider.wallet.publicKey,
+            supplier: supPda,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc(),
+        /MultisigEnforced|Squads vault PDA/i,
+      );
+      console.log("H-1 SC enforcement active, single admin rejected");
+    });
+
+    it("vault PDA derivation consistent", async () => {
+      const vault = vaultPda(fakeMultisig);
+      const expected = PublicKey.findProgramAddressSync(
+        [Buffer.from("multisig"), fakeMultisig.toBuffer(), Buffer.from("vault"), Buffer.from([0])],
+        SQDS,
+      )[0];
+      assert.equal(vault.toBase58(), expected.toBase58());
+      console.log("H-1 SC vault PDA:", vault.toBase58());
+    });
+  });
 });

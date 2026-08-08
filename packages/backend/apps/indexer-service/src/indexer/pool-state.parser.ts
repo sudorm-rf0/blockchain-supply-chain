@@ -10,8 +10,11 @@ import { PoolSnapshotPayload } from "./payloads";
 // + min_insurance_abs(8) + overdue_fee_apy_bps(8) + pending_admin_delay_secs(8)
 // + tracked_vault(8) + pending_gov_action(1) + pending_gov_proposed_at(8)
 // + pending_gov_pubkey(32) + pending_gov_u64s(32) = 402。
-// 与 state.rs PoolState::space() 逐字段一致（治理时锁字段在尾部，不改变既有偏移）。
-export const POOL_STATE_ACCOUNT_SIZE = 402;
+// 审计 H-1 链上强制多签（尾部追加，不改变既有偏移）：
+// + multisig(1 discriminant + 32) + pending_multisig(32)
+// + pending_multisig_proposed_at(8) + pending_multisig_delay_secs(8) = 483。
+// 与 state.rs PoolState::space() 逐字段一致。
+export const POOL_STATE_ACCOUNT_SIZE = 483;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;
@@ -39,6 +42,16 @@ const OFFSET_FIRST_LOSS_RESERVE = OFFSET_REBATE_SHARE_BPS + U64_SIZE;
 const OFFSET_MIN_INSURANCE_ABS = OFFSET_FIRST_LOSS_RESERVE + U64_SIZE;
 const OFFSET_OVERDUE_FEE_APY_BPS = OFFSET_MIN_INSURANCE_ABS + U64_SIZE;
 const OFFSET_PENDING_ADMIN_DELAY_SECS = OFFSET_OVERDUE_FEE_APY_BPS + U64_SIZE;
+const OFFSET_TRACKED_VAULT = OFFSET_PENDING_ADMIN_DELAY_SECS + U64_SIZE;
+const OFFSET_PENDING_GOV_ACTION = OFFSET_TRACKED_VAULT + U64_SIZE;
+const OFFSET_PENDING_GOV_PROPOSED_AT = OFFSET_PENDING_GOV_ACTION + 1;
+const OFFSET_PENDING_GOV_PUBKEY = OFFSET_PENDING_GOV_PROPOSED_AT + U64_SIZE;
+const OFFSET_PENDING_GOV_U64S = OFFSET_PENDING_GOV_PUBKEY + PUBKEY_SIZE;
+const OFFSET_MULTISIG_TAG = OFFSET_PENDING_GOV_U64S + 4 * U64_SIZE;
+const OFFSET_MULTISIG_VALUE = OFFSET_MULTISIG_TAG + 1;
+const OFFSET_PENDING_MULTISIG = OFFSET_MULTISIG_VALUE + PUBKEY_SIZE;
+const OFFSET_PENDING_MULTISIG_PROPOSED_AT = OFFSET_PENDING_MULTISIG + PUBKEY_SIZE;
+const OFFSET_PENDING_MULTISIG_DELAY_SECS = OFFSET_PENDING_MULTISIG_PROPOSED_AT + U64_SIZE;
 
 export function parsePoolStateBuffer(
   data: Buffer,
@@ -76,6 +89,21 @@ export function parsePoolStateBuffer(
   const minInsuranceAbs = data.readBigUInt64LE(OFFSET_MIN_INSURANCE_ABS);
   const overdueFeeApyBps = data.readBigUInt64LE(OFFSET_OVERDUE_FEE_APY_BPS);
   const pendingAdminDelaySecs = data.readBigInt64LE(OFFSET_PENDING_ADMIN_DELAY_SECS);
+  const multisigTag = data.readUInt8(OFFSET_MULTISIG_TAG);
+  const multisig = multisigTag === 1
+    ? new PublicKey(
+        data.subarray(OFFSET_MULTISIG_VALUE, OFFSET_MULTISIG_VALUE + PUBKEY_SIZE),
+      ).toBase58()
+    : null;
+  const pendingMultisig = new PublicKey(
+    data.subarray(OFFSET_PENDING_MULTISIG, OFFSET_PENDING_MULTISIG + PUBKEY_SIZE),
+  ).toBase58();
+  const pendingMultisigProposedAt = data.readBigInt64LE(
+    OFFSET_PENDING_MULTISIG_PROPOSED_AT,
+  );
+  const pendingMultisigDelaySecs = data.readBigInt64LE(
+    OFFSET_PENDING_MULTISIG_DELAY_SECS,
+  );
 
   return {
     poolAddress,
@@ -101,6 +129,10 @@ export function parsePoolStateBuffer(
     minInsuranceAbs: minInsuranceAbs.toString(10),
     overdueFeeApyBps: overdueFeeApyBps.toString(10),
     pendingAdminDelaySecs: pendingAdminDelaySecs.toString(10),
+    multisig,
+    pendingMultisig,
+    pendingMultisigProposedAt: pendingMultisigProposedAt.toString(10),
+    pendingMultisigDelaySecs: pendingMultisigDelaySecs.toString(10),
     capturedAt: capturedAt.toISOString(),
   };
 }

@@ -11,18 +11,18 @@
 
 | 套件 | 命令 | 结果 |
 |---|---|---|
-| Anchor 集成 | `cd packages/contracts && pnpm test` | **71/71 passing**（含新增 D-01 supplier_key seeds/has_one 回归） |
+| Anchor 集成 | `cd packages/contracts && pnpm test` | **82/82 passing**（含 D-01 supplier_key 回归 + H-1 链上强制多签回归 trade 7/supply 4） |
 | Rust 单测 trade | `cargo test -p trade-finance` | **15/15** |
 | Rust 单测 supply | `cargo test -p supply-chain` | **9/9**（含 1 proptest） |
-| 后端 | `cd packages/backend && pnpm test -- --runInBand` | **155/155** |
+| 后端 | `cd packages/backend && pnpm test -- --runInBand` | **156/156**（含 indexer PoolState 布局 + multisig 字段解析） |
 | 前端 | `cd packages/frontend && pnpm test` | **50/50** + tsc/lint 0 error |
 | 本地端到端 | `bash scripts/ci-e2e.sh` | **10/10 API + smoke-e2e 全断言**（含新增 D2 负向 `repaymentDefaultGuard`、F5 `supplyChainRevokeSupplier/RevokeProduct/RejectRevoked`） |
 | 本地多签迁移演练 | `bash scripts/multisig-rehearsal/run.sh` | **PASS**（propose_admin → 时锁 → accept_admin） |
 | devnet 治理投票 | `RPC=https://api.devnet.solana.com node scripts/multisig-rehearsal/devnet-governance-test.mjs` | **PASS ×2**（3-of-5 提案 → 投票 → 多签执行转账 0.001 SOL） |
 
 ## Anchor 用例构成（70）
-- trade-finance.ts：**51**（含 H-1 治理时锁 propose/execute、L-10 paused 冻结首损提取、H-3 捐赠回归、H-04/05/06 时锁）
-- supply-chain.ts：**18**（含新增 D-01 supplier_key seeds/has_one 回归；D-01 由第三轮审计提出）
+- trade-finance.ts：**55**（含 H-1 治理时锁 propose/execute、L-10 paused 冻结首损提取、H-3 捐赠回归、H-04/05/06 时锁、H-1 链上强制多签 7 用例）
+- supply-chain.ts：**19**（含 D-01 supplier_key seeds/has_one 回归 + H-1 链上强制多签 4 用例）
 - c1-program-data-regression.ts：**2**（C-1 伪造 program_data 拒绝）
 - （compute-units.ts 在 ANCHOR_BENCH=1 时单独运行）
 
