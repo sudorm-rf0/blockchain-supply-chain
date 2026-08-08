@@ -9,7 +9,8 @@
 - IDL：`packages/contracts/target/idl/trade_finance.json`、
   `packages/contracts/target/idl/supply_chain.json`
 - 测试：`packages/contracts/tests/trade-finance.ts`（49 个用例）、
-  `packages/contracts/tests/supply-chain.ts`（17 个用例）；另有
+  `packages/contracts/tests/supply-chain.ts`（17 个用例）、
+  `packages/contracts/tests/c1-program-data-regression.ts`（2 个用例，C-1 伪造 program_data 拒绝回归）；另有
   `cargo test` Rust 单测（trade-finance 15、supply-chain 9，含 1 proptest）
 - 部署信息：Program ID 见 `Anchor.toml`；localnet 部署见
   `scripts/deploy-devnet.sh` 与 `scripts/init-localnet.mjs`

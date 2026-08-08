@@ -73,7 +73,7 @@ devnet 部署（当前已验证）:
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
 测试结果（审计可核验，基于本包内容）:
-  Anchor 集成: 66/66 通过（trade-finance.ts 49 + supply-chain.ts 17，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归）
+  Anchor 集成: 68/68 通过（trade-finance.ts 49 + supply-chain.ts 17 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归）
   Rust 单元（含 proptest）: 24/24（trade-finance 15 + supply-chain 9，其中 supply-chain 含 1 proptest）
 
 说明:
@@ -81,12 +81,15 @@ devnet 部署（当前已验证）:
   - 主网 Program ID 为部署时新生成（见 docs/MAINNET-MIGRATION.md）。
   - 后端/前端测试不在本合约审计包范围内；相关测试与 CI 结果见仓库 CI 与 AUDIT-REPORT.md。
 
-更新（2026-08-08 第四轮 / 方案 B + N-01 精度）:
+更新（2026-08-08 第四轮 / 方案 B + N-01 精度 + 复测整改）:
   - LP mint 精度: 0 -> 6（审计 N-01：1 USDC = 1 LP，首笔 1:1 铸造）。
   - NAV/redemption_price 以「每 LP token」计，放大 LP_DECIMALS_FACTOR(1e6)，与前端展示语义一致。
   - H-3: 定价以权威 tracked_vault 为基准，直捐=不可申领盈余，存取不锁死。
-  - C-1: program_data 绑定本程序真实 ProgramData PDA（address+owner）。
-  - anchor test 实测: 66/66 通过（本地 validator + test-deployer 构建复验，
+  - C-1: program_data 绑定本程序真实 ProgramData PDA（address+owner），新增 anchor 拒绝回归。
+  - N-13: withdraw_first_loss 偿付检查改用 tracked_vault（捐赠不再虚增可提取额度）。
+  - M-05: deploy 脚本同步 declare_id! 与部署 keypair ID（含 Anchor.toml [programs.mainnet]），
+    precheck 增加 Program ID 一致性检查。
+  - anchor test 实测: 68/68 通过（本地 validator + test-deployer 构建复验，
     含 H-3 捐赠回归、N-01/N-06 定价一致性、C-1 拒绝回归）。
 INFO
 
