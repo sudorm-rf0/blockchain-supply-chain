@@ -13,6 +13,7 @@
 | **M-1（审计误判，未改）** | 报告称未释放违约 `total_assets` 少计 `pool_portion` | ⚠️ 复核：M-01 已把放款记入 `escrow_funded`（非 active_capital），未释放违约减 `escrow_funded` 即正确；`total_assets` 不变满足 INV-1，报告结论基于旧代码，**无需修改**（已用记账增量测试验证） |
 | **H-2（High）** | `test-deployer` 特性若被编译进主网构建 → 硬编码 DEPLOYER 成为初始化后门 | ✅ **脚本防护**：precheck 校验 `test-deployer` 未设为默认特性、主网部署命令不携带该特性（回归即 FAIL） |
 | **M-3（Medium）** | 先冻结 upgrade authority 后初始化 → 生产路径拒绝初始化（部署变砖） | ✅ **脚本防护**：deploy-mainnet.sh 冻结前校验资金池/注册中心 PDA 已在链上，否则中止 |
+| **N-01（设计变更）** | LP Mint 精度 0 → 6（0 精度整数份额产生取整 dust 与 shares==0 拒绝） | ✅ **已改**：`LP_MINT_DECIMALS=6`；首笔存款 `shares = amount`（1 USDC=1 LP，同为 6 位精度 1:1 铸造）；测试/脚本/文档同步（anchor 66/66） |
 
 ## 一、本次整改完成（2026-08-07 批次）
 

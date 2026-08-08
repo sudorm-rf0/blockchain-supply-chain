@@ -4,7 +4,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 
 use crate::state::{
-    LP_MINT_DECIMALS, ADMIN_TRANSFER_DELAY_SECS, MIN_ADMIN_DELAY_SECS, USDC_DECIMALS_FACTOR,
+    LP_MINT_DECIMALS, ADMIN_TRANSFER_DELAY_SECS, MIN_ADMIN_DELAY_SECS,
     DEFAULT_FEE_APY_BPS, DEFAULT_LP_SHARE_BPS, DEFAULT_PLATFORM_SHARE_BPS, DEFAULT_REBATE_SHARE_BPS,
     DEFAULT_MIN_INSURANCE_ABS,
     MAX_SINGLE_FEE_BPS, MIN_FIRST_LOSS_ABS,
@@ -517,7 +517,7 @@ pub mod trade_finance {
         // 审计 C-01：份额发行收归合约控制——首笔按 1 USDC = 1 LP（显示单位），
         // 后续按池子总价值定价。
         let shares = if lp_supply == 0 {
-            amount / USDC_DECIMALS_FACTOR
+            amount // 审计 N-01：首笔 1 USDC = 1 LP（同为 6 位精度，1:1 铸造，避免 /1_000_000 取整）
         } else {
             // 审计 N-01/N-06：铸币定价与赎回一致，采用纯现金权益基准
             // （equity_base = vault - first_loss，不含应收），消除铸造/赎回套利。

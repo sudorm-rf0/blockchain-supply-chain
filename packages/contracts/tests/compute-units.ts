@@ -151,7 +151,7 @@ describe("compute units measurement", () => {
     );
 
     usdcMint = await createMint(connection, payer, payer.publicKey, null, USDC_DECIMALS);
-    lpMint = await createMint(connection, payer, payer.publicKey, null, 0);
+    lpMint = await createMint(connection, payer, payer.publicKey, null, 6);
     poolStatePda = PublicKey.findProgramAddressSync(POOL_SEEDS, program.programId)[0];
     poolAuthorityPda = PublicKey.findProgramAddressSync(
       POOL_AUTHORITY_SEEDS,

@@ -14,6 +14,8 @@ import {
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 
 const USDC_DECIMALS = 6;
+// 审计 N-01：LP 精度与 USDC 一致取 6 位（合约 LP_MINT_DECIMALS=6）。
+const LP_MINT_DECIMALS = 6;
 const USDC = (amount: number): number => amount * 10 ** USDC_DECIMALS;
 
 describe("trade-finance full lifecycle", () => {
@@ -225,7 +227,7 @@ describe("trade-finance full lifecycle", () => {
       USDC_DECIMALS,
     );
     // 审计 C-01：LP mint authority 必须是 pool_authority PDA（链上铸币）。
-    lpMint = await createMint(connection, payer, poolAuthorityPda, null, 0);
+    lpMint = await createMint(connection, payer, poolAuthorityPda, null, LP_MINT_DECIMALS);
 
     buyerAta = await createAta(buyer.publicKey);
     sellerAta = await createAta(seller.publicKey);
@@ -286,10 +288,16 @@ describe("trade-finance full lifecycle", () => {
     const poolState = await program.account.poolState.fetch(poolStatePda);
     assert.equal(poolState.admin.toBase58(), provider.wallet.publicKey.toBase58());
     assert.equal(poolState.totalAssets.toString(), USDC(100_000).toString());
-    assert.equal(poolState.nav.toString(), USDC(1).toString());
+    // 审计 N-01：6 位精度下 1 USDC = 1 LP，NAV 以「每 LP token」计 = 1 USDC raw（1e6）。
+    assert.equal(poolState.nav.toString(), USDC(1).toString(), "NAV 应等于 1 USDC/LP");
     // 审计 C-01：存入 USDC 后链上铸造 LP（首笔 1 USDC = 1 LP）。
     const lpBalance = await getAccount(connection, lpTokenAta);
-    assert.equal(lpBalance.amount, BigInt(100_000), "deposit 应链上铸造 100_000 LP");
+    assert.equal(
+      lpBalance.amount,
+      BigInt(USDC(100_000)),
+      "deposit 应链上铸造 100_000 LP（6 位精度，raw=1e11）",
+    );
+    // 审计 N-01：6 位精度下 redemption_price 以「每 LP token」计 = 1 USDC raw（1e6）。
     assert.equal(
       poolState.redemptionPrice.toString(),
       USDC(1).toString(),
@@ -442,7 +450,8 @@ describe("trade-finance full lifecycle", () => {
     assert.equal(poolState.escrowFunded.toString(), USDC(700).toString());
     assert.equal(poolState.activeCapital.toString(), "0");
     assert.equal(poolState.totalAssets.toString(), USDC(100_300).toString());
-    assert.equal(poolState.nav.toString(), USDC(1).toString());
+    // 审计 N-01：6 位精度下 1 USDC = 1 LP，NAV 以「每 LP token」计 = 1 USDC raw（1e6）。
+    assert.equal(poolState.nav.toString(), USDC(1).toString(), "NAV 应等于 1 USDC/LP（每 LP token）");
     const poolVaultAfterFund = await getAccount(connection, poolTokenAccount);
     const escrowAfterFund = await getAccount(connection, dealTokenAccount);
     assert.equal(poolVaultAfterFund.amount, BigInt(USDC(100_000 - 700)));
@@ -532,7 +541,8 @@ describe("trade-finance full lifecycle", () => {
     const expectedVault = BigInt(USDC(100_000)) + retained;
     assert.equal(poolVaultAfterRepay.amount, expectedVault);
     assert.equal(poolState.totalAssets.toString(), expectedVault.toString());
-    // nav = (vault - first_loss + active + escrow_funded) / supply
+    // nav = (vault - first_loss + active + escrow_funded) / supply，每 LP token 计
+    // 审计 N-01：nav = total * 1e6 / supply_raw = expectedVault / 100_000（100_000 LP）。
     assert.equal(
       poolState.nav.toString(),
       (expectedVault / 100_000n).toString(),
@@ -807,9 +817,13 @@ describe("trade-finance full lifecycle", () => {
     );
     console.log("Redeemed LP:", lpAmount.toString(), "for USDC:", usdcOut.toString());
 
+    // 审计 N-01：LP 6 位精度后 90_000 raw 仅 0.09 LP，不再超单笔 50% 上限；
+    // 改为按剩余供应量 90%（> 50% 单笔上限）动态计算超限金额。
+    const lpSupplyAfter = lpMintInfo.supply - BigInt(lpAmount.toString());
+    const tooMuch = new anchor.BN(((lpSupplyAfter * 9n) / 10n).toString());
     await assert.rejects(
       program.methods
-        .redeemLp(new anchor.BN(90_000))
+        .redeemLp(tooMuch)
         .accounts(redeemAccounts)
         .signers([lp])
         .rpc(),
@@ -1836,7 +1850,7 @@ describe("trade-finance full lifecycle", () => {
         payer,
         poolAuthorityPda,
         null,
-        0,
+        LP_MINT_DECIMALS,
       );
       await assert.rejects(
         program.methods
@@ -2082,11 +2096,12 @@ describe("trade-finance full lifecycle", () => {
         (await getMint(connection, lpMint)).supply.toString(),
       );
       const equityAfter = vaultAfter - BigInt(poolAfter.firstLossReserve.toString());
-      const redemptionPrice = equityAfter / supplyAfter;
+      // 审计 N-01：redemption_price 以「每 LP token」计，放大 1e6（LP 6 位精度）。
+      const redemptionPrice = (equityAfter * 1_000_000n) / supplyAfter;
       assert.equal(
         poolAfter.redemptionPrice.toString(),
         redemptionPrice.toString(),
-        "redemption_price 应为 equity_base / supply（N-01/N-06）",
+        "redemption_price 应为 equity_base / supply * 1e6（每 LP token，N-01/N-06）",
       );
       console.log("Mint/redeem price consistent with first-loss (N-01/N-06)");
     });
@@ -2247,8 +2262,9 @@ describe("trade-finance full lifecycle", () => {
 
       // 捐赠后存取仍可用（不锁死），且赎回只按权威记账兑付——捐赠留在金库不可申领。
       const lpSupplyBefore = (await getMint(connection, lpMint)).supply;
+      // 审计 N-01：6 位精度下赎回 1 LP（1e6 raw）——1 raw 会因 equity/supply<1 取整为 0（ZeroRedeemAmount）。
       await program.methods
-        .redeemLp(new anchor.BN(1))
+        .redeemLp(new anchor.BN(1_000_000))
         .accounts({
           poolState: poolStatePda,
           lpUser: lp.publicKey,
@@ -2270,7 +2286,7 @@ describe("trade-finance full lifecycle", () => {
         "redeem 只兑付权威记账部分，捐赠应保留在 vault 中不可申领",
       );
       const lpSupplyAfter = (await getMint(connection, lpMint)).supply;
-      assert.equal(lpSupplyAfter, lpSupplyBefore - 1n, "LP 供应应减少 1");
+      assert.equal(lpSupplyAfter, lpSupplyBefore - 1_000_000n, "LP 供应应减少 1 LP（1e6 raw）");
       console.log("External donation is inert surplus, cannot manipulate pricing (H-3 regression)");
     });
   });
