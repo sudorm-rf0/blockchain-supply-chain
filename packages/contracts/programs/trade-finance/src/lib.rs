@@ -118,6 +118,11 @@ pub mod trade_finance {
             ctx.accounts.program_data.key() == expected_program_data,
             TradeFinanceError::Unauthorized
         );
+        // 独立复测 N-3：ProgramData 账户必须由 BPF Loader Upgradeable 拥有（防伪/健壮性）。
+        require!(
+            ctx.accounts.program_data.owner == &BPF_LOADER_UPGRADEABLE,
+            TradeFinanceError::Unauthorized
+        );
         let pd_data = ctx.accounts.program_data.try_borrow_data()?;
         let ua_tag = u8::from_le_bytes(
             pd_data[12..13].try_into().map_err(|_| TradeFinanceError::Unauthorized)?,
@@ -411,12 +416,15 @@ pub mod trade_finance {
             .checked_sub(down_payment)
             .ok_or(TradeFinanceError::MathOverflow)?;
 
-        // 审计 M-08：集中度上限基于资金池可用流动性（vault - 保险 - 待分红），
-        // 而非包含买方托管的 total_assets。
+        // 审计 M-08 + 独立复测 N-2：集中度上限基于资金池可用流动性
+        // （vault - 保险 - 待分红），且必须用权威记账 tracked_vault（外部捐赠不得放大敞口）。
+        ctx.accounts
+            .pool_state
+            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         let available = ctx
             .accounts
-            .pool_token_account
-            .amount
+            .pool_state
+            .tracked_vault
             .saturating_sub(ctx.accounts.pool_state.insurance_fund)
             .saturating_sub(ctx.accounts.pool_state.pending_dividends);
         let concentration_limit = available / 100;
