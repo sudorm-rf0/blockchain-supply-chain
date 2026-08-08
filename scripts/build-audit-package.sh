@@ -126,14 +126,17 @@ devnet 部署（当前已验证）:
   LP (devnet测试):   HkPYrCPbJzTSJUBxc62n8nV8g1dafrMisEnDQw55VjFc
 
 测试结果（审计可核验，基于本包内容）:
-  Anchor 集成: 70/70 通过（trade-finance.ts 51 + supply-chain.ts 17 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归 + H-1 治理时锁）
+  Anchor 集成: 82/82 通过（trade-finance.ts 55 + supply-chain.ts 19 + c1-program-data-regression.ts 2，含资金恒等式/记账增量断言 + 治理 + 审计整改回归 + H-3 捐赠回归 + C-1 伪造 program_data 拒绝回归 + H-1 治理时锁 + **H-1 链上强制多签回归**）
   Rust 单元（含 proptest）: 24/24（trade-finance 15 + supply-chain 9，其中 supply-chain 含 1 proptest）
-  后端 jest: 155/155；前端 vitest: 50/50 + tsc/lint 0 error
+  后端 jest: 156/156（含 indexer PoolState 布局 + multisig 字段解析）；前端 vitest: 50/50 + tsc/lint 0 error
   本地端到端 ci-e2e: 10/10 API + smoke-e2e 全断言
     （含 D2 账期未到 REPAYING 违约被拒 repaymentDefaultGuard、F5 revoke_supplier/revoke_product/撤销后注册被拒）
   本地多签迁移演练: run.sh PASS（propose_admin → 时锁 → accept_admin）
   devnet 治理投票: devnet-governance-test.mjs PASS ×2
     （真实 Squads 3-of-5：建测试多签 → 提案转账 0.001 SOL → 3 票 approve → 多签执行）
+  链上强制多签（H-1 根治）: PoolState/Registry.multisig 配置后，admin 签名者必须 ==
+    Squads vault PDA（PDA["multisig", ms, "vault", 0]）；单签在链上被拒（MultisigEnforced）。
+    回归 trade 7 + supply 4 用例全绿。
   GitHub CI: success（contracts + e2e + launch-preflight + scripts-lint）
 
 说明:
@@ -153,6 +156,16 @@ devnet 部署（当前已验证）:
   - 后端 jest 155/155；前端 vitest 50/50 + tsc/lint 0 error；ci-e2e 10/10 + smoke 全断言
   - 本地多签迁移演练 run.sh PASS；devnet 治理投票 PASS ×2
   - GitHub CI: success（contracts + e2e + launch-preflight，见仓库 gh run list）
+
+更新（2026-08-09 第六轮 / H-1 链上强制多签）:
+  - 链上强制多签实现（H-1 根治，判据 a）：PoolState/Registry 新增 multisig 字段 +
+    propose_multisig/accept_multisig 两步时锁（下限 86400s）；check_authority 接入
+    全部治理/资金指令（trade 21 / supply 6），配置后 admin 必须 == Squads vault PDA，
+    单私钥直签在链上被拒。ABI 不变（admin: Signer），尾部追加字段。
+  - indexer 同步：pool-state.parser.ts size 402→483 + multisig/pending_multisig 解析，
+    layout-anchor.spec.ts 布局表 + roundtrip 单测。
+  - 回归：anchor 82/82（含 H-1 trade 7 + supply 4）；后端 156/156。
+  - 证据：docs/H-1-多签治理落地证据.md、docs/AUDIT-ROUND3-REMEDIATION-20260808.md。
 
 更新（2026-08-08 第五轮 / 测试完备性收尾）:
   - devnet-governance-test.mjs：真实 Squads 3-of-5 治理投票测试（proposal→vote→execute）
