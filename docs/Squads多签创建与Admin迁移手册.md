@@ -75,12 +75,10 @@ npx @sqds/cli create --threshold 3 --members <成员1,成员2,成员3,成员4,�
 ### 3.1 trade-finance：propose → 时锁 → accept
 
 ```bash
-# 1) 旧 admin 发起 propose_admin(多签 PDA)
-#    （旧 admin 是当前 pool.admin 的签名者）
-#    可通过 Anchor TS SDK 或改造脚本调用：
-#     program.methods.proposeAdmin(new MultisigPda)
-#       .accounts({ poolState, admin: oldAdmin })
-#       .signers([oldAdminKeypair])
+# 1) 旧 admin 发起 propose_admin(多签 PDA)（仓库已提供脚本）
+#    TARGET=trade|supply，NEW_ADMIN=多签PDA，SOLANA_KEYPAIR_PATH=旧admin keypair
+SOLANA_RPC_URL=<主网RPC> TARGET=trade NEW_ADMIN=<多签PDA>   SOLANA_KEYPAIR_PATH=<旧admin keypair> node scripts/propose-admin.mjs
+# 脚本会输出提案信息与后续 accept 所需账户/签名人
 ```
 
 2. **等待时锁**：`pending_admin_delay_secs`（生产默认 172800s = 48h；若灰度池设过更小值且 <86400 会被硬下限拒绝——保持 ≥86400）
