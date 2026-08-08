@@ -14,10 +14,21 @@ bash scripts/multisig-rehearsal/run.sh
 
 ## 真实多签创建（需 SOL 的 devnet/主网）
 ```bash
-cd /tmp/squads-rehearsal && npm i @sqds/multisig @solana/web3.js   # 或项目内安装
-RPC=https://api.devnet.solana.com node scripts/multisig-rehearsal/squads-create.mjs
+# @sqds/multisig 已作为项目 devDependency（2.1.4）；payer 需有 SOL 且不能是 Program ID 账户
+RPC=https://api.devnet.solana.com PAYER_KP=~/.config/solana/id.json \
+  node scripts/multisig-rehearsal/squads-create.mjs
+# 自定义成员/阈值：
+#   MEMBERS="<a>,<b>,<c>,<d>,<e>" THRESHOLD=3 RPC=<rpc> PAYER_KP=<kp> \
+#     node scripts/multisig-rehearsal/squads-create.mjs
 ```
-> devnet 免费档对 requestAirdrop 有严格限流（429）；如空投失败，请为 payer 转账少量 SOL 或用已 funded 钱包。
+> devnet 免费档对 requestAirdrop 有严格限流（429），且偶尔 faucet 全局干涸；如空投失败，请为 payer 转账少量 SOL 或用已 funded 钱包。
+> Squads V4 新版程序（`SQDS4ep65…`）要求 `treasury == ProgramConfig.treasury`，脚本已自动读取，无需手工指定。
+
+## 演练记录（2026-08-08，devnet）
+- 3-of-5 多签已创建并链上验证：`MULTISIG_PDA=2NJfQrv4egYZzbmuHJNjAHyitM9TUMD9m5aFNJP3hZD5`（程序 `SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf`，timeLock=0）
+- 成员：DKjZeYsB… / F4WD7tD8… / SidAeEGs… / 2y5tHWpV… / Cw8hnS6t…
+- 创建钱包（createKey/payer）：`3xrRyw1xnGjaEYmCdFTARt8xVeKcZPUmarJRTwyJ4k8t`（devnet，演练用）
+- 主网多签：上线日由持钥冷钱包在 app.squads.so 或同一脚本（主网 RPC + 有钱主网钱包）创建，PDA 会因 createKey 不同而不同
 
 ## 上线执行
 见 `docs/GO-LIVE-MULTISIG-RUNBOOK.md`（完整操作单）。
