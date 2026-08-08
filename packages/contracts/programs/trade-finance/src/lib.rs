@@ -418,9 +418,6 @@ pub mod trade_finance {
 
         // 审计 M-08 + 独立复测 N-2：集中度上限基于资金池可用流动性
         // （vault - 保险 - 待分红），且必须用权威记账 tracked_vault（外部捐赠不得放大敞口）。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
         let available = ctx
             .accounts
             .pool_state
@@ -490,11 +487,8 @@ pub mod trade_finance {
     /// 并在同一指令内按当期 NAV 链上铸造 LP 份额（审计 C-01）。
     pub fn deposit_pool(ctx: Context<DepositPool>, amount: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        // 独立复测 H-3：金库一致性守卫（实时余额必须等于权威记账，拒绝外部捐赠），
-        // 份额定价基于权威 tracked_vault，外部资金无法抬高定价基准。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+        // 独立复测 H-3：份额定价基于权威 tracked_vault（外部捐赠不改变定价基准；
+        // 捐赠成为不可申领的协议盈余，不锁定存取——避免 1 wei 捐赠施害 DoS）。
         let tracked_vault_before = ctx.accounts.pool_state.tracked_vault;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
 
@@ -605,10 +599,7 @@ pub mod trade_finance {
     /// LP 赎回：按 NAV 换算并销毁 LP 代币，同时受单次上限与保险池保护。
     pub fn redeem_lp(ctx: Context<RedeemLp>, lp_amount: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        // 独立复测 H-3：金库一致性守卫，赎回定价基于权威记账。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+        // 独立复测 H-3：赎回定价基于权威记账 tracked_vault（捐赠不可申领）。
         require!(
             lp_amount > 0,
             TradeFinanceError::ZeroRedeemAmount
@@ -785,10 +776,7 @@ pub mod trade_finance {
     /// 管理员放款：资金池 vault 转入订单托管，active_capital 记账。
     pub fn fund_deal(ctx: Context<FundDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        // 独立复测 H-3：金库一致性守卫。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -864,10 +852,7 @@ pub mod trade_finance {
     /// 管理员标记违约：清算 30% 抵押金并触发保险基金赔付。
     pub fn default_deal(ctx: Context<DefaultDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        // 独立复测 H-3：金库一致性守卫。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -1013,10 +998,7 @@ pub mod trade_finance {
     /// 买方还款：支付平台费用，LP 分红暂存资金池并回笼本金。
     pub fn repay_deal(ctx: Context<RepayDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        // 独立复测 H-3：金库一致性守卫。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+
         let deal = &ctx.accounts.deal;
         require!(
             deal.id == trade_id,
@@ -1333,10 +1315,7 @@ pub mod trade_finance {
         amount: u64,
     ) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        // 独立复测 H-3：金库一致性守卫。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+
         require!(
             ctx.accounts.pool_state.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
@@ -1528,10 +1507,7 @@ pub mod trade_finance {
 
     /// 平台注入首损资金（H-04）：真实 USDC 进入金库，计入 first_loss_reserve（不计 LP 净值）。
     pub fn deposit_first_loss(ctx: Context<DepositFirstLoss>, amount: u64) -> Result<()> {
-        // 独立复测 H-3：金库一致性守卫。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.admin == ctx.accounts.admin.key(),
@@ -1576,10 +1552,7 @@ pub mod trade_finance {
 
     /// 治理提取首损资金（H-04）：仅允许提取至最低保留余额之上。
     pub fn withdraw_first_loss(ctx: Context<WithdrawFirstLoss>, amount: u64) -> Result<()> {
-        // 独立复测 H-3：金库一致性守卫。
-        ctx.accounts
-            .pool_state
-            .ensure_vault_consistent(ctx.accounts.pool_token_account.amount)?;
+
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.admin == ctx.accounts.admin.key(),

@@ -235,15 +235,6 @@ impl PoolState {
         Ok(())
     }
 
-    /// 金库一致性守卫（独立复测 H-3）：实时余额必须等于权威记账 tracked_vault，
-    /// 否则说明存在外部直接捐赠等未入账资金，拒绝后续出入金以防定价操纵。
-    pub fn ensure_vault_consistent(&self, live_balance: u64) -> Result<()> {
-        require!(
-            live_balance == self.tracked_vault,
-            TradeFinanceError::VaultMismatch
-        );
-        Ok(())
-    }
 
     /// NAV = (闲置稳定币余额 + 未偿还贸易净值) / LP 代币总供应量。
     pub fn calculate_nav(
