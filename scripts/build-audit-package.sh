@@ -59,7 +59,8 @@ done
 # 4b) 初始化/对账/冒烟 .mjs 脚本（审计 M-04：包内必须自带 init/reconcile/smoke，
 #     否则 deploy/verify 在包内无法跑通；不含私钥）
 for f in init-localnet.mjs init-mainnet-pool.mjs init-supply-chain.mjs reconcile.mjs \
-         smoke-e2e.mjs smoke-lp.mjs propose-admin.mjs fund-demo-wallet.mjs; do
+         smoke-e2e.mjs smoke-lp.mjs propose-admin.mjs fund-demo-wallet.mjs \
+         configure-multisig.mjs check-onchain-multisig.mjs; do
   [[ -f "${ROOT}/scripts/${f}" ]] && cp "${ROOT}/scripts/${f}" "${PKG_DIR}/scripts/"
 done
 
