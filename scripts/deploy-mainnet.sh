@@ -11,7 +11,9 @@
 # 环境变量（必填，见 infra/config/production.env.example）：
 #   SOLANA_RPC_URL         主网 RPC（拒绝 localhost/devnet）
 #   DEPLOY_WALLET          主网部署钱包（建议独立冷钱包）
-#   USDC_MINT / LP_MINT    主网代币（LP mint authority 需已交多签）
+#   USDC_MINT / LP_MINT    主网代币（LP mint authority 必须 = pool_authority PDA，
+#                          合约 initialize_pool 硬校验；"交多签"指程序 UA / update authority，
+#                          不可把 LP mint authority 交给多签）
 # 可选：
 #   TRADE_KEYPAIR / SUPPLY_KEYPAIR    Program keypair 路径（默认 target/deploy/mainnet/*-keypair.json）
 #   MIN_BALANCE_SOL        预检最低余额（默认 2）
@@ -26,14 +28,20 @@ DRY_RUN=0
 GENERATE_KEYS=0
 FREEZE=0
 MULTISIG_PDA=""
-for arg in "$@"; do
-  case "$arg" in
-    --yes) CONFIRM=1 ;;
-    --dry-run) DRY_RUN=1 ;;
-    --generate-keypairs) GENERATE_KEYS=1 ;;
-    --freeze-upgrade-authority) FREEZE=1 ;;
-    --upgrade-authority) [[ $# -ge 2 ]] && { MULTISIG_PDA="$2"; shift; } || { echo "--upgrade-authority needs an arg" >&2; exit 1; } ;;
-    *) echo "unknown arg: $arg" >&2; exit 1 ;;
+# 审计 M-06：--upgrade-authority 必须用 while + shift 正确取参（for 循环里 $2/shift 无效）。
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --yes) CONFIRM=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    --generate-keypairs) GENERATE_KEYS=1; shift ;;
+    --freeze-upgrade-authority) FREEZE=1; shift ;;
+    --upgrade-authority)
+      if [[ $# -lt 2 ]]; then
+        echo "--upgrade-authority needs an arg" >&2; exit 1
+      fi
+      MULTISIG_PDA="$2"; shift 2
+      ;;
+    *) echo "unknown arg: $1" >&2; exit 1 ;;
   esac
 done
 

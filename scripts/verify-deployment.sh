@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# 部署后一键验证：服务健康/就绪、指标、关键接口，可选全链路冒烟。
+# 部署后一键验证：服务健康/就绪、指标、关键接口、链上字节码一致性，可选全链路冒烟。
 # 用法：bash scripts/verify-deployment.sh
 # Env:
 #   BACKEND_URL / TRADE_URL / POOL_URL / INDEXER_URL / FRONTEND_URL
 #   REQUIRE_CSP_METRIC=1  额外检查 backend /metrics 暴露 csp_violations_total
 #   RUN_SMOKE=1           调用 scripts/smoke-e2e.mjs（配置 USDC_MINT/LP_MINT 时覆盖贸易全流程）
 #   REPORT_PATH=/tmp/deployment-verify-report.json
+#   SOLANA_RPC_URL + TRADE_FINANCE_PROGRAM_ID / SUPPLY_CHAIN_PROGRAM_ID
+#                         启用链上字节码一致性检查（solana program dump sha256 比对本地构建产物）
+#                         注意：本地 .so 必须是生产构建（无 test-build feature）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,6 +20,9 @@ FRONTEND_URL="${FRONTEND_URL:-http://localhost:3100}"
 REQUIRE_CSP_METRIC="${REQUIRE_CSP_METRIC:-0}"
 RUN_SMOKE="${RUN_SMOKE:-0}"
 REPORT_PATH="${REPORT_PATH:-/tmp/deployment-verify-report.json}"
+SOLANA_RPC_URL="${SOLANA_RPC_URL:-}"
+TRADE_FINANCE_PROGRAM_ID="${TRADE_FINANCE_PROGRAM_ID:-}"
+SUPPLY_CHAIN_PROGRAM_ID="${SUPPLY_CHAIN_PROGRAM_ID:-}"
 
 checks=()
 
@@ -44,6 +50,41 @@ check_http() {
 start_ts="$(date +%s)"
 
 echo "=== deployment verification $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+
+# --------------- On-chain bytecode consistency（审计 supply-chain-audit 2026-08-08） ---------------
+# 拉取链上程序字节码（solana program dump）与本地生产构建 .so 做 SHA-256 比对，
+# 落实「链上字节码 vs 审计源码」一致性核验（审计 §6 强制项 5 / 建议项 10）。
+if [[ -n "${SOLANA_RPC_URL}" ]]; then
+  echo "--- On-chain bytecode consistency ---"
+  verify_onchain() {
+    local name="$1" pid="$2" so="$3"
+    if [[ -z "${pid}" ]]; then
+      add_check "${name} on-chain bytecode" "WARN" "${name}_PROGRAM_ID 未设置，跳过"
+      return
+    fi
+    if [[ ! -f "${so}" ]]; then
+      add_check "${name} on-chain bytecode" "FAIL" "本地构建产物缺失：${so}"
+      return
+    fi
+    local local_hash onchain_hash dump_so
+    dump_so="/tmp/${name}-program-dump.so"
+    local_hash="$(shasum -a 256 "${so}" | awk '{print $1}')"
+    if solana program dump "${pid}" "${dump_so}" --url "${SOLANA_RPC_URL}" >/dev/null 2>&1; then
+      onchain_hash="$(shasum -a 256 "${dump_so}" | awk '{print $1}')"
+      if [[ "${local_hash}" == "${onchain_hash}" ]]; then
+        add_check "${name} on-chain bytecode" "PASS" "sha256 一致 ${local_hash:0:16}…"
+      else
+        add_check "${name} on-chain bytecode" "FAIL" "本地 ${local_hash:0:16}… != 链上 ${onchain_hash:0:16}…"
+      fi
+    else
+      add_check "${name} on-chain bytecode" "FAIL" "solana program dump 失败（程序未部署或 RPC 不可达）"
+    fi
+  }
+  verify_onchain "trade" "${TRADE_FINANCE_PROGRAM_ID}" "${ROOT}/packages/contracts/target/deploy/trade_finance.so"
+  verify_onchain "supply" "${SUPPLY_CHAIN_PROGRAM_ID}" "${ROOT}/packages/contracts/target/deploy/supply_chain.so"
+else
+  add_check "on-chain bytecode" "SKIP" "SOLANA_RPC_URL 未设置（链下验证模式）"
+fi
 
 # --------------- Health / readiness ---------------
 echo "--- Health ---"
