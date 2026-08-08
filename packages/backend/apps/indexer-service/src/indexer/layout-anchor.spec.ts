@@ -62,12 +62,14 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //   32 pending_gov_pubkey (审计 H-1)
 //   32 pending_gov_u64s (审计 H-1)
 //   1+32 multisig (审计 H-1 链上强制)
+//   1  multisig_vault_index (审计 H-1 第 6 轮)
 //   32 pending_multisig (审计 H-1)
 //   8  pending_multisig_proposed_at (审计 H-1)
 //   8  pending_multisig_delay_secs (审计 H-1)
+//   1  pending_multisig_vault_index (审计 H-1 第 6 轮)
 const EXPECTED_POOL_STATE_SIZE =
   8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8 +
-  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 8 + 32 + 32 + 1 + 32 + 32 + 8 + 8;
+  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 8 + 32 + 32 + 1 + 32 + 1 + 32 + 8 + 8 + 1;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -76,7 +78,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(483);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(485);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 
@@ -132,9 +134,11 @@ describe("chain account layout anchor", () => {
     // 审计 H-1 链上强制多签（尾部新字段）
     buf.writeUInt8(1, 402);                    // multisig tag = Some
     wallet.toBuffer().copy(buf, 403);          // multisig value
-    admin.toBuffer().copy(buf, 435);           // pending_multisig
-    buf.writeBigInt64LE(1_700_000_000n, 467);  // pending_multisig_proposed_at
-    buf.writeBigInt64LE(86_400n, 475);         // pending_multisig_delay_secs
+    buf.writeUInt8(2, 435);                    // multisig_vault_index
+    admin.toBuffer().copy(buf, 436);           // pending_multisig
+    buf.writeBigInt64LE(1_700_000_000n, 468);  // pending_multisig_proposed_at
+    buf.writeBigInt64LE(86_400n, 476);         // pending_multisig_delay_secs
+    buf.writeUInt8(3, 484);                    // pending_multisig_vault_index
 
     const payload = parsePoolStateBuffer(buf, "pool-pda");
     expect(payload.poolAddress).toBe("pool-pda");
@@ -154,9 +158,11 @@ describe("chain account layout anchor", () => {
     expect(payload.overdueFeeApyBps).toBe("0");
     expect(payload.pendingAdminDelaySecs).toBe("172800");
     expect(payload.multisig).toBe(wallet.toBase58());
+    expect(payload.multisigVaultIndex).toBe(2);
     expect(payload.pendingMultisig).toBe(admin.toBase58());
     expect(payload.pendingMultisigProposedAt).toBe("1700000000");
     expect(payload.pendingMultisigDelaySecs).toBe("86400");
+    expect(payload.pendingMultisigVaultIndex).toBe(3);
   });
 
   it("PoolState parses multisig=None as null", () => {

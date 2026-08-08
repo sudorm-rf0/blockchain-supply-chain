@@ -11,10 +11,11 @@ import { PoolSnapshotPayload } from "./payloads";
 // + tracked_vault(8) + pending_gov_action(1) + pending_gov_proposed_at(8)
 // + pending_gov_pubkey(32) + pending_gov_u64s(32) = 402。
 // 审计 H-1 链上强制多签（尾部追加，不改变既有偏移）：
-// + multisig(1 discriminant + 32) + pending_multisig(32)
-// + pending_multisig_proposed_at(8) + pending_multisig_delay_secs(8) = 483。
+// + multisig(1 discriminant + 32) + multisig_vault_index(1) + pending_multisig(32)
+// + pending_multisig_proposed_at(8) + pending_multisig_delay_secs(8)
+// + pending_multisig_vault_index(1) = 485。
 // 与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 483;
+export const POOL_STATE_ACCOUNT_SIZE = 485;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;
@@ -49,9 +50,11 @@ const OFFSET_PENDING_GOV_PUBKEY = OFFSET_PENDING_GOV_PROPOSED_AT + U64_SIZE;
 const OFFSET_PENDING_GOV_U64S = OFFSET_PENDING_GOV_PUBKEY + PUBKEY_SIZE;
 const OFFSET_MULTISIG_TAG = OFFSET_PENDING_GOV_U64S + 4 * U64_SIZE;
 const OFFSET_MULTISIG_VALUE = OFFSET_MULTISIG_TAG + 1;
-const OFFSET_PENDING_MULTISIG = OFFSET_MULTISIG_VALUE + PUBKEY_SIZE;
+const OFFSET_MULTISIG_VAULT_INDEX = OFFSET_MULTISIG_VALUE + PUBKEY_SIZE;
+const OFFSET_PENDING_MULTISIG = OFFSET_MULTISIG_VAULT_INDEX + 1;
 const OFFSET_PENDING_MULTISIG_PROPOSED_AT = OFFSET_PENDING_MULTISIG + PUBKEY_SIZE;
 const OFFSET_PENDING_MULTISIG_DELAY_SECS = OFFSET_PENDING_MULTISIG_PROPOSED_AT + U64_SIZE;
+const OFFSET_PENDING_MULTISIG_VAULT_INDEX = OFFSET_PENDING_MULTISIG_DELAY_SECS + U64_SIZE;
 
 export function parsePoolStateBuffer(
   data: Buffer,
@@ -104,6 +107,10 @@ export function parsePoolStateBuffer(
   const pendingMultisigDelaySecs = data.readBigInt64LE(
     OFFSET_PENDING_MULTISIG_DELAY_SECS,
   );
+  const multisigVaultIndex = data.readUInt8(OFFSET_MULTISIG_VAULT_INDEX);
+  const pendingMultisigVaultIndex = data.readUInt8(
+    OFFSET_PENDING_MULTISIG_VAULT_INDEX,
+  );
 
   return {
     poolAddress,
@@ -130,9 +137,11 @@ export function parsePoolStateBuffer(
     overdueFeeApyBps: overdueFeeApyBps.toString(10),
     pendingAdminDelaySecs: pendingAdminDelaySecs.toString(10),
     multisig,
+    multisigVaultIndex,
     pendingMultisig,
     pendingMultisigProposedAt: pendingMultisigProposedAt.toString(10),
     pendingMultisigDelaySecs: pendingMultisigDelaySecs.toString(10),
+    pendingMultisigVaultIndex,
     capturedAt: capturedAt.toISOString(),
   };
 }

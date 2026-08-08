@@ -58,11 +58,15 @@ export interface PoolSnapshotPayload {
   pendingAdminDelaySecs: string;
   /// 链上强制多签（审计 H-1）：配置后 admin 签名者必须为 Squads vault PDA；null=单管理员。
   multisig: string | null;
+  /// 多签运营金库索引（审计 H-1：勿硬编码 0）。
+  multisigVaultIndex: number;
   /// 待接受的多签地址（两步轮换；proposed_at=0 表示无提案）。
   pendingMultisig: string;
   /// 多签轮换提案时间（秒）。
   pendingMultisigProposedAt: string;
   /// 多签轮换锁定期（秒）。
   pendingMultisigDelaySecs: string;
+  /// 多签轮换提案对应的金库索引。
+  pendingMultisigVaultIndex: number;
   capturedAt: string;
 }

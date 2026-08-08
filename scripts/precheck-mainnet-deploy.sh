@@ -174,9 +174,12 @@ else
   add_check "initial admin delay" "FAIL" "INITIAL_ADMIN_DELAY=${INITIAL_ADMIN_DELAY} < 86400; initialize_* would have no meaningful lock"
 fi
 
-# 审计 N-03：主网管理员应指向 Squads 多签（不阻塞，但必须显式声明）
+# 审计 N-03 + H-1（第 6 轮）：主网管理员必须指向 Squads 多签。
+# 硬失败：未设置 MULTISIG_ADMIN 禁止上线——否则合约默认 multisig=None（单管理员），
+# H-1 单点失控风险完整存在。部署方须在初始化后显式跑通 propose_multisig + accept_multisig，
+# 使链上 PoolState/Registry.multisig != None。
 if [[ -z "${MULTISIG_ADMIN}" ]]; then
-  add_check "multisig admin" "WARN" "MULTISIG_ADMIN not set; pool/registry admin must point to a Squads multisig PDA before launch"
+  add_check "multisig admin" "FAIL" "MULTISIG_ADMIN not set: mainnet admin MUST point to a Squads multisig PDA (H-1 hard gate); set MULTISIG_ADMIN=<Squads PDA> and run propose_multisig+accept_multisig after initialize"
 else
   add_check "multisig admin" "PASS" "${MULTISIG_ADMIN}"
 fi

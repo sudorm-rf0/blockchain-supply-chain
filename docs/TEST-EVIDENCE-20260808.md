@@ -11,7 +11,7 @@
 
 | 套件 | 命令 | 结果 |
 |---|---|---|
-| Anchor 集成 | `cd packages/contracts && pnpm test` | **82/82 passing**（含 D-01 supplier_key 回归 + H-1 链上强制多签回归 trade 7/supply 4） |
+| Anchor 集成 | `cd packages/contracts && pnpm test` | **82/82 passing**（含 D-01 supplier_key 回归 + H-1 链上强制多签回归 trade 7/supply 4；multisig_vault_index 参数化） |
 | Rust 单测 trade | `cargo test -p trade-finance` | **15/15** |
 | Rust 单测 supply | `cargo test -p supply-chain` | **9/9**（含 1 proptest） |
 | 后端 | `cd packages/backend && pnpm test -- --runInBand` | **156/156**（含 indexer PoolState 布局 + multisig 字段解析） |

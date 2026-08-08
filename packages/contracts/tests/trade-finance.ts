@@ -2486,7 +2486,7 @@ describe("trade-finance full lifecycle", () => {
     it("propose_multisig requires delay >= hard floor and sets pending", async () => {
       // test-build 允许 delay=1s（快速验证时锁）；此处验证提案写入。
       await program.methods
-        .proposeMultisig(fakeMultisig, new anchor.BN(1))
+        .proposeMultisig(fakeMultisig, new anchor.BN(1), 0)
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
       const pool = await program.account.poolState.fetch(poolStatePda);
@@ -2546,7 +2546,7 @@ describe("trade-finance full lifecycle", () => {
       // （否则等于单签可自行解除强制，形成绕过）。
       await assert.rejects(
         program.methods
-          .proposeMultisig(PublicKey.default, new anchor.BN(1))
+          .proposeMultisig(PublicKey.default, new anchor.BN(1), 0)
           .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
           .rpc(),
         /MultisigEnforced|Squads vault PDA/i,

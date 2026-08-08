@@ -26,7 +26,7 @@ pub fn derive_squads_vault(multisig: &Pubkey, vault_index: u8) -> Pubkey {
 pub fn check_authority(registry: &Registry, admin_key: &Pubkey) -> Result<()> {
     match registry.multisig {
         Some(ms) => {
-            let vault = derive_squads_vault(&ms, 0);
+            let vault = derive_squads_vault(&ms, registry.multisig_vault_index);
             require!(admin_key == &vault, SupplyChainError::MultisigEnforced);
             Ok(())
         }
@@ -117,9 +117,11 @@ pub mod supply_chain {
         registry.admin_delay_secs = initial_delay_secs;
         // 审计 H-1 链上强制：初始 multisig = None（单管理员），后续可经两步时锁开启。
         registry.multisig = None;
+        registry.multisig_vault_index = 0;
         registry.pending_multisig = Pubkey::default();
         registry.pending_multisig_proposed_at = 0;
         registry.pending_multisig_delay_secs = 0;
+        registry.pending_multisig_vault_index = 0;
         msg!("registry initialized by {}", registry.admin);
         Ok(())
     }
@@ -179,6 +181,7 @@ pub mod supply_chain {
         ctx: Context<ProposeMultisig>,
         new_multisig: Pubkey,
         delay_secs: i64,
+        vault_index: u8,
     ) -> Result<()> {
         check_authority(&ctx.accounts.registry, &ctx.accounts.admin.key())?;
         let registry = &mut ctx.accounts.registry;
@@ -197,6 +200,7 @@ pub mod supply_chain {
         registry.pending_multisig = new_multisig;
         registry.pending_multisig_proposed_at = Clock::get()?.unix_timestamp;
         registry.pending_multisig_delay_secs = delay_secs;
+        registry.pending_multisig_vault_index = vault_index;
         msg!("multisig rotation proposed: {}", new_multisig);
         Ok(())
     }
@@ -223,9 +227,11 @@ pub mod supply_chain {
         } else {
             Some(target)
         };
+        registry.multisig_vault_index = registry.pending_multisig_vault_index;
         registry.pending_multisig = Pubkey::default();
         registry.pending_multisig_proposed_at = 0;
         registry.pending_multisig_delay_secs = 0;
+        registry.pending_multisig_vault_index = 0;
         msg!("multisig updated: {:?}", registry.multisig);
         Ok(())
     }
@@ -519,12 +525,16 @@ pub struct Registry {
     /// Squads vault PDA（多签执行时 Squads 程序以 vault PDA 作 CPI 签名者）。
     /// None = 单管理员（向后兼容）。
     pub multisig: Option<Pubkey>,
+    /// 多签运营金库索引（审计 H-1 第 6 轮：勿硬编码 0；默认 0）。
+    pub multisig_vault_index: u8,
     /// 待接受的多签地址（两步轮换，proposed_at == 0 表示无提案）。
     pub pending_multisig: Pubkey,
     /// 多签轮换提案时间（秒）。
     pub pending_multisig_proposed_at: i64,
     /// 多签轮换锁定期（秒，复用注册中心时锁下限 >= 86400）。
     pub pending_multisig_delay_secs: i64,
+    /// 多签轮换提案对应的金库索引（审计 H-1 第 6 轮）。
+    pub pending_multisig_vault_index: u8,
 }
 
 #[account]

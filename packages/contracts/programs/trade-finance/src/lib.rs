@@ -70,10 +70,15 @@ pub fn derive_squads_vault(multisig: &Pubkey, vault_index: u8) -> Pubkey {
 /// - multisig = Some(ms)：admin 签名者必须 == Squads vault PDA（单签自动失效）。
 /// - multisig = None：回退为单管理员直签（向后兼容）。
 /// 传 Copy 值（multisig: Option<Pubkey>, admin: Pubkey），避免与 &mut pool 借用冲突。
-pub fn check_authority(multisig: Option<Pubkey>, admin: Pubkey, admin_key: &Pubkey) -> Result<()> {
+pub fn check_authority(
+    multisig: Option<Pubkey>,
+    multisig_vault_index: u8,
+    admin: Pubkey,
+    admin_key: &Pubkey,
+) -> Result<()> {
     match multisig {
         Some(ms) => {
-            let vault = derive_squads_vault(&ms, 0);
+            let vault = derive_squads_vault(&ms, multisig_vault_index);
             require!(admin_key == &vault, TradeFinanceError::MultisigEnforced);
             Ok(())
         }
@@ -236,7 +241,7 @@ pub mod trade_finance {
     /// 暂停后 get_pool_info / refresh_nav / attest_document 等只读与存证
     /// 仍可用，但建单/存款/放款/推进/释放/还款/违约/赎回/分红一律拒绝。
     pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         pool.paused = paused;
         emit!(PoolPausedEvent {
@@ -254,7 +259,7 @@ pub mod trade_finance {
     /// 管理员轮换第一步：提出转移提案（审计 H-03 两步轮换）。
     /// 由新管理员签名接受后生效（见 accept_admin）。
     pub fn propose_admin(ctx: Context<ProposeAdmin>, new_admin: Pubkey) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         require!(
             new_admin != Pubkey::default(),
@@ -310,9 +315,11 @@ pub mod trade_finance {
         ctx: Context<ProposeMultisig>,
         new_multisig: Pubkey,
         delay_secs: i64,
+        vault_index: u8,
     ) -> Result<()> {
         check_authority(
             ctx.accounts.pool_state.multisig,
+            ctx.accounts.pool_state.multisig_vault_index,
             ctx.accounts.pool_state.admin,
             &ctx.accounts.admin.key(),
         )?;
@@ -333,6 +340,7 @@ pub mod trade_finance {
         pool.pending_multisig = new_multisig;
         pool.pending_multisig_proposed_at = Clock::get()?.unix_timestamp;
         pool.pending_multisig_delay_secs = delay_secs;
+        pool.pending_multisig_vault_index = vault_index;
         emit!(MultisigProposedEvent {
             new_multisig,
             proposed_at: pool.pending_multisig_proposed_at,
@@ -345,6 +353,7 @@ pub mod trade_finance {
     pub fn accept_multisig(ctx: Context<AcceptMultisig>) -> Result<()> {
         check_authority(
             ctx.accounts.pool_state.multisig,
+            ctx.accounts.pool_state.multisig_vault_index,
             ctx.accounts.pool_state.admin,
             &ctx.accounts.admin.key(),
         )?;
@@ -367,9 +376,11 @@ pub mod trade_finance {
         } else {
             Some(target)
         };
+        pool.multisig_vault_index = pool.pending_multisig_vault_index;
         pool.pending_multisig = Pubkey::default();
         pool.pending_multisig_proposed_at = 0;
         pool.pending_multisig_delay_secs = 0;
+        pool.pending_multisig_vault_index = 0;
         emit!(MultisigAcceptedEvent {
             multisig: pool.multisig,
         });
@@ -852,7 +863,7 @@ pub mod trade_finance {
     pub fn fund_deal(ctx: Context<FundDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
 
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         require!(
             ctx.accounts.deal.id == trade_id,
             TradeFinanceError::TradeNotFound
@@ -930,7 +941,7 @@ pub mod trade_finance {
     pub fn default_deal(ctx: Context<DefaultDeal>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
 
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         require!(
             ctx.accounts.deal.id == trade_id,
             TradeFinanceError::TradeNotFound
@@ -1265,7 +1276,7 @@ pub mod trade_finance {
         target_status: u8,
     ) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         require!(
             ctx.accounts.deal.id == trade_id,
             TradeFinanceError::TradeNotFound
@@ -1286,7 +1297,7 @@ pub mod trade_finance {
     /// 管理员在交付确认后释放托管资金给卖方，订单进入还款期。
     pub fn release_to_seller(ctx: Context<ReleaseToSeller>, trade_id: u64) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         require!(
             ctx.accounts.deal.id == trade_id,
             TradeFinanceError::TradeNotFound
@@ -1355,7 +1366,7 @@ pub mod trade_finance {
 
     /// 刷新链上 NAV：(资金池闲置余额 + 未偿还贸易净值) / LP 代币总供应量。
     pub fn refresh_nav(ctx: Context<RefreshNav>) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         // 审计 N-new：NAV/赎回价以权威记账 tracked_vault 为口径（外部捐赠不计入）。
         let vault_amount = pool.tracked_vault;
@@ -1384,7 +1395,7 @@ pub mod trade_finance {
     ) -> Result<()> {
         ctx.accounts.pool_state.ensure_not_paused()?;
 
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
 
         let pool = &mut ctx.accounts.pool_state;
@@ -1492,7 +1503,7 @@ pub mod trade_finance {
     /// 平台注入首损资金（H-04）：真实 USDC 进入金库，计入 first_loss_reserve（不计 LP 净值）。
     pub fn deposit_first_loss(ctx: Context<DepositFirstLoss>, amount: u64) -> Result<()> {
 
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
 
@@ -1535,7 +1546,7 @@ pub mod trade_finance {
     /// 调整管理员转移锁定期（审计 N-02）：默认 48h，可经治理下调（测试/紧急）或上调。
     /// 生产环境应保持 >= 172_800 秒。
     pub fn set_admin_delay(ctx: Context<SetAdminDelay>, delay_secs: i64) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         // 审计 H-05：不得将时锁下调至硬下限（86_400s）以下，杜绝"置零自废后门"。
         require!(
@@ -1562,7 +1573,7 @@ pub mod trade_finance {
         ctx: Context<ProposeGovernance>,
         platform_wallet: Pubkey,
     ) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         require!(
             platform_wallet != Pubkey::default(),
@@ -1587,7 +1598,7 @@ pub mod trade_finance {
 
     /// 治理时锁（H-1）：执行更换平台运营钱包（须过时锁）。
     pub fn execute_platform_wallet(ctx: Context<ExecutePlatformWallet>) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         let now = Clock::get()?.unix_timestamp;
         require!(
@@ -1625,7 +1636,7 @@ pub mod trade_finance {
         ctx: Context<ProposeGovernance>,
         amount: u64,
     ) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         require!(amount > 0, TradeFinanceError::InvalidAmount);
         let now = Clock::get()?.unix_timestamp;
@@ -1652,7 +1663,7 @@ pub mod trade_finance {
         // 审计建议（supply-chain-audit 2026-08-08 第 9 条）：首损提取属出金类指令，
         // 紧急暂停（paused）时一并冻结。
         ctx.accounts.pool_state.ensure_not_paused()?;
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         let now = Clock::get()?.unix_timestamp;
         require!(
@@ -1731,7 +1742,7 @@ pub mod trade_finance {
 
     /// 治理时锁（H-1）：提出更换 LP Mint。
     pub fn propose_set_lp_mint(ctx: Context<ProposeGovernance>, new_mint: Pubkey) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         require!(
             new_mint != Pubkey::default(),
@@ -1756,7 +1767,7 @@ pub mod trade_finance {
 
     /// 治理时锁（H-1）：执行更换 LP Mint（须过时锁 + 暂停 + 无在途 + 旧 mint 供应为 0 + 属性校验）。
     pub fn execute_set_lp_mint(ctx: Context<ExecuteSetLpMint>) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         let now = Clock::get()?.unix_timestamp;
         require!(
@@ -1817,7 +1828,7 @@ pub mod trade_finance {
         platform_share_bps: u64,
         rebate_share_bps: u64,
     ) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         let total_share = lp_share_bps
             .checked_add(platform_share_bps)
@@ -1848,7 +1859,7 @@ pub mod trade_finance {
 
     /// 治理时锁（H-1）：执行更新费率与分配参数（须过时锁）。
     pub fn execute_set_fee_params(ctx: Context<ExecuteSetFeeParams>) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         let now = Clock::get()?.unix_timestamp;
         require!(
@@ -1898,7 +1909,7 @@ pub mod trade_finance {
         min_insurance_abs: u64,
         overdue_fee_apy_bps: u64,
     ) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         require!(
             overdue_fee_apy_bps <= 5000,
@@ -1923,7 +1934,7 @@ pub mod trade_finance {
 
     /// 治理时锁（H-1）：执行更新风控参数（须过时锁）。
     pub fn execute_set_risk_params(ctx: Context<ExecuteSetRiskParams>) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         let now = Clock::get()?.unix_timestamp;
         require!(
@@ -1961,7 +1972,7 @@ pub mod trade_finance {
 
     /// 治理时锁（H-1）：管理员取消待执行提案。
     pub fn cancel_pending_gov_action(ctx: Context<CancelGovernance>) -> Result<()> {
-        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
+        check_authority(ctx.accounts.pool_state.multisig, ctx.accounts.pool_state.multisig_vault_index, ctx.accounts.pool_state.admin, &ctx.accounts.admin.key())?;
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.pending_gov_action != GOV_ACTION_NONE,

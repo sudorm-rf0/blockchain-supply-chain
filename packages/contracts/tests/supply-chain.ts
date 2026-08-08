@@ -561,7 +561,7 @@ describe("supply-chain permissioned registration", () => {
 
     it("propose_multisig sets pending; accept before timelock rejected", async () => {
       await program.methods
-        .proposeMultisig(fakeMultisig, new anchor.BN(1))
+        .proposeMultisig(fakeMultisig, new anchor.BN(1), 0)
         .accounts({ registry: REGISTRY(), admin: provider.wallet.publicKey })
         .rpc();
       const reg = await program.account.registry.fetch(REGISTRY());
