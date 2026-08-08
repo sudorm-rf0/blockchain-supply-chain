@@ -250,15 +250,18 @@ export class SupplyChainService {
     adminWallet: string,
     sku: string,
     units: string,
+    supplierKey?: string,
   ) {
     const admin = this.parsePubkey(adminWallet, "adminWallet");
     this.validateSku(sku);
     const unitsBig = this.parseUnits(units);
+    const supplier = supplierKey ? this.parsePubkey(supplierKey, "supplierKey") : undefined;
     const { transaction, blockhash } = await buildRegisterProductTransaction(
       admin,
       sku,
       unitsBig,
       getConnection(),
+      supplier,
     );
     return {
       transaction: serializeTransaction(transaction),
@@ -273,15 +276,23 @@ export class SupplyChainService {
     sku: string,
     units: string,
     txSignature: string,
+    supplierKey?: string,
   ) {
     const admin = this.parsePubkey(adminWallet, "adminWallet");
     this.validateSku(sku);
     const unitsBig = this.parseUnits(units);
     const pda = deriveProductPda(getProgramId(), admin, sku);
+    const supplier = supplierKey
+      ? this.parsePubkey(supplierKey, "supplierKey")
+      : undefined;
     await this.expectTransaction(() =>
       verifySupplyChainInstruction(
         txSignature,
-        buildRegisterProductInstructionData(sku, unitsBig),
+        buildRegisterProductInstructionData(
+          sku,
+          unitsBig,
+          supplier ?? admin,
+        ),
         pda,
       ),
     );

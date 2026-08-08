@@ -12,6 +12,21 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# 审计 M-04（第三轮）：路径自适应 —— 真实仓库布局 packages/contracts，
+# 审计包布局 contracts/，两者均可直接执行；backend 目录不存在时告警跳过。
+if [[ -d "${ROOT}/packages/contracts" ]]; then
+  CONTRACTS_DIR="${ROOT}/packages/contracts"
+else
+  CONTRACTS_DIR="${ROOT}/contracts"
+fi
+if [[ -d "${ROOT}/packages/backend" ]]; then
+  BACKEND_DIR="${ROOT}/packages/backend"
+elif [[ -d "${ROOT}/backend" ]]; then
+  BACKEND_DIR="${ROOT}/backend"
+else
+  BACKEND_DIR=""
+fi
 BACKEND_URL="${BACKEND_URL:-http://localhost:3001}"
 TRADE_URL="${TRADE_URL:-http://localhost:3004}"
 POOL_URL="${POOL_URL:-http://localhost:3005}"
@@ -80,8 +95,8 @@ if [[ -n "${SOLANA_RPC_URL}" ]]; then
       add_check "${name} on-chain bytecode" "FAIL" "solana program dump 失败（程序未部署或 RPC 不可达）"
     fi
   }
-  verify_onchain "trade" "${TRADE_FINANCE_PROGRAM_ID}" "${ROOT}/packages/contracts/target/deploy/trade_finance.so"
-  verify_onchain "supply" "${SUPPLY_CHAIN_PROGRAM_ID}" "${ROOT}/packages/contracts/target/deploy/supply_chain.so"
+  verify_onchain "trade" "${TRADE_FINANCE_PROGRAM_ID}" "${CONTRACTS_DIR}/target/deploy/trade_finance.so"
+  verify_onchain "supply" "${SUPPLY_CHAIN_PROGRAM_ID}" "${CONTRACTS_DIR}/target/deploy/supply_chain.so"
 else
   add_check "on-chain bytecode" "SKIP" "SOLANA_RPC_URL 未设置（链下验证模式）"
 fi

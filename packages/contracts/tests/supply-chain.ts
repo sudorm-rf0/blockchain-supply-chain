@@ -112,7 +112,7 @@ describe("supply-chain permissioned registration", () => {
     const sku = "SKU-ADMIN-001";
     const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await program.methods
-      .registerProduct(sku, new anchor.BN(100))
+      .registerProduct(sku, new anchor.BN(100), provider.wallet.publicKey)
       .accounts({
         registry: REGISTRY(),
         product,
@@ -136,7 +136,7 @@ describe("supply-chain permissioned registration", () => {
     const product = productPda(program.programId, stranger.publicKey, sku);
     await assert.rejects(
       program.methods
-        .registerProduct(sku, new anchor.BN(10))
+        .registerProduct(sku, new anchor.BN(10), stranger.publicKey)
         .accounts({
           registry: REGISTRY(),
           product,
@@ -156,7 +156,7 @@ describe("supply-chain permissioned registration", () => {
     const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await assert.rejects(
       program.methods
-        .registerProduct(sku, new anchor.BN(10))
+        .registerProduct(sku, new anchor.BN(10), provider.wallet.publicKey)
         .accounts({
           registry: REGISTRY(),
           product,
@@ -175,7 +175,7 @@ describe("supply-chain permissioned registration", () => {
     const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await assert.rejects(
       program.methods
-        .registerProduct(sku, new anchor.BN(0))
+        .registerProduct(sku, new anchor.BN(0), provider.wallet.publicKey)
         .accounts({
           registry: REGISTRY(),
           product,
@@ -229,7 +229,7 @@ describe("supply-chain permissioned registration", () => {
     const sku = "SKU-SUPPLIER-001";
     const product = productPda(program.programId, supplierA.publicKey, sku);
     await program.methods
-      .registerProduct(sku, new anchor.BN(500))
+      .registerProduct(sku, new anchor.BN(500), supplierA.publicKey)
       .accounts({
         registry: REGISTRY(),
         product,
@@ -253,7 +253,7 @@ describe("supply-chain permissioned registration", () => {
     const product = productPda(program.programId, supplierB.publicKey, sku);
     await assert.rejects(
       program.methods
-        .registerProduct(sku, new anchor.BN(10))
+        .registerProduct(sku, new anchor.BN(10), supplierA.publicKey)
         .accounts({
           registry: REGISTRY(),
           product,
@@ -268,12 +268,53 @@ describe("supply-chain permissioned registration", () => {
     console.log("Supplier impersonation rejected");
   });
 
+  it("D-01: rejects supplier_key mismatch (seeds/has_one guard)", async () => {
+    // 审计 D-01：供应商用错误 supplier_key（与其 Supplier PDA 不匹配）注册必须失败。
+    // 正确 supplier_key 为 supplierA.publicKey；这里故意传 supplierB.publicKey，
+    // seeds 派生出的 PDA 与传入账户不一致 → ConstraintSeeds / SupplierMismatch。
+    const sku = "SKU-D01-001";
+    const product = productPda(program.programId, supplierA.publicKey, sku);
+    await assert.rejects(
+      program.methods
+        .registerProduct(sku, new anchor.BN(10), supplierB.publicKey)
+        .accounts({
+          registry: REGISTRY(),
+          product,
+          owner: supplierA.publicKey,
+          supplier: supplierPda(program.programId, supplierA.publicKey),
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([supplierA])
+        .rpc(),
+      /ConstraintSeeds|SupplierMismatch|supplier/i,
+    );
+    console.log("D-01 supplier_key mismatch rejected");
+
+    // 正确 supplier_key 注册成功（正向确认 has_one/seeds 不误伤合法路径）。
+    const sku2 = "SKU-D01-002";
+    const product2 = productPda(program.programId, supplierA.publicKey, sku2);
+    await program.methods
+      .registerProduct(sku2, new anchor.BN(20), supplierA.publicKey)
+      .accounts({
+        registry: REGISTRY(),
+        product: product2,
+        owner: supplierA.publicKey,
+        supplier: supplierPda(program.programId, supplierA.publicKey),
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([supplierA])
+      .rpc();
+    const p2 = await program.account.product.fetch(product2);
+    assert.equal(p2.owner.toBase58(), supplierA.publicKey.toBase58());
+    console.log("D-01 correct supplier_key accepted");
+  });
+
   it("Rejects duplicate SKU registration by the same owner", async () => {
     const sku = "SKU-ADMIN-001";
     const product = productPda(program.programId, provider.wallet.publicKey, sku);
     await assert.rejects(
       program.methods
-        .registerProduct(sku, new anchor.BN(200))
+        .registerProduct(sku, new anchor.BN(200), provider.wallet.publicKey)
         .accounts({
           registry: REGISTRY(),
           product,
@@ -305,7 +346,7 @@ describe("supply-chain permissioned registration", () => {
     const product = productPda(program.programId, supplierA.publicKey, sku);
     await assert.rejects(
       program.methods
-        .registerProduct(sku, new anchor.BN(1))
+        .registerProduct(sku, new anchor.BN(1), supplierA.publicKey)
         .accounts({
           registry: REGISTRY(),
           product,
@@ -338,7 +379,7 @@ describe("supply-chain permissioned registration", () => {
     const sku = "SKU-REAUTH-001";
     const product = productPda(program.programId, supplierA.publicKey, sku);
     await program.methods
-      .registerProduct(sku, new anchor.BN(7))
+      .registerProduct(sku, new anchor.BN(7), supplierA.publicKey)
       .accounts({
         registry: REGISTRY(),
         product,
@@ -408,7 +449,7 @@ describe("supply-chain permissioned registration", () => {
     // 用供应商 A 注册（已在前面测试中授权）
     const supAuthPda = supplierPda(program.programId, supplierA.publicKey);
     await program.methods
-      .registerProduct(sku, new anchor.BN(5))
+      .registerProduct(sku, new anchor.BN(5), supplierA.publicKey)
       .accounts({
         registry: REGISTRY(),
         product,

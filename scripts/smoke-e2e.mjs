@@ -576,7 +576,12 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
       { pubkey: supPda, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
-    Buffer.concat([scDisc("register_product"), scStr(sku), scU64(units)]),
+    Buffer.concat([
+      scDisc("register_product"),
+      scStr(sku),
+      scU64(units),
+      supplier.publicKey.toBuffer(), // 审计 D-01：supplier_key（供应商注册）
+    ]),
   );
   const prodInfo = await conn.getAccountInfo(prodPda);
   if (!prodInfo) throw new Error("supply_chain product account missing after register");
@@ -602,7 +607,12 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
         { pubkey: SC_PROGRAM_ID, isSigner: false, isWritable: false }, // supplier: None（Anchor 约定：key == program_id 视为 None）
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
-      Buffer.concat([scDisc("register_product"), scStr(badSku), scU64(1)]),
+      Buffer.concat([
+        scDisc("register_product"),
+        scStr(badSku),
+        scU64(1),
+        stranger.publicKey.toBuffer(), // 审计 D-01：supplier_key（未授权路径，None 时忽略）
+      ]),
     );
     results.supplyChainRejectUnauthorized = false; // 不应成功
   } catch {
@@ -665,7 +675,12 @@ if (!process.env.SKIP_SUPPLY_CHAIN) {
         { pubkey: supPda, isSigner: false, isWritable: false }, // 已关闭账户：传 0 地址/无效即拒绝
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
-      Buffer.concat([scDisc("register_product"), scStr(revokedSku), scU64(1)]),
+      Buffer.concat([
+        scDisc("register_product"),
+        scStr(revokedSku),
+        scU64(1),
+        supplier.publicKey.toBuffer(), // 审计 D-01：supplier_key（已撤销路径，账户已关闭 → 拒绝）
+      ]),
     );
     results.supplyChainRejectRevoked = false; // 不应成功
   } catch {

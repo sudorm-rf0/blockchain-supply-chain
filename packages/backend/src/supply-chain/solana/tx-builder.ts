@@ -225,11 +225,13 @@ export async function buildRevokeSupplierTransaction(
 export function buildRegisterProductInstructionData(
   sku: string,
   units: bigint,
+  supplierKey: PublicKey,
 ): Buffer {
   return Buffer.concat([
     supplyChainDiscriminator("register_product"),
     encodeBorshString(sku),
     encodeU64(units),
+    supplierKey.toBuffer(),
   ]);
 }
 
@@ -238,7 +240,12 @@ export async function buildRegisterProductTransaction(
   sku: string,
   units: bigint,
   connection: Connection,
+  supplierKey?: PublicKey,
 ): Promise<{ transaction: Transaction; blockhash: string }> {
+  // 审计 D-01：supplier 账户 + supplier_key 参数 —— 管理员注册（无 supplierKey）
+  // 时 supplier 传 program_id（Anchor Option<Account> = None，seeds/has_one 跳过）；
+  // 供应商注册时传入其真实授权 PDA 与对应公钥。
+  const effectiveKey = supplierKey ?? admin;
   const keys: AccountMeta[] = [
     { pubkey: deriveRegistryPda(getProgramId()), isSigner: false, isWritable: false },
     {
@@ -247,14 +254,19 @@ export async function buildRegisterProductTransaction(
       isWritable: true,
     },
     { pubkey: admin, isSigner: true, isWritable: true },
-    // supplier 为 None（管理员注册）：Anchor 的 Option<Account> 在传入账户 key
-    // 等于 program_id 时返回 None，因此用程序自身地址占位。
-    { pubkey: getProgramId(), isSigner: false, isWritable: false },
+    // supplier：None（管理员注册）用程序自身地址占位；否则传真实 Supplier PDA。
+    supplierKey
+      ? {
+          pubkey: deriveSupplierPda(getProgramId(), supplierKey),
+          isSigner: false,
+          isWritable: false,
+        }
+      : { pubkey: getProgramId(), isSigner: false, isWritable: false },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
   ];
   return buildTransaction(
     keys,
-    buildRegisterProductInstructionData(sku, units),
+    buildRegisterProductInstructionData(sku, units, effectiveKey),
     admin,
     connection,
   );

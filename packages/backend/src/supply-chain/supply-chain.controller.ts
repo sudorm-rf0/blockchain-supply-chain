@@ -104,6 +104,7 @@ export class SupplyChainController {
       body.adminWallet,
       body.sku,
       body.units,
+      body.supplierKey,
     );
   }
 
@@ -118,6 +119,7 @@ export class SupplyChainController {
       body.sku,
       body.units,
       body.txSignature,
+      body.supplierKey,
     );
   }
 }

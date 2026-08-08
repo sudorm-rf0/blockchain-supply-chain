@@ -42,8 +42,9 @@ for f in CONTRACT-AUDIT.md AUDIT-REPORT.md CERTIK-REPORT.md AUDIT-DELIVERY.md \
          CONTRACT-INVARIANTS.md OPERATIONS.md H-04-费率重构方案.md \
          上线准备-DFR-0148通过.md TEST-EVIDENCE-20260808.md 端到端冒烟清单.md \
          Squads多签创建与Admin迁移手册.md GO-LIVE-MULTISIG-RUNBOOK.md \
-         首损池注资与运营SOP.md 可复现构建.md 上线优化清单.md \
-         链下系统上线检查清单.md 主网上线Go-Live检查清单.md \
+         H-1-多签治理落地证据.md AUDIT-ROUND3-REMEDIATION-20260808.md \
+         首损池注资与运营SOP.md 可复现构建.md \
+         上线优化清单.md 链下系统上线检查清单.md 主网上线Go-Live检查清单.md \
          上线审批与业务决策清单.md CLOUD-RESOURCE-REPORT.md; do
   [[ -f "${ROOT}/docs/${f}" ]] && cp "${ROOT}/docs/${f}" "${PKG_DIR}/docs/"
 done
@@ -55,7 +56,14 @@ for f in precheck-mainnet-deploy.sh verify-contract-deployment.sh verify-deploym
          verify-audit-artifact.sh; do
   [[ -f "${ROOT}/scripts/${f}" ]] && cp "${ROOT}/scripts/${f}" "${PKG_DIR}/scripts/"
 done
-# 4b) Squads 多签演练/治理投票脚本（I-07 交付物级证据；不含私钥）
+# 4b) 初始化/对账/冒烟 .mjs 脚本（审计 M-04：包内必须自带 init/reconcile/smoke，
+#     否则 deploy/verify 在包内无法跑通；不含私钥）
+for f in init-localnet.mjs init-mainnet-pool.mjs init-supply-chain.mjs reconcile.mjs \
+         smoke-e2e.mjs smoke-lp.mjs propose-admin.mjs fund-demo-wallet.mjs; do
+  [[ -f "${ROOT}/scripts/${f}" ]] && cp "${ROOT}/scripts/${f}" "${PKG_DIR}/scripts/"
+done
+
+# 4b2) Squads 多签演练/治理投票脚本（I-07 交付物级证据；不含私钥）
 if [[ -d "${ROOT}/scripts/multisig-rehearsal" ]]; then
   mkdir -p "${PKG_DIR}/scripts/multisig-rehearsal"
   cp -R "${ROOT}/scripts/multisig-rehearsal/." "${PKG_DIR}/scripts/multisig-rehearsal/"
@@ -75,6 +83,22 @@ if [[ -n "${AUDIT_FIXES_SRC}" && -d "${AUDIT_FIXES_SRC}" ]]; then
   echo "  (audit-fixes 已随包：$(find "${PKG_DIR}/audit-fixes" -type f | wc -l | tr -d ' ') 个文件)"
 else
   echo "  ⚠️ 未找到 audit-fixes 源（AUDIT_FIXES_DIR 或 repo/audit-fixes），跳过整改证据目录"
+fi
+# 4d) 第三轮审计补丁（audit-fixes-round4：M-04/H-1/D-01 整改方案与路线图，来源
+#      AUDIT_FIXES_ROUND4_DIR 或 WorkBuddy 最新补丁目录；不含私钥）
+AUDIT_FIXES_R4_SRC="${AUDIT_FIXES_ROUND4_DIR:-}"
+if [[ -z "${AUDIT_FIXES_R4_SRC}" ]]; then
+  for cand in "${ROOT}/audit-fixes-round4" "${ROOT}/docs/audit-fixes-round4"; do
+    if [[ -d "${cand}" ]]; then AUDIT_FIXES_R4_SRC="${cand}"; break; fi
+  done
+fi
+if [[ -n "${AUDIT_FIXES_R4_SRC}" && -d "${AUDIT_FIXES_R4_SRC}" ]]; then
+  mkdir -p "${PKG_DIR}/audit-fixes-round4"
+  cp -R "${AUDIT_FIXES_R4_SRC}/." "${PKG_DIR}/audit-fixes-round4/"
+  find "${PKG_DIR}/audit-fixes-round4" -name ".DS_Store" -delete 2>/dev/null || true
+  echo "  (audit-fixes-round4 已随包：$(find "${PKG_DIR}/audit-fixes-round4" -type f | wc -l | tr -d ' ') 个文件)"
+else
+  echo "  ⚠️ 未找到 audit-fixes-round4 源（AUDIT_FIXES_ROUND4_DIR），跳过第三轮补丁目录"
 fi
 
 # 5) 历史审计报告 / PoC（可选来源：AUDIT_REPORTS_DIR 或仓库 reports/）

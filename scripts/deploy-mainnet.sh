@@ -20,6 +20,21 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# 审计 M-04（第三轮）：路径自适应 —— 真实仓库布局 packages/contracts，
+# 审计包布局 contracts/，两者均可直接执行；backend 目录不存在时告警跳过。
+if [[ -d "${ROOT}/packages/contracts" ]]; then
+  CONTRACTS_DIR="${ROOT}/packages/contracts"
+else
+  CONTRACTS_DIR="${ROOT}/contracts"
+fi
+if [[ -d "${ROOT}/packages/backend" ]]; then
+  BACKEND_DIR="${ROOT}/packages/backend"
+elif [[ -d "${ROOT}/backend" ]]; then
+  BACKEND_DIR="${ROOT}/backend"
+else
+  BACKEND_DIR=""
+fi
 SOLANA_BIN="${SOLANA_BIN:-$HOME/.local/share/solana/active_release/bin}"
 export PATH="${SOLANA_BIN}:$HOME/.cargo/bin:$PATH"
 
@@ -45,8 +60,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-TRADE_KEYPAIR="${TRADE_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/trade_finance-keypair.json}"
-SUPPLY_KEYPAIR="${SUPPLY_KEYPAIR:-${ROOT}/packages/contracts/target/deploy/mainnet/supply_chain-keypair.json}"
+TRADE_KEYPAIR="${TRADE_KEYPAIR:-${CONTRACTS_DIR}/target/deploy/mainnet/trade_finance-keypair.json}"
+SUPPLY_KEYPAIR="${SUPPLY_KEYPAIR:-${CONTRACTS_DIR}/target/deploy/mainnet/supply_chain-keypair.json}"
 LOG_FILE="${LOG_FILE:-/tmp/deploy-mainnet-$(date +%Y%m%d-%H%M%S).log}"
 
 log() { echo "[$(date -u +%H:%M:%SZ)] $*" | tee -a "${LOG_FILE}"; }
@@ -110,9 +125,9 @@ if [[ "${DRY_RUN}" == "1" ]]; then
   echo "==> [dry-run] 以下命令将被执行（未真正部署）："
   cat <<CMDS
   bash ${ROOT}/scripts/precheck-mainnet-deploy.sh
-  (cd ${ROOT}/packages/contracts && anchor build && cargo build-sbf --arch v3)
-  solana program deploy ${ROOT}/packages/contracts/target/deploy/trade_finance.so --program-id ${TRADE_KEYPAIR}
-  solana program deploy ${ROOT}/packages/contracts/target/deploy/supply_chain.so --program-id ${SUPPLY_KEYPAIR}
+  (cd ${CONTRACTS_DIR} && anchor build && cargo build-sbf --arch v3)
+  solana program deploy ${CONTRACTS_DIR}/target/deploy/trade_finance.so --program-id ${TRADE_KEYPAIR}
+  solana program deploy ${CONTRACTS_DIR}/target/deploy/supply_chain.so --program-id ${SUPPLY_KEYPAIR}
   bash ${ROOT}/scripts/verify-contract-deployment.sh
   # optional: solana program set-upgrade-authority <PID> --new-upgrade-authority <MULTISIG_PDA>
 CMDS
@@ -128,18 +143,18 @@ if [[ "${GENERATE_KEYS}" == "1" ]]; then
   for spec in "trade_finance:${TRADE_KEYPAIR}" "supply_chain:${SUPPLY_KEYPAIR}"; do
     name="${spec%%:*}"; kp="${spec#*:}"
     id="$(solana-keygen pubkey "${kp}")"
-    lib="${ROOT}/packages/contracts/programs/${name}/src/lib.rs"
+    lib="${CONTRACTS_DIR}/programs/${name}/src/lib.rs"
     sed -i '' "s|declare_id!("[1-9A-HJ-NP-Za-km-z]*")|declare_id!("${id}")|" "${lib}"
   done
   TRADE_ID="$(solana-keygen pubkey "${TRADE_KEYPAIR}")"
   SUPPLY_ID="$(solana-keygen pubkey "${SUPPLY_KEYPAIR}")"
-  perl -pi -e "s/trade_finance = \"[1-9A-HJ-NP-Za-km-z]*\"/trade_finance = \"${TRADE_ID}\"/g" "${ROOT}/packages/contracts/Anchor.toml"
-  perl -pi -e "s/supply_chain = \"[1-9A-HJ-NP-Za-km-z]*\"/supply_chain = \"${SUPPLY_ID}\"/g" "${ROOT}/packages/contracts/Anchor.toml"
+  perl -pi -e "s/trade_finance = \"[1-9A-HJ-NP-Za-km-z]*\"/trade_finance = \"${TRADE_ID}\"/g" "${CONTRACTS_DIR}/Anchor.toml"
+  perl -pi -e "s/supply_chain = \"[1-9A-HJ-NP-Za-km-z]*\"/supply_chain = \"${SUPPLY_ID}\"/g" "${CONTRACTS_DIR}/Anchor.toml"
   log "  trade_finance -> ${TRADE_ID}"
   log "  supply_chain  -> ${SUPPLY_ID}"
 fi
-TRADE_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${ROOT}/packages/contracts/programs/trade-finance/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
-SUPPLY_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${ROOT}/packages/contracts/programs/supply-chain/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
+TRADE_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${CONTRACTS_DIR}/programs/trade-finance/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
+SUPPLY_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${CONTRACTS_DIR}/programs/supply-chain/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
 if [[ "${TRADE_DECLARE_ID}" != "${TRADE_PROGRAM_ID}" || "${SUPPLY_DECLARE_ID}" != "${SUPPLY_PROGRAM_ID}" ]]; then
   echo "❌ [M-05] declare_id! 与部署 keypair ID 不一致：" >&2
   echo "   trade_finance: declare_id!(${TRADE_DECLARE_ID}) vs keypair(${TRADE_PROGRAM_ID})" >&2
@@ -158,7 +173,7 @@ bash "${ROOT}/scripts/precheck-mainnet-deploy.sh" | tee -a "${LOG_FILE}"
 
 # ---------- 5. 构建 ----------
 log "==> [2/6] 构建合约（anchor + cargo build-sbf v3）"
-cd "${ROOT}/packages/contracts"
+cd "${CONTRACTS_DIR}"
 anchor build 2>&1 | tee -a "${LOG_FILE}"
 cargo build-sbf --arch v3 2>&1 | tail -3 | tee -a "${LOG_FILE}"
 

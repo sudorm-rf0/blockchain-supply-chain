@@ -11,7 +11,7 @@
 
 | 套件 | 命令 | 结果 |
 |---|---|---|
-| Anchor 集成 | `cd packages/contracts && pnpm test` | **70/70 passing**（2m） |
+| Anchor 集成 | `cd packages/contracts && pnpm test` | **71/71 passing**（含新增 D-01 supplier_key seeds/has_one 回归） |
 | Rust 单测 trade | `cargo test -p trade-finance` | **15/15** |
 | Rust 单测 supply | `cargo test -p supply-chain` | **9/9**（含 1 proptest） |
 | 后端 | `cd packages/backend && pnpm test -- --runInBand` | **155/155** |
@@ -22,7 +22,7 @@
 
 ## Anchor 用例构成（70）
 - trade-finance.ts：**51**（含 H-1 治理时锁 propose/execute、L-10 paused 冻结首损提取、H-3 捐赠回归、H-04/05/06 时锁）
-- supply-chain.ts：**17**
+- supply-chain.ts：**18**（含新增 D-01 supplier_key seeds/has_one 回归；D-01 由第三轮审计提出）
 - c1-program-data-regression.ts：**2**（C-1 伪造 program_data 拒绝）
 - （compute-units.ts 在 ANCHOR_BENCH=1 时单独运行）
 

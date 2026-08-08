@@ -7,6 +7,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# 审计 M-04（第三轮）：路径自适应 —— 真实仓库布局 packages/contracts，
+# 审计包布局 contracts/，两者均可直接执行。
+if [[ -d "${ROOT}/packages/contracts" ]]; then
+  CONTRACTS_DIR="${ROOT}/packages/contracts"
+else
+  CONTRACTS_DIR="${ROOT}/contracts"
+fi
 PKG="${1:-${ROOT}/dist-audit/audit-package-$(date +%Y%m%d).tar.gz}"
 TMP="$(mktemp -d /tmp/audit-verify.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
@@ -42,7 +50,7 @@ for rel in "${PAIRS[@]}"; do
     FAIL=1
     continue
   fi
-  if diff -q "${ROOT}/packages/contracts/${rel}" "${PKG_DIR}/contracts/${rel}" >/dev/null 2>&1; then
+  if diff -q "${CONTRACTS_DIR}/${rel}" "${PKG_DIR}/contracts/${rel}" >/dev/null 2>&1; then
     echo "  ✅ ${rel}"
   else
     echo "  ❌ ${rel} 与仓库 HEAD 不一致"
