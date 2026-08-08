@@ -8,9 +8,9 @@
   `packages/contracts/programs/supply-chain/src/`
 - IDL：`packages/contracts/target/idl/trade_finance.json`、
   `packages/contracts/target/idl/supply_chain.json`
-- 测试：`packages/contracts/tests/trade-finance.ts`（23 个用例）、
-  `packages/contracts/tests/supply-chain.ts`（13 个用例）；另有
-  `cargo test` Rust 单测（trade-finance 8、supply-chain 8）
+- 测试：`packages/contracts/tests/trade-finance.ts`（49 个用例）、
+  `packages/contracts/tests/supply-chain.ts`（17 个用例）；另有
+  `cargo test` Rust 单测（trade-finance 15、supply-chain 9，含 1 proptest）
 - 部署信息：Program ID 见 `Anchor.toml`；localnet 部署见
   `scripts/deploy-devnet.sh` 与 `scripts/init-localnet.mjs`
 - 合约状态机：`PENDING → FUNDED → IN_TRANSIT → CUSTOMS_CLEAR → DELIVERED →
