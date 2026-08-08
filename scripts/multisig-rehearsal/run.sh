@@ -34,8 +34,8 @@ echo "==> 部署合约"
 solana program deploy target/deploy/trade_finance.so --program-id target/deploy/trade_finance-keypair.json >/dev/null
 solana program deploy target/deploy/supply_chain.so --program-id target/deploy/supply_chain-keypair.json >/dev/null
 echo "==> 合约已部署，开始迁移演练"
-cd $(dirname "$0")
-RPC="http://127.0.0.1:${RPC_PORT}" node rehearsal-part2.mjs
+cd "$ROOT/scripts/multisig-rehearsal"
+RPC="http://127.0.0.1:${RPC_PORT}" node rehearsal-admin-migration.mjs
 RESULT=$?
 tmux kill-server 2>/dev/null || true
 exit $RESULT
