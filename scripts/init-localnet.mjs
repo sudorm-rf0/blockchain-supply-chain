@@ -29,9 +29,9 @@ const programData = PublicKey.findProgramAddressSync(
 
 const usdcMint = await createMint(conn, admin, admin.publicKey, admin.publicKey, 6, Keypair.generate());
 console.log(`USDC_MINT=${usdcMint.toBase58()}`);
-// 审计 C-01/L-05/M-09：LP mint authority 必须是 poolAuthority PDA、decimals=0、无 freeze authority；
+// 审计 C-01/L-05/M-09：LP mint authority 必须是 poolAuthority PDA、decimals=6、无 freeze authority；
 // LP 份额由合约在存款时铸造，脚本不再手工铸币。
-const lpMint = await createMint(conn, admin, poolAuthority, null, 0, Keypair.generate());
+const lpMint = await createMint(conn, admin, poolAuthority, null, 6, Keypair.generate());
 console.log(`LP_MINT=${lpMint.toBase58()}`);
 
 const adminAta = await createAssociatedTokenAccount(conn, admin, usdcMint, admin.publicKey);

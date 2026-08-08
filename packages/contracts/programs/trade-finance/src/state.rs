@@ -5,14 +5,17 @@ use crate::error::TradeFinanceError;
 /// 链上单据 URI 最大长度（字节）。
 pub const MAX_DOCUMENT_URI_LEN: usize = 256;
 
-/// LP Mint 精度（审计 L-05：与测试/链下约定一致，防止 NAV 语义漂移）。
-pub const LP_MINT_DECIMALS: u8 = 0;
+/// LP Mint 精度：与 USDC 一致取 6 位，消除 0 精度整数份额的取整 dust 与
+/// shares==0 拒绝（审计 N-01）。1 USDC(1_000_000 最小单位) = 1 LP(1_000_000 最小单位)。
+pub const LP_MINT_DECIMALS: u8 = 6;
+
+/// LP 精度换算因子：1 LP = 1_000_000 最小单位。
+/// 审计 N-01：NAV/赎回价以「每 LP token（1e6 raw）」计，6 位精度下需放大该因子，
+/// 与 0 精度时代的语义（raw == LP token）保持一致。
+pub const LP_DECIMALS_FACTOR: u64 = 1_000_000;
 
 /// USDC 精度（6 位小数）。
 pub const USDC_DECIMALS: u8 = 6;
-
-/// USDC 精度换算因子：1 USDC = 1_000_000 最小单位。
-pub const USDC_DECIMALS_FACTOR: u64 = 1_000_000;
 
 /// 赎回周期窗口（秒）：一个窗口内累计赎回不得超过窗口上限（审计 M-05）。
 pub const REDEEM_WINDOW_SECS: i64 = 86_400;
@@ -247,13 +250,21 @@ impl PoolState {
         let total_value = idle_stablecoin_balance
             .checked_add(outstanding_trade_nav)
             .ok_or(TradeFinanceError::MathOverflow)?;
-        Ok(total_value / lp_token_supply)
+        // 审计 N-01：NAV 以「每 LP token」计（LP 6 位精度），放大 LP_DECIMALS_FACTOR 保持原语义。
+        Ok(total_value
+            .checked_mul(LP_DECIMALS_FACTOR)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / lp_token_supply)
     }
 
     /// 赎回定价 = 金库现金 / LP 供应量（审计 M-04：与账面 NAV 分离）。
     pub fn calculate_redemption_price(&self, vault_balance: u64, lp_token_supply: u64) -> Result<u64> {
         require!(lp_token_supply > 0, TradeFinanceError::ZeroLpSupply);
-        Ok(vault_balance / lp_token_supply)
+        // 审计 N-01：赎回价以「每 LP token」计（LP 6 位精度），放大 LP_DECIMALS_FACTOR 保持原语义。
+        Ok(vault_balance
+            .checked_mul(LP_DECIMALS_FACTOR)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            / lp_token_supply)
     }
 
     /// 当前赎回窗口编号（审计 M-05）。
@@ -384,12 +395,15 @@ mod tests {
             tracked_vault: 0,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
+        // 审计 N-01：NAV 每 LP token（1e6 raw）计，1_000_000 * 1e6 / 1_000 = 1_000_000_000
         let nav = pool.calculate_nav(1_000_000, 0, 1_000).unwrap();
-        assert_eq!(nav, 1_000);
+        assert_eq!(nav, 1_000_000_000);
         // 溢出：idle + outstanding 超过 u64
         assert!(pool
             .calculate_nav(u64::MAX, u64::MAX, 1)
             .is_err());
+        // 溢出：放大 LP_DECIMALS_FACTOR 后超过 u64
+        assert!(pool.calculate_nav(u64::MAX, 0, 1).is_err());
     }
 
     #[test]

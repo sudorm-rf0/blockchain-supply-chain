@@ -10,7 +10,7 @@
 //   USDC_MINT / LP_MINT           必须设置
 //   ADMIN_KEYPAIR                 admin 钱包（分红用），默认 ~/.config/solana/id.json
 //   LP_FUND_USDC                  测试环境给 LP 铸造 USDC 的金额（USDC 原始单位，默认 0=不铸造）
-//   DEPOSIT_USDC / REDEEM_LP / DIVIDEND_USDC  冒烟金额（默认 1_000_000_000 / 100_000_000 / 50_000_000）
+//   DEPOSIT_USDC / REDEEM_LP / DIVIDEND_USDC  冒烟金额（默认 1_000_000_000 / 按链上 LP 精度 100 LP / 50_000_000）
 import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
 import {
   getOrCreateAssociatedTokenAccount,
@@ -31,7 +31,7 @@ const LP_MINT = process.env.LP_MINT;
 const ADMIN_KP = process.env.ADMIN_KEYPAIR ?? path.join(homedir(), ".config/solana/id.json");
 const LP_FUND_USDC = BigInt(process.env.LP_FUND_USDC ?? 0);
 const DEPOSIT_USDC = BigInt(process.env.DEPOSIT_USDC ?? "1000000000");       // 1000 USDC
-const REDEEM_LP = BigInt(process.env.REDEEM_LP ?? "100000000");              // 100 LP（1e8，decimals 0）
+const REDEEM_LP_RAW = process.env.REDEEM_LP;  // undefined = 按链上 LP 精度自动换算 100 LP（审计 N-01：LP 6 位精度）
 const DIVIDEND_USDC = BigInt(process.env.DIVIDEND_USDC ?? "50000000");       // 50 USDC
 
 if (!USDC_MINT || !LP_MINT) {
@@ -66,6 +66,9 @@ async function ata(mint, owner, allowOwnerOffCurve = false) {
   await airdrop(lp.publicKey);
   const usdcMint = new PublicKey(USDC_MINT);
   const lpMint = new PublicKey(LP_MINT);
+  const lpMintInfo = await getMint(conn, lpMint);
+  // 审计 N-01：默认赎回 100 LP，按链上 LP mint 精度换算（decimals=6 时 raw=100_000_000）。
+  const REDEEM_LP = REDEEM_LP_RAW !== undefined ? BigInt(REDEEM_LP_RAW) : 100n * 10n ** BigInt(lpMintInfo.decimals);
   const lpUsdcAta = await ata(usdcMint, lp.publicKey);
   const lpLpAta = await ata(lpMint, lp.publicKey);
   const poolTokenAccount = await ata(usdcMint, poolAuthorityPda, true);
