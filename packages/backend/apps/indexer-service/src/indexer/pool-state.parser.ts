@@ -8,8 +8,10 @@ import { PoolSnapshotPayload } from "./payloads";
 // + pending_admin(32) + pending_admin_proposed_at(8) + fee_apy_bps(8)
 // + lp_share_bps(8) + platform_share_bps(8) + rebate_share_bps(8) + first_loss_reserve(8)
 // + min_insurance_abs(8) + overdue_fee_apy_bps(8) + pending_admin_delay_secs(8)
-// + tracked_vault(8) = 329。与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 329;
+// + tracked_vault(8) + pending_gov_action(1) + pending_gov_proposed_at(8)
+// + pending_gov_pubkey(32) + pending_gov_u64s(32) = 402。
+// 与 state.rs PoolState::space() 逐字段一致（治理时锁字段在尾部，不改变既有偏移）。
+export const POOL_STATE_ACCOUNT_SIZE = 402;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;

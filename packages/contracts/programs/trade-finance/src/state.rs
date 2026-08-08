@@ -14,6 +14,16 @@ pub const LP_MINT_DECIMALS: u8 = 6;
 /// 与 0 精度时代的语义（raw == LP token）保持一致。
 pub const LP_DECIMALS_FACTOR: u64 = 1_000_000;
 
+/// 治理时锁（审计 H-1）：待执行治理动作编号（0=无提案）。
+/// 价值转移/关键治理指令均为两阶段 propose -> execute，execute 须等待
+/// pending_admin_delay_secs（生产 >= 86_400s，可经治理调高）。
+pub const GOV_ACTION_NONE: u8 = 0;
+pub const GOV_ACTION_PLATFORM_WALLET: u8 = 1;
+pub const GOV_ACTION_WITHDRAW_FIRST_LOSS: u8 = 2;
+pub const GOV_ACTION_LP_MINT: u8 = 3;
+pub const GOV_ACTION_FEE_PARAMS: u8 = 4;
+pub const GOV_ACTION_RISK_PARAMS: u8 = 5;
+
 /// USDC 精度（6 位小数）。
 pub const USDC_DECIMALS: u8 = 6;
 
@@ -182,6 +192,14 @@ pub struct PoolState {
     /// 权威金库记账（独立复测 H-3）：仅由经过本程序的出入金更新，外部直接捐赠
     /// 不改变份额定价基准；deposit/redeem 等入口校验实时金库余额 == tracked_vault。
     pub tracked_vault: u64,
+    /// 治理时锁（审计 H-1）：待执行治理动作编号（0=无）。
+    pub pending_gov_action: u8,
+    /// 治理时锁：提案时间戳（秒）。
+    pub pending_gov_proposed_at: i64,
+    /// 治理时锁：Pubkey 参数（platform_wallet / lp_mint 用）。
+    pub pending_gov_pubkey: Pubkey,
+    /// 治理时锁：数值参数（amount / 费率 bps / 风控参数用，按动作解释）。
+    pub pending_gov_u64s: [u64; 4],
 }
 
 impl PoolState {
@@ -220,6 +238,10 @@ impl PoolState {
             + 8  // overdue_fee_apy_bps (L-04)
             + 8  // pending_admin_delay_secs (N-02)
             + 8  // tracked_vault (独立复测 H-3)
+            + 1  // pending_gov_action (审计 H-1)
+            + 8  // pending_gov_proposed_at (审计 H-1)
+            + 32 // pending_gov_pubkey (审计 H-1)
+            + 32 // pending_gov_u64s [u64;4] (审计 H-1)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -238,6 +260,23 @@ impl PoolState {
         Ok(())
     }
 
+    /// 治理时锁已过（审计 H-1）：提案存在且 now - proposed_at >= 治理延迟
+    /// （复用 pending_admin_delay_secs，生产 >= 86_400s）。
+    pub fn gov_delay_elapsed(&self, now: i64) -> bool {
+        self.pending_gov_proposed_at > 0
+            && now >= self
+                .pending_gov_proposed_at
+                .checked_add(self.pending_admin_delay_secs)
+                .unwrap_or(i64::MAX)
+    }
+
+    /// 清空治理时锁槽（execute 成功后 / cancel）。
+    pub fn clear_gov_action(&mut self) {
+        self.pending_gov_action = GOV_ACTION_NONE;
+        self.pending_gov_proposed_at = 0;
+        self.pending_gov_pubkey = Pubkey::default();
+        self.pending_gov_u64s = [0; 4];
+    }
 
     /// NAV = (闲置稳定币余额 + 未偿还贸易净值) / LP 代币总供应量。
     pub fn calculate_nav(
@@ -393,6 +432,10 @@ mod tests {
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
             tracked_vault: 0,
+            pending_gov_action: GOV_ACTION_NONE,
+            pending_gov_proposed_at: 0,
+            pending_gov_pubkey: Pubkey::default(),
+            pending_gov_u64s: [0; 4],
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         // 审计 N-01：NAV 每 LP token（1e6 raw）计，1_000_000 * 1e6 / 1_000 = 1_000_000_000
@@ -435,6 +478,10 @@ mod tests {
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
             tracked_vault: 0,
+            pending_gov_action: GOV_ACTION_NONE,
+            pending_gov_proposed_at: 0,
+            pending_gov_pubkey: Pubkey::default(),
+            pending_gov_u64s: [0; 4],
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -482,6 +529,10 @@ mod tests {
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
             tracked_vault: 0,
+            pending_gov_action: GOV_ACTION_NONE,
+            pending_gov_proposed_at: 0,
+            pending_gov_pubkey: Pubkey::default(),
+            pending_gov_u64s: [0; 4],
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
@@ -537,6 +588,10 @@ mod tests {
             overdue_fee_apy_bps: 0,
             pending_admin_delay_secs: ADMIN_TRANSFER_DELAY_SECS,
             tracked_vault: 0,
+            pending_gov_action: GOV_ACTION_NONE,
+            pending_gov_proposed_at: 0,
+            pending_gov_pubkey: Pubkey::default(),
+            pending_gov_u64s: [0; 4],
         }
     }
 

@@ -8,6 +8,8 @@ use crate::state::{
     DEFAULT_FEE_APY_BPS, DEFAULT_LP_SHARE_BPS, DEFAULT_PLATFORM_SHARE_BPS, DEFAULT_REBATE_SHARE_BPS,
     DEFAULT_MIN_INSURANCE_ABS,
     MAX_SINGLE_FEE_BPS, MIN_FIRST_LOSS_ABS,
+    GOV_ACTION_NONE, GOV_ACTION_PLATFORM_WALLET, GOV_ACTION_WITHDRAW_FIRST_LOSS,
+    GOV_ACTION_LP_MINT, GOV_ACTION_FEE_PARAMS, GOV_ACTION_RISK_PARAMS,
 };
 
 use crate::error::TradeFinanceError;
@@ -283,28 +285,6 @@ pub mod trade_finance {
     }
 
     /// 更新平台运营钱包（手续费收款地址），防止运营钱包轮换需重部署。
-    pub fn set_platform_wallet(
-        ctx: Context<SetPlatformWallet>,
-        platform_wallet: Pubkey,
-    ) -> Result<()> {
-        let pool = &mut ctx.accounts.pool_state;
-        require!(
-            pool.admin == ctx.accounts.admin.key(),
-            TradeFinanceError::Unauthorized
-        );
-        require!(
-            platform_wallet != Pubkey::default(),
-            TradeFinanceError::InvalidPlatformWallet
-        );
-        pool.platform_wallet = platform_wallet;
-        emit!(PlatformWalletUpdatedEvent {
-            admin: ctx.accounts.admin.key(),
-            platform_wallet,
-        });
-        msg!("platform wallet updated: {}", platform_wallet);
-        Ok(())
-    }
-
     /// 查询资金池当前状态（无状态变更）。
     pub fn get_pool_info(ctx: Context<GetPoolInfo>) -> Result<PoolStateInfo> {
         let pool = &ctx.accounts.pool_state;
@@ -1409,47 +1389,6 @@ pub mod trade_finance {
     }
 
     /// 更新 LP Mint（审计 M-09）：仅允许在资金池暂停、无在途敞口、旧供应量为 0 时执行。
-    pub fn set_lp_mint(ctx: Context<SetLpMint>) -> Result<()> {
-        let pool = &mut ctx.accounts.pool_state;
-        require!(
-            pool.admin == ctx.accounts.admin.key(),
-            TradeFinanceError::Unauthorized
-        );
-        require!(pool.paused, TradeFinanceError::PoolMustBePaused);
-        require!(
-            pool.active_capital == 0 && pool.escrow_funded == 0,
-            TradeFinanceError::OutstandingCapital
-        );
-        require!(
-            ctx.accounts.old_lp_mint.supply == 0,
-            TradeFinanceError::LpSupplyNotZero
-        );
-        // 新 mint 的属性校验（审计 C-01/L-05/M-09）：authority 为 pool_authority、无 freeze、decimals 匹配。
-        require!(
-            ctx.accounts.new_lp_mint.mint_authority
-                == COption::Some(ctx.accounts.pool_authority.key()),
-            TradeFinanceError::InvalidLpMintAuthority
-        );
-        require!(
-            ctx.accounts.new_lp_mint.freeze_authority.is_none(),
-            TradeFinanceError::InvalidLpMintFreezeAuthority
-        );
-        require!(
-            ctx.accounts.new_lp_mint.decimals == LP_MINT_DECIMALS,
-            TradeFinanceError::InvalidMintDecimals
-        );
-
-        let old_lp_mint = pool.lp_mint;
-        pool.lp_mint = ctx.accounts.new_lp_mint.key();
-        emit!(LpMintUpdatedEvent {
-            admin: pool.admin,
-            old_lp_mint,
-            new_lp_mint: pool.lp_mint,
-        });
-        msg!("lp mint updated: {} -> {}", old_lp_mint, pool.lp_mint);
-        Ok(())
-    }
-
     /// 关闭已终态订单并退还租金（审计 L-02）。要求托管余额为 0（Accounts 约束）。
     pub fn close_deal(ctx: Context<CloseDeal>, trade_id: u64) -> Result<()> {
         let deal = &ctx.accounts.deal;
@@ -1461,47 +1400,6 @@ pub mod trade_finance {
             TradeFinanceError::InvalidStateTransition
         );
         msg!("deal {} closed, rent returned to buyer", trade_id);
-        Ok(())
-    }
-
-    /// 更新费率与分配参数（H-04 治理）。应置于多签/时锁（H-03）之后。
-    pub fn set_fee_params(
-        ctx: Context<SetFeeParams>,
-        fee_apy_bps: u64,
-        lp_share_bps: u64,
-        platform_share_bps: u64,
-        rebate_share_bps: u64,
-    ) -> Result<()> {
-        let pool = &mut ctx.accounts.pool_state;
-        require!(
-            pool.admin == ctx.accounts.admin.key(),
-            TradeFinanceError::Unauthorized
-        );
-        let total_share = lp_share_bps
-            .checked_add(platform_share_bps)
-            .ok_or(TradeFinanceError::MathOverflow)?
-            .checked_add(rebate_share_bps)
-            .ok_or(TradeFinanceError::MathOverflow)?;
-        require!(total_share == BPS_BASE, TradeFinanceError::InvalidFeeParams);
-        require!(fee_apy_bps > 0 && fee_apy_bps <= 5000, TradeFinanceError::InvalidFeeParams);
-        pool.fee_apy_bps = fee_apy_bps;
-        pool.lp_share_bps = lp_share_bps;
-        pool.platform_share_bps = platform_share_bps;
-        pool.rebate_share_bps = rebate_share_bps;
-        emit!(FeeParamsUpdatedEvent {
-            admin: pool.admin,
-            fee_apy_bps,
-            lp_share_bps,
-            platform_share_bps,
-            rebate_share_bps,
-        });
-        msg!(
-            "fee params updated: apy={} lp={} platform={} rebate={}",
-            fee_apy_bps,
-            lp_share_bps,
-            platform_share_bps,
-            rebate_share_bps
-        );
         Ok(())
     }
 
@@ -1551,14 +1449,150 @@ pub mod trade_finance {
     }
 
     /// 治理提取首损资金（H-04）：仅允许提取至最低保留余额之上。
-    pub fn withdraw_first_loss(ctx: Context<WithdrawFirstLoss>, amount: u64) -> Result<()> {
+    /// 调整管理员转移锁定期（审计 N-02）：默认 48h，可经治理下调（测试/紧急）或上调。
+    /// 生产环境应保持 >= 172_800 秒。
+    pub fn set_admin_delay(ctx: Context<SetAdminDelay>, delay_secs: i64) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        // 审计 H-05：不得将时锁下调至硬下限（86_400s）以下，杜绝"置零自废后门"。
+        require!(
+            delay_secs >= MIN_ADMIN_DELAY_SECS,
+            TradeFinanceError::InvalidFeeParams
+        );
+        pool.pending_admin_delay_secs = delay_secs;
+        emit!(RiskParamsUpdatedEvent {
+            admin: pool.admin,
+            min_insurance_abs: pool.min_insurance_abs,
+            overdue_fee_apy_bps: pool.overdue_fee_apy_bps,
+        });
+        msg!("admin transfer delay set to {}s", delay_secs);
+        Ok(())
+    }
+    // ==================== 治理时锁（审计 H-1）：两阶段 propose / execute ====================
+    // 价值转移与关键治理指令（改平台钱包 / 提首损 / 换 LP mint / 费率 / 风控）一律先
+    // propose 登记，等待 pending_admin_delay_secs（生产 >= 86_400s，可经治理调高）后
+    // execute 才生效，杜绝单 admin 私钥失陷后"即时抽干"。业务指令（放款/释放/分红/暂停）
+    // 不受影响，由 Squads 多签治理兜底。
 
+    /// 治理时锁（H-1）：提出更换平台运营钱包。
+    pub fn propose_platform_wallet(
+        ctx: Context<ProposeGovernance>,
+        platform_wallet: Pubkey,
+    ) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            platform_wallet != Pubkey::default(),
+            TradeFinanceError::InvalidPlatformWallet
+        );
+        let now = Clock::get()?.unix_timestamp;
+        pool.pending_gov_action = GOV_ACTION_PLATFORM_WALLET;
+        pool.pending_gov_proposed_at = now;
+        pool.pending_gov_pubkey = platform_wallet;
+        pool.pending_gov_u64s = [0; 4];
+        emit!(GovernanceActionProposedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_PLATFORM_WALLET,
+            proposed_at: now,
+            delay_secs: pool.pending_admin_delay_secs,
+            param_pubkey: platform_wallet,
+            param_u64s: [0; 4],
+        });
+        msg!("governance: platform wallet proposal: {}", platform_wallet);
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：执行更换平台运营钱包（须过时锁）。
+    pub fn execute_platform_wallet(ctx: Context<ExecutePlatformWallet>) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            pool.pending_gov_action == GOV_ACTION_PLATFORM_WALLET,
+            TradeFinanceError::GovActionNotPending
+        );
+        require!(
+            pool.gov_delay_elapsed(now),
+            TradeFinanceError::GovDelayNotElapsed
+        );
+        let platform_wallet = pool.pending_gov_pubkey;
+        require!(
+            platform_wallet != Pubkey::default(),
+            TradeFinanceError::InvalidPlatformWallet
+        );
+        pool.platform_wallet = platform_wallet;
+        let proposed_at = pool.pending_gov_proposed_at;
+        pool.clear_gov_action();
+        emit!(GovernanceActionExecutedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_PLATFORM_WALLET,
+            proposed_at,
+            executed_at: now,
+        });
+        emit!(PlatformWalletUpdatedEvent {
+            admin: pool.admin,
+            platform_wallet,
+        });
+        msg!("platform wallet updated: {}", platform_wallet);
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：提出提取首损资金。
+    pub fn propose_withdraw_first_loss(
+        ctx: Context<ProposeGovernance>,
+        amount: u64,
+    ) -> Result<()> {
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
         );
         require!(amount > 0, TradeFinanceError::InvalidAmount);
+        let now = Clock::get()?.unix_timestamp;
+        pool.pending_gov_action = GOV_ACTION_WITHDRAW_FIRST_LOSS;
+        pool.pending_gov_proposed_at = now;
+        pool.pending_gov_pubkey = Pubkey::default();
+        pool.pending_gov_u64s = [amount, 0, 0, 0];
+        emit!(GovernanceActionProposedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_WITHDRAW_FIRST_LOSS,
+            proposed_at: now,
+            delay_secs: pool.pending_admin_delay_secs,
+            param_pubkey: Pubkey::default(),
+            param_u64s: pool.pending_gov_u64s,
+        });
+        msg!("governance: withdraw first-loss proposal: {}", amount);
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：执行提取首损资金（须过时锁；偿付基准为权威记账 tracked_vault，N-13）。
+    pub fn execute_withdraw_first_loss(
+        ctx: Context<ExecuteWithdrawFirstLoss>,
+    ) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            pool.pending_gov_action == GOV_ACTION_WITHDRAW_FIRST_LOSS,
+            TradeFinanceError::GovActionNotPending
+        );
+        require!(
+            pool.gov_delay_elapsed(now),
+            TradeFinanceError::GovDelayNotElapsed
+        );
+        let amount = pool.pending_gov_u64s[0];
         let remaining = pool
             .first_loss_reserve
             .checked_sub(amount)
@@ -1596,7 +1630,6 @@ pub mod trade_finance {
             .with_signer(&[pool_signer]),
             amount,
         )?;
-        // 独立复测 H-3：首损提取离开金库，权威记账同步扣减。
         pool.tracked_vault = pool
             .tracked_vault
             .checked_sub(amount)
@@ -1604,8 +1637,16 @@ pub mod trade_finance {
         ctx.accounts.pool_token_account.reload()?;
 
         pool.first_loss_reserve = remaining;
+        let proposed_at = pool.pending_gov_proposed_at;
+        pool.clear_gov_action();
+        emit!(GovernanceActionExecutedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_WITHDRAW_FIRST_LOSS,
+            proposed_at,
+            executed_at: now,
+        });
         emit!(FirstLossWithdrawnEvent {
-            admin: ctx.accounts.admin.key(),
+            admin: pool.admin,
             amount,
             first_loss_reserve: pool.first_loss_reserve,
         });
@@ -1617,9 +1658,184 @@ pub mod trade_finance {
         Ok(())
     }
 
-    /// 更新风控参数（审计 L-07/L-04）：保险基金最低余额（支持清盘路径）、逾期罚息年化费率。
-    pub fn set_risk_params(
-        ctx: Context<SetRiskParams>,
+    /// 治理时锁（H-1）：提出更换 LP Mint。
+    pub fn propose_set_lp_mint(ctx: Context<ProposeGovernance>, new_mint: Pubkey) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            new_mint != Pubkey::default(),
+            TradeFinanceError::InvalidLpMintAuthority
+        );
+        let now = Clock::get()?.unix_timestamp;
+        pool.pending_gov_action = GOV_ACTION_LP_MINT;
+        pool.pending_gov_proposed_at = now;
+        pool.pending_gov_pubkey = new_mint;
+        pool.pending_gov_u64s = [0; 4];
+        emit!(GovernanceActionProposedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_LP_MINT,
+            proposed_at: now,
+            delay_secs: pool.pending_admin_delay_secs,
+            param_pubkey: new_mint,
+            param_u64s: [0; 4],
+        });
+        msg!("governance: lp mint proposal: {}", new_mint);
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：执行更换 LP Mint（须过时锁 + 暂停 + 无在途 + 旧 mint 供应为 0 + 属性校验）。
+    pub fn execute_set_lp_mint(ctx: Context<ExecuteSetLpMint>) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            pool.pending_gov_action == GOV_ACTION_LP_MINT,
+            TradeFinanceError::GovActionNotPending
+        );
+        require!(
+            pool.gov_delay_elapsed(now),
+            TradeFinanceError::GovDelayNotElapsed
+        );
+        require!(pool.paused, TradeFinanceError::PoolMustBePaused);
+        require!(
+            pool.active_capital == 0 && pool.escrow_funded == 0,
+            TradeFinanceError::OutstandingCapital
+        );
+        require!(
+            ctx.accounts.old_lp_mint.supply == 0,
+            TradeFinanceError::LpSupplyNotZero
+        );
+        require!(
+            ctx.accounts.new_lp_mint.mint_authority
+                == COption::Some(ctx.accounts.pool_authority.key()),
+            TradeFinanceError::InvalidLpMintAuthority
+        );
+        require!(
+            ctx.accounts.new_lp_mint.freeze_authority.is_none(),
+            TradeFinanceError::InvalidLpMintFreezeAuthority
+        );
+        require!(
+            ctx.accounts.new_lp_mint.decimals == LP_MINT_DECIMALS,
+            TradeFinanceError::InvalidMintDecimals
+        );
+
+        let old_lp_mint = pool.lp_mint;
+        pool.lp_mint = ctx.accounts.new_lp_mint.key();
+        let proposed_at = pool.pending_gov_proposed_at;
+        pool.clear_gov_action();
+        emit!(GovernanceActionExecutedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_LP_MINT,
+            proposed_at,
+            executed_at: now,
+        });
+        emit!(LpMintUpdatedEvent {
+            admin: pool.admin,
+            old_lp_mint,
+            new_lp_mint: pool.lp_mint,
+        });
+        msg!("lp mint updated: {} -> {}", old_lp_mint, pool.lp_mint);
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：提出更新费率与分配参数。
+    pub fn propose_set_fee_params(
+        ctx: Context<ProposeGovernance>,
+        fee_apy_bps: u64,
+        lp_share_bps: u64,
+        platform_share_bps: u64,
+        rebate_share_bps: u64,
+    ) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        let total_share = lp_share_bps
+            .checked_add(platform_share_bps)
+            .ok_or(TradeFinanceError::MathOverflow)?
+            .checked_add(rebate_share_bps)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+        require!(total_share == BPS_BASE, TradeFinanceError::InvalidFeeParams);
+        require!(
+            fee_apy_bps > 0 && fee_apy_bps <= 5000,
+            TradeFinanceError::InvalidFeeParams
+        );
+        let now = Clock::get()?.unix_timestamp;
+        pool.pending_gov_action = GOV_ACTION_FEE_PARAMS;
+        pool.pending_gov_proposed_at = now;
+        pool.pending_gov_pubkey = Pubkey::default();
+        pool.pending_gov_u64s = [fee_apy_bps, lp_share_bps, platform_share_bps, rebate_share_bps];
+        emit!(GovernanceActionProposedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_FEE_PARAMS,
+            proposed_at: now,
+            delay_secs: pool.pending_admin_delay_secs,
+            param_pubkey: Pubkey::default(),
+            param_u64s: pool.pending_gov_u64s,
+        });
+        msg!("governance: fee params proposal");
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：执行更新费率与分配参数（须过时锁）。
+    pub fn execute_set_fee_params(ctx: Context<ExecuteSetFeeParams>) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            pool.pending_gov_action == GOV_ACTION_FEE_PARAMS,
+            TradeFinanceError::GovActionNotPending
+        );
+        require!(
+            pool.gov_delay_elapsed(now),
+            TradeFinanceError::GovDelayNotElapsed
+        );
+        let fee_apy_bps = pool.pending_gov_u64s[0];
+        let lp_share_bps = pool.pending_gov_u64s[1];
+        let platform_share_bps = pool.pending_gov_u64s[2];
+        let rebate_share_bps = pool.pending_gov_u64s[3];
+        pool.fee_apy_bps = fee_apy_bps;
+        pool.lp_share_bps = lp_share_bps;
+        pool.platform_share_bps = platform_share_bps;
+        pool.rebate_share_bps = rebate_share_bps;
+        let proposed_at = pool.pending_gov_proposed_at;
+        pool.clear_gov_action();
+        emit!(GovernanceActionExecutedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_FEE_PARAMS,
+            proposed_at,
+            executed_at: now,
+        });
+        emit!(FeeParamsUpdatedEvent {
+            admin: pool.admin,
+            fee_apy_bps,
+            lp_share_bps,
+            platform_share_bps,
+            rebate_share_bps,
+        });
+        msg!(
+            "fee params updated: apy={} lp={} platform={} rebate={}",
+            fee_apy_bps,
+            lp_share_bps,
+            platform_share_bps,
+            rebate_share_bps
+        );
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：提出更新风控参数。
+    pub fn propose_set_risk_params(
+        ctx: Context<ProposeGovernance>,
         min_insurance_abs: u64,
         overdue_fee_apy_bps: u64,
     ) -> Result<()> {
@@ -1632,8 +1848,51 @@ pub mod trade_finance {
             overdue_fee_apy_bps <= 5000,
             TradeFinanceError::InvalidFeeParams
         );
+        let now = Clock::get()?.unix_timestamp;
+        pool.pending_gov_action = GOV_ACTION_RISK_PARAMS;
+        pool.pending_gov_proposed_at = now;
+        pool.pending_gov_pubkey = Pubkey::default();
+        pool.pending_gov_u64s = [min_insurance_abs, overdue_fee_apy_bps, 0, 0];
+        emit!(GovernanceActionProposedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_RISK_PARAMS,
+            proposed_at: now,
+            delay_secs: pool.pending_admin_delay_secs,
+            param_pubkey: Pubkey::default(),
+            param_u64s: pool.pending_gov_u64s,
+        });
+        msg!("governance: risk params proposal");
+        Ok(())
+    }
+
+    /// 治理时锁（H-1）：执行更新风控参数（须过时锁）。
+    pub fn execute_set_risk_params(ctx: Context<ExecuteSetRiskParams>) -> Result<()> {
+        let pool = &mut ctx.accounts.pool_state;
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            pool.admin == ctx.accounts.admin.key(),
+            TradeFinanceError::Unauthorized
+        );
+        require!(
+            pool.pending_gov_action == GOV_ACTION_RISK_PARAMS,
+            TradeFinanceError::GovActionNotPending
+        );
+        require!(
+            pool.gov_delay_elapsed(now),
+            TradeFinanceError::GovDelayNotElapsed
+        );
+        let min_insurance_abs = pool.pending_gov_u64s[0];
+        let overdue_fee_apy_bps = pool.pending_gov_u64s[1];
         pool.min_insurance_abs = min_insurance_abs;
         pool.overdue_fee_apy_bps = overdue_fee_apy_bps;
+        let proposed_at = pool.pending_gov_proposed_at;
+        pool.clear_gov_action();
+        emit!(GovernanceActionExecutedEvent {
+            admin: pool.admin,
+            action: GOV_ACTION_RISK_PARAMS,
+            proposed_at,
+            executed_at: now,
+        });
         emit!(RiskParamsUpdatedEvent {
             admin: pool.admin,
             min_insurance_abs,
@@ -1647,26 +1906,26 @@ pub mod trade_finance {
         Ok(())
     }
 
-    /// 调整管理员转移锁定期（审计 N-02）：默认 48h，可经治理下调（测试/紧急）或上调。
-    /// 生产环境应保持 >= 172_800 秒。
-    pub fn set_admin_delay(ctx: Context<SetAdminDelay>, delay_secs: i64) -> Result<()> {
+    /// 治理时锁（H-1）：管理员取消待执行提案。
+    pub fn cancel_pending_gov_action(ctx: Context<CancelGovernance>) -> Result<()> {
         let pool = &mut ctx.accounts.pool_state;
         require!(
             pool.admin == ctx.accounts.admin.key(),
             TradeFinanceError::Unauthorized
         );
-        // 审计 H-05：不得将时锁下调至硬下限（86_400s）以下，杜绝"置零自废后门"。
         require!(
-            delay_secs >= MIN_ADMIN_DELAY_SECS,
-            TradeFinanceError::InvalidFeeParams
+            pool.pending_gov_action != GOV_ACTION_NONE,
+            TradeFinanceError::GovActionNotPending
         );
-        pool.pending_admin_delay_secs = delay_secs;
-        emit!(RiskParamsUpdatedEvent {
+        let action = pool.pending_gov_action;
+        let now = Clock::get()?.unix_timestamp;
+        pool.clear_gov_action();
+        emit!(GovernanceActionCancelledEvent {
             admin: pool.admin,
-            min_insurance_abs: pool.min_insurance_abs,
-            overdue_fee_apy_bps: pool.overdue_fee_apy_bps,
+            action,
+            cancelled_at: now,
         });
-        msg!("admin transfer delay set to {}s", delay_secs);
+        msg!("governance action {} cancelled", action);
         Ok(())
     }
 }
@@ -1728,13 +1987,6 @@ pub struct AcceptAdmin<'info> {
     pub new_admin: Signer<'info>,
 }
 
-#[derive(Accounts)]
-pub struct SetPlatformWallet<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
-    pub pool_state: Account<'info, PoolState>,
-
-    pub admin: Signer<'info>,
-}
 
 #[derive(Accounts)]
 #[instruction(trade_id: u64, file_hash: [u8; 32], uri: String)]
@@ -2257,26 +2509,6 @@ pub struct DefaultDeal<'info> {
     pub lp_mint: Account<'info, Mint>,
 
 }
-#[derive(Accounts)]
-pub struct SetLpMint<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
-    pub pool_state: Account<'info, PoolState>,
-
-    pub admin: Signer<'info>,
-
-    /// 旧 LP Mint：供应量必须为 0（审计 M-09）。
-    #[account(
-        constraint = pool_state.lp_mint == old_lp_mint.key() @ TradeFinanceError::WrongTokenMint
-    )]
-    pub old_lp_mint: Account<'info, Mint>,
-
-    /// 新 LP Mint：authority 必须为 pool_authority、无 freeze authority、decimals 匹配（审计 M-09）。
-    pub new_lp_mint: Account<'info, Mint>,
-
-    /// CHECK: 资金池 USDC 托管账户的 PDA authority（新 LP mint 的 authority）。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
-    pub pool_authority: AccountInfo<'info>,
-}
 
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
@@ -2313,13 +2545,6 @@ pub struct CloseDeal<'info> {
     pub system_program: Program<'info, System>,
 }
 
-#[derive(Accounts)]
-pub struct SetFeeParams<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
-    pub pool_state: Account<'info, PoolState>,
-
-    pub admin: Signer<'info>,
-}
 
 #[derive(Accounts)]
 pub struct DepositFirstLoss<'info> {
@@ -2355,8 +2580,37 @@ pub struct DepositFirstLoss<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+
+
 #[derive(Accounts)]
-pub struct WithdrawFirstLoss<'info> {
+pub struct SetAdminDelay<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+
+/// 治理时锁（H-1）：propose_* 共用账户（pool_state + admin）。
+#[derive(Accounts)]
+pub struct ProposeGovernance<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+
+/// 治理时锁（H-1）：执行更换平台运营钱包。
+#[derive(Accounts)]
+pub struct ExecutePlatformWallet<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+
+/// 治理时锁（H-1）：执行提取首损资金。
+#[derive(Accounts)]
+pub struct ExecuteWithdrawFirstLoss<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
@@ -2388,18 +2642,52 @@ pub struct WithdrawFirstLoss<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+/// 治理时锁（H-1）：执行更换 LP Mint。
 #[derive(Accounts)]
-pub struct SetRiskParams<'info> {
+pub struct ExecuteSetLpMint<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+
+    /// 旧 LP Mint：供应量必须为 0（审计 M-09）。
+    #[account(
+        constraint = pool_state.lp_mint == old_lp_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub old_lp_mint: Account<'info, Mint>,
+
+    /// 新 LP Mint：authority 必须为 pool_authority、无 freeze authority、decimals 匹配（审计 M-09）。
+    pub new_lp_mint: Account<'info, Mint>,
+
+    /// CHECK: 资金池 USDC 托管账户的 PDA authority（新 LP mint 的 authority）。
+    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    pub pool_authority: AccountInfo<'info>,
+}
+
+/// 治理时锁（H-1）：执行更新费率与分配参数。
+#[derive(Accounts)]
+pub struct ExecuteSetFeeParams<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
 }
 
+/// 治理时锁（H-1）：执行更新风控参数。
 #[derive(Accounts)]
-pub struct SetAdminDelay<'info> {
+pub struct ExecuteSetRiskParams<'info> {
     #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
 }
+
+/// 治理时锁（H-1）：取消待执行提案。
+#[derive(Accounts)]
+pub struct CancelGovernance<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    pub admin: Signer<'info>,
+}
+

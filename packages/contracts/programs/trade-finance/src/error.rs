@@ -125,6 +125,14 @@ pub enum TradeFinanceError {
     #[msg("LP mint decimals mismatch")]
     InvalidMintDecimals,
 
+    /// 治理时锁：没有待执行的治理动作。
+    #[msg("No governance action pending")]
+    GovActionNotPending,
+
+    /// 治理时锁：提案尚未过等待期，不能执行。
+    #[msg("Governance timelock has not elapsed")]
+    GovDelayNotElapsed,
+
     /// 卖方不能是买方自身：禁止自融资闭环。
     #[msg("Seller must not be the buyer")]
     SelfDealing,
