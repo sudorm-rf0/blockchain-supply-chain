@@ -48,4 +48,4 @@
 | **S-04** | `RedeemLp` 50% 上限改治理参数 | v1 用常量上限可接受；改为池参数需额外治理与复测，建议二期 |
 | **CK-005** | K8s Native Secrets → Sealed Secrets/External Secrets | 需真实集群 + 控制器安装；**上线时启用**：`kubectl create secret` 的 Native Secret 可被集群管理员读取，生产建议接入 Sealed Secrets 或云 KMS（方案见 DEPLOYMENT.md 安全章节） |
 | **CK-006** | 生产环境真实集群验证 | 需云资源；审计通过后按 `deploy/vps` 或 K8s 执行 |
-| **LP mint authority 链下铸币** | 铸币权交多签/治理方 | 主网部署前必须完成（非代码项） |
+| **LP mint authority 链下铸币（已更正）** | 早期「铸币权交多签」与合约硬约束矛盾 | ✅ 已更正：LP mint authority **必须 = pool_authority PDA**（initialize_pool 硬校验，链上铸币）；「多签」仅指程序 UA/update authority |
