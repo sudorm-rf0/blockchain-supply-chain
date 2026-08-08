@@ -91,6 +91,9 @@ devnet 部署（当前已验证）:
     precheck 增加 Program ID 一致性检查。
   - H-1: 价值转移 setters（改平台钱包/提首损/换 LP mint/费率/风控）两阶段 propose->execute
     治理时锁（等待 pending_admin_delay_secs，生产 >= 86400s）。
+  - H-2: 已根除 test-deployer feature 与 DEPLOYER 白名单；UA 校验仅接受 == upgrade authority，
+    None（冻结）一律拒绝；测试改用 test-build（仅放宽 initial_delay）。
+  - N-new: NAV/redemption_price 全部改用权威记账 tracked_vault 计算（含 fund 放款后口径）。
   - anchor test 实测: 69/69 通过（本地 validator + test-build 构建复验，
     含 H-3 捐赠回归、N-01/N-06 定价一致性、C-1 拒绝回归、H-1 时锁）。
 INFO
