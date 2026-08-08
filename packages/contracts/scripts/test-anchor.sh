@@ -5,7 +5,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-FILES=(tests/trade-finance.ts tests/supply-chain.ts)
+# 独立审计 C-1 回归（伪造 program_data 拒绝）必须最先执行：
+# 此时 Pool/Registry PDA 尚未初始化，initialize_* 的 C-1 地址+owner 约束检查先于一切被触发。
+FILES=(tests/c1-program-data-regression.ts tests/trade-finance.ts tests/supply-chain.ts)
 if [[ "${ANCHOR_BENCH:-0}" == "1" ]]; then
   FILES+=(tests/compute-units.ts)
 fi

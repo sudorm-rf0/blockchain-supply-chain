@@ -10,6 +10,12 @@ trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
 supply_chain = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
 trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
 
+# 审计 M-05：主网 Program ID 在部署时由 deploy-mainnet.sh 用部署 keypair 确定并同步到本段
+# （--generate-keypairs 自动同步 declare_id! 与本段），禁止沿用 devnet 占位 ID。
+[programs.mainnet]
+supply_chain = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
+
 [workspace]
 members = ["programs/supply-chain", "programs/trade-finance"]
 

@@ -1567,11 +1567,10 @@ pub mod trade_finance {
             remaining >= MIN_FIRST_LOSS_ABS,
             TradeFinanceError::FirstLossInsufficient
         );
-        // 提取后金库现金必须仍覆盖首损剩余 + 在途垫付。
-        let vault_after = ctx
-            .accounts
-            .pool_token_account
-            .amount
+        // 提取后金库现金必须仍覆盖首损剩余 + 在途垫付（审计 N-13：以权威记账
+        // tracked_vault 为偿付基准，物理余额含外部捐赠，不得虚增可提取首损额度）。
+        let vault_after = pool
+            .tracked_vault
             .checked_sub(amount)
             .ok_or(TradeFinanceError::InsufficientFunds)?;
         let outstanding = pool

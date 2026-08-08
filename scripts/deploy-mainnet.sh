@@ -111,6 +111,35 @@ CMDS
   exit 0
 fi
 
+# ---------- 3.5 审计 M-05：declare_id! 与部署 keypair 的 Program ID 必须一致 ----------
+# 主网 Program ID 由部署 keypair 决定；字节码中 declare_id!（crate::ID）必须与之一致，
+# 否则 C-1 的 program_data PDA 绑定、全部 PDA 派生（pool/authority/registry）与客户端
+# 调用都会按旧 ID 计算 → 主网程序不可用。--generate-keypairs 生成新 keypair 后自动同步。
+if [[ "${GENERATE_KEYS}" == "1" ]]; then
+  log "==> [M-05] 同步 declare_id! / Anchor.toml 到新 Program ID"
+  for spec in "trade_finance:${TRADE_KEYPAIR}" "supply_chain:${SUPPLY_KEYPAIR}"; do
+    name="${spec%%:*}"; kp="${spec#*:}"
+    id="$(solana-keygen pubkey "${kp}")"
+    lib="${ROOT}/packages/contracts/programs/${name}/src/lib.rs"
+    sed -i '' "s|declare_id!("[1-9A-HJ-NP-Za-km-z]*")|declare_id!("${id}")|" "${lib}"
+  done
+  TRADE_ID="$(solana-keygen pubkey "${TRADE_KEYPAIR}")"
+  SUPPLY_ID="$(solana-keygen pubkey "${SUPPLY_KEYPAIR}")"
+  perl -pi -e "s/trade_finance = \"[1-9A-HJ-NP-Za-km-z]*\"/trade_finance = \"${TRADE_ID}\"/g" "${ROOT}/packages/contracts/Anchor.toml"
+  perl -pi -e "s/supply_chain = \"[1-9A-HJ-NP-Za-km-z]*\"/supply_chain = \"${SUPPLY_ID}\"/g" "${ROOT}/packages/contracts/Anchor.toml"
+  log "  trade_finance -> ${TRADE_ID}"
+  log "  supply_chain  -> ${SUPPLY_ID}"
+fi
+TRADE_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${ROOT}/packages/contracts/programs/trade-finance/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
+SUPPLY_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${ROOT}/packages/contracts/programs/supply-chain/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
+if [[ "${TRADE_DECLARE_ID}" != "${TRADE_PROGRAM_ID}" || "${SUPPLY_DECLARE_ID}" != "${SUPPLY_PROGRAM_ID}" ]]; then
+  echo "❌ [M-05] declare_id! 与部署 keypair ID 不一致：" >&2
+  echo "   trade_finance: declare_id!(${TRADE_DECLARE_ID}) vs keypair(${TRADE_PROGRAM_ID})" >&2
+  echo "   supply_chain:  declare_id!(${SUPPLY_DECLARE_ID}) vs keypair(${SUPPLY_PROGRAM_ID})" >&2
+  echo "   请使用 --generate-keypairs（脚本自动同步）或先手动 anchor keys sync 再部署。" >&2
+  exit 1
+fi
+
 # ---------- 4. 主网预检（强制） ----------
 log "==> [1/6] 主网预检"
 SOLANA_RPC_URL="${SOLANA_RPC_URL}" DEPLOY_WALLET="${DEPLOY_WALLET}" \
