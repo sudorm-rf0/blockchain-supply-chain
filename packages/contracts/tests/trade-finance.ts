@@ -17,6 +17,9 @@ const USDC_DECIMALS = 6;
 // 审计 N-01：LP 精度与 USDC 一致取 6 位（合约 LP_MINT_DECIMALS=6）。
 const LP_MINT_DECIMALS = 6;
 const USDC = (amount: number): number => amount * 10 ** USDC_DECIMALS;
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+// 审计 H-1：治理时锁等待（初始化注入 delay=1s，等过时锁后再 execute）。
+const WAIT_TIMELOCK = 1100;
 
 describe("trade-finance full lifecycle", () => {
   const provider = anchor.AnchorProvider.env();
@@ -1752,29 +1755,88 @@ describe("trade-finance full lifecycle", () => {
       console.log("Default-pubkey admin proposal rejected");
     });
 
-    it("Admin can update platform wallet; rejects default", async () => {
+    it("Admin can propose+execute platform wallet after timelock; rejects default (H-1)", async () => {
       const newWallet = anchor.web3.Keypair.generate();
       await program.methods
-        .setPlatformWallet(newWallet.publicKey)
+        .proposePlatformWallet(newWallet.publicKey)
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
-          .rpc();
+        .rpc();
+      // 治理时锁（H-1）：未过等待期 execute 必须被拒
+      await assert.rejects(
+        program.methods
+          .executePlatformWallet()
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /GovDelayNotElapsed/,
+      );
+      await sleep(WAIT_TIMELOCK);
+      await program.methods
+        .executePlatformWallet()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
       assert.equal(
         (await poolSnapshot()).platformWallet.toBase58(),
         newWallet.publicKey.toBase58(),
       );
       // 恢复原运营钱包，保持后续状态一致
       await program.methods
-        .setPlatformWallet(platformWallet.publicKey)
+        .proposePlatformWallet(platformWallet.publicKey)
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
-          .rpc();
+        .rpc();
+      await sleep(WAIT_TIMELOCK);
+      await program.methods
+        .executePlatformWallet()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      // default pubkey 在 propose 阶段即拒绝
       await assert.rejects(
         program.methods
-          .setPlatformWallet(PublicKey.default)
+          .proposePlatformWallet(PublicKey.default)
           .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
-              .rpc(),
+          .rpc(),
         /InvalidPlatformWallet/,
       );
-      console.log("Platform wallet update ok");
+      // 非 admin propose 被拒（H-1）
+      const attacker = anchor.web3.Keypair.generate();
+      await airdrop(attacker.publicKey);
+      await assert.rejects(
+        program.methods
+          .proposePlatformWallet(attacker.publicKey)
+          .accounts({ poolState: poolStatePda, admin: attacker.publicKey })
+          .signers([attacker])
+          .rpc(),
+        /Unauthorized/,
+      );
+      console.log("Platform wallet propose/execute ok (H-1 timelock)");
+    });
+
+    it("H-1 governance timelock: cancel clears pending; empty slot rejects execute", async () => {
+      const attacker = anchor.web3.Keypair.generate();
+      await program.methods
+        .proposePlatformWallet(attacker.publicKey)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await program.methods
+        .cancelPendingGovAction()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      // 清空后无提案 -> execute 被拒（GovActionNotPending）
+      await assert.rejects(
+        program.methods
+          .executePlatformWallet()
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /GovActionNotPending/,
+      );
+      // 无提案时 cancel 也被拒
+      await assert.rejects(
+        program.methods
+          .cancelPendingGovAction()
+          .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+          .rpc(),
+        /GovActionNotPending/,
+      );
+      console.log("H-1 timelock: cancel clears pending, empty slot rejected");
     });
   });
 });
@@ -1844,7 +1906,7 @@ describe("trade-finance full lifecycle", () => {
       console.log("Non-terminal close rejected (L-02)");
     });
 
-    it("Rejects set_lp_mint when pool is not paused (M-09)", async () => {
+    it("Rejects execute_set_lp_mint when pool is not paused (M-09 + H-1)", async () => {
       const newLpMint = await createMint(
         connection,
         payer,
@@ -1852,9 +1914,16 @@ describe("trade-finance full lifecycle", () => {
         null,
         LP_MINT_DECIMALS,
       );
+      // 治理时锁（H-1）：propose 成功（新 mint 非默认）
+      await program.methods
+        .proposeSetLpMint(newLpMint)
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await sleep(WAIT_TIMELOCK);
+      // 未暂停池子 -> execute 被拒（M-09 语义移到 execute 阶段）
       await assert.rejects(
         program.methods
-          .setLpMint()
+          .executeSetLpMint()
           .accounts({
             poolState: poolStatePda,
             admin: provider.wallet.publicKey,
@@ -1865,7 +1934,12 @@ describe("trade-finance full lifecycle", () => {
           .rpc(),
         /PoolMustBePaused/,
       );
-      console.log("set_lp_mint rejected when not paused (M-09)");
+      // 清理待执行提案（execute 失败不改状态，需 cancel）
+      await program.methods
+        .cancelPendingGovAction()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      console.log("execute_set_lp_mint rejected when not paused (M-09 + H-1)");
     });
 
     it("Tracks redeem window usage (M-05)", async () => {
@@ -1881,9 +1955,9 @@ describe("trade-finance full lifecycle", () => {
       );
     });
 
-    it("Sets fee params and rejects invalid shares (H-04)", async () => {
+    it("Sets fee params via propose/execute and rejects invalid shares (H-04 + H-1)", async () => {
       await program.methods
-        .setFeeParams(
+        .proposeSetFeeParams(
           new anchor.BN(1000),
           new anchor.BN(4000),
           new anchor.BN(5000),
@@ -1891,12 +1965,17 @@ describe("trade-finance full lifecycle", () => {
         )
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
+      await sleep(WAIT_TIMELOCK);
+      await program.methods
+        .executeSetFeeParams()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
       const pool = await poolSnapshot();
       assert.equal(pool.feeApyBps.toString(), "1000");
-      // 非法：分成比例之和 != 10000
+      // 非法：分成比例之和 != 10000（propose 阶段即拒绝）
       await assert.rejects(
         program.methods
-          .setFeeParams(
+          .proposeSetFeeParams(
             new anchor.BN(1000),
             new anchor.BN(3000),
             new anchor.BN(3000),
@@ -1911,7 +1990,7 @@ describe("trade-finance full lifecycle", () => {
       );
       // 恢复默认（基准档 670）
       await program.methods
-        .setFeeParams(
+        .proposeSetFeeParams(
           new anchor.BN(670),
           new anchor.BN(4000),
           new anchor.BN(5000),
@@ -1919,8 +1998,13 @@ describe("trade-finance full lifecycle", () => {
         )
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
+      await sleep(WAIT_TIMELOCK);
+      await program.methods
+        .executeSetFeeParams()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
       assert.equal((await poolSnapshot()).feeApyBps.toString(), "670");
-      console.log("set_fee_params ok (H-04)");
+      console.log("set_fee_params propose/execute ok (H-04 + H-1)");
     });
 
     it("Deposits first-loss reserve without diluting LP equity (H-04)", async () => {
@@ -1971,10 +2055,15 @@ describe("trade-finance full lifecycle", () => {
       console.log("deposit_first_loss ok (H-04)");
     });
 
-    it("Withdraws first-loss reserve and enforces minimum (H-04)", async () => {
+    it("Withdraws first-loss via propose/execute and enforces minimum (H-04 + H-1)", async () => {
       const adminAta = await createAta(provider.wallet.publicKey);
       await program.methods
-        .withdrawFirstLoss(new anchor.BN(USDC(4_900)))
+        .proposeWithdrawFirstLoss(new anchor.BN(USDC(4_900)))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await sleep(WAIT_TIMELOCK);
+      await program.methods
+        .executeWithdrawFirstLoss()
         .accounts({
           poolState: poolStatePda,
           admin: provider.wallet.publicKey,
@@ -1990,10 +2079,15 @@ describe("trade-finance full lifecycle", () => {
         USDC(100).toString(),
         "提取后应保留最低首损 100 USDC",
       );
-      // 再提取会跌破最低余额 -> 拒绝
+      // 再提取会跌破最低余额 -> execute 被拒（FirstLossInsufficient）
+      await program.methods
+        .proposeWithdrawFirstLoss(new anchor.BN(1))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await sleep(WAIT_TIMELOCK);
       await assert.rejects(
         program.methods
-          .withdrawFirstLoss(new anchor.BN(1))
+          .executeWithdrawFirstLoss()
           .accounts({
             poolState: poolStatePda,
             admin: provider.wallet.publicKey,
@@ -2006,21 +2100,31 @@ describe("trade-finance full lifecycle", () => {
           .rpc(),
         /FirstLossInsufficient/,
       );
-      console.log("withdraw_first_loss ok (H-04)");
+      // 清理待执行提案
+      await program.methods
+        .cancelPendingGovAction()
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      console.log("withdraw_first_loss propose/execute ok (H-04 + H-1)");
     });
 
-    it("Sets risk params: min insurance + overdue fee (L-07/L-04)", async () => {
+    it("Sets risk params via propose/execute (L-07/L-04 + H-1)", async () => {
       await program.methods
-        .setRiskParams(new anchor.BN(50_000_000), new anchor.BN(500))
+        .proposeSetRiskParams(new anchor.BN(50_000_000), new anchor.BN(500))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await sleep(WAIT_TIMELOCK);
+      await program.methods
+        .executeSetRiskParams()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
       let pool = await poolSnapshot();
       assert.equal(pool.minInsuranceAbs.toString(), "50000000");
       assert.equal(pool.overdueFeeApyBps.toString(), "500");
-      // 非法：罚息费率超上限
+      // 非法：罚息费率超上限（propose 阶段即拒绝）
       await assert.rejects(
         program.methods
-          .setRiskParams(new anchor.BN(50_000_000), new anchor.BN(9000))
+          .proposeSetRiskParams(new anchor.BN(50_000_000), new anchor.BN(9000))
           .accounts({
             poolState: poolStatePda,
             admin: provider.wallet.publicKey,
@@ -2030,13 +2134,18 @@ describe("trade-finance full lifecycle", () => {
       );
       // 恢复默认
       await program.methods
-        .setRiskParams(new anchor.BN(100_000_000), new anchor.BN(0))
+        .proposeSetRiskParams(new anchor.BN(100_000_000), new anchor.BN(0))
+        .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
+        .rpc();
+      await sleep(WAIT_TIMELOCK);
+      await program.methods
+        .executeSetRiskParams()
         .accounts({ poolState: poolStatePda, admin: provider.wallet.publicKey })
         .rpc();
       pool = await poolSnapshot();
       assert.equal(pool.minInsuranceAbs.toString(), "100000000");
       assert.equal(pool.overdueFeeApyBps.toString(), "0");
-      console.log("set_risk_params ok (L-07/L-04)");
+      console.log("set_risk_params propose/execute ok (L-07/L-04 + H-1)");
     });
 
     it("Mints and redeems at consistent cash price with first-loss (N-01/N-06)", async () => {

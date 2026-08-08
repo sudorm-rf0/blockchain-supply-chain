@@ -122,3 +122,31 @@ pub struct RiskParamsUpdatedEvent {
     pub min_insurance_abs: u64,
     pub overdue_fee_apy_bps: u64,
 }
+
+/// 治理时锁（审计 H-1）：提案已登记，等待时锁后由 execute_* 生效。
+#[event]
+pub struct GovernanceActionProposedEvent {
+    pub admin: Pubkey,
+    pub action: u8,
+    pub proposed_at: i64,
+    pub delay_secs: i64,
+    pub param_pubkey: Pubkey,
+    pub param_u64s: [u64; 4],
+}
+
+/// 治理时锁（审计 H-1）：提案已过等待期并执行生效。
+#[event]
+pub struct GovernanceActionExecutedEvent {
+    pub admin: Pubkey,
+    pub action: u8,
+    pub proposed_at: i64,
+    pub executed_at: i64,
+}
+
+/// 治理时锁（审计 H-1）：管理员主动取消待执行提案。
+#[event]
+pub struct GovernanceActionCancelledEvent {
+    pub admin: Pubkey,
+    pub action: u8,
+    pub cancelled_at: i64,
+}
