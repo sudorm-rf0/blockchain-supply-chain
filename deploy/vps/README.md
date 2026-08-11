@@ -10,6 +10,10 @@
 
 月成本约 ¥150~250（轻量服务器 2C4G 约 ¥60-100/台）。Solana 走外部 RPC（Helius/QuickNode），VPS 不跑链节点。
 
+> 📌 **实际服务器登记**：已开通的 VPS 与网络信息（IP/网关/归属）见
+> [`docs/VPS-INVENTORY.md`](../../docs/VPS-INVENTORY.md)。当前已登记 1 台（香港
+> `103.39.79.7`，默认按 VPS-A 应用机），VPS-B 数据机待开通。
+
 ## 一、VPS-B（数据机，先部署）
 
 ```bash

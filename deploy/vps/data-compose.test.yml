@@ -1,0 +1,12 @@
+# 单机测试 override：数据栈加入共享网络 supply-chain-net（应用容器按容器名访问）
+# 用法：docker compose --env-file .env.data -f data-compose.yml -f data-compose.test.yml up -d
+services:
+  postgres:
+    networks: [supply-chain-net]
+  redis:
+    networks: [supply-chain-net]
+  backup:
+    networks: [supply-chain-net]
+networks:
+  supply-chain-net:
+    external: true

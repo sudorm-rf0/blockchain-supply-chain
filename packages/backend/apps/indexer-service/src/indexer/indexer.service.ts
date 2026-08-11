@@ -126,11 +126,17 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
       "confirmed",
     );
     if (poolInfo) {
-      const payload = parsePoolStateBuffer(
-        poolInfo.data,
-        this.poolStateAddress.toBase58(),
-      );
-      await this.syncQueue.enqueuePoolSnapshot(payload);
+      try {
+        const payload = parsePoolStateBuffer(
+          poolInfo.data,
+          this.poolStateAddress.toBase58(),
+        );
+        await this.syncQueue.enqueuePoolSnapshot(payload);
+      } catch (error) {
+        this.logger.warn(
+          `skip pool state ${this.poolStateAddress.toBase58()}: ${String(error)}`,
+        );
+      }
     }
 
     this.logger.log(

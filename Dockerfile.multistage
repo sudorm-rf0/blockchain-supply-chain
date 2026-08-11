@@ -66,6 +66,10 @@ ENV NODE_ENV=production PORT=3001
 COPY --from=builder /app/backend-out ./
 COPY --from=builder /workspace/packages/backend/dist ./dist
 COPY --from=builder /workspace/packages/backend/prisma ./prisma
+RUN npx prisma generate
+
+# 生成 Prisma Client（pnpm deploy 不会带 .prisma/client，运行时启动必需）
+RUN ./node_modules/.bin/prisma generate --schema ./prisma/schema.prisma
 
 RUN mkdir -p /app/uploads && chown -R node:node /app
 RUN node -e "require('sharp')" || (echo "ERROR: sharp native module missing" && exit 1)
