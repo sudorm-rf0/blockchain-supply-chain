@@ -76,8 +76,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-md shadow-xl">
+        <Card className="w-full shadow-xl">
         <CardHeader>
           <CardTitle className="text-center text-xl">登录</CardTitle>
         </CardHeader>
@@ -132,7 +131,6 @@ export default function LoginPage() {
             </p>
           </form>
         </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }

@@ -6,6 +6,12 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
+import {
+  CircleDollarSign,
+  Landmark,
+  Scale,
+  Percent,
+} from "lucide-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,24 +125,28 @@ export default function DashboardPage() {
   const stats = overview
     ? [
         {
-          label: "Pool Size",
+          label: "资金池规模",
           value: `$${formatUsdc(overview.totalAssets)}`,
           accent: "text-sky-600 dark:text-sky-300",
+          icon: CircleDollarSign,
         },
         {
-          label: "Current NAV",
+          label: "当前净值 NAV",
           value: `$${formatUsdc(overview.nav)}`,
           accent: "text-emerald-600 dark:text-emerald-300",
+          icon: Landmark,
         },
         {
-          label: "30 / 70 Position",
+          label: "首付 / 池子比例",
           value: `${overview.downPaymentSharePct.toFixed(1)}% / ${overview.poolPortionSharePct.toFixed(1)}%`,
           accent: "text-amber-600 dark:text-amber-300",
+          icon: Scale,
         },
         {
-          label: "Realtime APR",
+          label: "实时 APR",
           value: `${overview.aprPct.toFixed(2)}%`,
           accent: "text-fuchsia-600 dark:text-fuchsia-300",
+          icon: Percent,
         },
       ]
     : [];
@@ -233,8 +243,9 @@ export default function DashboardPage() {
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {stats.map((stat) => (
               <Card key={stat.label}>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardDescription>{stat.label}</CardDescription>
+                  <stat.icon className={`h-4 w-4 ${stat.accent}`} />
                 </CardHeader>
                 <CardContent>
                   <p className={`text-2xl font-semibold ${stat.accent}`}>{stat.value}</p>
