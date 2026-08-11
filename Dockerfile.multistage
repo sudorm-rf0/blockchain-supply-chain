@@ -87,6 +87,8 @@ RUN sed -i "s#https://dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#g" /etc/apk/reposi
 ENV NODE_ENV=production PORT=3000
 
 COPY --from=builder /workspace/packages/frontend/.next/standalone ./
+COPY --from=builder /workspace/packages/frontend/.next/static ./packages/frontend/.next/static
+COPY --from=builder /workspace/packages/frontend/public ./packages/frontend/public
 
 USER node
 EXPOSE 3000
