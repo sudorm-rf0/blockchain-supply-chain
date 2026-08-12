@@ -70,13 +70,9 @@ else
   warn "Bot Fight Mode 失败 → 手动：安全性 → Bots → Bot Fight Mode 开启"
 fi
 
-echo "== 4/8 自定义 WAF 规则（rulesets）=="
-WAF_CUSTOM='{"rules":[{"action":"managed_challenge","expression":"(http.request.uri.path contains \"/api/auth/\" and not cf.client.bot)","description":"challenge api auth"}]}'
-if cf PUT "/zones/$ZONE/rulesets/phases/http_request_firewall_custom/entrypoint" "$WAF_CUSTOM" | python3 -c "import json,sys; raise SystemExit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
-  ok "自定义 WAF 规则已生效（/api/auth/* 非机器人 → 托管质询）"
-else
-  warn "自定义 WAF 规则设置失败 → 手动：安全性 → WAF → 自定义规则"
-fi
+echo "== 4/8 WAF 自定义规则 =="
+warn "跳过：托管质询不适用于 API（fetch 无法自动通过质询，会导致登录等接口 403）。"
+warn "API 防护请依赖：Turnstile 人机验证 + 速率限制 + 后端限速（已启用）。"
 
 echo "== 5/8 速率限制（登录/注册防爆破）=="
 RATELIMIT='{"rules":[{"action":"block","ratelimit":{"characteristics":["cf.colo.id","ip.src"],"period":10,"requests_per_period":4,"mitigation_timeout":10},"expression":"(http.request.uri.path contains \"/api/auth/login\" or http.request.uri.path contains \"/api/auth/register\")","description":"auth rate limit 4/10s"}]}'
