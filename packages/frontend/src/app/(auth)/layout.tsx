@@ -61,7 +61,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative z-10 flex items-center gap-2 text-sm text-slate-400">
-          Solana · Anchor 供应链金融演示平台
+          Solana · Anchor 供应链金融平台
           <ArrowRight className="h-4 w-4" />
         </div>
       </div>

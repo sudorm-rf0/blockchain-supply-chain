@@ -1,6 +1,6 @@
 # Blockchain Supply Chain Monorepo
 
-Solana/Anchor 供应链金融演示系统：单据上传审核、Solana 存证、贸易订单创建与
+Solana/Anchor 供应链金融平台：单据上传审核、Solana 存证、贸易订单创建与
 资金池快照。使用 pnpm workspaces + Turbo 管理。
 
 ## 包结构
@@ -109,9 +109,6 @@ FRONTEND_PORT=3100 pnpm dev
 bash scripts/health-check.sh
 ```
 
-不想启动后端时，可直接打开根目录 `demo.html` 演示“用户拍照上传 → 链上存证 →
-管理员 PC 审核并查看图片”的完整流程。
-
 ## 测试
 
 ```bash
@@ -137,10 +134,10 @@ Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，�
 
 ## 文档
 
-- [演示手册](docs/DEMO.md)：本地 Demo 账号、流程与重置
+- [本地试用手册](docs/DEMO.md)：本地账号、流程与重置
 - [部署手册](docs/DEPLOYMENT.md)（中文）/[DEPLOYMENT.en.md](docs/DEPLOYMENT.en.md)（English）
 - [操作手册](docs/OPERATIONS.md)（中文）/[OPERATIONS.en.md](docs/OPERATIONS.en.md)（English）
-- [演示视频脚本](docs/VIDEO-SCRIPT.md)：8 个分镜的中英文旁白与录屏建议
+- [视频脚本](docs/VIDEO-SCRIPT.md)：8 个分镜的中英文旁白与录屏建议
 - [接口文档](docs/API.md)：认证、文件、订单、资金池、索引器全部接口
 - [上线运行手册](docs/GO-LIVE-RUNBOOK.md) 与
   [上线核对清单](docs/LAUNCH-CHECKLIST.md)
