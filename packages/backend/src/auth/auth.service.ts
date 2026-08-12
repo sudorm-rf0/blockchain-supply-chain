@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
 import { getRedisFailureCount, RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
+import { TurnstileService } from "./turnstile.service";
 import { signJwt } from "@supply-chain/common";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -166,6 +167,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly audit: AuditService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   async register(body: {
@@ -173,7 +175,11 @@ export class AuthService {
     email: string;
     password: string;
     wallet?: string;
+    turnstileToken?: string;
   }): Promise<SessionResult> {
+    if (!(await this.turnstile.verify(body.turnstileToken, { expectedAction: "signup" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     if (!body.name || !body.email || !body.password) {
       throw new BadRequestException("缺少注册字段");
     }
@@ -233,9 +239,17 @@ export class AuthService {
   }
 
   async login(
-    body: { email: string; password: string; totpCode?: string },
+    body: {
+      email: string;
+      password: string;
+      totpCode?: string;
+      turnstileToken?: string;
+    },
     clientIp?: string,
   ): Promise<SessionResult | { requiresTotp: true }> {
+    if (!(await this.turnstile.verify(body.turnstileToken, { remoteIp: clientIp, expectedAction: "login" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     const redisFailuresBefore = getRedisFailureCount();
     const failKey = `login:fail:${body.email}`;
     const fails = await this.redis.incr(failKey);

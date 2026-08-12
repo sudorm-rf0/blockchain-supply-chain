@@ -25,4 +25,9 @@ export class RegisterDto {
   @IsString()
   @MaxLength(64)
   wallet?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  turnstileToken?: string;
 }

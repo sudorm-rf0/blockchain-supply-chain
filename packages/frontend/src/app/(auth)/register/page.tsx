@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { register as registerApi } from "@/lib/api";
+import Turnstile from "@/components/Turnstile";
+import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import { useUserStore } from "@/stores/user-store";
 
 const schema = z
@@ -35,6 +38,8 @@ type RegisterForm = z.infer<typeof schema>;
 export default function RegisterPage() {
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
   const {
     register,
     handleSubmit,
@@ -51,16 +56,23 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: RegisterForm) => {
     try {
+      if (TURNSTILE_SITE_KEY && !turnstileToken) {
+        toast.error("请先完成人机验证");
+        return;
+      }
       const { user, mustChangePassword } = await registerApi({
         name: values.name,
         email: values.email,
         password: values.password,
         wallet: values.wallet || undefined,
+        turnstileToken: turnstileToken || undefined,
       });
       setAuth({ ...user, mustChangePassword: mustChangePassword ?? false });
       toast.success("注册成功");
       router.push("/user/upload");
     } catch (error) {
+      setCaptchaKey((k) => k + 1);
+      setTurnstileToken("");
       toast.error(error instanceof Error ? error.message : "注册失败");
     }
   };
@@ -114,7 +126,12 @@ export default function RegisterPage() {
                 {...register("wallet")}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Turnstile key={captchaKey} action="signup" onVerify={setTurnstileToken} />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isSubmitting || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
+            >
               {isSubmitting ? "注册中..." : "注册"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

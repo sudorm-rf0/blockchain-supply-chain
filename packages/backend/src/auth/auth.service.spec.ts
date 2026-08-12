@@ -91,6 +91,7 @@ describe("AuthService", () => {
       makePrisma() as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     await expect(
       service.register({ name: "A", email: "a@example.com", password: "123" }),
@@ -102,6 +103,7 @@ describe("AuthService", () => {
       makePrisma() as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     await expect(
       service.register({
@@ -119,6 +121,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -146,6 +149,7 @@ describe("AuthService", () => {
       makePrisma() as never,
       redis as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     await expect(
       service.login(
@@ -161,6 +165,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -191,6 +196,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     await service.register({
       name: "T",
@@ -223,6 +229,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     // 密码正确性仍校验：用真实注册流程生成合法密码哈希
     await service.register({
@@ -267,6 +274,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     await service.register({
       name: "T",
@@ -291,6 +299,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     await service.register({
       name: "T",
@@ -318,6 +327,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       audit as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -341,6 +351,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -372,6 +383,7 @@ describe("AuthService", () => {
       prisma as never,
       makeRedis() as never,
       audit as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     const reg = await service.register({

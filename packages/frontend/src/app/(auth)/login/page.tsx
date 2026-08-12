@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "@/lib/api";
+import Turnstile from "@/components/Turnstile";
+import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import { useUserStore } from "@/stores/user-store";
 
 const schema = z.object({
@@ -26,6 +28,8 @@ export default function LoginPage() {
   const setAuth = useUserStore((state) => state.setAuth);
   const [requiresTotp, setRequiresTotp] = useState(false);
   const [totpCode, setTotpCode] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
   const {
     register,
     handleSubmit,
@@ -37,13 +41,20 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginForm) => {
     try {
+      if (TURNSTILE_SITE_KEY && !turnstileToken) {
+        toast.error("请先完成人机验证");
+        return;
+      }
       const result = await login(
         values.email,
         values.password,
         totpCode || undefined,
+        turnstileToken || undefined,
       );
       if (result.requiresTotp) {
         setRequiresTotp(true);
+        setCaptchaKey((k) => k + 1);
+        setTurnstileToken("");
         toast.info("该账号已开启两步验证，请输入 6 位验证码");
         return;
       }
@@ -58,6 +69,8 @@ export default function LoginPage() {
             : "/user/upload",
       );
     } catch (error) {
+      setCaptchaKey((k) => k + 1);
+      setTurnstileToken("");
       const hint = error instanceof Error ? error.message : "";
       if (
         hint.includes("fetch") ||
@@ -120,7 +133,12 @@ export default function LoginPage() {
                 />
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Turnstile key={captchaKey} action="login" onVerify={setTurnstileToken} />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isSubmitting || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
+            >
               {isSubmitting ? "登录中..." : requiresTotp ? "验证并登录" : "登录"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">

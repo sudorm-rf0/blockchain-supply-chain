@@ -9,6 +9,7 @@ export async function login(
   email: string,
   password: string,
   totpCode?: string,
+  turnstileToken?: string,
 ): Promise<{
   accessToken?: string;
   user: AuthUser;
@@ -18,7 +19,7 @@ export async function login(
   return request(`${BACKEND_URL}/api/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password, totpCode }),
+    body: JSON.stringify({ email, password, totpCode, turnstileToken }),
   });
 }
 
@@ -52,6 +53,7 @@ export async function register(input: {
   email: string;
   password: string;
   wallet?: string;
+  turnstileToken?: string;
 }): Promise<{ accessToken?: string; user: AuthUser; mustChangePassword?: boolean }> {
   return request(`${BACKEND_URL}/api/auth/register`, {
     method: "POST",

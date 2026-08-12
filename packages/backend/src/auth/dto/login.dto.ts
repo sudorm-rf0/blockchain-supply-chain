@@ -14,4 +14,9 @@ export class LoginDto {
   @IsString()
   @Matches(/^\d{6}$/, { message: "TOTP 验证码为 6 位数字" })
   totpCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  turnstileToken?: string;
 }

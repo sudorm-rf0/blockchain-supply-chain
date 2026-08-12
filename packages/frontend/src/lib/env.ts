@@ -8,3 +8,6 @@ export const INDEXER_API_URL =
   process.env.NEXT_PUBLIC_INDEXER_API_URL ?? "http://localhost:3003";
 
 export const API_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 15000);
+
+export const TURNSTILE_SITE_KEY =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";

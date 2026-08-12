@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { TurnstileService } from "./turnstile.service";
 import {
   AuthGuard,
   AdminGuard,
@@ -15,6 +16,7 @@ import { AuditModule } from "../audit/audit.module";
   controllers: [AuthController],
   providers: [
     AuthService,
+    TurnstileService,
     AuthGuard,
     AdminGuard,
     PrismaService,
@@ -23,6 +25,7 @@ import { AuditModule } from "../audit/audit.module";
   ],
   exports: [
     AuthService,
+    TurnstileService,
     AuthGuard,
     AdminGuard,
     PrismaService,
