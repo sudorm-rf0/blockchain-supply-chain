@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/table";
 import { deleteFile, getFiles, type FileRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { fileStatusClass } from "@/lib/status";
+import { fileStatusClass, FILE_STATUS_LABEL } from "@/lib/status";
 
 const LIMIT = 10;
 
@@ -45,8 +45,11 @@ export default function UserFilesPage() {
   const [status, setStatus] = useState<string>("ALL");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await getFiles({
         page,
@@ -57,6 +60,8 @@ export default function UserFilesPage() {
       setTotal(data.total);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "加载失败");
+    } finally {
+      setLoading(false);
     }
   }, [page, status]);
 
@@ -65,14 +70,21 @@ export default function UserFilesPage() {
   }, [load]);
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || deleting) return;
+    setDeleting(true);
     try {
       await deleteFile(deleteId);
       toast.success("删除成功");
       setDeleteId(null);
-      await load();
+      if (files.length === 1 && page > 1) {
+        setPage((p) => p - 1);
+      } else {
+        await load();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "删除失败");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -100,7 +112,18 @@ export default function UserFilesPage() {
       </div>
 
       <div className="space-y-4">
-        {Object.entries(groups).map(([group, groupFiles]) => (
+        {loading ? (
+          <div className="grid gap-4">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-md border bg-muted" />
+            ))}
+          </div>
+        ) : Object.keys(groups).length === 0 ? (
+          <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
+            暂无文件{status !== "ALL" ? "（当前筛选条件下）" : ""}
+          </div>
+        ) : (
+        Object.entries(groups).map(([group, groupFiles]) => (
           <div key={group}>
             <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
               单据组：{group}（{groupFiles.length}）
@@ -135,7 +158,7 @@ export default function UserFilesPage() {
                       <TableCell>{(file.size / 1024).toFixed(0)} KB</TableCell>
                       <TableCell>
                         <Badge className={fileStatusClass(file.status)}>
-                          {file.status}
+                          {FILE_STATUS_LABEL[file.status] ?? file.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
@@ -179,7 +202,8 @@ export default function UserFilesPage() {
               </Table>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       <div className="flex items-center justify-between">
@@ -218,8 +242,11 @@ export default function UserFilesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>
-              删除
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={() => void handleDelete()}
+            >
+              {deleting ? "删除中..." : "删除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

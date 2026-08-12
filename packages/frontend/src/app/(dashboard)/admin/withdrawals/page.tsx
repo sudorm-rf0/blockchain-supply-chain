@@ -18,7 +18,7 @@ import {
   type WithdrawRequestRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { WITHDRAW_STATUS_STYLE } from "@/lib/status";
+import { WITHDRAW_STATUS_STYLE, WITHDRAW_STATUS_LABEL } from "@/lib/status";
 
 export default function AdminWithdrawalsPage() {
   const [requests, setRequests] = useState<WithdrawRequestRecord[]>([]);
@@ -43,7 +43,7 @@ export default function AdminWithdrawalsPage() {
     setBusyId(id);
     try {
       const result = await executeWithdrawal(id);
-      toast.success(`提款状态：${result.status}`);
+      toast.success(`提款状态：${WITHDRAW_STATUS_LABEL[result.status] ?? result.status}`);
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "执行失败");
@@ -83,7 +83,7 @@ export default function AdminWithdrawalsPage() {
                   <TableCell>{formatDateTime(request.availableAt)}</TableCell>
                   <TableCell>
                     <Badge className={WITHDRAW_STATUS_STYLE[request.status] ?? ""}>
-                      {request.status}
+                      {WITHDRAW_STATUS_LABEL[request.status] ?? request.status}
                     </Badge>
                   </TableCell>
                   <TableCell>

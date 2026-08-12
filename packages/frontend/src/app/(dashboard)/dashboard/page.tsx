@@ -355,7 +355,7 @@ export default function DashboardPage() {
           <section className="grid gap-4 sm:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardDescription>Active Deals</CardDescription>
+                <CardDescription>进行中订单</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-xl font-semibold">{overview.activeDeals}</p>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardDescription>Settled</CardDescription>
+                <CardDescription>已结清</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-300">
@@ -373,7 +373,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardDescription>Defaulted</CardDescription>
+                <CardDescription>已违约</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-xl font-semibold text-red-600 dark:text-red-300">

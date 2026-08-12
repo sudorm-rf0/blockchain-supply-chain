@@ -38,6 +38,7 @@ import {
   NEXT_TRADE_STATUS,
   TRADE_LIFECYCLE,
   TRADE_STATUS_STYLE,
+  TRADE_STATUS_LABEL,
 } from "@/lib/status";
 
 export default function TradeDetailPage() {
@@ -93,7 +94,7 @@ export default function TradeDetailPage() {
       const signature = await sendTransaction(transaction, connection);
       await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirm(signature);
-      toast.success(`订单状态已更新：${result.status}`);
+      toast.success(`订单状态已更新：${TRADE_STATUS_LABEL[result.status] ?? result.status}`);
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "链上操作失败");
@@ -148,7 +149,7 @@ export default function TradeDetailPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">订单详情</h1>
           <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
-            {trade.status}
+            {TRADE_STATUS_LABEL[trade.status] ?? trade.status}
           </Badge>
         </div>
         <div className="flex items-center gap-2">

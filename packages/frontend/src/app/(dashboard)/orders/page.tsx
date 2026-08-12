@@ -47,6 +47,7 @@ import {
   CAN_DEFAULT_TRADE,
   NEXT_TRADE_STATUS,
   TRADE_STATUS_STYLE,
+  TRADE_STATUS_LABEL,
 } from "@/lib/status";
 
 export default function OrdersPage() {
@@ -175,14 +176,14 @@ export default function OrdersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">全部状态</SelectItem>
-            <SelectItem value="PENDING">PENDING</SelectItem>
-            <SelectItem value="FUNDED">FUNDED</SelectItem>
-            <SelectItem value="IN_TRANSIT">IN_TRANSIT</SelectItem>
-            <SelectItem value="CUSTOMS_CLEAR">CUSTOMS_CLEAR</SelectItem>
-            <SelectItem value="DELIVERED">DELIVERED</SelectItem>
-            <SelectItem value="REPAYING">REPAYING</SelectItem>
-            <SelectItem value="SETTLED">SETTLED</SelectItem>
-            <SelectItem value="DEFAULTED">DEFAULTED</SelectItem>
+            <SelectItem value="PENDING">待放款</SelectItem>
+            <SelectItem value="FUNDED">已放款</SelectItem>
+            <SelectItem value="IN_TRANSIT">运输中</SelectItem>
+            <SelectItem value="CUSTOMS_CLEAR">已清关</SelectItem>
+            <SelectItem value="DELIVERED">已交付</SelectItem>
+            <SelectItem value="REPAYING">还款中</SelectItem>
+            <SelectItem value="SETTLED">已结清</SelectItem>
+            <SelectItem value="DEFAULTED">已违约</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -228,7 +229,7 @@ export default function OrdersPage() {
                     <TableCell>{Math.round(trade.tenor / 86400)} 天</TableCell>
                     <TableCell>
                       <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
-                        {trade.status}
+                        {TRADE_STATUS_LABEL[trade.status] ?? trade.status}
                       </Badge>
                       <RepaymentCountdown
                         createdAt={trade.createdAt}

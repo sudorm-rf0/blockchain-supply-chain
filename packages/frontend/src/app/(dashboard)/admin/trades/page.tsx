@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { fetchAllTrades, formatUsdc, type TradeRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { TRADE_STATUS_STYLE } from "@/lib/status";
+import { TRADE_STATUS_STYLE, TRADE_STATUS_LABEL } from "@/lib/status";
 
 export default function AdminTradesPage() {
   const [trades, setTrades] = useState<TradeRecord[]>([]);
@@ -62,7 +62,7 @@ export default function AdminTradesPage() {
                   <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
                   <TableCell>
                     <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
-                      {trade.status}
+                      {TRADE_STATUS_LABEL[trade.status] ?? trade.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-xs">

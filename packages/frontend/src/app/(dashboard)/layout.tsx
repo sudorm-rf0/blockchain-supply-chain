@@ -91,7 +91,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
           <div className="flex items-center gap-2">
             <span className="h-6 w-6 rounded bg-primary" />
-            <span className="font-semibold">Supply Chain</span>
+            <span className="font-semibold">供应链管理</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

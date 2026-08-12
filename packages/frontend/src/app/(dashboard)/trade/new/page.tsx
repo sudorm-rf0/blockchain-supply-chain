@@ -55,13 +55,21 @@ export default function NewTradePage() {
     setQuote(null);
 
     if (!connected || !publicKey) {
-      setError("Connect a wallet before creating a trade.");
+      setError("请先连接钱包再创建订单");
       return;
     }
 
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setError("Enter a valid trade amount.");
+      setError("请输入有效的贸易金额");
+      return;
+    }
+    const seller = sellerWallet.trim();
+    if (
+      seller &&
+      !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(seller)
+    ) {
+      setError("卖方钱包地址格式不正确");
       return;
     }
 
@@ -96,7 +104,6 @@ export default function NewTradePage() {
         tradeId: response.tradeId,
       });
       setSignature(txSignature);
-      router.push("/orders");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -167,7 +174,7 @@ export default function NewTradePage() {
 
             {connected && publicKey && (
               <p className="truncate font-mono text-xs text-muted-foreground">
-                Buyer: {publicKey.toBase58()}
+                买方: {publicKey.toBase58()}
               </p>
             )}
 
@@ -178,6 +185,15 @@ export default function NewTradePage() {
                 <p className="mt-1 font-mono text-xs opacity-80">
                   tradeId: {quote.tradeId}
                 </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => router.push("/orders")}
+                >
+                  查看订单列表
+                </Button>
               </div>
             )}
 
@@ -192,7 +208,7 @@ export default function NewTradePage() {
               disabled={submitting || !connected}
               className="w-full"
             >
-              {submitting ? "Preparing..." : "Pre-build & Sign"}
+              {submitting ? "准备中..." : "预构建并签名"}
             </Button>
           </form>
         </CardContent>

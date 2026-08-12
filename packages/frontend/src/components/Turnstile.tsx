@@ -37,6 +37,8 @@ export default function Turnstile({ onVerify, action }: TurnstileProps) {
   const widgetIdRef = useRef<string | undefined>(undefined);
   const onVerifyRef = useRef(onVerify);
   onVerifyRef.current = onVerify;
+  const actionRef = useRef(action);
+  actionRef.current = action;
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY) return;
@@ -53,7 +55,7 @@ export default function Turnstile({ onVerify, action }: TurnstileProps) {
       }
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: TURNSTILE_SITE_KEY,
-        action,
+        action: actionRef.current,
         callback: (token: string) => onVerifyRef.current(token),
         "expired-callback": () => onVerifyRef.current(""),
         "error-callback": () => onVerifyRef.current(""),

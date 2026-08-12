@@ -47,7 +47,7 @@ import {
   type FileRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { fileStatusClass } from "@/lib/status";
+import { fileStatusClass, FILE_STATUS_LABEL } from "@/lib/status";
 
 const LIMIT = 10;
 
@@ -254,7 +254,7 @@ export default function AdminFilesPage({
                 <TableCell>{(file.size / 1024).toFixed(0)} KB</TableCell>
                 <TableCell>
                   <Badge className={fileStatusClass(file.status)}>
-                    {file.status}
+                    {FILE_STATUS_LABEL[file.status] ?? file.status}
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-xs">

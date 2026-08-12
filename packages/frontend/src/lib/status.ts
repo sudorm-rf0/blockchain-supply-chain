@@ -51,3 +51,27 @@ export const TRADE_LIFECYCLE = [
   "REPAYING",
   "SETTLED",
 ];
+
+// ---- 中文状态显示映射 ----
+export const TRADE_STATUS_LABEL: Record<string, string> = {
+  PENDING: "待放款",
+  FUNDED: "已放款",
+  IN_TRANSIT: "运输中",
+  CUSTOMS_CLEAR: "已清关",
+  DELIVERED: "已交付",
+  REPAYING: "还款中",
+  SETTLED: "已结清",
+  DEFAULTED: "已违约",
+};
+
+export const WITHDRAW_STATUS_LABEL: Record<string, string> = {
+  PENDING: "待处理",
+  READY: "可提取",
+  EXECUTED: "已执行",
+};
+
+export const FILE_STATUS_LABEL: Record<string, string> = {
+  PENDING: "待审核",
+  APPROVED: "已通过",
+  REJECTED: "已驳回",
+};
