@@ -12,8 +12,17 @@
 | 前端静态资源缓存（`/_next/static/*`，immutable 30 天） | `deploy/vps/nginx.conf` |
 | CSP（放行 Turnstile、限后端域名） | `packages/frontend/src/middleware.ts` + `next.config.mjs` |
 | 登录/注册人机验证 | Cloudflare Turnstile |
-| 登录/注册接口限速 | 后端 throttle（`THROTTLE_LIMIT`） |
+| 登录/注册接口限速 | 后端 throttle（`THROTTLE_LIMIT`）+ Cloudflare 边缘限速 |
 | TOTP 两步验证、密码强度 | 后端 auth |
+
+## 一·补充、Cloudflare 侧已通过 API 启用（2026-08-12）
+
+| 项 | 配置 | 说明 |
+|---|---|---|
+| 自定义 WAF 规则 | `/api/auth/*` 且非机器人 → **托管质询** | 浏览器无感；**非浏览器客户端访问 auth 接口会被质询拦截（403）** |
+| 速率限制 | `/api/auth/login` + `/api/auth/register` 每 10 秒超 4 次 → **封禁 10 秒** | 免费版参数受限（period/timeout 仅支持 10）；叠加 Turnstile + 后端限速 |
+
+> 提示：托管质询会影响 curl/脚本直接调用登录接口（返回 403 + `cf-mitigated: challenge`），浏览器不受影响。若需放行某些程序化调用，可在 WAF 规则 expression 里加白名单条件。
 
 ## 二、Cloudflare 侧防护（推荐全部开启）
 
@@ -31,7 +40,7 @@ CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ZONE_ID=<zone-id> \
 3. **HSTS**（1 年，含子域）
 4. **Bot Fight Mode** 开启
 5. **WAF 托管规则集**（Cloudflare Managed Ruleset）
-6. **速率限制**：`/api/auth/login` 20 次/分钟、`/api/auth/register` 10 次/分钟，超限封禁 15 分钟
+6. **速率限制**：`/api/auth/*` 每 10 秒 4 次，超限封禁（免费版参数上限）
 7. **缓存规则**：`/_next/static/*` 边缘缓存 30 天
 
 权限不足时脚本会打印 `⚠️` 并给出手动路径，其余项照常配置。

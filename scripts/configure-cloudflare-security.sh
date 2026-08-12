@@ -70,31 +70,21 @@ else
   warn "Bot Fight Mode 失败 → 手动：安全性 → Bots → Bot Fight Mode 开启"
 fi
 
-echo "== 4/8 WAF：Cloudflare Managed Ruleset（托管规则）=="
-MANAGED='{
-  "rules": [
-    {"action":"managed_challenge","expression":"(cf.zone.name eq \"supplychain.de5.net\" and any(http.request.uri.path starts with \"/api/\") and not cf.client.bot)"}
-  ]
-}'
-if cf PUT "/zones/$ZONE/rulesets/phases/http_request_firewall_managed/entrypoint" '{"rules":[]}' >/dev/null 2>&1 \
-   && cf PUT "/zones/$ZONE/rulesets/phases/http_request_firewall_managed/entrypoint" "$MANAGED" | python3 -c "import json,sys; raise SystemExit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
-  ok "WAF 托管规则已挂载（/api/* 命中托管规则时走托管质询）"
+echo "== 4/8 自定义 WAF 规则（rulesets）=="
+WAF_CUSTOM='{"rules":[{"action":"managed_challenge","expression":"(http.request.uri.path contains \"/api/auth/\" and not cf.client.bot)","description":"challenge api auth"}]}'
+if cf PUT "/zones/$ZONE/rulesets/phases/http_request_firewall_custom/entrypoint" "$WAF_CUSTOM" | python3 -c "import json,sys; raise SystemExit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
+  ok "自定义 WAF 规则已生效（/api/auth/* 非机器人 → 托管质询）"
 else
-  warn "WAF 托管规则设置失败 → 手动：安全性 → WAF → 托管规则 → 部署 Cloudflare Managed Ruleset"
+  warn "自定义 WAF 规则设置失败 → 手动：安全性 → WAF → 自定义规则"
 fi
 
 echo "== 5/8 速率限制（登录/注册防爆破）=="
-add_ratelimit() { # name match threshold period action
-  local name="$1" match="$2" threshold="$3" period="$4"
-  local payload="{\"description\":\"$name\",\"match\":{\"request\":{\"url\":\"https://supplychain.de5.net$match\"}},\"threshold\":$threshold,\"period\":$period,\"action\":{\"mode\":\"block\",\"timeout\":900},\"disabled\":false}"
-  if cf POST "/zones/$ZONE/rate_limits" "$payload" | python3 -c "import json,sys; raise SystemExit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
-    ok "限速 $name（$threshold 次/$period 秒，超限封禁 15 分钟）"
-  else
-    warn "限速 $name 创建失败 → 手动：安全性 → 速率限制"
-  fi
-}
-add_ratelimit "login-brute" "/api/auth/login" 20 60
-add_ratelimit "register-brute" "/api/auth/register" 10 60
+RATELIMIT='{"rules":[{"action":"block","ratelimit":{"characteristics":["cf.colo.id","ip.src"],"period":10,"requests_per_period":4,"mitigation_timeout":10},"expression":"(http.request.uri.path contains \"/api/auth/login\" or http.request.uri.path contains \"/api/auth/register\")","description":"auth rate limit 4/10s"}]}'
+if cf PUT "/zones/$ZONE/rulesets/phases/http_ratelimit/entrypoint" "$RATELIMIT" | python3 -c "import json,sys; raise SystemExit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
+  ok "速率限制已生效（/api/auth/* 每 10 秒超 4 次封禁；免费版参数限制 period/timeout=10）"
+else
+  warn "速率限制设置失败 → 手动：安全性 → 速率限制（免费版：period 10s、超限封禁 10s）"
+fi
 
 echo "== 6/8 缓存优化（前端静态资源 /_next/static/ 走边缘缓存）=="
 CACHE_RULE='{
