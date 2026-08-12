@@ -40,7 +40,7 @@
 | Docker Compose | 2.40.3（`docker compose` v2 插件） |
 | 防火墙 | UFW active：默认拒绝入站，放行 22/80/443（v4+v6） |
 | 加固 | fail2ban 已安装并运行 |
-| 部署状态 | **已部署并全链路验证**（2026-08-12）：单机全栈 + **HTTPS**，`https://103-39-79-7.sslip.io`（Let's Encrypt 证书，2026-11-09 到期，自动续期）登录/注册/上传/回读全部通过，文件已切 Cloudflare R2 |
+| 部署状态 | **已部署并全链路验证**（2026-08-12）：单机全栈 + **HTTPS**，`https://supplychain.de5.net`（Let's Encrypt 证书，2026-11-09 到期，自动续期）登录/注册/上传/回读全部通过，文件已切 Cloudflare R2 |
 | 部署方式 | 单机：`/opt/supply-chain` + 共享网络 `supply-chain-net`（数据/应用同机，DB/Redis 不暴露公网） |
 | 看护 | cron 每 2 分钟健康检查，3 次失败自动重启服务（`/usr/local/bin/supply-chain-watchdog.sh`） |
 
@@ -51,7 +51,7 @@
 - [ ] **修改 root 密码**（密码曾在聊天中明文提供，建议立即更换）
 - [ ] 记录到期时间 / 续费价格 / 实付成本
 - [ ] 开通 VPS-B 数据机；两台之间若有内网，用内网 IP 互通
-- [x] HTTPS 已启用（`103-39-79-7.sslip.io` + Let's Encrypt，80 端口自动跳转）
+- [x] HTTPS 已启用（`supplychain.de5.net` + Let's Encrypt，80 端口自动跳转）
 
 ## 4. 与部署文档的对接点
 

@@ -1,6 +1,5 @@
-# ================= VPS-B：数据机（Postgres + Redis + 备份）=================
-# 用法：cp .env.data.example .env.data && docker compose -f data-compose.yml up -d
-# 安全：5432/6379 端口必须用云防火墙限制为仅允许 VPS-A 的 IP 访问，不要对公网开放。
+# ================= VPS 数据机（Postgres + Redis + 备份）单机版 =================
+# 说明：已加入共享外部网络 supply-chain-net，应用容器通过容器名直连，不暴露公网端口。
 name: supply-chain-data
 
 services:
@@ -8,12 +7,13 @@ services:
     image: postgres:15
     container_name: ${POSTGRES_CONTAINER_NAME:-supply-chain-postgres}
     restart: unless-stopped
+    networks: [supply-chain-net]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "${POSTGRES_HOST_PORT:-0.0.0.0:5432}:5432"   # 防火墙限制来源
+      - "${POSTGRES_HOST_PORT:-127.0.0.1:5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,11 +26,12 @@ services:
     image: redis:7
     container_name: ${REDIS_CONTAINER_NAME:-supply-chain-redis}
     restart: unless-stopped
+    networks: [supply-chain-net]
     command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - "${REDIS_HOST_PORT:-0.0.0.0:6379}:6379"   # 防火墙限制来源
+      - "${REDIS_HOST_PORT:-127.0.0.1:6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -43,6 +44,7 @@ services:
     image: postgres:15
     container_name: ${BACKUP_CONTAINER_NAME:-supply-chain-backup}
     restart: unless-stopped
+    networks: [supply-chain-net]
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -72,3 +74,7 @@ volumes:
   postgres_data:
   redis_data:
   backups:
+
+networks:
+  supply-chain-net:
+    external: true
