@@ -13,13 +13,24 @@ function buildCsp(nonce: string): string {
   const poolUrl = (process.env.NEXT_PUBLIC_POOL_API_URL ?? "").replace(/\/+$/, "");
   const indexerUrl = (process.env.NEXT_PUBLIC_INDEXER_API_URL ?? "").replace(/\/+$/, "");
   const rpcUrl = (process.env.NEXT_PUBLIC_RPC_URL ?? "").replace(/\/+$/, "");
+  // CSP source 只允许 origin（query 会被忽略并报警告）
+  const rpcOrigin = (() => {
+    try {
+      return new URL(rpcUrl).origin;
+    } catch {
+      return rpcUrl;
+    }
+  })();
   const connectSrcs = [
     "'self'",
     backendUrl,
     tradeUrl,
     poolUrl,
     indexerUrl,
-    rpcUrl,
+    rpcOrigin,
+    // Solana 钱包（Solflare 连接 iframe 与 API）
+    "https://connect.solflare.com",
+    "https://*.solflare.com",
   ];
   if (isDev) {
     connectSrcs.push("http://localhost:*", "ws://localhost:*", "wss://localhost:*");
@@ -33,7 +44,7 @@ function buildCsp(nonce: string): string {
     `img-src 'self' blob: data: ${turnstileSrc}`,
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${connectSrcs.filter(Boolean).join(" ")} ${turnstileSrc}`,
-    `frame-src 'self' blob: ${turnstileSrc}`,
+    `frame-src 'self' blob: ${turnstileSrc} https://connect.solflare.com`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

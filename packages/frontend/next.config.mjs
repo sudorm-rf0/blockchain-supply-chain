@@ -6,8 +6,20 @@ const CSP_API_HOSTS = [
   process.env.NEXT_PUBLIC_POOL_API_URL,
   process.env.NEXT_PUBLIC_INDEXER_API_URL,
 ].filter(Boolean);
-const CSP_RPC = process.env.NEXT_PUBLIC_RPC_URL;
-const CSP_CONNECT = [CSP_SELF, ...CSP_API_HOSTS, CSP_RPC].filter(Boolean).join(" ");
+const CSP_RPC = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_RPC_URL ?? "").origin;
+  } catch {
+    return process.env.NEXT_PUBLIC_RPC_URL ?? "";
+  }
+})();
+const CSP_CONNECT = [
+  CSP_SELF,
+  ...CSP_API_HOSTS,
+  CSP_RPC,
+  "https://connect.solflare.com",
+  "https://*.solflare.com",
+].filter(Boolean).join(" ");
 const CSP_REPORT_URI =
   process.env.NEXT_PUBLIC_CSP_REPORT_URI ||
   (process.env.NEXT_PUBLIC_BACKEND_URL
