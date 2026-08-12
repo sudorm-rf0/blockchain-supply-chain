@@ -28,23 +28,27 @@ function buildCsp(nonce: string): string {
     poolUrl,
     indexerUrl,
     rpcOrigin,
-    // Solana 钱包（Solflare 连接 iframe 与 API）
-    "https://connect.solflare.com",
-    "https://*.solflare.com",
   ];
   if (isDev) {
     connectSrcs.push("http://localhost:*", "ws://localhost:*", "wss://localhost:*");
   }
   // Cloudflare Turnstile 需要加载 api.js 脚本 + iframe 渲染 widget
   const turnstileSrc = "https://challenges.cloudflare.com";
+  // Solana 钱包（Phantom / Backpack / Solflare / Coinbase Wallet）的 iframe 与脚本
+  const walletSrcs = [
+    "https://*.phantom.app",
+    "https://*.backpack.app",
+    "https://*.solflare.com",
+    "https://*.coinbase.com",
+  ];
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${turnstileSrc}${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${turnstileSrc} ${walletSrcs.join(" ")}${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    `img-src 'self' blob: data: ${turnstileSrc}`,
+    `img-src 'self' blob: data: ${turnstileSrc} ${walletSrcs.join(" ")}`,
     "font-src 'self' data: https://fonts.gstatic.com",
-    `connect-src ${connectSrcs.filter(Boolean).join(" ")} ${turnstileSrc}`,
-    `frame-src 'self' blob: ${turnstileSrc} https://connect.solflare.com`,
+    `connect-src ${connectSrcs.filter(Boolean).join(" ")} ${turnstileSrc} ${walletSrcs.join(" ")}`,
+    `frame-src 'self' blob: ${turnstileSrc} ${walletSrcs.join(" ")}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

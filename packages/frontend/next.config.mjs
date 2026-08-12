@@ -27,15 +27,22 @@ const CSP_REPORT_URI =
     : "");
 // Cloudflare Turnstile 人机验证（api.js 脚本 + iframe widget）
 const CSP_TURNSTILE = "https://challenges.cloudflare.com";
+// Solana 钱包 iframe/脚本（Phantom / Backpack / Solflare / Coinbase Wallet）
+const CSP_WALLETS = [
+  "https://*.phantom.app",
+  "https://*.backpack.app",
+  "https://*.solflare.com",
+  "https://*.coinbase.com",
+].join(" ");
 const CONTENT_SECURITY_POLICY = [
   `default-src ${CSP_SELF}`,
   // Next App Router hydration 需要内联脚本；升级到 nonce 前保留 unsafe-inline。
-  `script-src ${CSP_SELF} 'unsafe-inline' ${CSP_TURNSTILE}`,
+  `script-src ${CSP_SELF} 'unsafe-inline' ${CSP_TURNSTILE} ${CSP_WALLETS}`,
   `style-src ${CSP_SELF} 'unsafe-inline'`,
-  `img-src ${CSP_SELF} data: blob: ${CSP_TURNSTILE}`,
+  `img-src ${CSP_SELF} data: blob: ${CSP_TURNSTILE} ${CSP_WALLETS}`,
   `font-src ${CSP_SELF} data:`,
-  `connect-src ${CSP_CONNECT} ${CSP_TURNSTILE}`,
-  `frame-src ${CSP_SELF} https: data: ${CSP_TURNSTILE}`,
+  `connect-src ${CSP_CONNECT} ${CSP_TURNSTILE} ${CSP_WALLETS}`,
+  `frame-src ${CSP_SELF} https: data: ${CSP_TURNSTILE} ${CSP_WALLETS}`,
   `object-src 'none'`,
   `base-uri ${CSP_SELF}`,
   `frame-ancestors 'none'`,
