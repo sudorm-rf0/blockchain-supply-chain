@@ -24,14 +24,16 @@ function buildCsp(nonce: string): string {
   if (isDev) {
     connectSrcs.push("http://localhost:*", "ws://localhost:*", "wss://localhost:*");
   }
+  // Cloudflare Turnstile 需要加载 api.js 脚本 + iframe 渲染 widget
+  const turnstileSrc = "https://challenges.cloudflare.com";
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${turnstileSrc}${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' blob: data:",
+    `img-src 'self' blob: data: ${turnstileSrc}`,
     "font-src 'self' data: https://fonts.gstatic.com",
-    `connect-src ${connectSrcs.filter(Boolean).join(" ")}`,
-    "frame-src 'self' blob:",
+    `connect-src ${connectSrcs.filter(Boolean).join(" ")} ${turnstileSrc}`,
+    `frame-src 'self' blob: ${turnstileSrc}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

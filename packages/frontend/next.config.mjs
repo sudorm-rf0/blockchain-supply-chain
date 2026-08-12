@@ -13,15 +13,17 @@ const CSP_REPORT_URI =
   (process.env.NEXT_PUBLIC_BACKEND_URL
     ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/csp-report`
     : "");
+// Cloudflare Turnstile 人机验证（api.js 脚本 + iframe widget）
+const CSP_TURNSTILE = "https://challenges.cloudflare.com";
 const CONTENT_SECURITY_POLICY = [
   `default-src ${CSP_SELF}`,
   // Next App Router hydration 需要内联脚本；升级到 nonce 前保留 unsafe-inline。
-  `script-src ${CSP_SELF} 'unsafe-inline'`,
+  `script-src ${CSP_SELF} 'unsafe-inline' ${CSP_TURNSTILE}`,
   `style-src ${CSP_SELF} 'unsafe-inline'`,
-  `img-src ${CSP_SELF} data: blob:`,
+  `img-src ${CSP_SELF} data: blob: ${CSP_TURNSTILE}`,
   `font-src ${CSP_SELF} data:`,
-  `connect-src ${CSP_CONNECT}`,
-  `frame-src ${CSP_SELF} https: data:`,
+  `connect-src ${CSP_CONNECT} ${CSP_TURNSTILE}`,
+  `frame-src ${CSP_SELF} https: data: ${CSP_TURNSTILE}`,
   `object-src 'none'`,
   `base-uri ${CSP_SELF}`,
   `frame-ancestors 'none'`,
