@@ -96,9 +96,9 @@ describe("DashboardPage", () => {
 
   it("renders pool overview stats after loading", async () => {
     render(<DashboardPage />);
-    expect(await screen.findByText("Pool Size")).toBeTruthy();
+    expect(await screen.findByText("资金池规模")).toBeTruthy();
     expect(screen.getByText("$100.00")).toBeTruthy(); // 100_000_000 / 1e6
-    expect(screen.getByText("Current NAV")).toBeTruthy();
+    expect(screen.getByText("当前净值 NAV")).toBeTruthy();
     expect(screen.getByText("$99.00")).toBeTruthy(); // 99_000_000 / 1e6
   });
 
@@ -124,7 +124,7 @@ describe("DashboardPage", () => {
 
   it("does not show the pause banner when the pool is not paused", async () => {
     render(<DashboardPage />);
-    await screen.findByText("Pool Size");
+    await screen.findByText("资金池规模");
     expect(screen.queryByText(/资金池已紧急暂停/)).toBeNull();
   });
 
