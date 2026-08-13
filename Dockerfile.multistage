@@ -67,7 +67,7 @@ RUN sed -i "s#https://dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#g" /etc/apk/reposi
        tesseract-ocr poppler-utils \
     && wget -q -O /usr/share/tessdata/chi_sim.traineddata \
        https://github.com/tesseract-ocr/tessdata/raw/main/chi_sim.traineddata
-ENV NODE_ENV=production PORT=3001
+ENV NODE_ENV=production PORT=3001 NODE_OPTIONS=--dns-result-order=ipv4first
 
 COPY --from=builder /app/backend-out ./
 COPY --from=builder /workspace/packages/backend/dist ./dist
