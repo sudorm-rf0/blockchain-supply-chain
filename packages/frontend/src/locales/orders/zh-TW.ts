@@ -85,6 +85,8 @@ export default {
   "upload.descriptionLabel": "描述（可選）",
   "upload.uploading": "上傳中...",
   "upload.upload": "上傳檔案",
+  "upload.remarkLabel": "上傳備註",
+  "upload.remarkPlaceholder": "選填：說明單據內容、來源或用途（500 字以內）",
   "upload.fileHash": "檔案雜湊：{{hash}}",
   "upload.version": "（版本 v{{version}}）",
   "upload.attesting": "簽名上鏈中...",

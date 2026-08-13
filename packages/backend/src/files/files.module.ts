@@ -8,10 +8,11 @@ import { AuditModule } from "../audit/audit.module";
 import { StorageModule } from "../storage/storage.module";
 import { AuthModule } from "../auth/auth.module";
 import { ScanService } from "../security/scan.service";
+import { FilesAnalysisService } from "./files-analysis.service";
 
 @Module({
   controllers: [FilesController, AttestationController],
   imports: [StorageModule, AuditModule, AuthModule],
-  providers: [FilesService, AttestationService, PrismaService, ScanService],
+  providers: [FilesService, AttestationService, FilesAnalysisService, PrismaService, ScanService],
 })
 export class FilesModule {}

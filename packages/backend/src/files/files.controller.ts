@@ -23,6 +23,7 @@ import type { Request, Response } from "express";
 import { AuthGuard } from "@supply-chain/common";
 import { AdminGuard } from "@supply-chain/common";
 import { FilesService } from "./files.service";
+import { FilesAnalysisService } from "./files-analysis.service";
 import { ReviewFileDto } from "./dto/review-file.dto";
 import { BatchReviewDto } from "./dto/batch-review.dto";
 import { UploadFileDto } from "./dto/upload-file.dto";
@@ -44,7 +45,10 @@ const storage = diskStorage({
 
 @Controller("api/files")
 export class FilesController {
-  constructor(private readonly filesService: FilesService) {}
+  constructor(
+    private readonly filesService: FilesService,
+    private readonly analysisService: FilesAnalysisService,
+  ) {}
 
   @Post()
   @UseGuards(AuthGuard)
@@ -62,7 +66,18 @@ export class FilesController {
     if (!file) {
       throw new BadRequestException("未上传文件");
     }
-    return this.filesService.upload(file, body, req.user!.sub);
+    const region =
+      typeof req.headers["cf-ipcountry"] === "string"
+        ? req.headers["cf-ipcountry"].toUpperCase()
+        : undefined;
+    return this.filesService.upload(file, body, req.user!.sub, region);
+  }
+
+  /** 运行 OCR 与真伪分析（上传时已自动触发；失败或需要重跑时手动调用） */
+  @Post(":id/analyze")
+  @UseGuards(AuthGuard)
+  analyze(@Param("id") id: string) {
+    return this.analysisService.analyze(id);
   }
 
   @Get()

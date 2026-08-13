@@ -48,6 +48,7 @@ import {
   type FileRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { regionLabel } from "@/lib/region";
 import { fileStatusClass } from "@/lib/status";
 
 const LIMIT = 10;
@@ -245,6 +246,7 @@ export default function AdminFilesPage({
               </TableHead>
               <TableHead>{t("files.name")}</TableHead>
               <TableHead>{t("files.uploader")}</TableHead>
+              <TableHead>{t("files.region")}</TableHead>
               <TableHead>{t("files.size")}</TableHead>
               <TableHead>{t("files.status")}</TableHead>
               <TableHead>{t("files.hash")}</TableHead>
@@ -269,6 +271,7 @@ export default function AdminFilesPage({
                   {file.filename}
                 </TableCell>
                 <TableCell>{file.uploaderName ?? "-"}</TableCell>
+                <TableCell className="font-mono text-xs">{regionLabel(file.region)}</TableCell>
                 <TableCell>{(file.size / 1024).toFixed(0)} KB</TableCell>
                 <TableCell>
                   <Badge className={fileStatusClass(file.status)}>

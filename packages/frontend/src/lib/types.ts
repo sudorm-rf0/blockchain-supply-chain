@@ -32,8 +32,28 @@ export interface FileRecord {
   isLatest?: boolean;
   description?: string | null;
   remark?: string | null;
+  region?: string | null;
+  ocrStatus?: string;
+  ocrText?: string | null;
+  ocrLang?: string | null;
+  authStatus?: string;
+  authScore?: number | null;
+  authResult?: FileAuthResult | null;
+  analyzedAt?: string | null;
   uploaderName?: string | null;
   createdAt: string;
+}
+
+export interface FileAuthCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface FileAuthResult {
+  score: number;
+  verdict: "LOW_RISK" | "MEDIUM_RISK" | "HIGH_RISK";
+  checks: FileAuthCheck[];
 }
 
 export interface FilesResponse {

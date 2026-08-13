@@ -85,6 +85,8 @@ export default {
   "upload.descriptionLabel": "Description (optional)",
   "upload.uploading": "Uploading...",
   "upload.upload": "Upload File",
+  "upload.remarkLabel": "Remark",
+  "upload.remarkPlaceholder": "Optional: note about this document (max 500 chars)",
   "upload.fileHash": "File hash: {{hash}}",
   "upload.version": " (version v{{version}})",
   "upload.attesting": "Signing on-chain...",

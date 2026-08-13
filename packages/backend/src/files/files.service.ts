@@ -24,6 +24,8 @@ import type { StorageService } from "../storage/storage.service";
 import { AuditService } from "../audit/audit.service";
 import { RedisService } from "@supply-chain/common";
 import { ScanService } from "../security/scan.service";
+import { FilesAnalysisService } from "./files-analysis.service";
+import { Logger } from "@nestjs/common";
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
   pdf: "application/pdf",
@@ -68,18 +70,22 @@ function detectTypeByMagic(buf: Buffer): string | null {
 
 @Injectable()
 export class FilesService {
+  private readonly logger = new Logger(FilesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject("STORAGE_SERVICE") private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly redis: RedisService,
     private readonly scan: ScanService,
+    private readonly analysis: FilesAnalysisService,
   ) {}
 
   async upload(
     file: Express.Multer.File,
-    fields: { tradeId?: string; documentId?: string; description?: string },
+    fields: { tradeId?: string; documentId?: string; description?: string; remark?: string },
     uploaderId: string,
+    region?: string,
   ) {
     const extension = extname(file.originalname).slice(1).toLowerCase();
     if (!ALLOWED_EXTENSIONS[extension]) {
@@ -212,6 +218,8 @@ export class FilesService {
           version,
           supersededAt: null,
           description: fields.description ?? null,
+          remark: fields.remark ?? null,
+          region: region ?? null,
           uploaderId,
         },
         include: { uploader: { select: { name: true } } },
@@ -239,6 +247,10 @@ export class FilesService {
           tradeId: fields.tradeId ?? null,
         },
       });
+      // 上传后异步触发 OCR 与真伪分析（失败不影响上传）
+      void this.analysis
+        .analyze(created.id)
+        .catch((e) => this.logger.warn(`auto analysis failed: ${String(e)}`));
       return this.publicFile(created);
     } catch (error) {
       await this.storage.remove(persisted.storageKey).catch(() => undefined);
@@ -468,6 +480,14 @@ export class FilesService {
     supersededAt: Date | null;
     description: string | null;
     remark: string | null;
+    region: string | null;
+    ocrStatus: string;
+    ocrText: string | null;
+    ocrLang: string | null;
+    authStatus: string;
+    authScore: number | null;
+    authResult: Prisma.JsonValue | null;
+    analyzedAt: Date | null;
     createdAt: Date;
     uploader?: { name: string | null } | null;
   }) {
@@ -488,6 +508,14 @@ export class FilesService {
       isLatest: file.supersededAt === null,
       description: file.description,
       remark: file.remark,
+      region: file.region,
+      ocrStatus: file.ocrStatus,
+      ocrText: file.ocrText,
+      ocrLang: file.ocrLang,
+      authStatus: file.authStatus,
+      authScore: file.authScore,
+      authResult: file.authResult,
+      analyzedAt: file.analyzedAt?.toISOString() ?? null,
       uploaderName: file.uploader?.name ?? null,
       createdAt: file.createdAt.toISOString(),
     };

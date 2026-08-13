@@ -15,7 +15,7 @@ export async function uploadFile(
 
 export function uploadFileWithProgress(
   file: File,
-  fields: { tradeId?: string; documentId?: string; description?: string },
+  fields: { tradeId?: string; documentId?: string; description?: string; remark?: string },
   onProgress: (progress: { loaded: number; total: number; percent: number }) => void,
 ): Promise<FileRecord> {
   return new Promise((resolve, reject) => {
@@ -24,6 +24,7 @@ export function uploadFileWithProgress(
     if (fields.tradeId) form.append("tradeId", fields.tradeId);
     if (fields.documentId) form.append("documentId", fields.documentId);
     if (fields.description) form.append("description", fields.description);
+    if (fields.remark) form.append("remark", fields.remark);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BACKEND_URL}/api/files`);

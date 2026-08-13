@@ -48,6 +48,7 @@ export default function UploadPage() {
   const [tradeId, setTradeId] = useState(initialTradeId);
   const [documentId, setDocumentId] = useState(initialDocumentId);
   const [description, setDescription] = useState("");
+  const [remark, setRemark] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [hash, setHash] = useState<string | null>(null);
@@ -96,7 +97,7 @@ export default function UploadPage() {
     try {
       const result = await uploadFileWithProgress(
         file,
-        { tradeId, documentId, description },
+        { tradeId, documentId, description, remark },
         ({ percent }) => setProgress(percent),
       );
       toast.success(t("upload.toasts.uploadSuccess"));
@@ -109,6 +110,7 @@ export default function UploadPage() {
       setTradeId("");
       setDocumentId("");
       setDescription("");
+      setRemark("");
       setAttachedTradeId(tradeId.trim());
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
@@ -239,6 +241,17 @@ export default function UploadPage() {
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="remark">{t("upload.remarkLabel")}</Label>
+            <Textarea
+              id="remark"
+              value={remark}
+              maxLength={500}
+              placeholder={t("upload.remarkPlaceholder")}
+              onChange={(e) => setRemark(e.target.value)}
             />
           </div>
 

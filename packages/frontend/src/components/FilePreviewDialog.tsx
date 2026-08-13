@@ -21,6 +21,8 @@ import {
   type FileRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { regionLabel } from "@/lib/region";
+import { ShieldCheck, ScanText } from "lucide-react";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -126,6 +128,10 @@ export function FilePreviewDialog({
                 <p>{formatDateTime(file.createdAt)}</p>
               </div>
               <div>
+                <p className="text-muted-foreground">{t("files.region")}</p>
+                <p>{regionLabel(file.region)}</p>
+              </div>
+              <div>
                 <p className="text-muted-foreground">{t("files.status")}</p>
                 <Badge className={statusBadge(file.status)}>{statusLabel(file.status)}</Badge>
               </div>
@@ -159,6 +165,90 @@ export function FilePreviewDialog({
                 <p className="text-sm">{file.remark}</p>
               </div>
             )}
+
+            <div className="rounded-md border">
+              <div className="flex items-center gap-2 border-b p-3">
+                <ScanText className="h-4 w-4 text-[#00E676]" />
+                <p className="font-mono text-sm font-semibold">{t("files.ocr")}</p>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {file.ocrStatus === "SUCCESS"
+                    ? t("files.ocrDone")
+                    : file.ocrStatus === "PROCESSING"
+                      ? t("files.ocrProcessing")
+                      : file.ocrStatus === "FAILED"
+                        ? t("files.ocrFailed")
+                        : t("files.ocrNotStarted")}
+                </span>
+              </div>
+              <div className="max-h-48 overflow-auto p-3">
+                {file.ocrText ? (
+                  <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground">
+                    {file.ocrText}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t("files.ocrEmpty")}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-md border">
+              <div className="flex items-center gap-2 border-b p-3">
+                <ShieldCheck className="h-4 w-4 text-[#00E676]" />
+                <p className="font-mono text-sm font-semibold">{t("files.authenticity")}</p>
+                {file.authStatus === "SUCCESS" && file.authScore != null ? (
+                  <span
+                    className={`ml-auto rounded px-2 py-0.5 font-mono text-xs ${
+                      file.authScore >= 80
+                        ? "border border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]"
+                        : file.authScore >= 55
+                          ? "border border-amber-500/40 bg-amber-500/10 text-amber-500"
+                          : "border border-red-500/40 bg-red-500/10 text-red-500"
+                    }`}
+                  >
+                    {file.authScore} ·{" "}
+                    {file.authScore >= 80
+                      ? t("files.authLowRisk")
+                      : file.authScore >= 55
+                        ? t("files.authMediumRisk")
+                        : t("files.authHighRisk")}
+                  </span>
+                ) : (
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {file.authStatus === "PROCESSING"
+                      ? t("files.authProcessing")
+                      : file.authStatus === "FAILED"
+                        ? t("files.authFailed")
+                        : t("files.authNotStarted")}
+                  </span>
+                )}
+              </div>
+              {file.authResult?.checks && file.authResult.checks.length > 0 ? (
+                <ul className="space-y-1 p-3">
+                  {file.authResult.checks.map((c) => (
+                    <li
+                      key={c.name}
+                      className="flex items-start gap-2 text-sm"
+                    >
+                      <span
+                        className={`mt-1 h-2 w-2 shrink-0 ${
+                          c.passed ? "bg-[#00E676]" : "bg-red-500"
+                        }`}
+                      />
+                      <span className="flex-1 text-muted-foreground">{c.detail}</span>
+                      <span
+                        className={`font-mono text-xs ${
+                          c.passed ? "text-[#00E676]" : "text-red-500"
+                        }`}
+                      >
+                        {c.passed ? t("files.checkPassed") : t("files.checkFailed")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="p-3 text-sm text-muted-foreground">{t("files.noAnalysis")}</p>
+              )}
+            </div>
 
             {versions.length > 1 && (
               <div>

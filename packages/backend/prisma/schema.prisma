@@ -176,6 +176,14 @@ model File {
   supersededAt     DateTime?
   description      String?
   remark           String?
+  region           String?
+  ocrStatus        String         @default("PENDING")
+  ocrText          String?
+  ocrLang          String?
+  authStatus       String         @default("PENDING")
+  authScore        Int?
+  authResult       Json?
+  analyzedAt       DateTime?
   uploaderId       String?
   uploader         User?      @relation(fields: [uploaderId], references: [id])
   createdAt        DateTime   @default(now())
