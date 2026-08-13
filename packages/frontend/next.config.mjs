@@ -1,61 +1,12 @@
-// CSP：connect-src 由构建期环境变量拼装；后端地址 / RPC 需在构建时传入。
-const CSP_SELF = "'self'";
-const CSP_API_HOSTS = [
-  process.env.NEXT_PUBLIC_BACKEND_URL,
-  process.env.NEXT_PUBLIC_TRADE_API_URL,
-  process.env.NEXT_PUBLIC_POOL_API_URL,
-  process.env.NEXT_PUBLIC_INDEXER_API_URL,
-].filter(Boolean);
-const CSP_RPC = (() => {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_RPC_URL ?? "").origin;
-  } catch {
-    return process.env.NEXT_PUBLIC_RPC_URL ?? "";
-  }
-})();
-const CSP_CONNECT = [
-  CSP_SELF,
-  ...CSP_API_HOSTS,
-  CSP_RPC,
-  "https://connect.solflare.com",
-  "https://*.solflare.com",
-].filter(Boolean).join(" ");
-const CSP_REPORT_URI =
-  process.env.NEXT_PUBLIC_CSP_REPORT_URI ||
-  (process.env.NEXT_PUBLIC_BACKEND_URL
-    ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/csp-report`
-    : "");
-// Cloudflare Turnstile 人机验证（api.js 脚本 + iframe widget）
-const CSP_TURNSTILE = "https://challenges.cloudflare.com";
-// Solana 钱包 iframe/脚本（Phantom / Backpack / Solflare / Coinbase Wallet）
-const CSP_WALLETS = [
-  "https://*.phantom.app",
-  "https://*.backpack.app",
-  "https://*.solflare.com",
-  "https://*.coinbase.com",
-].join(" ");
-const CONTENT_SECURITY_POLICY = [
-  `default-src ${CSP_SELF}`,
-  // Next App Router hydration 需要内联脚本；升级到 nonce 前保留 unsafe-inline。
-  `script-src ${CSP_SELF} 'unsafe-inline' ${CSP_TURNSTILE} ${CSP_WALLETS}`,
-  `style-src ${CSP_SELF} 'unsafe-inline'`,
-  `img-src ${CSP_SELF} data: blob: ${CSP_TURNSTILE} ${CSP_WALLETS}`,
-  `font-src ${CSP_SELF} data:`,
-  `connect-src ${CSP_CONNECT} ${CSP_TURNSTILE} ${CSP_WALLETS}`,
-  `frame-src ${CSP_SELF} https: data: ${CSP_TURNSTILE} ${CSP_WALLETS}`,
-  `object-src 'none'`,
-  `base-uri ${CSP_SELF}`,
-  `frame-ancestors 'none'`,
-  `form-action ${CSP_SELF}`,
-  CSP_REPORT_URI ? `report-uri ${CSP_REPORT_URI}` : "",
-]
-  .filter(Boolean)
-  .join("; ");
+// CSP 由 src/middleware.ts 统一下发（nonce + strict-dynamic）。
+// 审计 M8：此处不再配置 CSP，避免与 middleware 双源冲突（此前并存时浏览器取交集）。
+// 其余静态安全头保留；X-Frame-Options 由 nginx 提供。
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  poweredByHeader: false,
   async headers() {
     return [
       {
@@ -64,7 +15,6 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
-          { key: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
         ],
       },
     ];

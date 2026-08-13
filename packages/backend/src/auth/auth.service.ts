@@ -391,6 +391,10 @@ export class AuthService {
       }
     }
     await this.redis.del(failKey);
+    // 审计 M5：登录成功后同时重置该 IP 的失败计数，避免共享出口 IP 被误伤封禁。
+    if (ipKey) {
+      await this.redis.del(ipKey);
+    }
     await this.audit.record({
       actorId: user.id,
       action: "AUTH_LOGIN",

@@ -59,3 +59,20 @@
 | P0-3 | 生产环境启动守卫：SOLANA_RPC_URL 指向 devnet 时启动失败（除非显式 ALLOW_DEVNET_RPC_IN_PRODUCTION=true，仅限上线前演练） | ✅ |
 
 > 备份：历史重写前完整 bundle 位于 `/tmp/supply-chain-pre-purge-20260814-030030.bundle`（含原 refs/stash 与全部提交）。
+
+## 2026-08-14 独立安全审计整改（P1/P2 可执行项）
+
+| # | 整改 | 状态 |
+|---|------|------|
+| M1 | OriginGuard：变更请求无 Origin 一律拒绝（豁免 CSP report 端点与本机客户端），阻断 CSRF 纵深绕过 | ✅ 单测+动态验证 |
+| M2 | /metrics 增加 IP 白名单（本机 + METRICS_ALLOWED_IPS），非白名单 403 | ✅ |
+| M3 | 文件列表/详情响应不再返回内部存储路径 `path` 字段 | ✅ |
+| M5 | 登录成功后重置该 IP 的失败计数，避免共享出口 IP 被误封 | ✅ |
+| M7 | 管理端创建账号/改角色补审计日志（ADMIN_ACCOUNT_CREATED / ADMIN_ROLE_CHANGED） | ✅ |
+| M8 | 前端 CSP 收敛为 middleware 单一来源（nonce+strict-dynamic），移除 next.config 重复配置 | ✅ |
+| L1 | 上传文件内容响应加 `Content-Security-Policy: sandbox`（禁用脚本/同源访问） | ✅ |
+| L3 | scan-secrets.sh 增加 Solana keypair（64 数字 JSON 数组）与 `-keypair.json` 检测 | ✅ |
+| L4 | 前端隐藏 `X-Powered-By: Next.js`（poweredByHeader: false） | ✅ |
+| M6 | 根 package.json overrides 升级 nanoid>=3.3.18（生效需下次 pnpm install） | ⏳ 已改配置 |
+
+> 未改动项及原因：M4 注册邮箱枚举——已由 Turnstile+限流缓解，改为"统一响应"会引入"对既有邮箱轰炸验证码"的新骚扰面，保留现状并记录。devnet 程序轮换/冻结需链上私钥操作，见 Go-Live 清单。

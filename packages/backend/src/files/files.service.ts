@@ -476,7 +476,6 @@ export class FilesService {
       filename: file.filename,
       size: file.size,
       mimeType: file.mimeType,
-      path: file.path,
       hash: file.hash,
       txSignature: file.txSignature,
       documentPda: file.documentPda,

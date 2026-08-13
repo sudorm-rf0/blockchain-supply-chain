@@ -18,6 +18,8 @@ PATTERNS=(
   'AIza[0-9A-Za-z_-]{35}'
   'api-key=[A-Za-z0-9-]{24,}'
   'client_secret["\x27]?[:=]["\x27]?[A-Za-z0-9_-]{20,}'
+  # Solana 程序 keypair：恰好 64 个 0-255 数字组成的 JSON 数组（私钥）
+  '^\\[[0-9]{1,3}(,[0-9]{1,3}){63}\\]$'
 )
 
 findings=0
@@ -34,8 +36,8 @@ while IFS= read -r file; do
   done
 done < <(git ls-files -co --exclude-standard | rg -v '(^|/)(\.|node_modules|dist|target)' || true)
 
-# 已跟踪的本地环境/钱包密钥文件（dev 程序 keypair 用于可重复部署，不算敏感）
-for f in $(git ls-files | rg '(\.env$|rpc\.devnet\.env$|id\.json$|^[^/]+-wallet)' || true); do
+# 已跟踪的本地环境/钱包/合约密钥文件（2026-08-14 起 keypair 一律视为敏感，禁止入库）
+for f in $(git ls-files | rg '(\.env$|rpc\.devnet\.env$|id\.json$|keypair\.json$|^[^/]+-wallet)' || true); do
   report+=("tracked-sensitive-file:${f}")
   findings=$((findings + 1))
 done

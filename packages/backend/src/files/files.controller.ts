@@ -113,6 +113,8 @@ export class FilesController {
       "Content-Disposition",
       `inline; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,
     );
+    // 审计 L1：上传内容以 sandbox 渲染，禁用脚本/同源访问，杜绝存储型 XSS/钓鱼。
+    res.setHeader("Content-Security-Policy", "sandbox");
     res.setHeader("Cache-Control", "private, max-age=3600");
     file.stream.on("error", () => {
       if (!res.headersSent) {

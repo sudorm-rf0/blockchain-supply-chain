@@ -17,6 +17,7 @@ import { randomBytes, scryptSync } from "node:crypto";
 import type { Request } from "express";
 import { AuthGuard, SuperAdminGuard } from "@supply-chain/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditService } from "../audit/audit.service";
 import { CreateAccountDto } from "./dto/create-account.dto";
 import { ChangeRoleDto } from "./dto/change-role.dto";
 
@@ -28,7 +29,10 @@ function hashPassword(password: string, salt: string): string {
 @Controller("api/admin/accounts")
 @UseGuards(AuthGuard, SuperAdminGuard)
 export class AccountsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get()
   async list(
@@ -122,7 +126,7 @@ export class AccountsController {
 
   /** 添加管理员/超级管理员账号（可直接登录，密码由超级管理员设定）。 */
   @Post()
-  async create(@Body() body: CreateAccountDto) {
+  async create(@Body() body: CreateAccountDto, @Req() req: Request) {
     const existing = await this.prisma.user.findUnique({
       where: { email: body.email.toLowerCase() },
     });
@@ -150,6 +154,15 @@ export class AccountsController {
         role: true,
         createdAt: true,
       },
+    });
+    // 审计 M7：管理端创建账号必须留痕。
+    await this.audit.record({
+      actorId: req.user!.sub,
+      actorEmail: req.user!.email,
+      action: "ADMIN_ACCOUNT_CREATED",
+      targetType: "ACCOUNT",
+      targetId: user.id,
+      metadata: { email: user.email, role: user.role },
     });
     return user;
   }
@@ -184,6 +197,15 @@ export class AccountsController {
       where: { id },
       data: { role: body.role },
       select: { id: true, email: true, name: true, role: true },
+    });
+    // 审计 M7：管理端改角色必须留痕（含变更前后）。
+    await this.audit.record({
+      actorId: req.user!.sub,
+      actorEmail: req.user!.email,
+      action: "ADMIN_ROLE_CHANGED",
+      targetType: "ACCOUNT",
+      targetId: id,
+      metadata: { email: user.email, from: user.role, to: body.role },
     });
     return updated;
   }

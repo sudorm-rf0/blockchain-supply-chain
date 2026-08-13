@@ -1,12 +1,19 @@
 import { ForbiddenException } from "@nestjs/common";
 import { OriginGuard } from "./origin.guard";
 
-function context(method: string, headers: Record<string, string | undefined>) {
+function context(
+  method: string,
+  headers: Record<string, string | undefined>,
+  path = "/api/anything",
+  ip = "203.0.113.9",
+) {
   return {
     switchToHttp: () => ({
       getRequest: () => ({
         method,
         headers,
+        path,
+        ip,
         protocol: "http",
       }),
     }),
@@ -32,8 +39,22 @@ describe("OriginGuard", () => {
     ).toBe(true);
   });
 
-  it("allows mutating requests without an origin header", () => {
-    expect(guard.canActivate(context("POST", {}))).toBe(true);
+  it("blocks mutating requests without an origin header (M1)", () => {
+    expect(() => guard.canActivate(context("POST", {}))).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it("exempts CSP report endpoint from origin requirement (M1)", () => {
+    expect(
+      guard.canActivate(context("POST", {}, "/api/csp-report")),
+    ).toBe(true);
+  });
+
+  it("allows loopback clients without origin (scripts/CI/e2e, M1)", () => {
+    expect(
+      guard.canActivate(context("POST", {}, "/api/anything", "127.0.0.1")),
+    ).toBe(true);
   });
 
   it("allows read requests from any origin", () => {
