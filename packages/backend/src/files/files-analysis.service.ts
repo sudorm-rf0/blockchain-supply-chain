@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -9,7 +10,6 @@ import { createHash } from "node:crypto";
 import {
   createReadStream,
   createWriteStream,
-  existsSync,
   mkdtempSync,
   readdirSync,
   rmSync,
@@ -17,9 +17,10 @@ import {
 } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import type { StorageService } from "../storage/storage.service";
 import { AuditService } from "../audit/audit.service";
 
 const execFileAsync = promisify(execFile);
@@ -47,15 +48,14 @@ export class FilesAnalysisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Inject("STORAGE_SERVICE") private readonly storage: StorageService,
   ) {}
 
   private async materialize(storageKey: string): Promise<string> {
-    const uploadsDir = join(process.cwd(), "uploads");
-    const p = join(uploadsDir, basename(storageKey));
-    if (!existsSync(p)) throw new NotFoundException("存储文件缺失");
     const dir = mkdtempSync(join(tmpdir(), "dfr-an-"));
     const target = join(dir, "doc.bin");
-    await pipeline(createReadStream(p), createWriteStream(target));
+    const stream = await this.storage.open(storageKey);
+    await pipeline(stream as NodeJS.ReadableStream, createWriteStream(target));
     return dir;
   }
 
