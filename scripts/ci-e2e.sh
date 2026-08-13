@@ -3,6 +3,18 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# 本地基础设施口令（根目录 .env）
+if [[ -f "${ROOT}/.env" ]]; then
+  set -a
+  source "${ROOT}/.env"
+  set +a
+fi
+REDIS_URL_DEFAULT="redis://localhost:6380"
+if [[ -n "${REDIS_PASSWORD:-}" ]]; then
+  REDIS_URL_DEFAULT="redis://:${REDIS_PASSWORD}@localhost:6380"
+fi
+
+
 export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/active_release/bin:$PATH"
 export COPYFILE_DISABLE=1
 # crates.io sparse index is faster and less likely to hang on CI runners.
@@ -130,11 +142,11 @@ BACKEND_PIDS="${BACKEND_PIDS:-} $!"
 THROTTLE_LIMIT=100000 TRADE_SERVICE_PORT="${CI_TRADE_PORT}" SOLANA_RPC_URL="${CI_RPC_URL}" \
   USDC_MINT="$USDC_MINT" LP_MINT="$LP_MINT" pnpm start:trade >/tmp/trade.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
-REDIS_URL="${REDIS_URL:-redis://localhost:6380}" THROTTLE_LIMIT=100000 POOL_SERVICE_PORT="${CI_POOL_PORT}" \
+REDIS_URL="${REDIS_URL:-$REDIS_URL_DEFAULT}" THROTTLE_LIMIT=100000 POOL_SERVICE_PORT="${CI_POOL_PORT}" \
   SOLANA_RPC_URL="${CI_RPC_URL}" USDC_MINT="$USDC_MINT" LP_MINT="$LP_MINT" \
   pnpm start:pool >/tmp/pool.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
-REDIS_URL="${REDIS_URL:-redis://localhost:6380}" INDEXER_PORT="${CI_INDEXER_PORT}" \
+REDIS_URL="${REDIS_URL:-$REDIS_URL_DEFAULT}" INDEXER_PORT="${CI_INDEXER_PORT}" \
   SOLANA_RPC_URL="${CI_RPC_URL}" pnpm start:indexer >/tmp/indexer.log 2>&1 &
 BACKEND_PIDS="${BACKEND_PIDS:-} $!"
 

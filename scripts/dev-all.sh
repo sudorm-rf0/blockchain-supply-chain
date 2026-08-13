@@ -8,6 +8,18 @@ mkdir -p "${LOG_DIR}"
 # 本地代币/合约配置：运行 init-localnet 后保存为 infra/config/localnet.env
 #   node scripts/init-localnet.mjs | tee infra/config/localnet.env
 LOCALNET_ENV="${LOCALNET_ENV:-$ROOT/infra/config/localnet.env}"
+# 本地基础设施口令（根目录 .env，由 docker-compose 与各服务共享）
+if [[ -f "${ROOT}/.env" ]]; then
+  set -a
+  source "${ROOT}/.env"
+  set +a
+fi
+REDIS_URL_DEFAULT="redis://localhost:6380"
+if [[ -n "${REDIS_PASSWORD:-}" ]]; then
+  REDIS_URL_DEFAULT="redis://:${REDIS_PASSWORD}@localhost:6380"
+fi
+
+
 ENV_PREFIX=""
 if [[ -f "${LOCALNET_ENV}" ]]; then
   set -a
@@ -24,9 +36,9 @@ fi
 SERVICES=(
   "backend|3001|packages/backend|pnpm dev"
   "scan-stub|3311|.|PORT=3311 node scripts/dev-scan-stub.mjs"
-  "indexer|3003|packages/backend|REDIS_URL=redis://localhost:6380 pnpm exec ts-node -P apps/indexer-service/tsconfig.app.json apps/indexer-service/src/main.ts"
+  "indexer|3003|packages/backend|REDIS_URL="${REDIS_URL:-$REDIS_URL_DEFAULT}" pnpm exec ts-node -P apps/indexer-service/tsconfig.app.json apps/indexer-service/src/main.ts"
   "trade|3004|packages/backend|${ENV_PREFIX} pnpm exec ts-node -P apps/trade-service/tsconfig.app.json apps/trade-service/src/main.ts"
-  "pool|3005|packages/backend|REDIS_URL=redis://localhost:6380 ${ENV_PREFIX} pnpm exec ts-node -P apps/pool-service/tsconfig.app.json apps/pool-service/src/main.ts"
+  "pool|3005|packages/backend|REDIS_URL="${REDIS_URL:-$REDIS_URL_DEFAULT}" ${ENV_PREFIX} pnpm exec ts-node -P apps/pool-service/tsconfig.app.json apps/pool-service/src/main.ts"
   "frontend|3100|packages/frontend|FRONTEND_PORT=3100 pnpm dev"
 )
 
