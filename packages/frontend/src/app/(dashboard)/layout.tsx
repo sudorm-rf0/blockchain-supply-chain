@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { LogOut, Menu, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/Sidebar";
+import { LogoMark } from "@/components/LogoMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -90,8 +91,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <span className="h-6 w-6 rounded bg-primary" />
-            <span className="font-semibold">供应链管理</span>
+            <LogoMark className="h-7 w-7" />
+            <span className="font-mono font-semibold tracking-wide">DFR 区块链 · 供应链系统</span>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />

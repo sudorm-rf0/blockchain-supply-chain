@@ -115,7 +115,7 @@ export default function NewTradePage() {
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold text-primary">SOLANA SUPPLY CHAIN</p>
+          <p className="text-xs font-semibold text-primary">DFR SUPPLY CHAIN</p>
           <h1 className="mt-2 text-2xl font-bold text-foreground">创建贸易订单</h1>
         </div>
         <WalletConnectButton />

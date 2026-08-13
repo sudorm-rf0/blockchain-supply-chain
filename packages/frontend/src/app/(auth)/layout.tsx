@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LogoMark } from "@/components/LogoMark";
 
 const features = [
   {
@@ -51,11 +52,9 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         {/* 顶部：品牌 + 在线状态（CSS 方块，非 unicode 图标） */}
         <div className="relative z-10 flex items-center justify-between">
           <Link href="/login" className="inline-flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center border border-[#00E676] text-sm text-[#00E676]">
-              链
-            </span>
+            <LogoMark className="h-9 w-9" />
             <span className="font-mono text-sm tracking-widest">
-              供应链金融 · 区块链存证
+              DFR 区块链 · 供应链系统
             </span>
           </Link>
           <span className="flex items-center gap-1.5 font-mono text-xs text-[#00E676]">
@@ -71,7 +70,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             SYSTEM ONLINE
           </div>
           <div className="space-y-1.5">
-            <div>平台：供应链金融 · 区块链存证</div>
+            <div>平台：DFR 区块链 · 供应链系统</div>
             <div className="text-[#8A8A8A]">网络：Solana · Anchor</div>
             <div className="text-[#8A8A8A]">链路：单据哈希实时上链，链上可核验</div>
             <div className="text-[#8A8A8A]">时钟：{utc}</div>
@@ -95,7 +94,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative z-10 flex items-center gap-2 font-mono text-xs text-[#8A8A8A]">
-          Solana · Anchor 供应链金融平台
+          Solana · Anchor DFR 供应链系统
           <ArrowRight className="h-3.5 w-3.5" />
         </div>
       </div>

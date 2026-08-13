@@ -59,7 +59,7 @@ export function Sidebar({ role }: SidebarProps) {
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-border bg-background">
       <div className="border-b border-border px-5 py-4 font-mono text-sm font-semibold tracking-widest text-foreground">
-        SUPPLY CHAIN
+        DFR SUPPLY CHAIN
       </div>
       <nav className="flex-1 space-y-px p-2">
         <Link

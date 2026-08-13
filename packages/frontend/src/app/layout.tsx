@@ -9,9 +9,17 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "供应链金融 · 区块链存证平台",
-  description: "Solana 供应链金融存证平台：单据上传审核、链上存证、贸易订单与资金池看板",
+  title: "DFR 区块链 · 供应链系统",
+  description: "DFR 区块链供应链系统：单据上传审核、链上存证、贸易订单与资金池看板",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   other: {
     // 阻止浏览器/翻译扩展自动翻译本站，避免注入 DOM 破坏 React 水合
     google: "notranslate",
