@@ -29,6 +29,15 @@ async function seedAdmin(): Promise<{ email: string; password: string }> {
   throw new Error("seed admin login failed");
 }
 
+async function readDevCode(page: Page): Promise<string> {
+  const el = page.getByText(/开发模式验证码：\d{6}/).first();
+  await expect(el).toBeVisible({ timeout: 15_000 });
+  const text = (await el.textContent()) ?? "";
+  const m = text.match(/(\d{6})/);
+  if (!m) throw new Error(`devCode not found in: ${text}`);
+  return m[1];
+}
+
 async function registerUser(page: Page): Promise<string> {
   const email = `ui-${Date.now()}@example.com`;
   await page.goto(`${BASE}/register`);
@@ -37,7 +46,34 @@ async function registerUser(page: Page): Promise<string> {
   await page.fill("#password", "secret123");
   await page.fill("#confirmPassword", "secret123");
   await page.click('button[type="submit"]');
-  await page.waitForURL("**/user/upload");
+
+  // 注册后强制邮箱验证：读 dev 验证码 toast，填码激活
+  await page.waitForURL("**/verify-email?*", { timeout: 15_000 });
+  const regCode = await readDevCode(page);
+  await page.fill("#code", regCode);
+  await page.click('button[type="submit"]');
+  await page.waitForURL("**/login", { timeout: 15_000 });
+
+  // 登录（强制邮箱验证码）：注册已触发 60s 发送冷却，等按钮恢复后手动发码
+  await page.fill("#email", email);
+  await page.fill("#password", "secret123");
+  await page.click('button[type="submit"]');
+  await expect(page.locator("#email-otp")).toBeVisible({ timeout: 15_000 });
+  await page.waitForFunction(
+    () => {
+      const btn = Array.from(document.querySelectorAll("button")).find((b) =>
+        /发送验证码|s 后可重发/.test(b.textContent ?? ""),
+      );
+      return Boolean(btn && /发送验证码/.test(btn.textContent ?? ""));
+    },
+    undefined,
+    { timeout: 90_000 },
+  );
+  await page.getByRole("button", { name: "发送验证码" }).click();
+  const loginCode = await readDevCode(page);
+  await page.fill("#email-otp", loginCode);
+  await page.click('button[type="submit"]');
+  await page.waitForURL("**/user/upload", { timeout: 15_000 });
   return email;
 }
 

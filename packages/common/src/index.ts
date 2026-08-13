@@ -4,6 +4,7 @@ export {
   invalidateUserState,
 } from "./auth/auth.guard";
 export { AdminGuard } from "./auth/admin.guard";
+export { SuperAdminGuard } from "./auth/super-admin.guard";
 export { signJwt, verifyJwt, type JwtPayload } from "./auth/jwt";
 export {
   RedisService,

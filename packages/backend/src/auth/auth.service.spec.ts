@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { createCipheriv, createHash, randomBytes } from "node:crypto";
@@ -85,6 +87,16 @@ function makeRedis() {
   };
 }
 
+function makeEmailVerification() {
+  return {
+    sendCode: jest.fn(async () => ({ expiresIn: 300, cooldownSeconds: 60 })),
+    verifyCode: jest.fn(async () => ({
+      verified: true as const,
+      email: "verified@example.com",
+    })),
+  };
+}
+
 describe("AuthService", () => {
   it("rejects short passwords", async () => {
     const service = new AuthService(
@@ -92,6 +104,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     await expect(
       service.register({ name: "A", email: "a@example.com", password: "123" }),
@@ -104,6 +117,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     await expect(
       service.register({
@@ -122,6 +136,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -150,6 +165,7 @@ describe("AuthService", () => {
       redis as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     await expect(
       service.login(
@@ -166,6 +182,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -174,12 +191,17 @@ describe("AuthService", () => {
       password: "secret123",
       wallet,
     });
+    await service.verifyEmail("login@example.com", "123456");
     const result = await service.login({
       email: "login@example.com",
       password: "secret123",
+      emailOtpCode: "123456",
     });
     expect("requiresTotp" in result).toBe(false);
-    if ("requiresTotp" in result) throw new Error("unexpected requiresTotp");
+    expect("requiresEmailOtp" in result).toBe(false);
+    if ("requiresTotp" in result || "requiresEmailOtp" in result) {
+      throw new Error("unexpected second-factor prompt");
+    }
     const ok = result;
     expect(ok.accessToken).toMatch(/^eyJ/);
     expect(ok.refreshToken).toHaveLength(64);
@@ -197,6 +219,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     await service.register({
       name: "T",
@@ -230,6 +253,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     // 密码正确性仍校验：用真实注册流程生成合法密码哈希
     await service.register({
@@ -238,6 +262,7 @@ describe("AuthService", () => {
       password: "secret123",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
+    await service.verifyEmail("totp2@example.com", "123456");
     // 给注册用户开启 TOTP
     await prisma.user.update({
       data: { totpEnabled: true, totpSecret: encryptForTest(secret) },
@@ -245,6 +270,7 @@ describe("AuthService", () => {
     const result = await service.login({
       email: "totp2@example.com",
       password: "secret123",
+      emailOtpCode: "123456",
     });
     expect(result).toEqual({ requiresTotp: true });
 
@@ -252,6 +278,7 @@ describe("AuthService", () => {
       service.login({
         email: "totp2@example.com",
         password: "secret123",
+        emailOtpCode: "123456",
         totpCode: "000000",
       }),
     ).rejects.toThrow(UnauthorizedException);
@@ -260,10 +287,14 @@ describe("AuthService", () => {
     const okResult = await service.login({
       email: "totp2@example.com",
       password: "secret123",
+      emailOtpCode: "123456",
       totpCode: validCode,
     });
     expect("requiresTotp" in okResult).toBe(false);
-    if ("requiresTotp" in okResult) throw new Error("unexpected");
+    expect("requiresEmailOtp" in okResult).toBe(false);
+    if ("requiresTotp" in okResult || "requiresEmailOtp" in okResult) {
+      throw new Error("unexpected second-factor prompt");
+    }
     expect(okResult.accessToken).toMatch(/^eyJ/);
   });
 
@@ -275,6 +306,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     await service.register({
       name: "T",
@@ -300,6 +332,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     await service.register({
       name: "T",
@@ -328,6 +361,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       audit as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -336,9 +370,11 @@ describe("AuthService", () => {
       password: "secret123",
       wallet,
     });
+    await service.verifyEmail("audit-login@example.com", "123456");
     await service.login({
       email: "audit-login@example.com",
       password: "secret123",
+      emailOtpCode: "123456",
     });
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: "AUTH_LOGIN" }),
@@ -352,6 +388,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       makeAudit() as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -372,7 +409,7 @@ describe("AuthService", () => {
       mustChangePassword: false,
     });
     await expect(
-      service.changePassword("u1", "wrong-pass", "newpass1234"),
+      service.changePassword("u1", "wrong-pass", "newpass1234", "123456"),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -384,6 +421,7 @@ describe("AuthService", () => {
       makeRedis() as never,
       audit as never,
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     const reg = await service.register({
@@ -407,9 +445,233 @@ describe("AuthService", () => {
             }
           : null,
     );
-    await service.changePassword(reg.user.id, "secret123", "secret1234");
+    await service.changePassword(reg.user.id, "secret123", "secret1234", "123456");
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: "AUTH_PASSWORD_CHANGED" }),
+    );
+  });
+
+  it("register sends a code and creates an unverified account (no session)", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    const result = await service.register({
+      name: "A",
+      email: "pending@example.com",
+      password: "secret123",
+      wallet,
+    });
+
+    expect(emailVerification.sendCode).toHaveBeenCalledWith("pending@example.com");
+    expect(result).toEqual(
+      expect.objectContaining({
+        requiresEmailVerification: true,
+        expiresIn: 300,
+        cooldownSeconds: 60,
+      }),
+    );
+    expect("accessToken" in result).toBe(false);
+    const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
+    expect(created.emailVerified).toBe(false);
+    expect(created.email).toBe("pending@example.com");
+  });
+
+  it("register propagates send failure and does not create the user", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    (emailVerification.sendCode as jest.Mock).mockRejectedValue(
+      new ServiceUnavailableException("邮件发送失败，请稍后重试"),
+    );
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    await expect(
+      service.register({
+        name: "A",
+        email: "send-fail@example.com",
+        password: "secret123",
+      }),
+    ).rejects.toThrow(ServiceUnavailableException);
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("verifyEmail activates the account and records an audit event", async () => {
+    const prisma = makePrisma();
+    const audit = makeAudit();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      audit as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+    );
+    await service.register({
+      name: "A",
+      email: "activate@example.com",
+      password: "secret123",
+    });
+    const result = await service.verifyEmail("activate@example.com", "123456");
+
+    expect(result).toEqual({ ok: true, email: "activate@example.com" });
+    const updated = (prisma.user.update as jest.Mock).mock.calls[0][0].data;
+    expect(updated.emailVerified).toBe(true);
+    expect(updated.emailVerifiedAt).toBeInstanceOf(Date);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "EMAIL_VERIFIED" }),
+    );
+  });
+
+  it("verifyEmail rejects an unknown email", async () => {
+    const service = new AuthService(
+      makePrisma() as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+    );
+    await expect(
+      service.verifyEmail("nobody@example.com", "123456"),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("login blocks an unverified account", async () => {
+    const prisma = makePrisma();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+    );
+    await service.register({
+      name: "A",
+      email: "unverified@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    await expect(
+      service.login({ email: "unverified@example.com", password: "secret123" }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("login always requires email OTP for registered accounts (mandatory)", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    await service.register({
+      name: "A",
+      email: "otp-login@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    await service.verifyEmail("otp-login@example.com", "123456");
+
+    const result = await service.login({
+      email: "otp-login@example.com",
+      password: "secret123",
+    });
+
+    expect(result).toEqual({ requiresEmailOtp: true });
+    expect(emailVerification.sendCode).toHaveBeenLastCalledWith(
+      "otp-login@example.com",
+    );
+  });
+
+  it("login completes with a valid email OTP code", async () => {
+    const prisma = makePrisma();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+    );
+    await service.register({
+      name: "A",
+      email: "otp-login2@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    await service.verifyEmail("otp-login2@example.com", "123456");
+
+    const result = await service.login({
+      email: "otp-login2@example.com",
+      password: "secret123",
+      emailOtpCode: "123456",
+    });
+
+    expect("requiresEmailOtp" in result).toBe(false);
+    expect("requiresTotp" in result).toBe(false);
+    if ("requiresEmailOtp" in result || "requiresTotp" in result) {
+      throw new Error("unexpected second-factor prompt");
+    }
+    expect(result.accessToken).toMatch(/^eyJ/);
+    expect(result.user.emailOtpEnabled).toBe(true);
+  });
+
+  it("changePassword requires and verifies an email code", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    await service.register({
+      name: "A",
+      email: "cp-code@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    await service.changePassword("u1", "secret123", "secret1234", "123456");
+    expect(emailVerification.verifyCode).toHaveBeenCalledWith(
+      "cp-code@example.com",
+      "123456",
+    );
+  });
+
+  it("bindWallet requires and verifies an email code", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    const wallet1 = Keypair.generate().publicKey.toBase58();
+    const wallet2 = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      name: "A",
+      email: "bind-wallet@example.com",
+      password: "secret123",
+      wallet: wallet1,
+    });
+    const user = await service.bindWallet("u1", wallet2, "123456");
+    expect(user.wallet).toBe(wallet2);
+    expect(emailVerification.verifyCode).toHaveBeenCalledWith(
+      "bind-wallet@example.com",
+      "123456",
     );
   });
 });

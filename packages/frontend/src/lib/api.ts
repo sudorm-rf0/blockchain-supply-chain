@@ -2,6 +2,10 @@
 export {
   login,
   register,
+  verifyEmail,
+  sendEmailCode,
+  sendEmailOtpCode,
+  bindWallet,
   getMe,
   fetchSession,
   logout,
@@ -55,6 +59,20 @@ export {
   fetchWithdrawRequests,
   executeWithdrawal,
 } from "./pool-api";
+export {
+  listAccounts,
+  getAccount,
+  createAccount,
+  changeAccountRole,
+} from "./accounts-api";
+export type {
+  AccountRecord,
+  AccountsResponse,
+  AccountRole,
+  AccountDeal,
+  AccountFile,
+  AccountDetail,
+} from "./accounts-api";
 export type { PoolOverview, WithdrawRequestRecord } from "./pool-api";
 export { fetchIndexerStatus } from "./indexer-api";
 export type { IndexerStatus } from "./indexer-api";

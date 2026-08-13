@@ -60,13 +60,25 @@ export default function RegisterPage() {
         toast.error("请先完成人机验证");
         return;
       }
-      const { user, mustChangePassword } = await registerApi({
+      const result = await registerApi({
         name: values.name,
         email: values.email,
         password: values.password,
         wallet: values.wallet || undefined,
         turnstileToken: turnstileToken || undefined,
       });
+      if (result.requiresEmailVerification) {
+        // 防垃圾注册：注册后需先输入邮箱验证码激活账号
+        toast.success("注册成功，验证码已发送到邮箱，请查收");
+        if (result.devCode) {
+          toast.info(`开发模式验证码：${result.devCode}`);
+        }
+        router.push(
+          `/verify-email?email=${encodeURIComponent(values.email)}`,
+        );
+        return;
+      }
+      const { user, mustChangePassword } = result;
       setAuth({ ...user, mustChangePassword: mustChangePassword ?? false });
       toast.success("注册成功");
       router.push("/user/upload");

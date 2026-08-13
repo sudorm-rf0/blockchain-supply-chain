@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import AppWalletProvider from "@/components/WalletProvider";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
@@ -8,8 +7,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "供应链金融 · 区块链存证平台",
@@ -29,7 +26,8 @@ export default async function RootLayout({
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="zh-CN" translate="no" suppressHydrationWarning>
-      <body className={inter.className}>
+      {/* 使用系统字体栈，避免构建期从 Google Fonts 拉取字体（境内 VPS 无法访问） */}
+      <body className="antialiased">
         <ThemeProvider nonce={nonce}>
           <AppWalletProvider>{children}</AppWalletProvider>
           <Toaster />

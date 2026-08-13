@@ -25,6 +25,8 @@ const PASSWORD_ONLY_PATHS = new Set([
   "/api/auth/me",
   "/api/auth/change-password",
   "/api/auth/logout",
+  // 初始密码强制修改流程：需先发送邮箱验证码才能完成改密（C 敏感操作验证）
+  "/api/auth/email-otp/send",
 ]);
 
 // 短 TTL 内存缓存：mustChangePassword 很少变化，省掉每个请求一次用户表查询。

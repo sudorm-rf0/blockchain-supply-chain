@@ -100,8 +100,16 @@ cd packages/frontend
 FRONTEND_PORT=3100 pnpm dev
 ```
 
-打开 `http://localhost:3100`。种子管理员：`admin@supply-chain.io` /
-`Admin123!`（可用 `pnpm --filter @supply-chain/backend prisma:seed` 重建）。
+打开 `http://localhost:3100`。种子账号（可用 `pnpm --filter @supply-chain/backend prisma:seed` 重建）：
+
+| 角色 | 邮箱 | 密码 |
+| --- | --- | --- |
+| 超级管理员 | `root@supply-chain.io` | `SuperAdmin123!` |
+| 管理员 | `admin@supply-chain.io` | `Admin123!` |
+
+角色分三级：用户（USER）/ 管理员（ADMIN）/ 超级管理员（SUPER_ADMIN）。
+管理员可访问全部审核/管理页面；超级管理员额外拥有「账号管理」（查看所有账号
+信息与内容、添加管理员、调整账户类型）。
 
 一键健康检查（后端、RPC、前端）：
 

@@ -155,7 +155,7 @@ export default function OrdersPage() {
       (signature) => confirmReleaseTrade(trade.tradeId, signature),
     );
 
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = user?.role !== "USER";
 
   return (
     <div className="space-y-4">

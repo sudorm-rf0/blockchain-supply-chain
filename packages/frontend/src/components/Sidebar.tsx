@@ -16,14 +16,18 @@ import {
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
-  role: "USER" | "ADMIN";
+  role: "USER" | "ADMIN" | "SUPER_ADMIN";
 }
 
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
   const items =
-    role === "ADMIN"
+    isAdmin
       ? [
+          ...(role === "SUPER_ADMIN"
+            ? [{ href: "/admin/accounts", label: "账号管理", icon: ShieldCheck }]
+            : []),
           {
             href: "/admin/files?status=PENDING",
             label: "文件审核",
@@ -53,18 +57,18 @@ export function Sidebar({ role }: SidebarProps) {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-white dark:bg-slate-900">
-      <div className="px-5 py-4 text-base font-semibold text-foreground">
-        Supply Chain
+    <aside className="flex h-screen w-64 flex-col border-r border-border bg-background">
+      <div className="border-b border-border px-5 py-4 font-mono text-sm font-semibold tracking-widest text-foreground">
+        SUPPLY CHAIN
       </div>
-      <nav className="flex-1 space-y-1 p-2">
+      <nav className="flex-1 space-y-px p-2">
         <Link
           href="/dashboard"
           className={cn(
-            "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+            "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-colors",
             pathname === "/dashboard"
-              ? "bg-slate-700 text-white dark:bg-primary/10 dark:text-primary"
-              : "text-muted-foreground hover:bg-muted",
+              ? "border-[#00E676] bg-primary/10 text-[#00E676]"
+              : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           <LayoutDashboard className="h-4 w-4" />
@@ -78,10 +82,10 @@ export function Sidebar({ role }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-colors",
                 active
-                  ? "bg-slate-700 text-white dark:bg-primary/10 dark:text-primary"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "border-[#00E676] bg-primary/10 text-[#00E676]"
+                  : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <Icon className="h-4 w-4" />

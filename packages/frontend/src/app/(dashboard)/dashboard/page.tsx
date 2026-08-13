@@ -334,7 +334,7 @@ export default function DashboardPage() {
               <div className="mb-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-md border p-3">
                   <p className="text-xs text-muted-foreground">闲置流动性</p>
-                  <p className="mt-1 text-xl font-semibold text-violet-600 dark:text-violet-300">
+                  <p className="mt-1 text-xl font-semibold text-[#00E676]">
                     $
                     {formatUsdc(
                       (BigInt(overview.totalAssets) - BigInt(overview.activeCapital)).toString(10),

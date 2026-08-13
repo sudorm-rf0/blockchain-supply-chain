@@ -23,7 +23,8 @@ export class AdminGuard implements CanActivate {
       where: { id: request.user.sub },
       select: { role: true },
     });
-    if (user?.role !== "ADMIN") {
+    // 管理员与超级管理员均视为后台管理角色
+    if (user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN") {
       throw new ForbiddenException("需要管理员权限");
     }
     return true;

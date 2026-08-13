@@ -6,19 +6,22 @@ import { TurnstileService } from "./turnstile.service";
 import {
   AuthGuard,
   AdminGuard,
+  SuperAdminGuard,
   RedisService,
   PRISMA_SERVICE,
 } from "@supply-chain/common";
 import { AuditModule } from "../audit/audit.module";
+import { EmailVerificationModule } from "../email-verification/email-verification.module";
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, EmailVerificationModule],
   controllers: [AuthController],
   providers: [
     AuthService,
     TurnstileService,
     AuthGuard,
     AdminGuard,
+    SuperAdminGuard,
     PrismaService,
     RedisService,
     { provide: PRISMA_SERVICE, useExisting: PrismaService },
@@ -28,6 +31,7 @@ import { AuditModule } from "../audit/audit.module";
     TurnstileService,
     AuthGuard,
     AdminGuard,
+    SuperAdminGuard,
     PrismaService,
     RedisService,
     PRISMA_SERVICE,

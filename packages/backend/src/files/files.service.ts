@@ -302,7 +302,7 @@ export class FilesService {
       include: { uploader: { select: { name: true } } },
     });
     if (!file) throw new NotFoundException("文件不存在");
-    if (role !== "ADMIN" && file.uploaderId !== userId) {
+    if (role === "USER" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权查看此文件");
     }
     return this.publicFile(file);
@@ -311,7 +311,7 @@ export class FilesService {
   async getVersions(id: string, userId: string, role: string) {
     const file = await this.prisma.file.findUnique({ where: { id } });
     if (!file) throw new NotFoundException("文件不存在");
-    if (role !== "ADMIN" && file.uploaderId !== userId) {
+    if (role === "USER" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权查看此文件");
     }
     if (!file.documentGroupId) {
@@ -320,7 +320,7 @@ export class FilesService {
     const versions = await this.prisma.file.findMany({
       where: {
         documentGroupId: file.documentGroupId,
-        ...(role === "ADMIN" ? {} : { uploaderId: userId }),
+        ...(role === "USER" ? { uploaderId: userId } : {}),
       },
       orderBy: { version: "desc" },
       include: { uploader: { select: { name: true } } },
@@ -331,7 +331,7 @@ export class FilesService {
   async getContent(id: string, userId: string, role: string) {
     const file = await this.prisma.file.findUnique({ where: { id } });
     if (!file) throw new NotFoundException("文件不存在");
-    if (role !== "ADMIN" && file.uploaderId !== userId) {
+    if (role === "USER" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权查看此文件");
     }
     let stream;
@@ -429,7 +429,7 @@ export class FilesService {
     }
     const file = await this.prisma.file.findUnique({ where: { id } });
     if (!file) throw new NotFoundException("文件不存在");
-    if (role !== "ADMIN" && file.uploaderId !== userId) {
+    if (role === "USER" && file.uploaderId !== userId) {
       throw new ForbiddenException("无权删除此文件");
     }
     if (file.txSignature) {

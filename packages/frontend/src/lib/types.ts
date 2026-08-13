@@ -1,4 +1,4 @@
-type UserRole = "USER" | "ADMIN";
+type UserRole = "USER" | "ADMIN" | "SUPER_ADMIN";
 
 export interface AuthUser {
   id: string;
@@ -8,6 +8,8 @@ export interface AuthUser {
   wallet?: string;
   mustChangePassword?: boolean;
   totpEnabled?: boolean;
+  emailOtpEnabled?: boolean;
+  emailVerified?: boolean;
 }
 
 export type FileStatus = "PENDING" | "APPROVED" | "REJECTED";

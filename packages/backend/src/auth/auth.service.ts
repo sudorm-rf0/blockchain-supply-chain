@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -14,6 +15,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { getRedisFailureCount, RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
 import { TurnstileService } from "./turnstile.service";
+import { EmailVerificationService } from "../email-verification/email-verification.service";
 import { signJwt } from "@supply-chain/common";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -147,10 +149,22 @@ export interface PublicUser {
   id: string;
   email: string;
   name: string;
-  role: "USER" | "ADMIN";
+  role: "USER" | "ADMIN" | "SUPER_ADMIN";
   wallet: string;
   mustChangePassword: boolean;
   totpEnabled: boolean;
+  emailOtpEnabled: boolean;
+  emailVerified: boolean;
+}
+
+/** 注册结果：创建成功但需先完成邮箱验证后才能登录 */
+export interface RegisterResult {
+  requiresEmailVerification: true;
+  expiresIn: number;
+  cooldownSeconds: number;
+  user: PublicUser;
+  /** 仅开发环境且未配置邮件服务时返回，便于本地联调 */
+  devCode?: string;
 }
 
 export interface SessionResult {
@@ -168,6 +182,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly audit: AuditService,
     private readonly turnstile: TurnstileService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   async register(body: {
@@ -176,7 +191,7 @@ export class AuthService {
     password: string;
     wallet?: string;
     turnstileToken?: string;
-  }): Promise<SessionResult> {
+  }): Promise<RegisterResult> {
     if (!(await this.turnstile.verify(body.turnstileToken, { expectedAction: "signup" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
@@ -209,6 +224,11 @@ export class AuthService {
         throw new ConflictException("该钱包地址已被其他用户绑定");
       }
     }
+
+    // 防垃圾注册：先发送验证码（失败则不创建账号），账号创建后为未验证状态，
+    // 输入验证码激活前不可登录。验证码 5 分钟有效、单次使用。
+    const sent = await this.emailVerification.sendCode(body.email);
+
     const salt = randomBytes(16).toString("hex");
     const passwordHash = (await hashPassword(body.password, salt)).toString("hex");
     let user;
@@ -220,6 +240,9 @@ export class AuthService {
           name: body.name,
           passwordHash: `${salt}:${passwordHash}`,
           role: "USER",
+          emailVerified: false,
+          // 最高安全：真实注册账号强制开启邮箱验证码登录
+          emailOtpEnabled: true,
         },
       });
     } catch (error: any) {
@@ -235,7 +258,43 @@ export class AuthService {
       targetId: user.id,
       metadata: { email: body.email },
     });
-    return this.issueSession(user);
+    return {
+      requiresEmailVerification: true,
+      expiresIn: sent.expiresIn,
+      cooldownSeconds: sent.cooldownSeconds,
+      ...(sent.devCode ? { devCode: sent.devCode } : {}),
+      user: this.publicUser(user),
+    };
+  }
+
+  /** 注册邮箱验证：校验验证码并把账号标记为已验证（激活）。 */
+  async verifyEmail(
+    email: string,
+    code: string,
+  ): Promise<{ ok: true; email: string }> {
+    const normalized = email.trim().toLowerCase();
+    await this.emailVerification.verifyCode(email, code);
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalized },
+    });
+    if (!user) {
+      throw new BadRequestException("用户不存在");
+    }
+    if (user.emailVerified) {
+      return { ok: true, email: normalized };
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
+    await this.audit.record({
+      actorId: updated.id,
+      actorEmail: updated.email,
+      action: "EMAIL_VERIFIED",
+      targetType: "AUTH",
+      targetId: updated.id,
+    });
+    return { ok: true, email: normalized };
   }
 
   async login(
@@ -243,10 +302,15 @@ export class AuthService {
       email: string;
       password: string;
       totpCode?: string;
+      emailOtpCode?: string;
       turnstileToken?: string;
     },
     clientIp?: string,
-  ): Promise<SessionResult | { requiresTotp: true }> {
+  ): Promise<
+    | SessionResult
+    | { requiresTotp: true }
+    | { requiresEmailOtp: true; devCode?: string }
+  > {
     if (!(await this.turnstile.verify(body.turnstileToken, { remoteIp: clientIp, expectedAction: "login" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
@@ -292,6 +356,30 @@ export class AuthService {
     const stored = Buffer.from(storedHash, "hex");
     if (hash.length !== stored.length || !timingSafeEqual(hash, stored)) {
       throw new UnauthorizedException("邮箱或密码错误");
+    }
+    if (user.emailVerified === false) {
+      throw new ForbiddenException("邮箱尚未验证，请先完成邮箱验证后登录");
+    }
+    if (user.emailOtpEnabled) {
+      if (!user.email) {
+        throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
+      }
+      if (!body.emailOtpCode) {
+        // 首次提交：向邮箱发送验证码并提示输入（冷却期内不重复发送）
+        try {
+          const sent = await this.emailVerification.sendCode(user.email);
+          // 仅开发环境（未配置邮件服务）返回 devCode，便于本地联调与 e2e
+          return {
+            requiresEmailOtp: true,
+            ...(sent.devCode ? { devCode: sent.devCode } : {}),
+          };
+        } catch (error) {
+          // 60s 冷却 / 小时上限等场景：已有验证码在途，继续要求输入
+          this.logger.warn(`email otp send skipped: ${String(error)}`);
+          return { requiresEmailOtp: true };
+        }
+      }
+      await this.emailVerification.verifyCode(user.email, body.emailOtpCode);
     }
     if (user.totpEnabled) {
       const secret = decryptTotpSecret(user.totpSecret);
@@ -390,6 +478,7 @@ export class AuthService {
     userId: string,
     currentPassword: string,
     newPassword: string,
+    emailCode: string | undefined,
     currentRefreshToken?: string,
   ): Promise<PublicUser> {
     if (!newPassword || newPassword.length < 8) {
@@ -402,6 +491,8 @@ export class AuthService {
     if (!user?.passwordHash) {
       throw new UnauthorizedException("用户不存在");
     }
+    // 敏感操作：修改密码前必须通过邮箱验证码确认
+    await this.requireEmailCode(user, emailCode);
     const [salt, storedHash] = user.passwordHash.split(":");
     const hash = await hashPassword(currentPassword, salt);
     const stored = Buffer.from(storedHash, "hex");
@@ -455,7 +546,11 @@ export class AuthService {
     return { user: publicUser, mustChangePassword: publicUser.mustChangePassword };
   }
 
-  async bindWallet(userId: string, wallet: string) {
+  async bindWallet(userId: string, wallet: string, emailCode: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("用户不存在");
+    // 敏感操作：更换/绑定钱包前必须通过邮箱验证码确认
+    await this.requireEmailCode(user, emailCode);
     const existing = await this.prisma.user.findUnique({
       where: { wallet },
     });
@@ -481,6 +576,39 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  /** 发送邮箱验证码到当前登录用户（用于开启/关闭 Email OTP 及敏感操作确认）。 */
+  async sendEmailOtpCode(userId: string): Promise<{
+    expiresIn: number;
+    cooldownSeconds: number;
+    devCode?: string;
+  }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.email) throw new UnauthorizedException("用户不存在");
+    const sent = await this.emailVerification.sendCode(user.email);
+    return {
+      expiresIn: sent.expiresIn,
+      cooldownSeconds: sent.cooldownSeconds,
+      ...(sent.devCode ? { devCode: sent.devCode } : {}),
+    };
+  }
+
+  /** 敏感操作统一入口：校验邮箱验证码（用户必须存在邮箱）。 */
+  private async requireEmailCode(
+    user: { email: string | null; emailOtpEnabled?: boolean },
+    code: string | undefined,
+  ): Promise<void> {
+    // 引导/运营账号（emailOtpEnabled=false，如种子管理员/超级管理员、超管创建的管理员）
+    // 不强制邮箱验证码，避免「强制改密 + 无真实邮箱」死锁；真实用户仍强制校验。
+    if (user.emailOtpEnabled === false) return;
+    if (!user.email) {
+      throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
+    }
+    if (code === undefined) {
+      throw new BadRequestException("邮箱验证码为 6 位数字");
+    }
+    await this.emailVerification.verifyCode(user.email, code);
   }
 
   async setupTotp(userId: string) {
@@ -554,7 +682,10 @@ export class AuthService {
       sub: user.id,
       email: user.email ?? "",
       name: user.name ?? "",
-      role: user.role === "ADMIN" ? ("ADMIN" as const) : ("USER" as const),
+      role:
+        user.role === "ADMIN" || user.role === "SUPER_ADMIN"
+          ? (user.role as "ADMIN" | "SUPER_ADMIN")
+          : ("USER" as const),
     };
     const publicUser = this.publicUser(user);
     return {
@@ -573,15 +704,22 @@ export class AuthService {
     wallet?: string | null;
     mustChangePassword?: boolean;
     totpEnabled?: boolean;
+    emailOtpEnabled?: boolean;
+    emailVerified?: boolean;
   }): PublicUser {
     return {
       id: user.id,
       email: user.email ?? "",
       name: user.name ?? "",
-      role: user.role === "ADMIN" ? ("ADMIN" as const) : ("USER" as const),
+      role:
+        user.role === "ADMIN" || user.role === "SUPER_ADMIN"
+          ? (user.role as "ADMIN" | "SUPER_ADMIN")
+          : ("USER" as const),
       wallet: user.wallet ?? "",
       mustChangePassword: user.mustChangePassword === true,
       totpEnabled: user.totpEnabled === true,
+      emailOtpEnabled: user.emailOtpEnabled === true,
+      emailVerified: user.emailVerified === true,
     };
   }
 }

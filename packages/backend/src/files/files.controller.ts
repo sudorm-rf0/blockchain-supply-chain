@@ -78,7 +78,7 @@ export class FilesController {
       page: Math.max(1, Number(page) || 1),
       limit: Math.min(100, Math.max(1, Number(limit) || 10)),
       status: status as FileStatus | undefined,
-      userId: req!.user!.role === "ADMIN" ? undefined : req!.user!.sub,
+      userId: req!.user!.role !== "USER" ? undefined : req!.user!.sub,
       tradeId: tradeId || undefined,
     });
   }

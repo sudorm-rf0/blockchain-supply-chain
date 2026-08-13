@@ -6,10 +6,12 @@ import { OriginGuard } from "./shared/origin.guard";
 import { AppController } from "./app.controller";
 import { CspReportController } from "./csp-report.controller";
 import { AdminStatsController } from "./admin/admin.controller";
+import { AccountsController } from "./admin/accounts.controller";
 import { AuthModule } from "./auth/auth.module";
 import { AuditModule } from "./audit/audit.module";
 import { FilesModule } from "./files/files.module";
 import { SupplyChainModule } from "./supply-chain/supply-chain.module";
+import { EmailVerificationModule } from "./email-verification/email-verification.module";
 import { MetricsController } from "./shared/metrics.controller";
 import { MetricsMiddleware } from "./shared/metrics.middleware";
 import { MetricsService } from "./shared/metrics.service";
@@ -30,12 +32,14 @@ import { RedisService } from "@supply-chain/common";
     AuditModule,
     FilesModule,
     SupplyChainModule,
+    EmailVerificationModule,
   ],
   controllers: [
     AppController,
     CspReportController,
     MetricsController,
     AdminStatsController,
+    AccountsController,
   ],
   providers: [
     PrismaService,

@@ -19,6 +19,8 @@ import { AuthGuard } from "@supply-chain/common";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
+import { BindWalletDto } from "./dto/bind-wallet.dto";
+import { VerifyEmailCodeDto } from "../email-verification/dto/verify-email-code.dto";
 import {
   clearAuthCookies,
   REFRESH_TOKEN_COOKIE,
@@ -35,17 +37,18 @@ export class AuthController {
 
   @Post("register")
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  async register(
-    @Body() body: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const session = await this.authService.register(body);
-    setAuthCookies(res, session.accessToken, session.refreshToken);
-    return {
-      accessToken: session.accessToken,
-      user: session.user,
-      mustChangePassword: session.mustChangePassword,
-    };
+  async register(@Body() body: RegisterDto) {
+    // 防垃圾注册：注册后不直接登录，需先输入邮箱验证码激活账号
+    const result = await this.authService.register(body);
+    return result;
+  }
+
+  /** 注册邮箱验证：输入 6 位验证码后账号激活，方可登录 */
+  @Post("verify-email")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async verifyEmail(@Body() body: VerifyEmailCodeDto) {
+    return this.authService.verifyEmail(body.email, body.code);
   }
 
   @Post("login")
@@ -59,6 +62,13 @@ export class AuthController {
     const session = await this.authService.login(body, getClientIp(req));
     if ("requiresTotp" in session) {
       return { requiresTotp: true };
+    }
+    if ("requiresEmailOtp" in session) {
+      // 开发环境（未配置邮件服务）附带 devCode，便于本地联调与 e2e
+      return {
+        requiresEmailOtp: true,
+        ...(session.devCode ? { devCode: session.devCode } : {}),
+      };
     }
     setAuthCookies(res, session.accessToken, session.refreshToken);
     return {
@@ -153,6 +163,7 @@ export class AuthController {
       req.user!.sub,
       body.currentPassword,
       body.newPassword,
+      body.emailCode,
       refreshToken,
     );
     return { ok: true, user, mustChangePassword: false };
@@ -160,18 +171,22 @@ export class AuthController {
 
   @Patch("wallet")
   @UseGuards(AuthGuard)
-  bindWallet(
-    @Req() req: Request,
-    @Body("wallet") wallet: string,
-  ) {
-    if (!wallet) {
-      throw new BadRequestException("wallet is required");
-    }
+  bindWallet(@Req() req: Request, @Body() body: BindWalletDto) {
     try {
-      new PublicKey(wallet);
+      new PublicKey(body.wallet);
     } catch {
       throw new BadRequestException("invalid Solana address");
     }
-    return this.authService.bindWallet(req.user!.sub, wallet);
+    return this.authService.bindWallet(req.user!.sub, body.wallet, body.emailCode);
   }
+
+  /** 发送邮箱验证码（用于开启/关闭 Email OTP、修改密码、绑定钱包等敏感操作） */
+  @Post("email-otp/send")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async sendEmailOtpCode(@Req() req: Request) {
+    return this.authService.sendEmailOtpCode(req.user!.sub);
+  }
+
 }

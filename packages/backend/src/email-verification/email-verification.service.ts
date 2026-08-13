@@ -1,0 +1,252 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { Resend } from "resend";
+import { RedisService } from "@supply-chain/common";
+import { AuditService } from "../audit/audit.service";
+
+/** 验证码有效期：5 分钟 */
+const CODE_TTL_SECONDS = 5 * 60;
+/** 同一邮箱发送冷却：60 秒 */
+const COOLDOWN_SECONDS = 60;
+/** 同一邮箱每小时发送上限 */
+const MAX_SENDS_PER_HOUR = 5;
+/** 单次验证码最多可尝试次数（超出即作废） */
+const MAX_ATTEMPTS = 5;
+/** 验证码位数 */
+const CODE_LENGTH = 6;
+
+interface StoredCode {
+  code: string;
+  attempts: number;
+}
+
+function sha256(input: string): string {
+  return createHash("sha256").update(input).digest("hex");
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function isCodeEqual(actual: string, expected: string): boolean {
+  if (actual.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
+}
+
+/**
+ * 邮箱验证码服务（Resend）。
+ *
+ * - `POST send`：生成 6 位数字验证码存入 Redis（5 分钟有效、单次使用），
+ *   并通过 Resend 发送邮件。同一邮箱 60 秒冷却、每小时最多 5 封。
+ * - `POST verify`：校验验证码（timing-safe 比较），最多 5 次尝试，成功即作废。
+ *
+ * 未配置 `RESEND_API_KEY` 时：生产环境直接返回 503（fail-closed）；
+ * 开发环境仅记录日志并返回 `devCode`，便于本地联调。
+ */
+@Injectable()
+export class EmailVerificationService {
+  private readonly logger = new Logger(EmailVerificationService.name);
+  private readonly resend: Resend | null;
+  private readonly from: string;
+  private readonly enabled: boolean;
+
+  constructor(
+    private readonly redis: RedisService,
+    private readonly audit: AuditService,
+  ) {
+    const apiKey = (process.env.RESEND_API_KEY ?? "").trim();
+    this.enabled = apiKey.length > 0;
+    this.from =
+      process.env.RESEND_FROM?.trim() || "SupplyChain <onboarding@resend.dev>";
+    if (!this.enabled) {
+      this.logger.warn(
+        "RESEND_API_KEY 未配置：邮件发送停用（生产环境返回 503，开发环境返回 devCode）",
+      );
+    }
+    this.resend = this.enabled ? new Resend(apiKey) : null;
+  }
+
+  // 说明：不在此处强制 Turnstile——注册/登录入口已有人机验证，且该接口被
+  // 注册/登录内部流程调用（无 token 会误伤）；防滥用由 60s 冷却 + 每小时上限 + IP 限流兜底。
+  async sendCode(
+    email: string,
+  ): Promise<{
+    expiresIn: number;
+    cooldownSeconds: number;
+    devCode?: string;
+  }> {
+    const normalized = normalizeEmail(email);
+    const digest = sha256(normalized);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    // 1) 发送冷却：同一邮箱 60 秒内不可重复发送
+    const cooldownKey = `email-code:cooldown:${digest}`;
+    const cooldownRaw = await this.redis.get(cooldownKey);
+    if (cooldownRaw) {
+      const remaining = Number(cooldownRaw) - nowSeconds;
+      if (remaining > 0) {
+        throw new BadRequestException(
+          `发送过于频繁，请 ${Math.ceil(remaining)} 秒后重试`,
+        );
+      }
+    }
+
+    // 2) 每小时发送上限：同一邮箱最多 MAX_SENDS_PER_HOUR 封
+    const hourBucket = Math.floor(nowSeconds / 3600);
+    const rateKey = `email-code:rl:${digest}:${hourBucket}`;
+    const sent = await this.redis.incr(rateKey);
+    if (sent === 1) {
+      await this.redis.expire(rateKey, 3600);
+    }
+    if (sent > MAX_SENDS_PER_HOUR) {
+      throw new BadRequestException("该邮箱发送过于频繁，请 1 小时后再试");
+    }
+
+    // 3) 生成验证码并入库（5 分钟有效、单次使用）
+    const code = randomInt(0, 10 ** CODE_LENGTH)
+      .toString()
+      .padStart(CODE_LENGTH, "0");
+    const stored: StoredCode = { code, attempts: 0 };
+    const codeKey = `email-code:code:${digest}`;
+    await this.redis.setEx(
+      codeKey,
+      CODE_TTL_SECONDS,
+      JSON.stringify(stored),
+    );
+
+    // 4) 未配置邮件服务：生产 fail-closed，开发返回 devCode
+    if (!this.resend) {
+      if (process.env.NODE_ENV === "production") {
+        throw new ServiceUnavailableException("邮件服务未配置，请联系管理员");
+      }
+      this.logger.warn(
+        `[dev] 未配置邮件服务，验证码=${code} 仅记录日志：${normalized}`,
+      );
+      await this.audit.record({
+        actorEmail: normalized,
+        action: "EMAIL_CODE_SENT",
+        targetType: "EMAIL_VERIFICATION",
+        targetId: normalized,
+      });
+      // 发送成功（或开发模式签发 devCode）后开启冷却
+      await this.redis.setEx(
+        cooldownKey,
+        COOLDOWN_SECONDS,
+        String(nowSeconds + COOLDOWN_SECONDS),
+      );
+      return {
+        expiresIn: CODE_TTL_SECONDS,
+        cooldownSeconds: COOLDOWN_SECONDS,
+        devCode: code,
+      };
+    }
+
+    // 5) 通过 Resend 发送
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: this.from,
+        to: [normalized],
+        subject: "供应链金融平台 - 邮箱验证码",
+        html: this.renderCodeEmail(code),
+      });
+      if (error) {
+        this.logger.error(`resend send failed: ${error.message}`);
+        throw new ServiceUnavailableException("邮件发送失败，请稍后重试");
+      }
+      this.logger.log(
+        `verification email sent id=${data?.id ?? "unknown"} to=${normalized}`,
+      );
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        throw error;
+      }
+      this.logger.error(`resend send threw: ${String(error)}`);
+      throw new ServiceUnavailableException("邮件发送失败，请稍后重试");
+    }
+
+    await this.audit.record({
+      actorEmail: normalized,
+      action: "EMAIL_CODE_SENT",
+      targetType: "EMAIL_VERIFICATION",
+      targetId: normalized,
+    });
+
+    // 6) 发送成功后开启冷却
+    await this.redis.setEx(
+      cooldownKey,
+      COOLDOWN_SECONDS,
+      String(nowSeconds + COOLDOWN_SECONDS),
+    );
+
+    return { expiresIn: CODE_TTL_SECONDS, cooldownSeconds: COOLDOWN_SECONDS };
+  }
+
+  async verifyCode(
+    email: string,
+    code: string,
+  ): Promise<{ verified: true; email: string }> {
+    const normalized = normalizeEmail(email);
+    const digest = sha256(normalized);
+    const codeKey = `email-code:code:${digest}`;
+    const raw = await this.redis.get(codeKey);
+    if (!raw) {
+      throw new BadRequestException("验证码不存在或已过期，请重新获取");
+    }
+
+    let stored: StoredCode;
+    try {
+      stored = JSON.parse(raw) as StoredCode;
+    } catch {
+      await this.redis.del(codeKey);
+      throw new BadRequestException("验证码不存在或已过期，请重新获取");
+    }
+    if (
+      typeof stored.code !== "string" ||
+      typeof stored.attempts !== "number"
+    ) {
+      await this.redis.del(codeKey);
+      throw new BadRequestException("验证码不存在或已过期，请重新获取");
+    }
+
+    if (stored.attempts >= MAX_ATTEMPTS) {
+      await this.redis.del(codeKey);
+      throw new BadRequestException("验证码尝试次数过多，请重新获取");
+    }
+
+    if (!/^\d{6}$/.test(code) || !isCodeEqual(stored.code, code)) {
+      stored.attempts += 1;
+      await this.redis.setEx(
+        codeKey,
+        CODE_TTL_SECONDS,
+        JSON.stringify(stored),
+      );
+      throw new BadRequestException("验证码错误");
+    }
+
+    // 验证通过：单次使用，立即作废
+    await this.redis.del(codeKey);
+    await this.audit.record({
+      actorEmail: normalized,
+      action: "EMAIL_CODE_VERIFIED",
+      targetType: "EMAIL_VERIFICATION",
+      targetId: normalized,
+    });
+    return { verified: true, email: normalized };
+  }
+
+  private renderCodeEmail(code: string): string {
+    return `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;">
+        <h2 style="margin:0 0 16px;font-size:20px;">供应链金融平台 · 邮箱验证码</h2>
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">您正在使用邮箱验证，本次验证码为：</p>
+        <p style="margin:0 0 24px;font-size:32px;font-weight:700;letter-spacing:6px;color:#2563eb;">${code}</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">验证码 ${CODE_TTL_SECONDS / 60} 分钟内有效，且只能使用一次，请勿泄露给他人。</p>
+        <p style="margin:0;font-size:13px;color:#9ca3af;">如非本人操作，请忽略此邮件。</p>
+      </div>`;
+  }
+}

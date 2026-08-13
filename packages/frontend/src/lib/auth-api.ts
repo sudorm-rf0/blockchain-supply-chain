@@ -9,17 +9,43 @@ export async function login(
   email: string,
   password: string,
   totpCode?: string,
+  emailOtpCode?: string,
   turnstileToken?: string,
 ): Promise<{
   accessToken?: string;
   user: AuthUser;
   mustChangePassword?: boolean;
   requiresTotp?: boolean;
+  requiresEmailOtp?: boolean;
+  devCode?: string;
 }> {
   return request(`${BACKEND_URL}/api/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password, totpCode, turnstileToken }),
+    body: JSON.stringify({ email, password, totpCode, emailOtpCode, turnstileToken }),
+  });
+}
+
+/** 发送邮箱验证码到当前登录用户（开启/关闭 Email OTP、敏感操作确认用） */
+export async function sendEmailOtpCode(): Promise<{
+  ok: boolean;
+  expiresIn: number;
+  cooldownSeconds: number;
+  devCode?: string;
+}> {
+  return request(`${BACKEND_URL}/api/auth/email-otp/send`, {
+    method: "POST",
+  });
+}
+
+export async function bindWallet(
+  wallet: string,
+  emailCode: string,
+): Promise<AuthUser> {
+  return request(`${BACKEND_URL}/api/auth/wallet`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ wallet, emailCode }),
   });
 }
 
@@ -54,11 +80,47 @@ export async function register(input: {
   password: string;
   wallet?: string;
   turnstileToken?: string;
-}): Promise<{ accessToken?: string; user: AuthUser; mustChangePassword?: boolean }> {
+}): Promise<{
+  accessToken?: string;
+  user: AuthUser;
+  mustChangePassword?: boolean;
+  requiresEmailVerification?: boolean;
+  expiresIn?: number;
+  cooldownSeconds?: number;
+  devCode?: string;
+}> {
   return request(`${BACKEND_URL}/api/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
+  });
+}
+
+/** 注册邮箱验证：输入 6 位验证码激活账号 */
+export async function verifyEmail(
+  email: string,
+  code: string,
+): Promise<{ ok: boolean; email: string }> {
+  return request(`${BACKEND_URL}/api/auth/verify-email`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+/** 重新发送邮箱验证码（60 秒冷却、每小时最多 5 封） */
+export async function sendEmailCode(
+  email: string,
+): Promise<{
+  ok: boolean;
+  expiresIn: number;
+  cooldownSeconds: number;
+  devCode?: string;
+}> {
+  return request(`${BACKEND_URL}/api/email-verification/send`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
   });
 }
 
@@ -96,10 +158,11 @@ export async function logout(): Promise<void> {
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
+  emailCode: string | undefined,
 ): Promise<{ ok: boolean; user: AuthUser; mustChangePassword: boolean }> {
   return request(`${BACKEND_URL}/api/auth/change-password`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ currentPassword, newPassword }),
+    body: JSON.stringify({ currentPassword, newPassword, emailCode }),
   });
 }

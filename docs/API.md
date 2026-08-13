@@ -39,7 +39,9 @@
 
 ### POST /api/auth/register
 
-公开注册，角色固定为 `USER`，不能注册管理员。
+公开注册，角色固定为 `USER`，不能注册管理员。**防垃圾注册**：注册成功后
+不直接登录，系统自动发送 6 位邮箱验证码；账号处于未验证状态，输入验证码激活
+（见下方 `POST /api/auth/verify-email`）后方可登录。
 
 ```json
 {
@@ -50,25 +52,52 @@
 }
 ```
 
-返回：
+返回（不设置 Cookie、不签发会话）：
 
 ```json
 {
-  "accessToken": "eyJ...",
-  "user": { "id": "u1", "email": "user@example.com", "role": "USER" },
-  "mustChangePassword": false
+  "requiresEmailVerification": true,
+  "expiresIn": 300,
+  "cooldownSeconds": 60,
+  "user": { "id": "u1", "email": "user@example.com", "role": "USER", "emailVerified": false }
 }
 ```
 
-同时设置 `access_token` / `refresh_token` 两个 httpOnly Cookie。
+验证码发送失败（如邮件服务不可用）时返回 `503`，账号不会创建。
+重复发送验证码可调用 `POST /api/email-verification/send`（同一邮箱 60 秒冷却、
+每小时最多 5 封）。
+
+### POST /api/auth/verify-email
+
+注册邮箱验证：校验验证码并把账号标记为已验证（激活）。验证码 6 位数字、
+5 分钟有效、单次使用，最多尝试 5 次。
+
+```json
+{ "email": "user@example.com", "code": "123456" }
+```
+
+返回：
+
+```json
+{ "ok": true, "email": "user@example.com" }
+```
 
 ### POST /api/auth/login
 
 ```json
-{ "email": "user@example.com", "password": "secret123" }
+{ "email": "user@example.com", "password": "secret123", "totpCode": "123456", "emailOtpCode": "123456" }
 ```
 
-返回结构与注册一致，并设置登录 Cookie。限流与防暴破：单接口 20 次/分钟；同一邮箱 5 次失败锁定
+`totpCode` / `emailOtpCode` 为可选：分步提供。
+
+**安全策略：所有真实注册账号登录强制邮箱验证码**（Email OTP 默认开启、不可关闭；
+仅本地演示/CI 引导用的种子管理员 `admin@supply-chain.io` 例外，可密码直登）。
+首次提交（无 `emailOtpCode`）会向邮箱发送 6 位验证码并返回
+`{ "requiresEmailOtp": true }`（开发环境未配置邮件服务时附带 `devCode`）；
+携带 `emailOtpCode` 再次提交通过后继续（若同时开启 TOTP 则下一步返回
+`{ "requiresTotp": true }`）。未完成注册邮箱验证的账号返回
+`403 邮箱尚未验证，请先完成邮箱验证后登录`。
+限流与防暴破：单接口 20 次/分钟；同一邮箱 5 次失败锁定
 15 分钟；同一 IP 20 次失败锁定 15 分钟。
 
 ### POST /api/auth/refresh
@@ -83,8 +112,11 @@
 ### POST /api/auth/change-password
 
 ```json
-{ "currentPassword": "old", "newPassword": "new-password" }
+{ "currentPassword": "old", "newPassword": "new-password", "emailCode": "123456" }
 ```
+
+敏感操作：`emailCode` 必填，需先调用 `POST /api/auth/email-otp/send`
+向本人邮箱发送 6 位验证码，校验通过后才执行改密。
 
 管理员使用初始密码登录时 `mustChangePassword=true`，改密前除
 `me` / `change-password` / `logout` 外所有受保护接口返回 `403 请先修改初始密码`。
@@ -96,10 +128,60 @@
 ### PATCH /api/auth/wallet
 
 ```json
-{ "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin" }
+{ "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin", "emailCode": "123456" }
 ```
 
-绑定/更换钱包；地址已被其他用户绑定时返回 `409`。
+敏感操作：`emailCode` 必填，需先调用 `POST /api/auth/email-otp/send` 获取验证码。
+地址已被其他用户绑定时返回 `409`。
+
+### POST /api/auth/email-otp/send
+
+登录后向**本人邮箱**发送 6 位验证码（用于修改密码、绑定钱包等敏感操作确认）。
+登录接口自身也会自动发码。同一邮箱 60 秒冷却、每小时最多 5 封；冷却中返回 `400`。
+
+> 说明：Email OTP 为平台强制安全策略（登录必填），不提供开启/关闭接口。
+
+## 1.1 邮箱验证码（主后端 3001）
+
+通用邮箱验证码服务（Resend 发送）：可独立用于注册、改绑邮箱、找回密码等
+需要验证邮箱所有权的流程。验证码 6 位数字、5 分钟有效、单次使用。
+
+发送限流：单 IP 10 次/分钟（接口级）、单邮箱 60 秒冷却、单邮箱每小时最多 5 封
+（Redis 计数）。人机验证在注册/登录入口统一校验（Turnstile），发送接口不再单独要求。
+
+> 未配置 `RESEND_API_KEY`：生产环境返回 `503`（fail-closed）；开发环境返回
+> `devCode` 仅用于本地联调，不真正发信。发件人 `RESEND_FROM` 未绑定自有域名时
+> 只能使用 `onboarding@resend.dev` 且仅能发送到账号注册邮箱。
+
+### POST /api/email-verification/send
+
+```json
+{ "email": "user@example.com" }
+```
+
+- `email` 必填。
+
+返回：
+
+```json
+{ "ok": true, "expiresIn": 300, "cooldownSeconds": 60 }
+```
+
+`429`/`400`：60 秒冷却中（消息含剩余秒数）或超过每小时 5 封上限。
+
+### POST /api/email-verification/verify
+
+```json
+{ "email": "user@example.com", "code": "123456" }
+```
+
+校验通过即作废（单次使用）。单次验证码最多尝试 5 次，超限自动作废。
+
+返回：
+
+```json
+{ "ok": true, "verified": true, "email": "user@example.com" }
+```
 
 ## 2. 文件（主后端 3001）
 
@@ -182,6 +264,38 @@ PNG/JPEG 上传时自动去除 EXIF/GPS 元数据。
 校验链上 `attest_document` 指令后回写存证信息。
 
 ## 3. 管理（主后端 3001）
+
+> 角色分三级：`USER`（用户）、`ADMIN`（管理员）、`SUPER_ADMIN`（超级管理员）。
+> 管理员接口（文件审核、订单、资金池、供应链等）对 ADMIN 与 SUPER_ADMIN 均开放；
+> 账号管理接口仅 SUPER_ADMIN 可访问。
+
+### GET /api/admin/accounts
+
+超级管理员查看全部账号（分页，支持 `page` / `limit` / `q` 邮箱姓名搜索 / `role` 过滤）。
+返回账号信息（邮箱、姓名、账户类型、钱包、验证状态、OTP 状态）与内容统计
+（文件数、买卖订单数）。
+
+### GET /api/admin/accounts/:id
+
+账号详情：基础信息 + 最近 20 条文件与订单（内容）。
+
+### POST /api/admin/accounts
+
+```json
+{ "name": "张三", "email": "admin@example.com", "password": "secret123", "role": "ADMIN" }
+```
+
+添加管理员 / 超级管理员账号（`role` 仅限 ADMIN / SUPER_ADMIN），创建后可直接登录
+（内部管理账号默认不强制邮箱验证码）。
+
+### PATCH /api/admin/accounts/:id/role
+
+```json
+{ "role": "SUPER_ADMIN" }
+```
+
+调整账户类型（USER / ADMIN / SUPER_ADMIN）。不能修改自己的类型；系统至少保留一名
+超级管理员，不可全部降级。
 
 ### GET /api/admin/stats（管理员）
 

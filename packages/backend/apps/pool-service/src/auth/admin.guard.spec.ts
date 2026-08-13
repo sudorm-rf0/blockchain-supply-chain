@@ -14,6 +14,12 @@ describe("AdminGuard (pool-service)", () => {
     await expect(guard.canActivate(makeContext("u1", "ADMIN"))).resolves.toBe(true);
   });
 
+  it("allows SUPER_ADMIN users", async () => {
+    const prisma = { user: { findUnique: jest.fn(async () => ({ role: "SUPER_ADMIN" })) } };
+    const guard = new AdminGuard(prisma as never);
+    await expect(guard.canActivate(makeContext("u1", "SUPER_ADMIN"))).resolves.toBe(true);
+  });
+
   it("rejects users whose DB role is not ADMIN", async () => {
     const prisma = { user: { findUnique: jest.fn(async () => ({ role: "USER" })) } };
     const guard = new AdminGuard(prisma as never);

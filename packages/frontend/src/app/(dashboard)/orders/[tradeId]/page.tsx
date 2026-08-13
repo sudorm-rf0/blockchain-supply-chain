@@ -117,7 +117,7 @@ export default function TradeDetailPage() {
     );
   }
 
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = user?.role !== "USER";
   const canFund = isAdmin && trade.status === "PENDING";
   const canAdvance = isAdmin && NEXT_TRADE_STATUS[trade.status] !== undefined;
   const canRepay =
