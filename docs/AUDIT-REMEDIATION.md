@@ -49,3 +49,13 @@
 | **CK-005** | K8s Native Secrets → Sealed Secrets/External Secrets | 需真实集群 + 控制器安装；**上线时启用**：`kubectl create secret` 的 Native Secret 可被集群管理员读取，生产建议接入 Sealed Secrets 或云 KMS（方案见 DEPLOYMENT.md 安全章节） |
 | **CK-006** | 生产环境真实集群验证 | 需云资源；审计通过后按 `deploy/vps` 或 K8s 执行 |
 | **LP mint authority 链下铸币（已更正）** | 早期「铸币权交多签」与合约硬约束矛盾 | ✅ 已更正：LP mint authority **必须 = pool_authority PDA**（initialize_pool 硬校验，链上铸币）；「多签」仅指程序 UA/update authority |
+
+## 2026-08-14 独立安全审计整改（P0）
+
+| # | 整改 | 状态 |
+|---|------|------|
+| P0-1 | 从版本库（含全部历史）移除 dev 程序 keypair 并重写历史强推 origin；devnet UA 已不在程序 key 上（当前 UA=3rF9...，非冻结），建议上线前轮换/冻结 | ✅ |
+| P0-2 | 本地 docker-compose 的 Postgres/Redis/ClamAV 仅绑定 127.0.0.1；Postgres/Redis 启用强口令（根目录 .env 管理，已 gitignore）；dev-all.sh / ci-e2e.sh 同步读取 | ✅ |
+| P0-3 | 生产环境启动守卫：SOLANA_RPC_URL 指向 devnet 时启动失败（除非显式 ALLOW_DEVNET_RPC_IN_PRODUCTION=true，仅限上线前演练） | ✅ |
+
+> 备份：历史重写前完整 bundle 位于 `/tmp/supply-chain-pre-purge-20260814-030030.bundle`（含原 refs/stash 与全部提交）。
