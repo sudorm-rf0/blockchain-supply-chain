@@ -53,6 +53,26 @@ export function validateStartupEnv(options: {
         fatal: true,
       });
     }
+    // 审计 P0-3：生产环境禁止连接 Solana devnet，防止"公网站点跑在测试链"的配置错配。
+    // 仅上线前演练可显式设置 ALLOW_DEVNET_RPC_IN_PRODUCTION=true；Go-Live 前必须关闭。
+    if (PRODUCTION && rpc && /devnet/i.test(rpc)) {
+      const allowDevnet = process.env.ALLOW_DEVNET_RPC_IN_PRODUCTION === "true";
+      if (!allowDevnet) {
+        issues.push({
+          name: "SOLANA_RPC_URL",
+          reason:
+            "production cannot point at Solana devnet; set ALLOW_DEVNET_RPC_IN_PRODUCTION=true ONLY for pre-launch testing",
+          fatal: true,
+        });
+      } else {
+        issues.push({
+          name: "SOLANA_RPC_URL",
+          reason:
+            "WARNING: production is running against Solana devnet (explicitly allowed by ALLOW_DEVNET_RPC_IN_PRODUCTION) - disable before Go-Live",
+          fatal: false,
+        });
+      }
+    }
   }
 
   return issues;
