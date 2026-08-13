@@ -57,7 +57,7 @@ describe("FilePreviewDialog", () => {
       expect(screen.getByText("invoice.pdf")).toBeInTheDocument(),
     );
     expect(screen.getByText("2 KB")).toBeInTheDocument();
-    expect(screen.getByText("APPROVED")).toBeInTheDocument();
+    expect(screen.getByText("已通过")).toBeInTheDocument();
   });
 
   it("shows unsupported preview message for other mime types", async () => {

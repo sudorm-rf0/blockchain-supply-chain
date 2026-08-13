@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { formatDateTime } from "@/lib/format";
 
 export function RepaymentCountdown({
@@ -12,6 +13,7 @@ export function RepaymentCountdown({
   tenorSeconds: number;
   status: string;
 }) {
+  const { t } = useTranslation();
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -48,7 +50,8 @@ export function RepaymentCountdown({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         {expired ? (
           <span className="font-medium text-red-600">
-            还款已到期{overdueDays > 0 ? `（逾期 ${overdueDays} 天）` : ""}
+            {t("repayment.expired")}
+            {overdueDays > 0 ? t("repayment.overdueDays", { count: overdueDays }) : ""}
           </span>
         ) : (
           <span
@@ -56,14 +59,16 @@ export function RepaymentCountdown({
               urgent ? "text-red-600" : "text-emerald-600"
             }`}
           >
-            {urgent && <span className="mr-1.5">即将到期</span>}
+            {urgent && <span className="mr-1.5">{t("repayment.urgent")}</span>}
             <span>
-              剩余 {days}天 {hours}时 {minutes}分 {seconds}秒
+              {t("repayment.remaining", { days, hours, minutes, seconds })}
             </span>
           </span>
         )}
         <span className="text-muted-foreground">
-          截止 {formatDateTime(new Date(deadline).toISOString())}
+          {t("repayment.deadline", {
+            deadline: formatDateTime(new Date(deadline).toISOString()),
+          })}
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">

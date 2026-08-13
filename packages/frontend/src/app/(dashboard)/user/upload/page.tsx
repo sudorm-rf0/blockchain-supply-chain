@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 import { useDropzone } from "react-dropzone";
 import { Camera } from "lucide-react";
 import { Transaction } from "@solana/web3.js";
@@ -42,6 +43,7 @@ function initialDocumentId(): string {
 }
 
 export default function UploadPage() {
+  const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [tradeId, setTradeId] = useState(initialTradeId);
   const [documentId, setDocumentId] = useState(initialDocumentId);
@@ -86,7 +88,7 @@ export default function UploadPage() {
 
   const handleUpload = async () => {
     if (!file) {
-      toast.error("请先选择文件");
+      toast.error(t("upload.toasts.selectFile"));
       return;
     }
     setUploading(true);
@@ -97,7 +99,7 @@ export default function UploadPage() {
         { tradeId, documentId, description },
         ({ percent }) => setProgress(percent),
       );
-      toast.success("上传成功");
+      toast.success(t("upload.toasts.uploadSuccess"));
       setUploadedId(result.id);
       setHash(result.hash);
       setVersion(result.version ?? null);
@@ -112,7 +114,7 @@ export default function UploadPage() {
       setPreviewUrl(null);
       setProgress(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "上传失败");
+      toast.error(error instanceof Error ? error.message : t("upload.toasts.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -120,11 +122,11 @@ export default function UploadPage() {
 
   const handleAttest = async () => {
     if (!uploadedId || !hash) {
-      toast.error("请先上传文件");
+      toast.error(t("upload.toasts.uploadFirst"));
       return;
     }
     if (!connected || !publicKey) {
-      toast.error("请先连接钱包");
+      toast.error(t("upload.toasts.connectWallet"));
       return;
     }
     setAttesting(true);
@@ -145,9 +147,9 @@ export default function UploadPage() {
       });
       setTxSignature(result.txSignature);
       setDocumentPda(result.documentPda);
-      toast.success("单据已上链存证");
+      toast.success(t("upload.toasts.attestSuccess"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "存证上链失败");
+      toast.error(error instanceof Error ? error.message : t("upload.toasts.attestFailed"));
     } finally {
       setAttesting(false);
     }
@@ -157,12 +159,12 @@ export default function UploadPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>上传文件</CardTitle>
+          <CardTitle>{t("upload.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              上传后可使用钱包将文件哈希写入 Solana 存证
+              {t("upload.attestHint")}
             </p>
             <WalletConnectButton />
           </div>
@@ -174,14 +176,12 @@ export default function UploadPage() {
             }`}
           >
             <input {...getInputProps()} />
-            <p className="text-muted-foreground">
-              拖拽文件到这里，或点击选择文件
-            </p>
+            <p className="text-muted-foreground">{t("upload.dropzone")}</p>
           </div>
 
           <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted/50 sm:w-auto">
             <Camera className="h-4 w-4" />
-            拍照上传
+            {t("upload.camera")}
             <input
               type="file"
               accept="image/*"
@@ -200,7 +200,7 @@ export default function UploadPage() {
               {previewUrl && (
                 <Image
                   src={previewUrl}
-                  alt="待上传文件预览"
+                  alt={t("upload.previewAlt")}
                   width={64}
                   height={64}
                   unoptimized
@@ -208,13 +208,16 @@ export default function UploadPage() {
                 />
               )}
               <p className="min-w-0 text-sm">
-                {file.name}（{(file.size / 1024).toFixed(0)} KB）
+                {t("upload.fileInfo", {
+                  name: file.name,
+                  size: (file.size / 1024).toFixed(0),
+                })}
               </p>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="tradeId">tradeId（可选）</Label>
+            <Label htmlFor="tradeId">{t("upload.tradeIdLabel")}</Label>
             <Input
               id="tradeId"
               value={tradeId}
@@ -222,18 +225,16 @@ export default function UploadPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="documentId">
-              单据编号（可选，同一编号自动生成新版本）
-            </Label>
+            <Label htmlFor="documentId">{t("upload.documentIdLabel")}</Label>
             <Input
               id="documentId"
               value={documentId}
               onChange={(e) => setDocumentId(e.target.value)}
-              placeholder="例如 export-invoice"
+              placeholder={t("upload.documentIdPlaceholder")}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">描述（可选）</Label>
+            <Label htmlFor="description">{t("upload.descriptionLabel")}</Label>
             <Textarea
               id="description"
               value={description}
@@ -244,7 +245,7 @@ export default function UploadPage() {
           {uploading && progress !== null && (
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>上传中...</span>
+                <span>{t("upload.uploading")}</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -257,13 +258,13 @@ export default function UploadPage() {
           )}
 
           <Button onClick={() => void handleUpload()} disabled={uploading}>
-            {uploading ? "上传中..." : "上传文件"}
+            {uploading ? t("upload.uploading") : t("upload.upload")}
           </Button>
 
           {hash && (
             <p className="break-all rounded-md bg-muted p-3 font-mono text-xs">
-              文件哈希：{hash}
-              {version ? `（版本 v${version}）` : ""}
+              {t("upload.fileHash", { hash })}
+              {version ? t("upload.version", { version }) : ""}
             </p>
           )}
 
@@ -274,28 +275,28 @@ export default function UploadPage() {
                 disabled={attesting || !connected || !!txSignature}
               >
                 {attesting
-                  ? "签名上链中..."
+                  ? t("upload.attesting")
                   : txSignature
-                    ? "已上链存证"
-                  : connected
-                    ? "存证上链"
-                    : "请先连接钱包"}
+                    ? t("upload.attested")
+                    : connected
+                      ? t("upload.attest")
+                      : t("upload.connectWallet")}
               </Button>
               {txSignature && (
                 <p className="break-all rounded-md bg-muted p-3 font-mono text-xs">
-                  交易签名：{txSignature}
+                  {t("upload.txSignature", { signature: txSignature })}
                 </p>
               )}
               {documentPda && (
                 <p className="break-all rounded-md bg-muted p-3 font-mono text-xs">
-                  存证账户：{documentPda}
+                  {t("upload.documentPda", { account: documentPda })}
                 </p>
               )}
             </div>
           )}
 
           <p className="text-xs text-muted-foreground">
-            支持类型：PDF、PNG、JPEG、DOC、DOCX；最大 50MB；手机可拍照上传
+            {t("upload.supportedTypes")}
           </p>
         </CardContent>
       </Card>

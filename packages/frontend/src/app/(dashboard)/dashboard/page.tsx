@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import dynamic from "next/dynamic";
 import {
   CircleDollarSign,
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lpAmount, setLpAmount] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const { t } = useTranslation();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,17 +95,17 @@ export default function DashboardPage() {
 
   const handleRedeem = async () => {
     if (!connected || !publicKey) {
-      toast.error("请先连接钱包");
+      toast.error(t("dashboard.connectWalletFirst"));
       return;
     }
     const lpNum = Number(lpAmount);
     if (!Number.isFinite(lpNum) || lpNum <= 0) {
-      toast.error("请输入有效的 LP 数量");
+      toast.error(t("dashboard.invalidLpAmount"));
       return;
     }
     const raw = BigInt(Math.round(lpNum * 1_000_000));
     if (raw <= BigInt(0)) {
-      toast.error("请输入有效的 LP 数量");
+      toast.error(t("dashboard.invalidLpAmount"));
       return;
     }
     setRedeeming(true);
@@ -113,10 +115,10 @@ export default function DashboardPage() {
       const signature = await sendTransaction(transaction, connection);
       await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirmRedeemLp(raw.toString(10), signature);
-      toast.success(`LP 赎回已执行：${result.status}`);
+      toast.success(t("dashboard.redeemExecuted", { status: result.status }));
       await load();
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "LP 赎回失败");
+      toast.error(cause instanceof Error ? cause.message : t("dashboard.redeemFailed"));
     } finally {
       setRedeeming(false);
     }
@@ -125,25 +127,25 @@ export default function DashboardPage() {
   const stats = overview
     ? [
         {
-          label: "资金池规模",
+          label: t("dashboard.poolSize"),
           value: `$${formatUsdc(overview.totalAssets)}`,
           accent: "text-sky-600 dark:text-sky-300",
           icon: CircleDollarSign,
         },
         {
-          label: "当前净值 NAV",
+          label: t("dashboard.nav"),
           value: `$${formatUsdc(overview.nav)}`,
           accent: "text-emerald-600 dark:text-emerald-300",
           icon: Landmark,
         },
         {
-          label: "首付 / 池子比例",
+          label: t("dashboard.downPaymentPoolRatio"),
           value: `${overview.downPaymentSharePct.toFixed(1)}% / ${overview.poolPortionSharePct.toFixed(1)}%`,
           accent: "text-amber-600 dark:text-amber-300",
           icon: Scale,
         },
         {
-          label: "实时 APR",
+          label: t("dashboard.apr"),
           value: `${overview.aprPct.toFixed(2)}%`,
           accent: "text-fuchsia-600 dark:text-fuchsia-300",
           icon: Percent,
@@ -156,11 +158,11 @@ export default function DashboardPage() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold text-primary">DFR SUPPLY CHAIN</p>
-          <h1 className="mt-2 text-2xl font-bold text-foreground">资金池看板</h1>
+          <h1 className="mt-2 text-2xl font-bold text-foreground">{t("dashboard.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
-            <Link href="/trade/new">创建订单</Link>
+            <Link href="/trade/new">{t("dashboard.createOrder")}</Link>
           </Button>
           <WalletConnectButton />
         </div>
@@ -168,14 +170,14 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">LP 链上赎回</CardTitle>
-          <CardDescription>按当前 NAV 换算，单次赎回不超过闲置资金 50%</CardDescription>
+          <CardTitle className="text-base">{t("dashboard.redeemLpTitle")}</CardTitle>
+          <CardDescription>{t("dashboard.redeemLpDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-1">
               <label htmlFor="lp-amount" className="text-xs text-muted-foreground">
-                LP 数量
+                {t("dashboard.lpAmount")}
               </label>
               <Input
                 id="lp-amount"
@@ -192,7 +194,7 @@ export default function DashboardPage() {
               disabled={redeeming || !connected}
               onClick={() => void handleRedeem()}
             >
-              {redeeming ? "赎回中..." : "链上赎回"}
+              {redeeming ? t("dashboard.redeeming") : t("dashboard.redeemOnChain")}
             </Button>
           </div>
         </CardContent>
@@ -200,24 +202,24 @@ export default function DashboardPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <p>
-          Indexer{" "}
+          {t("dashboard.indexer")}{" "}
           {indexer ? (
             <span className="text-emerald-600 dark:text-emerald-400">
-              synced · last snapshot{" "}
-              {indexer.lastPoolSnapshotAt ? formatDateTime(indexer.lastPoolSnapshotAt) : "n/a"}
+              {t("dashboard.indexerSynced")}{" "}
+              {indexer.lastPoolSnapshotAt ? formatDateTime(indexer.lastPoolSnapshotAt) : t("dashboard.indexerNoSnapshot")}
             </span>
           ) : (
-            <span className="text-red-600 dark:text-red-400">unreachable</span>
+            <span className="text-red-600 dark:text-red-400">{t("dashboard.indexerUnreachable")}</span>
           )}
         </p>
         {indexer && indexer.queue.failed > 0 && (
-          <p className="text-amber-600 dark:text-amber-400">{indexer.queue.failed} failed jobs</p>
+          <p className="text-amber-600 dark:text-amber-400">{t("dashboard.failedJobs", { count: indexer.queue.failed })}</p>
         )}
       </div>
 
       {overview?.paused && (
         <div className="rounded-lg border border-red-500/60 bg-red-50 p-4 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          资金池已紧急暂停：链上放款/还款/赎回/建单等资金操作已被冻结，请管理员确认后再恢复。
+          {t("dashboard.pausedBanner")}
         </div>
       )}
 
@@ -233,7 +235,7 @@ export default function DashboardPage() {
         <div className="rounded-lg border border-red-500/50 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-200">
           {error}
           <button type="button" onClick={() => void load()} className="ml-3 underline">
-            Retry
+            {t("dashboard.retry")}
           </button>
         </div>
       )}
@@ -256,37 +258,37 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">链上治理参数</CardTitle>
-              <CardDescription>费率 / 首损 / 分成（合约 PoolState，H-04 参数化）</CardDescription>
+              <CardTitle className="text-base">{t("dashboard.governanceParams")}</CardTitle>
+              <CardDescription>{t("dashboard.governanceParamsDescription")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">年化费率（垫付额）</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.feeApy")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     {(Number(overview.feeApyBps) / 100).toFixed(2)}%
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">逾期费率</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.overdueFeeApy")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     {(Number(overview.overdueFeeApyBps) / 100).toFixed(2)}%
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">首损准备金</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.firstLossReserve")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     ${formatUsdc(overview.firstLossReserve)}
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">在途托管垫付</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.escrowFunded")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     ${formatUsdc(overview.escrowFunded)}
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">分成 LP / 平台 / 返利</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.shareSplit")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     {(Number(overview.lpShareBps) / 100).toFixed(0)}% /{" "}
                     {(Number(overview.platformShareBps) / 100).toFixed(0)}% /{" "}
@@ -294,15 +296,15 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">赎回单价</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.redemptionPrice")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     ${formatUsdc(overview.redemptionPrice)}
                   </p>
                 </div>
                 <div className="rounded-md border p-3 sm:col-span-2">
-                  <p className="text-xs text-muted-foreground">待确认管理员（两步转移）</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.pendingAdmin")}</p>
                   <p className="mt-1 break-all font-mono text-xs">
-                    {overview.pendingAdmin ?? "无待转移"}
+                    {overview.pendingAdmin ?? t("dashboard.noPendingAdmin")}
                   </p>
                 </div>
               </div>
@@ -312,9 +314,9 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <div className="mb-4 flex items-center justify-between">
-                <CardTitle className="text-base">资产趋势</CardTitle>
+                <CardTitle className="text-base">{t("dashboard.assetTrend")}</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Utilization {((overview.utilizationBps / 10_000) * 100).toFixed(1)}%
+                  {t("dashboard.utilization", { value: ((overview.utilizationBps / 10_000) * 100).toFixed(1) })}
                 </p>
               </div>
             </CardHeader>
@@ -326,14 +328,14 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <CardTitle className="text-base">流动性 / 利用率</CardTitle>
-                <p className="text-xs text-muted-foreground">闲置流动性 = 总资产 - 活跃资本</p>
+                <CardTitle className="text-base">{t("dashboard.liquidityUtilization")}</CardTitle>
+                <p className="text-xs text-muted-foreground">{t("dashboard.idleLiquidityFormula")}</p>
               </div>
             </CardHeader>
             <CardContent>
               <div className="mb-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">闲置流动性</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.idleLiquidity")}</p>
                   <p className="mt-1 text-xl font-semibold text-[#00E676]">
                     $
                     {formatUsdc(
@@ -342,7 +344,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">当前利用率</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.currentUtilization")}</p>
                   <p className="mt-1 text-xl font-semibold text-amber-600 dark:text-amber-300">
                     {((overview.utilizationBps / 10_000) * 100).toFixed(1)}%
                   </p>
@@ -355,7 +357,7 @@ export default function DashboardPage() {
           <section className="grid gap-4 sm:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardDescription>进行中订单</CardDescription>
+                <CardDescription>{t("dashboard.activeDeals")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-xl font-semibold">{overview.activeDeals}</p>
@@ -363,7 +365,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardDescription>已结清</CardDescription>
+                <CardDescription>{t("dashboard.settledDeals")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-300">
@@ -373,7 +375,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardDescription>已违约</CardDescription>
+                <CardDescription>{t("dashboard.defaultedDeals")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-xl font-semibold text-red-600 dark:text-red-300">

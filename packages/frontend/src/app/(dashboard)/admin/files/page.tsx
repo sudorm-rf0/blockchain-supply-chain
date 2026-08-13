@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import { FilePreviewDialog } from "@/components/FilePreviewDialog";
@@ -47,7 +48,7 @@ import {
   type FileRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { fileStatusClass, FILE_STATUS_LABEL } from "@/lib/status";
+import { fileStatusClass } from "@/lib/status";
 
 const LIMIT = 10;
 
@@ -56,6 +57,15 @@ export default function AdminFilesPage({
 }: {
   searchParams?: Promise<{ status?: string }>;
 }) {
+  const { t } = useTranslation();
+  const statusLabel = (status: string) =>
+    status === "APPROVED"
+      ? t("files.statusApproved")
+      : status === "REJECTED"
+        ? t("files.statusRejected")
+        : status === "PENDING"
+          ? t("files.statusPending")
+          : status;
   const resolvedParams = use(
     searchParams ?? Promise.resolve<{ status?: string }>({}),
   );
@@ -83,9 +93,9 @@ export default function AdminFilesPage({
       setFiles(data.items);
       setTotal(data.total);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载失败");
+      toast.error(error instanceof Error ? error.message : t("files.loadFailed"));
     }
-  }, [page, status]);
+  }, [page, status, t]);
 
   useEffect(() => {
     void load();
@@ -95,10 +105,10 @@ export default function AdminFilesPage({
     setBusy(true);
     try {
       await reviewFile(id, { status: "APPROVED" });
-      toast.success("审核通过");
+      toast.success(t("files.approveSuccess"));
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "操作失败");
+      toast.error(error instanceof Error ? error.message : t("files.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -143,13 +153,21 @@ export default function AdminFilesPage({
         remark,
       });
       toast.success(
-        `批量${status === "APPROVED" ? "通过" : "驳回"}完成：更新 ${result.updated} 条，跳过 ${result.skipped} 条`,
+        status === "APPROVED"
+          ? t("files.batchApproveCompleted", {
+              updated: result.updated,
+              skipped: result.skipped,
+            })
+          : t("files.batchRejectCompleted", {
+              updated: result.updated,
+              skipped: result.skipped,
+            }),
       );
       setSelectedIds(new Set());
       setBatchReason("");
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "批量操作失败");
+      toast.error(error instanceof Error ? error.message : t("files.batchActionFailed"));
     } finally {
       setBusy(false);
     }
@@ -160,12 +178,12 @@ export default function AdminFilesPage({
     setBusy(true);
     try {
       await reviewFile(rejectId, { status: "REJECTED", remark: reason });
-      toast.success("已驳回");
+      toast.success(t("files.rejectSuccess"));
       setRejectId(null);
       setReason("");
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "操作失败");
+      toast.error(error instanceof Error ? error.message : t("files.actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -174,19 +192,19 @@ export default function AdminFilesPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">全部文件</h1>
+        <h1 className="text-lg font-semibold">{t("files.title")}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {selectedIds.size > 0 && (
             <>
               <span className="text-sm text-muted-foreground">
-                已选 {selectedIds.size} 条
+                {t("files.selectedCount", { n: selectedIds.size })}
               </span>
               <Button
                 size="sm"
                 disabled={busy}
                 onClick={() => setBatchApproveOpen(true)}
               >
-                批量通过
+                {t("files.batchApprove")}
               </Button>
               <Button
                 size="sm"
@@ -194,7 +212,7 @@ export default function AdminFilesPage({
                 disabled={busy}
                 onClick={() => setBatchRejectOpen(true)}
               >
-                批量驳回
+                {t("files.batchReject")}
               </Button>
             </>
           )}
@@ -203,10 +221,10 @@ export default function AdminFilesPage({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="PENDING">待审核</SelectItem>
-              <SelectItem value="APPROVED">已通过</SelectItem>
-              <SelectItem value="REJECTED">已驳回</SelectItem>
-              <SelectItem value="ALL">全部</SelectItem>
+              <SelectItem value="PENDING">{t("files.statusPending")}</SelectItem>
+              <SelectItem value="APPROVED">{t("files.statusApproved")}</SelectItem>
+              <SelectItem value="REJECTED">{t("files.statusRejected")}</SelectItem>
+              <SelectItem value="ALL">{t("files.statusAll")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -219,19 +237,19 @@ export default function AdminFilesPage({
               <TableHead className="w-10">
                 <input
                   type="checkbox"
-                  aria-label="全选当前页待审核文件"
+                  aria-label={t("files.selectAllAriaLabel")}
                   checked={allSelected}
                   onChange={toggleAll}
                   className="h-4 w-4 accent-primary"
                 />
               </TableHead>
-              <TableHead>文件名</TableHead>
-              <TableHead>上传者</TableHead>
-              <TableHead>大小</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>哈希</TableHead>
-              <TableHead>上传时间</TableHead>
-              <TableHead>操作</TableHead>
+              <TableHead>{t("files.name")}</TableHead>
+              <TableHead>{t("files.uploader")}</TableHead>
+              <TableHead>{t("files.size")}</TableHead>
+              <TableHead>{t("files.status")}</TableHead>
+              <TableHead>{t("files.hash")}</TableHead>
+              <TableHead>{t("files.uploadTime")}</TableHead>
+              <TableHead>{t("files.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -240,7 +258,7 @@ export default function AdminFilesPage({
                 <TableCell>
                   <input
                     type="checkbox"
-                    aria-label={`选择 ${file.filename}`}
+                    aria-label={t("files.selectFileAriaLabel", { name: file.filename })}
                     checked={selectedIds.has(file.id)}
                     disabled={file.status !== "PENDING"}
                     onChange={() => toggleSelect(file.id)}
@@ -254,7 +272,7 @@ export default function AdminFilesPage({
                 <TableCell>{(file.size / 1024).toFixed(0)} KB</TableCell>
                 <TableCell>
                   <Badge className={fileStatusClass(file.status)}>
-                    {FILE_STATUS_LABEL[file.status] ?? file.status}
+                    {statusLabel(file.status)}
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-xs">
@@ -270,7 +288,7 @@ export default function AdminFilesPage({
                     onClick={() => setPreviewId(file.id)}
                   >
                     <Eye className="mr-1 h-3 w-3" />
-                    预览
+                    {t("files.preview")}
                   </Button>
                   {file.status === "PENDING" && (
                     <>
@@ -279,7 +297,7 @@ export default function AdminFilesPage({
                         disabled={busy}
                         onClick={() => setApproveId(file.id)}
                       >
-                        通过
+                        {t("files.approve")}
                       </Button>
                       <Button
                         variant="destructive"
@@ -287,7 +305,7 @@ export default function AdminFilesPage({
                         disabled={busy}
                         onClick={() => setRejectId(file.id)}
                       >
-                        驳回
+                        {t("files.reject")}
                       </Button>
                     </>
                   )}
@@ -299,21 +317,21 @@ export default function AdminFilesPage({
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">共 {total} 条</p>
+        <p className="text-sm text-muted-foreground">{t("files.totalCount", { n: total })}</p>
         <div className="space-x-2">
           <Button
             variant="outline"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            上一页
+            {t("files.previousPage")}
           </Button>
           <Button
             variant="outline"
             disabled={page * LIMIT >= total}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t("files.nextPage")}
           </Button>
         </div>
       </div>
@@ -330,14 +348,14 @@ export default function AdminFilesPage({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认批量通过？</AlertDialogTitle>
+            <AlertDialogTitle>{t("files.batchApproveConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              将更新选中的 {selectedIds.size} 条文件为 APPROVED，并逐条写入审计日志。
+              {t("files.batchApproveConfirmDesc", { n: selectedIds.size })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setBatchApproveOpen(false)}>
-              取消
+              {t("files.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={busy}
@@ -346,7 +364,7 @@ export default function AdminFilesPage({
                 void runBatch("APPROVED");
               }}
             >
-              确认批量通过
+              {t("files.batchApproveConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -358,19 +376,19 @@ export default function AdminFilesPage({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>批量驳回</DialogTitle>
+            <DialogTitle>{t("files.batchRejectTitle")}</DialogTitle>
             <DialogDescription>
-              为选中的 {selectedIds.size} 条文件输入驳回理由。
+              {t("files.batchRejectDesc", { n: selectedIds.size })}
             </DialogDescription>
           </DialogHeader>
           <Textarea
             value={batchReason}
             onChange={(e) => setBatchReason(e.target.value)}
-            placeholder="驳回理由"
+            placeholder={t("files.rejectReasonPlaceholder")}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setBatchRejectOpen(false)}>
-              取消
+              {t("files.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -380,7 +398,7 @@ export default function AdminFilesPage({
                 void runBatch("REJECTED", batchReason.trim());
               }}
             >
-              确认批量驳回
+              {t("files.batchRejectConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -392,19 +410,19 @@ export default function AdminFilesPage({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认审核通过？</AlertDialogTitle>
+            <AlertDialogTitle>{t("files.approveConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              通过后该文件状态将更新为 APPROVED，操作会写入审计日志。
+              {t("files.approveConfirmDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setApproveId(null)}>
-              取消
+              {t("files.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => approveId && void confirmApprove(approveId)}
             >
-              确认通过
+              {t("files.approveConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -413,24 +431,24 @@ export default function AdminFilesPage({
       <Dialog open={rejectId !== null} onOpenChange={(open) => !open && setRejectId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>驳回文件</DialogTitle>
-            <DialogDescription>请输入驳回理由</DialogDescription>
+            <DialogTitle>{t("files.rejectTitle")}</DialogTitle>
+            <DialogDescription>{t("files.rejectDesc")}</DialogDescription>
           </DialogHeader>
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="驳回理由"
+            placeholder={t("files.rejectReasonPlaceholder")}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectId(null)}>
-              取消
+              {t("files.cancel")}
             </Button>
             <Button
               variant="destructive"
               disabled={busy}
               onClick={() => void reject()}
             >
-              确认驳回
+              {t("files.rejectConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

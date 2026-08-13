@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Connection } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
 
@@ -17,6 +18,7 @@ export function TransactionStatusToast({
   connection,
   onDismiss,
 }: TransactionStatusToastProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<ToastStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,10 +63,10 @@ export function TransactionStatusToast({
         : "border-amber-500/60 bg-amber-950/90";
   const label =
     status === "confirmed"
-      ? "Confirmed"
+      ? t("txStatus.confirmed")
       : status === "failed"
-        ? "Failed"
-        : "Pending";
+        ? t("txStatus.failed")
+        : t("txStatus.pending");
 
   return (
     <div
@@ -74,7 +76,7 @@ export function TransactionStatusToast({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-zinc-100">
-            Transaction {label}
+            {t("txStatus.title", { status: label })}
           </p>
           <p className="mt-1 truncate font-mono text-xs text-zinc-400">
             {signature}
@@ -94,7 +96,7 @@ export function TransactionStatusToast({
             onClick={onDismiss}
             className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
           >
-            Close
+            {t("txStatus.close")}
           </button>
         )}
       </div>

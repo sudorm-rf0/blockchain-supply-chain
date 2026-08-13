@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { FilePreviewDialog } from "@/components/FilePreviewDialog";
@@ -34,11 +35,12 @@ import {
 } from "@/components/ui/table";
 import { deleteFile, getFiles, type FileRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { fileStatusClass, FILE_STATUS_LABEL } from "@/lib/status";
+import { fileStatusClass } from "@/lib/status";
 
 const LIMIT = 10;
 
 export default function UserFilesPage() {
+  const { t } = useTranslation();
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -47,6 +49,9 @@ export default function UserFilesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
+  const fileStatusLabel = (status: string) =>
+    t(`files.status.${status}`, { defaultValue: status });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,11 +64,11 @@ export default function UserFilesPage() {
       setFiles(data.items);
       setTotal(data.total);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载失败");
+      toast.error(error instanceof Error ? error.message : t("files.toasts.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [page, status]);
+  }, [page, status, t]);
 
   useEffect(() => {
     void load();
@@ -74,7 +79,7 @@ export default function UserFilesPage() {
     setDeleting(true);
     try {
       await deleteFile(deleteId);
-      toast.success("删除成功");
+      toast.success(t("files.toasts.deleteSuccess"));
       setDeleteId(null);
       if (files.length === 1 && page > 1) {
         setPage((p) => p - 1);
@@ -82,14 +87,15 @@ export default function UserFilesPage() {
         await load();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "删除失败");
+      toast.error(error instanceof Error ? error.message : t("files.toasts.deleteFailed"));
     } finally {
       setDeleting(false);
     }
   };
 
   const groups = files.reduce<Record<string, FileRecord[]>>((acc, file) => {
-    const key = file.documentGroupId ?? file.tradeId ?? "未关联";
+    const key =
+      file.documentGroupId ?? file.tradeId ?? t("files.groupUnlinked");
     (acc[key] ??= []).push(file);
     return acc;
   }, {});
@@ -97,16 +103,16 @@ export default function UserFilesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">我的文件</h1>
+        <h1 className="text-lg font-semibold">{t("files.title")}</h1>
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">全部</SelectItem>
-            <SelectItem value="PENDING">待审核</SelectItem>
-            <SelectItem value="APPROVED">已通过</SelectItem>
-            <SelectItem value="REJECTED">已驳回</SelectItem>
+            <SelectItem value="ALL">{t("files.filterAll")}</SelectItem>
+            <SelectItem value="PENDING">{t("files.status.PENDING")}</SelectItem>
+            <SelectItem value="APPROVED">{t("files.status.APPROVED")}</SelectItem>
+            <SelectItem value="REJECTED">{t("files.status.REJECTED")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -120,25 +126,29 @@ export default function UserFilesPage() {
           </div>
         ) : Object.keys(groups).length === 0 ? (
           <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
-            暂无文件{status !== "ALL" ? "（当前筛选条件下）" : ""}
+            {t("files.empty")}
+            {status !== "ALL" ? t("files.emptyFiltered") : ""}
           </div>
         ) : (
         Object.entries(groups).map(([group, groupFiles]) => (
           <div key={group}>
             <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
-              单据组：{group}（{groupFiles.length}）
+              {t("files.groupLabel", {
+                group,
+                count: groupFiles.length,
+              })}
             </h2>
             <div className="overflow-x-auto rounded-md border">
               <Table className="min-w-[760px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>文件名</TableHead>
-                    <TableHead>版本</TableHead>
-                    <TableHead>大小</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>哈希</TableHead>
-                    <TableHead>上传时间</TableHead>
-                    <TableHead>操作</TableHead>
+                    <TableHead>{t("files.columns.filename")}</TableHead>
+                    <TableHead>{t("files.columns.version")}</TableHead>
+                    <TableHead>{t("files.columns.size")}</TableHead>
+                    <TableHead>{t("files.columns.status")}</TableHead>
+                    <TableHead>{t("files.columns.hash")}</TableHead>
+                    <TableHead>{t("files.columns.uploadedAt")}</TableHead>
+                    <TableHead>{t("files.columns.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -151,14 +161,14 @@ export default function UserFilesPage() {
                         <span className="font-mono text-xs">v{file.version ?? 1}</span>
                         {file.isLatest === false && (
                           <span className="ml-1 text-xs text-muted-foreground">
-                            （已更新）
+                            {t("files.updated")}
                           </span>
                         )}
                       </TableCell>
                       <TableCell>{(file.size / 1024).toFixed(0)} KB</TableCell>
                       <TableCell>
                         <Badge className={fileStatusClass(file.status)}>
-                          {FILE_STATUS_LABEL[file.status] ?? file.status}
+                          {fileStatusLabel(file.status)}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
@@ -175,7 +185,7 @@ export default function UserFilesPage() {
                                 file.tradeId ?? "",
                               )}`}
                             >
-                              上传新版
+                              {t("files.uploadNewVersion")}
                             </Link>
                           </Button>
                         )}
@@ -185,7 +195,7 @@ export default function UserFilesPage() {
                           onClick={() => setPreviewId(file.id)}
                         >
                           <Eye className="mr-1 h-3 w-3" />
-                          预览
+                          {t("files.preview")}
                         </Button>
                         <Button
                           variant="destructive"
@@ -193,7 +203,7 @@ export default function UserFilesPage() {
                           onClick={() => setDeleteId(file.id)}
                         >
                           <Trash2 className="mr-1 h-3 w-3" />
-                          删除
+                          {t("files.delete")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -207,21 +217,23 @@ export default function UserFilesPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">共 {total} 条</p>
+        <p className="text-sm text-muted-foreground">
+          {t("files.total", { count: total })}
+        </p>
         <div className="space-x-2">
           <Button
             variant="outline"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            上一页
+            {t("files.previous")}
           </Button>
           <Button
             variant="outline"
             disabled={page * LIMIT >= total}
             onClick={() => setPage((p) => p + 1)}
           >
-            下一页
+            {t("files.next")}
           </Button>
         </div>
       </div>
@@ -235,18 +247,18 @@ export default function UserFilesPage() {
       <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogTitle>{t("files.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后无法恢复，确定要删除该文件吗？
+              {t("files.confirmDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("files.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={() => void handleDelete()}
             >
-              {deleting ? "删除中..." : "删除"}
+              {deleting ? t("files.deleting") : t("files.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

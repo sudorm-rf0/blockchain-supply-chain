@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Image from "next/image";
 import {
   Dialog,
@@ -21,13 +22,22 @@ interface FileCompareDialogProps {
 }
 
 function PreviewPane({ file, url }: { file: FileRecord; url: string | null }) {
+  const { t } = useTranslation();
+  const statusLabel = (status: FileRecord["status"]) =>
+    status === "APPROVED"
+      ? t("files.statusApproved")
+      : status === "REJECTED"
+        ? t("files.statusRejected")
+        : status === "PENDING"
+          ? t("files.statusPending")
+          : status;
   const isImage = file.mimeType.startsWith("image/");
   const isPdf = file.mimeType === "application/pdf";
   return (
     <div className="min-w-0 flex-1">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="truncate text-sm font-medium">{file.filename}</p>
-        <Badge className={fileStatusClass(file.status)}>{file.status}</Badge>
+        <Badge className={fileStatusClass(file.status)}>{statusLabel(file.status)}</Badge>
       </div>
       <div className="relative flex h-72 items-center justify-center overflow-auto rounded-md border bg-muted/30 p-2">
         {isImage && url ? (
@@ -35,7 +45,7 @@ function PreviewPane({ file, url }: { file: FileRecord; url: string | null }) {
         ) : isPdf && url ? (
           <iframe src={url} title={file.filename} className="h-full w-full" />
         ) : (
-          <p className="text-sm text-muted-foreground">该类型无法在线预览</p>
+          <p className="text-sm text-muted-foreground">{t("files.compareUnavailable")}</p>
         )}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
@@ -51,6 +61,7 @@ export function FileCompareDialog({
   open,
   onOpenChange,
 }: FileCompareDialogProps) {
+  const { t } = useTranslation();
   const [urlA, setUrlA] = useState<string | null>(null);
   const [urlB, setUrlB] = useState<string | null>(null);
 
@@ -86,7 +97,7 @@ export function FileCompareDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>文件对比</DialogTitle>
+          <DialogTitle>{t("files.compareTitle")}</DialogTitle>
         </DialogHeader>
         {fileA && fileB ? (
           <div className="flex flex-col gap-4 sm:flex-row">
@@ -95,7 +106,7 @@ export function FileCompareDialog({
           </div>
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            加载中...
+            {t("files.loading")}
           </p>
         )}
       </DialogContent>

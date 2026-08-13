@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,22 +19,32 @@ import {
   type WithdrawRequestRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { WITHDRAW_STATUS_STYLE, WITHDRAW_STATUS_LABEL } from "@/lib/status";
+import { WITHDRAW_STATUS_STYLE } from "@/lib/status";
 
 export default function AdminWithdrawalsPage() {
+  const { t } = useTranslation();
   const [requests, setRequests] = useState<WithdrawRequestRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const statusLabel = (status: string): string => {
+    const labels: Record<string, string> = {
+      PENDING: t("withdrawals.status.pending"),
+      READY: t("withdrawals.status.ready"),
+      EXECUTED: t("withdrawals.status.executed"),
+    };
+    return labels[status] ?? status;
+  };
 
   const load = useCallback(async () => {
     try {
       setRequests(await fetchWithdrawRequests());
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载提款失败");
+      toast.error(error instanceof Error ? error.message : t("withdrawals.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -43,10 +54,14 @@ export default function AdminWithdrawalsPage() {
     setBusyId(id);
     try {
       const result = await executeWithdrawal(id);
-      toast.success(`提款状态：${WITHDRAW_STATUS_LABEL[result.status] ?? result.status}`);
+      toast.success(
+        t("withdrawals.statusToast", {
+          status: statusLabel(result.status),
+        }),
+      );
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "执行失败");
+      toast.error(error instanceof Error ? error.message : t("withdrawals.executeFailed"));
     } finally {
       setBusyId(null);
     }
@@ -54,22 +69,22 @@ export default function AdminWithdrawalsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">提款管理</h1>
+      <h1 className="text-lg font-semibold">{t("withdrawals.title")}</h1>
       {loading ? (
-        <p className="text-sm text-muted-foreground">加载中...</p>
+        <p className="text-sm text-muted-foreground">{t("withdrawals.loading")}</p>
       ) : requests.length === 0 ? (
-        <p className="text-sm text-muted-foreground">暂无提款请求</p>
+        <p className="text-sm text-muted-foreground">{t("withdrawals.empty")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
-                <TableHead>LP 钱包</TableHead>
-                <TableHead>金额</TableHead>
-                <TableHead>申请时间</TableHead>
-                <TableHead>可用时间</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>操作</TableHead>
+                <TableHead>{t("withdrawals.colLpWallet")}</TableHead>
+                <TableHead>{t("withdrawals.colAmount")}</TableHead>
+                <TableHead>{t("withdrawals.colRequestedAt")}</TableHead>
+                <TableHead>{t("withdrawals.colAvailableAt")}</TableHead>
+                <TableHead>{t("withdrawals.colStatus")}</TableHead>
+                <TableHead>{t("withdrawals.colActions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -83,7 +98,7 @@ export default function AdminWithdrawalsPage() {
                   <TableCell>{formatDateTime(request.availableAt)}</TableCell>
                   <TableCell>
                     <Badge className={WITHDRAW_STATUS_STYLE[request.status] ?? ""}>
-                      {WITHDRAW_STATUS_LABEL[request.status] ?? request.status}
+                      {statusLabel(request.status)}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -93,7 +108,7 @@ export default function AdminWithdrawalsPage() {
                         disabled={busyId === request.id}
                         onClick={() => void onExecute(request.id)}
                       >
-                        执行
+                        {t("withdrawals.execute")}
                       </Button>
                     )}
                   </TableCell>

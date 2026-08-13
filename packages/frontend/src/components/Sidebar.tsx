@@ -14,41 +14,43 @@ import {
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface SidebarProps {
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
 }
 
 export function Sidebar({ role }: SidebarProps) {
+  const { t } = useTranslation();
   const pathname = usePathname();
   const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
   const items =
     isAdmin
       ? [
           ...(role === "SUPER_ADMIN"
-            ? [{ href: "/admin/accounts", label: "账号管理", icon: ShieldCheck }]
+            ? [{ href: "/admin/accounts", label: t("sidebar.accounts"), icon: ShieldCheck }]
             : []),
           {
             href: "/admin/files?status=PENDING",
-            label: "文件审核",
+            label: t("sidebar.fileReview"),
             icon: ClipboardCheck,
           },
-          { href: "/admin/audit", label: "审计日志", icon: ScrollText },
-          { href: "/admin/trades", label: "全部订单", icon: ReceiptText },
-          { href: "/admin/supply-chain", label: "供应链管理", icon: Boxes },
-          { href: "/admin/security", label: "安全设置", icon: ShieldCheck },
-          { href: "/admin/withdrawals", label: "提款管理", icon: Banknote },
-          { href: "/orders", label: "我的订单", icon: ReceiptText },
+          { href: "/admin/audit", label: t("sidebar.auditLog"), icon: ScrollText },
+          { href: "/admin/trades", label: t("sidebar.allOrders"), icon: ReceiptText },
+          { href: "/admin/supply-chain", label: t("sidebar.supplyChain"), icon: Boxes },
+          { href: "/admin/security", label: t("sidebar.security"), icon: ShieldCheck },
+          { href: "/admin/withdrawals", label: t("sidebar.withdrawals"), icon: Banknote },
+          { href: "/orders", label: t("sidebar.myOrders"), icon: ReceiptText },
           {
             href: "/admin/files?status=ALL",
-            label: "全部文件",
+            label: t("sidebar.allFiles"),
             icon: Files,
           },
         ]
       : [
-          { href: "/user/upload", label: "上传文件", icon: Upload },
-          { href: "/user/files", label: "我的文件", icon: Files },
-          { href: "/orders", label: "我的订单", icon: ReceiptText },
+          { href: "/user/upload", label: t("sidebar.uploadFile"), icon: Upload },
+          { href: "/user/files", label: t("sidebar.myFiles"), icon: Files },
+          { href: "/orders", label: t("sidebar.myOrders"), icon: ReceiptText },
         ];
 
   const isActive = (href: string) => {
@@ -72,7 +74,7 @@ export function Sidebar({ role }: SidebarProps) {
           )}
         >
           <LayoutDashboard className="h-4 w-4" />
-          数据看板
+          {t("sidebar.dashboard")}
         </Link>
         {items.map((item) => {
           const Icon = item.icon;

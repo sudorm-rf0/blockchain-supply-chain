@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import AppWalletProvider from "@/components/WalletProvider";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { ThemeProvider } from "@/components/theme-provider";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import { Toaster } from "@/components/ui/sonner";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
@@ -37,9 +38,11 @@ export default async function RootLayout({
       {/* 使用系统字体栈，避免构建期从 Google Fonts 拉取字体（境内 VPS 无法访问） */}
       <body className="antialiased">
         <ThemeProvider nonce={nonce}>
-          <AppWalletProvider>{children}</AppWalletProvider>
-          <Toaster />
-          <RegisterServiceWorker />
+          <LanguageProvider>
+            <AppWalletProvider>{children}</AppWalletProvider>
+            <Toaster />
+            <RegisterServiceWorker />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,30 +17,33 @@ import Turnstile from "@/components/Turnstile";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import { useUserStore } from "@/stores/user-store";
 
-const schema = z
-  .object({
-    name: z.string().min(1, "请输入姓名"),
-    email: z.string().email("邮箱格式不正确"),
-    password: z.string().min(6, "密码至少 6 位"),
-    confirmPassword: z.string().min(6, "密码至少 6 位"),
-    wallet: z
-      .string()
-      .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, "钱包地址格式不正确")
-      .optional()
-      .or(z.literal("")),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "两次输入的密码不一致",
-    path: ["confirmPassword"],
-  });
-
-type RegisterForm = z.infer<typeof schema>;
-
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
+  const schema = useMemo(
+    () =>
+      z
+        .object({
+          name: z.string().min(1, t("register.validation.name")),
+          email: z.string().email(t("register.validation.email")),
+          password: z.string().min(6, t("register.validation.passwordMin")),
+          confirmPassword: z.string().min(6, t("register.validation.passwordMin")),
+          wallet: z
+            .string()
+            .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, t("register.validation.wallet"))
+            .optional()
+            .or(z.literal("")),
+        })
+        .refine((data) => data.password === data.confirmPassword, {
+          message: t("register.validation.passwordMismatch"),
+          path: ["confirmPassword"],
+        }),
+    [t],
+  );
+  type RegisterForm = z.infer<typeof schema>;
   const {
     register,
     handleSubmit,
@@ -57,7 +61,7 @@ export default function RegisterPage() {
   const onSubmit = async (values: RegisterForm) => {
     try {
       if (TURNSTILE_SITE_KEY && !turnstileToken) {
-        toast.error("请先完成人机验证");
+        toast.error(t("register.error.turnstile"));
         return;
       }
       const result = await registerApi({
@@ -69,9 +73,9 @@ export default function RegisterPage() {
       });
       if (result.requiresEmailVerification) {
         // 防垃圾注册：注册后需先输入邮箱验证码激活账号
-        toast.success("注册成功，验证码已发送到邮箱，请查收");
+        toast.success(t("register.toast.verifySent"));
         if (result.devCode) {
-          toast.info(`开发模式验证码：${result.devCode}`);
+          toast.info(t("register.toast.devCode", { code: result.devCode }));
         }
         router.push(
           `/verify-email?email=${encodeURIComponent(values.email)}`,
@@ -80,45 +84,45 @@ export default function RegisterPage() {
       }
       const { user, mustChangePassword } = result;
       setAuth({ ...user, mustChangePassword: mustChangePassword ?? false });
-      toast.success("注册成功");
+      toast.success(t("register.toast.success"));
       router.push("/user/upload");
     } catch (error) {
       setCaptchaKey((k) => k + 1);
       setTurnstileToken("");
-      toast.error(error instanceof Error ? error.message : "注册失败");
+      toast.error(error instanceof Error ? error.message : t("register.error.failed"));
     }
   };
 
   return (
         <Card className="w-full shadow-xl">
         <CardHeader>
-          <CardTitle className="text-center text-xl">注册</CardTitle>
+          <CardTitle className="text-center text-xl">{t("register.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">姓名</Label>
+              <Label htmlFor="name">{t("register.name")}</Label>
               <Input id="name" {...register("name")} />
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="email">{t("register.email")}</Label>
               <Input id="email" type="email" {...register("email")} />
               {errors.email && (
                 <p className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
+              <Label htmlFor="password">{t("register.password")}</Label>
               <Input id="password" type="password" {...register("password")} />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">确认密码</Label>
+              <Label htmlFor="confirmPassword">{t("register.confirmPassword")}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -131,10 +135,10 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wallet">钱包地址（可选）</Label>
+              <Label htmlFor="wallet">{t("register.wallet")}</Label>
               <Input
                 id="wallet"
-                placeholder="Solana 钱包公钥"
+                placeholder={t("register.walletPlaceholder")}
                 {...register("wallet")}
               />
             </div>
@@ -144,12 +148,12 @@ export default function RegisterPage() {
               className="w-full"
               disabled={isSubmitting || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
             >
-              {isSubmitting ? "注册中..." : "注册"}
+              {isSubmitting ? t("register.submitting") : t("register.submit")}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              已有账号？{" "}
+              {t("register.haveAccount")}{" "}
               <Link href="/login" className="text-primary hover:underline">
-                去登录
+                {t("register.goLogin")}
               </Link>
             </p>
           </form>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { sendEmailCode, verifyEmail } from "@/lib/api";
 
 function VerifyEmailForm() {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = (searchParams.get("email") ?? "").trim();
@@ -34,20 +36,20 @@ function VerifyEmailForm() {
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!/^\d{6}$/.test(code)) {
-      toast.error("请输入 6 位验证码");
+      toast.error(t("verifyEmail.error.enterCode"));
       return;
     }
     if (!email) {
-      toast.error("缺少邮箱参数，请从注册页重新操作");
+      toast.error(t("verifyEmail.error.missingEmail"));
       return;
     }
     setSubmitting(true);
     try {
       await verifyEmail(email, code);
-      toast.success("邮箱验证成功，账号已激活，请登录");
+      toast.success(t("verifyEmail.toast.success"));
       router.push("/login");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "验证失败，请重试");
+      toast.error(error instanceof Error ? error.message : t("verifyEmail.error.failed"));
     } finally {
       setSubmitting(false);
     }
@@ -59,9 +61,9 @@ function VerifyEmailForm() {
     try {
       const result = await sendEmailCode(email);
       setCooldown(result.cooldownSeconds ?? 60);
-      toast.success("验证码已重新发送，请查收");
+      toast.success(t("verifyEmail.toast.resent"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "发送失败，请稍后重试");
+      toast.error(error instanceof Error ? error.message : t("verifyEmail.error.sendFailed"));
     } finally {
       setResending(false);
     }
@@ -70,21 +72,22 @@ function VerifyEmailForm() {
   return (
     <Card className="w-full shadow-xl">
       <CardHeader>
-        <CardTitle className="text-center text-xl">邮箱验证</CardTitle>
+        <CardTitle className="text-center text-xl">{t("verifyEmail.title")}</CardTitle>
         <CardDescription className="text-center">
-          已向 <span className="font-medium">{email || "你的邮箱"}</span>{" "}
-          发送 6 位验证码，输入后账号即激活
+          {t("verifyEmail.descriptionPrefix")}{" "}
+          <span className="font-medium">{email || t("verifyEmail.yourEmail")}</span>{" "}
+          {t("verifyEmail.descriptionSuffix")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="code">验证码</Label>
+            <Label htmlFor="code">{t("verifyEmail.code")}</Label>
             <Input
               id="code"
               inputMode="numeric"
               maxLength={6}
-              placeholder="6 位验证码"
+              placeholder={t("verifyEmail.codePlaceholder")}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             />
@@ -94,10 +97,10 @@ function VerifyEmailForm() {
             className="w-full"
             disabled={submitting || code.length !== 6}
           >
-            {submitting ? "验证中..." : "验证并激活账号"}
+            {submitting ? t("verifyEmail.submitting") : t("verifyEmail.submit")}
           </Button>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>没收到验证码？</span>
+            <span>{t("verifyEmail.noCode")}</span>
             <Button
               type="button"
               variant="link"
@@ -106,16 +109,16 @@ function VerifyEmailForm() {
               disabled={resending || cooldown > 0}
             >
               {cooldown > 0
-                ? `${cooldown}s 后可重发`
+                ? t("verifyEmail.cooldown", { s: cooldown })
                 : resending
-                  ? "发送中..."
-                  : "重新发送"}
+                  ? t("verifyEmail.sending")
+                  : t("verifyEmail.resend")}
             </Button>
           </div>
           <p className="text-center text-sm text-muted-foreground">
-            验证码 5 分钟内有效，且只能使用一次。验证完成后前往{" "}
+            {t("verifyEmail.expiryHint")}{" "}
             <Link href="/login" className="text-primary hover:underline">
-              登录
+              {t("verifyEmail.login")}
             </Link>
           </p>
         </form>

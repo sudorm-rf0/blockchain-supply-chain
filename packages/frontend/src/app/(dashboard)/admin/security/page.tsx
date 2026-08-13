@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { MailCheck, ShieldCheck, ShieldOff, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
 import { useUserStore } from "@/stores/user-store";
 
 export default function SecurityPage() {
+  const { t } = useTranslation();
   const user = useUserStore((state) => state.user);
   const setAuth = useUserStore((state) => state.setAuth);
   const [pending, setPending] = useState<{ secret: string; otpauthUrl: string } | null>(null);
@@ -47,9 +49,9 @@ export default function SecurityPage() {
       setBusy(true);
       const res = await setupTotp();
       setPending(res);
-      toast.success("已生成密钥，请在验证器 App 中添加");
+      toast.success(t("security.generateSuccess"));
     } catch {
-      toast.error("生成密钥失败");
+      toast.error(t("security.generateFailed"));
     } finally {
       setBusy(false);
     }
@@ -57,7 +59,7 @@ export default function SecurityPage() {
 
   const handleEnable = async () => {
     if (!/^\d{6}$/.test(code)) {
-      toast.error("请输入 6 位验证码");
+      toast.error(t("security.codeRequired"));
       return;
     }
     try {
@@ -66,9 +68,9 @@ export default function SecurityPage() {
       if (user) setAuth({ ...user, totpEnabled: true });
       setPending(null);
       setCode("");
-      toast.success("两步验证已开启");
+      toast.success(t("security.totpEnabled"));
     } catch {
-      toast.error("验证码错误，请重试");
+      toast.error(t("security.codeInvalid"));
     } finally {
       setBusy(false);
     }
@@ -76,7 +78,7 @@ export default function SecurityPage() {
 
   const handleDisable = async () => {
     if (!/^\d{6}$/.test(code)) {
-      toast.error("请输入当前 6 位验证码");
+      toast.error(t("security.currentCodeRequired"));
       return;
     }
     try {
@@ -84,9 +86,9 @@ export default function SecurityPage() {
       await disableTotp(code);
       if (user) setAuth({ ...user, totpEnabled: false });
       setCode("");
-      toast.success("两步验证已关闭");
+      toast.success(t("security.totpDisabled"));
     } catch {
-      toast.error("验证码错误，请重试");
+      toast.error(t("security.codeInvalid"));
     } finally {
       setBusy(false);
     }
@@ -97,9 +99,9 @@ export default function SecurityPage() {
     try {
       const result = await sendEmailOtpCode();
       setWalletCooldown(result.cooldownSeconds ?? 60);
-      toast.success("验证码已发送到邮箱，请查收");
+      toast.success(t("security.wallet.sendSuccess"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "验证码发送失败");
+      toast.error(error instanceof Error ? error.message : t("security.wallet.sendFailed"));
     } finally {
       setWalletBusy(false);
     }
@@ -108,11 +110,11 @@ export default function SecurityPage() {
   const handleBindWallet = async () => {
     const value = wallet.trim();
     if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) {
-      toast.error("钱包地址格式不正确");
+      toast.error(t("security.wallet.invalidAddress"));
       return;
     }
     if (!/^\d{6}$/.test(walletCode)) {
-      toast.error("请输入 6 位邮箱验证码");
+      toast.error(t("security.wallet.codeRequired"));
       return;
     }
     setWalletBusy(true);
@@ -120,9 +122,9 @@ export default function SecurityPage() {
       const updated = await bindWallet(value, walletCode);
       setAuth(updated);
       setWalletCode("");
-      toast.success("钱包已绑定");
+      toast.success(t("security.wallet.bound"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "绑定失败，请重试");
+      toast.error(error instanceof Error ? error.message : t("security.wallet.bindFailed"));
     } finally {
       setWalletBusy(false);
     }
@@ -130,7 +132,7 @@ export default function SecurityPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">安全设置</h1>
+      <h1 className="text-2xl font-semibold">{t("security.title")}</h1>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -139,34 +141,30 @@ export default function SecurityPage() {
             ) : (
               <ShieldOff className="h-5 w-5 text-muted-foreground" />
             )}
-            两步验证（TOTP）
+            {t("security.totpTitle")}
           </CardTitle>
           <CardDescription>
-            {totpEnabled
-              ? "已开启：登录时需要输入验证器 App 的 6 位动态码。"
-              : "未开启：建议管理员开启，防止账号被暴力破解。"}
+            {totpEnabled ? t("security.totpEnabledDesc") : t("security.totpDisabledDesc")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {!totpEnabled && !pending && (
             <Button onClick={handleSetup} disabled={busy}>
-              生成密钥
+              {t("security.generate")}
             </Button>
           )}
 
           {pending && (
             <div className="space-y-3 rounded-md border p-4">
-              <p className="text-sm">
-                在 Google Authenticator / 1Password 等 App 中添加：
-              </p>
+              <p className="text-sm">{t("security.pendingSetup")}</p>
               <p className="break-all rounded bg-muted p-2 text-xs">
                 {pending.otpauthUrl}
               </p>
               <p className="text-xs text-muted-foreground">
-                密钥（也可手动输入）：<code>{pending.secret}</code>
+                {t("security.secretHint")}<code>{pending.secret}</code>
               </p>
               <div className="space-y-2">
-                <Label htmlFor="enable-code">输入 App 显示的 6 位验证码</Label>
+                <Label htmlFor="enable-code">{t("security.enableCodeLabel")}</Label>
                 <div className="flex gap-2">
                   <Input
                     id="enable-code"
@@ -177,7 +175,7 @@ export default function SecurityPage() {
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                   />
                   <Button onClick={handleEnable} disabled={busy}>
-                    开启
+                    {t("security.enable")}
                   </Button>
                 </div>
               </div>
@@ -186,9 +184,7 @@ export default function SecurityPage() {
 
           {totpEnabled && (
             <div className="space-y-2">
-              <Label htmlFor="disable-code">
-                输入当前 6 位验证码后关闭
-              </Label>
+              <Label htmlFor="disable-code">{t("security.disableCodeLabel")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="disable-code"
@@ -199,7 +195,7 @@ export default function SecurityPage() {
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                 />
                 <Button variant="destructive" onClick={handleDisable} disabled={busy}>
-                  关闭
+                  {t("security.disable")}
                 </Button>
               </div>
             </div>
@@ -211,17 +207,19 @@ export default function SecurityPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MailCheck className="h-5 w-5 text-emerald-500" />
-            邮箱验证码登录（Email OTP）
+            {t("security.emailOtpTitle")}
           </CardTitle>
           <CardDescription>
-            平台安全策略：<strong>所有账号登录强制邮箱验证码</strong>，不可关闭。
-            登录时除密码外，还需输入发送到 {user?.email ?? "注册邮箱"}{" "}
-            的 6 位验证码（可与 TOTP 并存）。
+            <Trans
+              i18nKey="security.emailOtpDescription"
+              values={{ email: user?.email ?? t("security.emailOtpRegisteredEmail") }}
+              components={{ strong: <strong /> }}
+            />
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-emerald-600 dark:text-emerald-400">
-            已强制开启 ✓
+            {t("security.emailOtpEnabled")}
           </p>
         </CardContent>
       </Card>
@@ -230,15 +228,13 @@ export default function SecurityPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5 text-muted-foreground" />
-            绑定 / 更换钱包
+            {t("security.walletTitle")}
           </CardTitle>
-          <CardDescription>
-            更换绑定的 Solana 钱包地址，需要邮箱验证码确认。
-          </CardDescription>
+          <CardDescription>{t("security.walletDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="wallet">Solana 钱包地址</Label>
+            <Label htmlFor="wallet">{t("security.walletAddressLabel")}</Label>
             <Input
               id="wallet"
               placeholder="9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin"
@@ -250,7 +246,7 @@ export default function SecurityPage() {
             <Input
               inputMode="numeric"
               maxLength={6}
-              placeholder="6 位邮箱验证码"
+              placeholder={t("security.walletCodePlaceholder")}
               value={walletCode}
               onChange={(e) => setWalletCode(e.target.value.replace(/\D/g, ""))}
             />
@@ -261,14 +257,14 @@ export default function SecurityPage() {
               disabled={walletBusy || walletCooldown > 0}
             >
               {walletCooldown > 0
-                ? `${walletCooldown}s 后可重发`
+                ? t("security.walletResendAfter", { seconds: walletCooldown })
                 : walletBusy
-                  ? "发送中..."
-                  : "发送验证码"}
+                  ? t("security.walletSending")
+                  : t("security.walletSendCode")}
             </Button>
           </div>
           <Button onClick={handleBindWallet} disabled={walletBusy}>
-            绑定钱包
+            {t("security.walletBind")}
           </Button>
         </CardContent>
       </Card>

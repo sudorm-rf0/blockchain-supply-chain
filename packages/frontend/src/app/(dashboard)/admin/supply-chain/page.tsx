@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Transaction } from "@solana/web3.js";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const shorten = (address: string) =>
   address.length > 12 ? `${address.slice(0, 6)}...${address.slice(-4)}` : address;
 
 export default function SupplyChainAdminPage() {
+  const { t } = useTranslation();
   const { connected, publicKey, connection, sendTransaction } = useWalletContext();
   const [registry, setRegistry] = useState<RegistryStatus | null>(null);
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
@@ -62,16 +64,16 @@ export default function SupplyChainAdminPage() {
       try {
         await load();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "加载失败");
+        toast.error(error instanceof Error ? error.message : t("supplyChain.loadFailed"));
       } finally {
         setLoading(false);
       }
     })();
-  }, [load]);
+  }, [load, t]);
 
   const requireWallet = (): string | null => {
     if (!connected || !publicKey) {
-      toast.error("请先连接钱包");
+      toast.error(t("supplyChain.connectWallet"));
       return null;
     }
     return publicKey.toBase58();
@@ -91,11 +93,11 @@ export default function SupplyChainAdminPage() {
       const signature = await sendTransaction(transaction, connection);
       await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirm(signature);
-      if (!result.ok) throw new Error("链上确认未通过");
+      if (!result.ok) throw new Error(t("supplyChain.confirmFailed"));
       toast.success(successMessage);
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "链上操作失败");
+      toast.error(error instanceof Error ? error.message : t("supplyChain.onchainFailed"));
     } finally {
       setBusy(false);
     }
@@ -105,20 +107,20 @@ export default function SupplyChainAdminPage() {
     signAndConfirm(
       () => initRegistry({ adminWallet: requireWallet()! }),
       (sig) => confirmInitRegistry({ adminWallet: publicKey!.toBase58(), txSignature: sig }),
-      "注册中心已初始化",
+      t("supplyChain.registryInitialized"),
     );
 
   const handleAuthorize = () => {
     const wallet = requireWallet();
     if (!wallet) return;
     if (!supplierAddress.trim()) {
-      toast.error("请输入供应商钱包地址");
+      toast.error(t("supplyChain.supplierAddressRequired"));
       return;
     }
     void signAndConfirm(
       () => authorizeSupplier({ adminWallet: wallet, supplier: supplierAddress.trim() }),
       (sig) => confirmAuthorizeSupplier({ supplier: supplierAddress.trim(), txSignature: sig }),
-      "供应商已授权",
+      t("supplyChain.supplierAuthorized"),
     );
   };
 
@@ -128,7 +130,7 @@ export default function SupplyChainAdminPage() {
     void signAndConfirm(
       () => revokeSupplier(address, { adminWallet: wallet }),
       (sig) => confirmRevokeSupplier(address, { txSignature: sig }),
-      "供应商已撤销",
+      t("supplyChain.supplierRevoked"),
     );
   };
 
@@ -136,7 +138,7 @@ export default function SupplyChainAdminPage() {
     const wallet = requireWallet();
     if (!wallet) return;
     if (!sku.trim() || !/^\d+$/.test(units) || Number(units) <= 0) {
-      toast.error("请填写有效的 SKU 与数量");
+      toast.error(t("supplyChain.productValidation"));
       return;
     }
     void signAndConfirm(
@@ -148,36 +150,36 @@ export default function SupplyChainAdminPage() {
           units,
           txSignature: sig,
         }),
-      "商品已注册上链",
+      t("supplyChain.productRegistered"),
     );
   };
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">加载中...</p>;
+    return <p className="text-sm text-muted-foreground">{t("supplyChain.loading")}</p>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">供应链管理</h1>
-        <p className="text-sm text-muted-foreground">
-          初始化注册中心、授权/撤销供应商、注册商品（上链操作需管理员钱包签名）
-        </p>
+        <h1 className="text-2xl font-bold">{t("supplyChain.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("supplyChain.subtitle")}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>注册中心</CardTitle>
-          <CardDescription>唯一管理员可注册商品并授权供应商</CardDescription>
+          <CardTitle>{t("supplyChain.registryTitle")}</CardTitle>
+          <CardDescription>{t("supplyChain.registryDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {registry?.initialized ? (
             <div className="space-y-1 text-sm">
               <div>
-                状态：<Badge className="bg-green-600">已初始化</Badge>
+                {t("supplyChain.statusLabel")}
+                <Badge className="bg-green-600">{t("supplyChain.initialized")}</Badge>
               </div>
               <div>
-                管理员：<span className="font-mono">{shorten(registry.admin ?? "")}</span>
+                {t("supplyChain.adminLabel")}
+                <span className="font-mono">{shorten(registry.admin ?? "")}</span>
               </div>
               <div className="font-mono text-xs text-muted-foreground">
                 {registry.registry}
@@ -185,11 +187,9 @@ export default function SupplyChainAdminPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-amber-600">
-                注册中心尚未初始化，任何账户（含管理员）都无法注册商品。
-              </p>
+              <p className="text-sm text-amber-600">{t("supplyChain.notInitialized")}</p>
               <Button onClick={handleInitRegistry} disabled={busy || !connected}>
-                初始化注册中心（钱包签名）
+                {t("supplyChain.initRegistry")}
               </Button>
             </div>
           )}
@@ -198,23 +198,23 @@ export default function SupplyChainAdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>供应商</CardTitle>
-          <CardDescription>授权后可自行注册商品，撤销即失效</CardDescription>
+          <CardTitle>{t("supplyChain.suppliersTitle")}</CardTitle>
+          <CardDescription>{t("supplyChain.suppliersDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <Input
-              placeholder="供应商 Solana 钱包地址"
+              placeholder={t("supplyChain.supplierAddressPlaceholder")}
               value={supplierAddress}
               onChange={(e) => setSupplierAddress(e.target.value)}
               className="font-mono"
             />
             <Button onClick={handleAuthorize} disabled={busy || !connected}>
-              授权
+              {t("supplyChain.authorize")}
             </Button>
           </div>
           {suppliers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无已授权供应商</p>
+            <p className="text-sm text-muted-foreground">{t("supplyChain.noSuppliers")}</p>
           ) : (
             <ul className="divide-y">
               {suppliers.map((s) => (
@@ -222,7 +222,9 @@ export default function SupplyChainAdminPage() {
                   <div className="min-w-0">
                     <p className="truncate font-mono text-sm">{s.address}</p>
                     <p className="text-xs text-muted-foreground">
-                      授权于 {new Date(s.authorizedAt).toLocaleString()}
+                      {t("supplyChain.authorizedAt", {
+                        date: new Date(s.authorizedAt).toLocaleString(),
+                      })}
                     </p>
                   </div>
                   <Button
@@ -231,7 +233,7 @@ export default function SupplyChainAdminPage() {
                     onClick={() => handleRevoke(s.address)}
                     disabled={busy || !connected}
                   >
-                    撤销
+                    {t("supplyChain.revoke")}
                   </Button>
                 </li>
               ))}
@@ -242,19 +244,27 @@ export default function SupplyChainAdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>商品</CardTitle>
-          <CardDescription>管理员注册商品（SKU 唯一）</CardDescription>
+          <CardTitle>{t("supplyChain.productsTitle")}</CardTitle>
+          <CardDescription>{t("supplyChain.productsDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2 sm:grid-cols-[1fr_8rem_auto]">
-            <Input placeholder="SKU（≤64 字符）" value={sku} onChange={(e) => setSku(e.target.value)} />
-            <Input placeholder="数量" value={units} onChange={(e) => setUnits(e.target.value)} />
+            <Input
+              placeholder={t("supplyChain.skuPlaceholder")}
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+            />
+            <Input
+              placeholder={t("supplyChain.unitsPlaceholder")}
+              value={units}
+              onChange={(e) => setUnits(e.target.value)}
+            />
             <Button onClick={handleRegisterProduct} disabled={busy || !connected}>
-              注册上链
+              {t("supplyChain.register")}
             </Button>
           </div>
           {products.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无商品</p>
+            <p className="text-sm text-muted-foreground">{t("supplyChain.noProducts")}</p>
           ) : (
             <ul className="divide-y">
               {products.map((p) => (

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,14 +17,8 @@ import Turnstile from "@/components/Turnstile";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import { useUserStore } from "@/stores/user-store";
 
-const schema = z.object({
-  email: z.string().email("邮箱格式不正确"),
-  password: z.string().min(6, "密码至少 6 位"),
-});
-
-type LoginForm = z.infer<typeof schema>;
-
 export default function LoginPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
   const [requiresTotp, setRequiresTotp] = useState(false);
@@ -33,6 +28,15 @@ export default function LoginPage() {
   const [emailOtpCode, setEmailOtpCode] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
+  const schema = useMemo(
+    () =>
+      z.object({
+        email: z.string().email(t("login.validation.email")),
+        password: z.string().min(6, t("login.validation.passwordMin")),
+      }),
+    [t],
+  );
+  type LoginForm = z.infer<typeof schema>;
   const {
     register,
     handleSubmit,
@@ -54,16 +58,16 @@ export default function LoginPage() {
 
   const handleSendEmailOtp = async () => {
     if (!emailValue) {
-      toast.error("请先输入邮箱");
+      toast.error(t("login.error.enterEmail"));
       return;
     }
     setSendingEmailOtp(true);
     try {
       const result = await sendEmailCode(emailValue);
       setEmailOtpCooldown(result.cooldownSeconds ?? 60);
-      toast.success("验证码已发送到邮箱，请查收");
+      toast.success(t("login.toast.emailCodeSent"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "验证码发送失败");
+      toast.error(error instanceof Error ? error.message : t("login.error.sendCodeFailed"));
     } finally {
       setSendingEmailOtp(false);
     }
@@ -72,7 +76,7 @@ export default function LoginPage() {
   const onSubmit = async (values: LoginForm) => {
     try {
       if (TURNSTILE_SITE_KEY && !turnstileToken) {
-        toast.error("请先完成人机验证");
+        toast.error(t("login.error.turnstile"));
         return;
       }
       setUnverifiedEmail(null);
@@ -88,9 +92,9 @@ export default function LoginPage() {
         setEmailOtpCooldown(60);
         setCaptchaKey((k) => k + 1);
         setTurnstileToken("");
-        toast.info("验证码已发送到邮箱，请输入 6 位邮箱验证码");
+        toast.info(t("login.toast.emailOtpRequired"));
         if (result.devCode) {
-          toast.info(`开发模式验证码：${result.devCode}`);
+          toast.info(t("login.toast.devCode", { code: result.devCode }));
         }
         return;
       }
@@ -98,12 +102,12 @@ export default function LoginPage() {
         setRequiresTotp(true);
         setCaptchaKey((k) => k + 1);
         setTurnstileToken("");
-        toast.info("该账号已开启两步验证，请输入 6 位验证码");
+        toast.info(t("login.toast.totpRequired"));
         return;
       }
       const { user, mustChangePassword } = result;
       setAuth({ ...user, mustChangePassword: mustChangePassword ?? false });
-      toast.success("登录成功");
+      toast.success(t("login.toast.success"));
       router.push(
         mustChangePassword
           ? "/change-password"
@@ -117,7 +121,7 @@ export default function LoginPage() {
       const hint = error instanceof Error ? error.message : "";
       if (hint.includes("邮箱尚未验证")) {
         setUnverifiedEmail(values.email);
-        toast.error("邮箱尚未验证，请先完成邮箱验证后登录");
+        toast.error(t("login.toast.unverified"));
       } else if (
         hint.includes("fetch") ||
         hint.includes("网络") ||
@@ -125,11 +129,11 @@ export default function LoginPage() {
         hint.includes("timeout") ||
         hint.includes("Abort")
       ) {
-        toast.error("网络连接失败，请检查网络后重试");
+        toast.error(t("login.toast.networkError"));
       } else if (requiresTotp || requiresEmailOtp) {
-        toast.error("验证码错误");
+        toast.error(t("login.error.verificationCode"));
       } else {
-        toast.error("邮箱或密码错误");
+        toast.error(t("login.error.invalidCredentials"));
       }
     }
   };
@@ -137,23 +141,23 @@ export default function LoginPage() {
   return (
         <Card className="w-full shadow-xl">
         <CardHeader>
-          <CardTitle className="text-center text-xl">登录</CardTitle>
+          <CardTitle className="text-center text-xl">{t("login.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {unverifiedEmail && (
             <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-              该邮箱尚未验证，请先完成邮箱验证后登录。{" "}
+              {t("login.unverifiedNotice")}{" "}
               <Link
                 href={`/verify-email?email=${encodeURIComponent(unverifiedEmail)}`}
                 className="font-medium underline"
               >
-                去验证邮箱
+                {t("login.goVerifyEmail")}
               </Link>
             </div>
           )}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">邮箱</Label>
+              <Label htmlFor="email">{t("login.email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -165,7 +169,7 @@ export default function LoginPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
+              <Label htmlFor="password">{t("login.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -179,13 +183,13 @@ export default function LoginPage() {
             </div>
             {requiresEmailOtp && (
               <div className="space-y-2">
-                <Label htmlFor="email-otp">邮箱验证码</Label>
+                <Label htmlFor="email-otp">{t("login.emailOtp")}</Label>
                 <div className="flex gap-2">
                   <Input
                     id="email-otp"
                     inputMode="numeric"
                     maxLength={6}
-                    placeholder="6 位邮箱验证码"
+                    placeholder={t("login.emailOtpPlaceholder")}
                     value={emailOtpCode}
                     onChange={(e) =>
                       setEmailOtpCode(e.target.value.replace(/\D/g, ""))
@@ -199,22 +203,22 @@ export default function LoginPage() {
                     disabled={sendingEmailOtp || emailOtpCooldown > 0}
                   >
                     {emailOtpCooldown > 0
-                      ? `${emailOtpCooldown}s 后可重发`
+                      ? t("login.cooldown", { s: emailOtpCooldown })
                       : sendingEmailOtp
-                        ? "发送中..."
-                        : "发送验证码"}
+                        ? t("login.sending")
+                        : t("login.sendCode")}
                   </Button>
                 </div>
               </div>
             )}
             {requiresTotp && (
               <div className="space-y-2">
-                <Label htmlFor="totp">两步验证码</Label>
+                <Label htmlFor="totp">{t("login.totp")}</Label>
                 <Input
                   id="totp"
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="6 位验证码"
+                  placeholder={t("login.otpPlaceholder")}
                   value={totpCode}
                   onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
                 />
@@ -227,15 +231,15 @@ export default function LoginPage() {
               disabled={isSubmitting || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
             >
               {isSubmitting
-                ? "登录中..."
+                ? t("login.submitting")
                 : requiresEmailOtp || requiresTotp
-                  ? "验证并登录"
-                  : "登录"}
+                  ? t("login.verifyAndLogin")
+                  : t("login.submit")}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              还没有账号？{" "}
+              {t("login.noAccount")}{" "}
               <Link href="/register" className="text-primary hover:underline">
-                去注册
+                {t("login.goRegister")}
               </Link>
             </p>
           </form>

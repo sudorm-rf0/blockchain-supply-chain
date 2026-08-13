@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -41,23 +42,32 @@ import {
   type AccountFile,
 } from "@/lib/api";
 
-const ROLE_LABEL: Record<AccountRole, string> = {
-  USER: "用户",
-  ADMIN: "管理员",
-  SUPER_ADMIN: "超级管理员",
-};
-
 function RoleBadge({ role }: { role: AccountRole }) {
+  const { t } = useTranslation();
   const cls =
     role === "SUPER_ADMIN"
       ? "border border-red-500/40 bg-red-500/10 text-red-500"
       : role === "ADMIN"
         ? "border border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]"
         : "border border-border bg-muted text-muted-foreground";
-  return <Badge className={cls}>{ROLE_LABEL[role]}</Badge>;
+  const roleLabel: Record<AccountRole, string> = {
+    USER: t("accounts.roleUser"),
+    ADMIN: t("accounts.roleAdmin"),
+    SUPER_ADMIN: t("accounts.roleSuperAdmin"),
+  };
+  return <Badge className={cls}>{roleLabel[role]}</Badge>;
 }
 
 export default function AccountsPage() {
+  const { t } = useTranslation();
+  const fileStatusLabel = (status: string) =>
+    status === "APPROVED"
+      ? t("files.statusApproved")
+      : status === "REJECTED"
+        ? t("files.statusRejected")
+        : status === "PENDING"
+          ? t("files.statusPending")
+          : status;
   const [items, setItems] = useState<AccountRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -90,11 +100,11 @@ export default function AccountsPage() {
       setItems(res.items);
       setTotal(res.total);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载账号列表失败");
+      toast.error(error instanceof Error ? error.message : t("accounts.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [page, limit, q, roleFilter]);
+  }, [page, limit, q, roleFilter, t]);
 
   useEffect(() => {
     load();
@@ -102,18 +112,18 @@ export default function AccountsPage() {
 
   const handleAdd = async () => {
     if (!form.name || !form.email || form.password.length < 8) {
-      toast.error("请填写完整：姓名 / 邮箱 / 密码（至少 8 位）");
+      toast.error(t("accounts.formInvalid"));
       return;
     }
     setAdding(true);
     try {
       await createAccount(form);
-      toast.success("账号已创建");
+      toast.success(t("accounts.createSuccess"));
       setShowAdd(false);
       setForm({ name: "", email: "", password: "", role: "ADMIN" });
       load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "创建失败");
+      toast.error(error instanceof Error ? error.message : t("accounts.createFailed"));
     } finally {
       setAdding(false);
     }
@@ -122,10 +132,10 @@ export default function AccountsPage() {
   const handleRoleChange = async (id: string, role: AccountRole) => {
     try {
       await changeAccountRole(id, role);
-      toast.success("账户类型已更新");
+      toast.success(t("accounts.roleUpdateSuccess"));
       load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "更新失败");
+      toast.error(error instanceof Error ? error.message : t("accounts.roleUpdateFailed"));
     }
   };
 
@@ -135,7 +145,7 @@ export default function AccountsPage() {
       const data = await getAccount(id);
       setDetail(data);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载详情失败");
+      toast.error(error instanceof Error ? error.message : t("accounts.detailLoadFailed"));
     } finally {
       setDetailLoading(false);
     }
@@ -146,15 +156,15 @@ export default function AccountsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">账号管理</h1>
+        <h1 className="text-2xl font-semibold">{t("accounts.title")}</h1>
         <Button onClick={() => setShowAdd(true)}>
-          <Plus className="mr-1 h-4 w-4" /> 添加管理员
+          <Plus className="mr-1 h-4 w-4" /> {t("accounts.addAdmin")}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">全部账号（{total}）</CardTitle>
+          <CardTitle className="text-base">{t("accounts.total", { n: total })}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -162,7 +172,7 @@ export default function AccountsPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-8"
-                placeholder="搜索邮箱 / 姓名"
+                placeholder={t("accounts.searchPlaceholder")}
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);
@@ -178,13 +188,13 @@ export default function AccountsPage() {
               }}
             >
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="账户类型" />
+                <SelectValue placeholder={t("accounts.role")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部</SelectItem>
-                <SelectItem value="USER">用户</SelectItem>
-                <SelectItem value="ADMIN">管理员</SelectItem>
-                <SelectItem value="SUPER_ADMIN">超级管理员</SelectItem>
+                <SelectItem value="">{t("accounts.roleAll")}</SelectItem>
+                <SelectItem value="USER">{t("accounts.roleUser")}</SelectItem>
+                <SelectItem value="ADMIN">{t("accounts.roleAdmin")}</SelectItem>
+                <SelectItem value="SUPER_ADMIN">{t("accounts.roleSuperAdmin")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -192,13 +202,13 @@ export default function AccountsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>账号</TableHead>
-                <TableHead>账户类型</TableHead>
-                <TableHead>钱包地址</TableHead>
-                <TableHead>验证状态</TableHead>
-                <TableHead>内容</TableHead>
-                <TableHead>注册时间</TableHead>
-                <TableHead>操作</TableHead>
+                <TableHead>{t("accounts.account")}</TableHead>
+                <TableHead>{t("accounts.role")}</TableHead>
+                <TableHead>{t("accounts.wallet")}</TableHead>
+                <TableHead>{t("accounts.verification")}</TableHead>
+                <TableHead>{t("accounts.content")}</TableHead>
+                <TableHead>{t("accounts.registeredAt")}</TableHead>
+                <TableHead>{t("accounts.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -220,14 +230,16 @@ export default function AccountsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="text-xs">
-                      {u.emailVerified ? "邮箱已验证" : "邮箱未验证"}
-                      {u.emailOtpEnabled ? " · 强制OTP" : ""}
+                      {u.emailVerified ? t("accounts.emailVerified") : t("accounts.emailUnverified")}
+                      {u.emailOtpEnabled ? ` · ${t("accounts.forceOtp")}` : ""}
                       {u.totpEnabled ? " · TOTP" : ""}
                     </div>
                   </TableCell>
                   <TableCell className="text-xs">
-                    文件 {u._count?.files ?? 0} · 订单{" "}
-                    {(u._count?.buyerDeals ?? 0) + (u._count?.sellerDeals ?? 0)}
+                    {t("accounts.fileOrderCount", {
+                      files: u._count?.files ?? 0,
+                      orders: (u._count?.buyerDeals ?? 0) + (u._count?.sellerDeals ?? 0),
+                    })}
                   </TableCell>
                   <TableCell className="text-xs">
                     {new Date(u.createdAt).toLocaleDateString("zh-CN")}
@@ -241,9 +253,9 @@ export default function AccountsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="USER">用户</SelectItem>
-                        <SelectItem value="ADMIN">管理员</SelectItem>
-                        <SelectItem value="SUPER_ADMIN">超级管理员</SelectItem>
+                        <SelectItem value="USER">{t("accounts.roleUser")}</SelectItem>
+                        <SelectItem value="ADMIN">{t("accounts.roleAdmin")}</SelectItem>
+                        <SelectItem value="SUPER_ADMIN">{t("accounts.roleSuperAdmin")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
@@ -252,7 +264,7 @@ export default function AccountsPage() {
               {!loading && items.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                    没有找到账号
+                    {t("accounts.empty")}
                   </TableCell>
                 </TableRow>
               )}
@@ -261,7 +273,7 @@ export default function AccountsPage() {
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              第 {page} / {totalPages} 页
+              {t("accounts.page", { page, total: totalPages })}
             </span>
             <div className="flex gap-2">
               <Button
@@ -270,7 +282,7 @@ export default function AccountsPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
-                上一页
+                {t("accounts.previousPage")}
               </Button>
               <Button
                 variant="outline"
@@ -278,7 +290,7 @@ export default function AccountsPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                下一页
+                {t("accounts.nextPage")}
               </Button>
             </div>
           </div>
@@ -289,19 +301,19 @@ export default function AccountsPage() {
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>添加管理员 / 超级管理员</DialogTitle>
+            <DialogTitle>{t("accounts.addAdminTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>姓名</Label>
+              <Label>{t("accounts.name")}</Label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="张三"
+                placeholder={t("accounts.namePlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label>邮箱</Label>
+              <Label>{t("accounts.email")}</Label>
               <Input
                 type="email"
                 value={form.email}
@@ -310,7 +322,7 @@ export default function AccountsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>初始密码（至少 8 位）</Label>
+              <Label>{t("accounts.initialPassword")}</Label>
               <Input
                 type="password"
                 value={form.password}
@@ -319,7 +331,7 @@ export default function AccountsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>账户类型</Label>
+              <Label>{t("accounts.role")}</Label>
               <Select
                 value={form.role}
                 onValueChange={(v) =>
@@ -330,18 +342,18 @@ export default function AccountsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ADMIN">管理员</SelectItem>
-                  <SelectItem value="SUPER_ADMIN">超级管理员</SelectItem>
+                  <SelectItem value="ADMIN">{t("accounts.roleAdmin")}</SelectItem>
+                  <SelectItem value="SUPER_ADMIN">{t("accounts.roleSuperAdmin")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>
-              取消
+              {t("accounts.cancel")}
             </Button>
             <Button onClick={handleAdd} disabled={adding}>
-              {adding ? "创建中..." : "创建账号"}
+              {adding ? t("accounts.creating") : t("accounts.createAccount")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -356,50 +368,50 @@ export default function AccountsPage() {
       >
         <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>账号详情</DialogTitle>
+            <DialogTitle>{t("accounts.detailTitle")}</DialogTitle>
           </DialogHeader>
-          {detailLoading && <p className="text-sm text-muted-foreground">加载中...</p>}
+          {detailLoading && <p className="text-sm text-muted-foreground">{t("accounts.loading")}</p>}
           {detail && (
             <div className="space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <div className="text-muted-foreground">姓名</div>
+                  <div className="text-muted-foreground">{t("accounts.name")}</div>
                   <div className="font-medium">{detail.name}</div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">账户类型</div>
+                  <div className="text-muted-foreground">{t("accounts.role")}</div>
                   <RoleBadge role={detail.role as AccountRole} />
                 </div>
                 <div>
-                  <div className="text-muted-foreground">邮箱</div>
+                  <div className="text-muted-foreground">{t("accounts.email")}</div>
                   <div>{detail.email}</div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">钱包</div>
+                  <div className="text-muted-foreground">{t("accounts.walletLabel")}</div>
                   <div className="break-all">{detail.wallet}</div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">注册时间</div>
+                  <div className="text-muted-foreground">{t("accounts.registeredAt")}</div>
                   <div>{new Date(detail.createdAt).toLocaleString("zh-CN")}</div>
                 </div>
                 <div>
-                  <div className="text-muted-foreground">验证状态</div>
+                  <div className="text-muted-foreground">{t("accounts.verification")}</div>
                   <div>
-                    邮箱{detail.emailVerified ? "已验证" : "未验证"}
-                    {detail.emailOtpEnabled ? " · 强制OTP" : ""}
+                    {detail.emailVerified ? t("accounts.emailVerified") : t("accounts.emailUnverified")}
+                    {detail.emailOtpEnabled ? ` · ${t("accounts.forceOtp")}` : ""}
                     {detail.totpEnabled ? " · TOTP" : ""}
                   </div>
                 </div>
               </div>
               <div>
-                <div className="mb-1 font-medium">最近文件（{detail.files?.length ?? 0}）</div>
+                <div className="mb-1 font-medium">{t("accounts.recentFiles", { n: detail.files?.length ?? 0 })}</div>
                 {(detail.files ?? []).length === 0 ? (
-                  <p className="text-muted-foreground">无</p>
+                  <p className="text-muted-foreground">{t("accounts.none")}</p>
                 ) : (
                   <ul className="space-y-1">
                     {(detail.files ?? []).map((f: AccountFile) => (
                       <li key={f.id} className="text-xs">
-                        {f.filename} · {f.status}
+                        {f.filename} · {fileStatusLabel(f.status)}
                       </li>
                     ))}
                   </ul>
@@ -407,10 +419,12 @@ export default function AccountsPage() {
               </div>
               <div>
                 <div className="mb-1 font-medium">
-                  最近订单（{(detail.buyerDeals ?? []).length + (detail.sellerDeals ?? []).length}）
+                  {t("accounts.recentDeals", {
+                    n: (detail.buyerDeals ?? []).length + (detail.sellerDeals ?? []).length,
+                  })}
                 </div>
                 {[...(detail.buyerDeals ?? []), ...(detail.sellerDeals ?? [])].length === 0 ? (
-                  <p className="text-muted-foreground">无</p>
+                  <p className="text-muted-foreground">{t("accounts.none")}</p>
                 ) : (
                   <ul className="space-y-1">
                     {[...(detail.buyerDeals ?? []), ...(detail.sellerDeals ?? [])].map(

@@ -31,9 +31,9 @@ describe("TransactionStatusToast", () => {
         connection={{} as never}
       />,
     );
-    expect(screen.getByText("Transaction Pending")).toBeInTheDocument();
+    expect(screen.getByText("交易 处理中")).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByText("Transaction Confirmed")).toBeInTheDocument(),
+      expect(screen.getByText("交易 已确认")).toBeInTheDocument(),
     );
   });
 
@@ -46,7 +46,7 @@ describe("TransactionStatusToast", () => {
       />,
     );
     await waitFor(() =>
-      expect(screen.getByText("Transaction Failed")).toBeInTheDocument(),
+      expect(screen.getByText("交易 失败")).toBeInTheDocument(),
     );
   });
 });

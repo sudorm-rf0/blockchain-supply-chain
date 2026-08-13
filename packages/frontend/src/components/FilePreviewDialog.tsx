@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Image from "next/image";
 import { Copy, Check, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -41,6 +42,15 @@ export function FilePreviewDialog({
   onOpenChange,
   fileId,
 }: FilePreviewDialogProps) {
+  const { t } = useTranslation();
+  const statusLabel = (status: FileRecord["status"]) =>
+    status === "APPROVED"
+      ? t("files.statusApproved")
+      : status === "REJECTED"
+        ? t("files.statusRejected")
+        : status === "PENDING"
+          ? t("files.statusPending")
+          : status;
   const [file, setFile] = useState<FileRecord | null>(null);
   const [versions, setVersions] = useState<FileRecord[]>([]);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -69,7 +79,7 @@ export function FilePreviewDialog({
         setObjectUrl(createdUrl);
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : "加载文件失败");
+          toast.error(error instanceof Error ? error.message : t("files.previewLoadFailed"));
         }
       }
     })();
@@ -77,7 +87,7 @@ export function FilePreviewDialog({
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-  }, [open, fileId]);
+  }, [open, fileId, t]);
 
   const copyHash = async () => {
     if (!file) return;
@@ -94,40 +104,40 @@ export function FilePreviewDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>文件预览</DialogTitle>
+          <DialogTitle>{t("files.previewTitle")}</DialogTitle>
         </DialogHeader>
         {file ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-muted-foreground">文件名</p>
+                <p className="text-muted-foreground">{t("files.name")}</p>
                 <p className="break-all">{file.filename}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">大小</p>
+                <p className="text-muted-foreground">{t("files.size")}</p>
                 <p>{(file.size / 1024).toFixed(0)} KB</p>
               </div>
               <div>
-                <p className="text-muted-foreground">MIME 类型</p>
+                <p className="text-muted-foreground">{t("files.mimeType")}</p>
                 <p>{file.mimeType}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">上传时间</p>
+                <p className="text-muted-foreground">{t("files.uploadTime")}</p>
                 <p>{formatDateTime(file.createdAt)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">状态</p>
-                <Badge className={statusBadge(file.status)}>{file.status}</Badge>
+                <p className="text-muted-foreground">{t("files.status")}</p>
+                <Badge className={statusBadge(file.status)}>{statusLabel(file.status)}</Badge>
               </div>
               <div>
-                <p className="text-muted-foreground">版本</p>
+                <p className="text-muted-foreground">{t("files.version")}</p>
                 <p>
                   v{file.version ?? 1}
-                  {file.isLatest === false ? "（已更新）" : "（最新）"}
+                  {file.isLatest === false ? t("files.versionUpdated") : t("files.versionLatest")}
                 </p>
               </div>
               <div>
-                <p className="text-muted-foreground">哈希</p>
+                <p className="text-muted-foreground">{t("files.hash")}</p>
                 <button
                   type="button"
                   onClick={() => void copyHash()}
@@ -145,14 +155,14 @@ export function FilePreviewDialog({
 
             {file.remark && (
               <div>
-                <p className="text-muted-foreground">审核备注</p>
+                <p className="text-muted-foreground">{t("files.remark")}</p>
                 <p className="text-sm">{file.remark}</p>
               </div>
             )}
 
             {versions.length > 1 && (
               <div>
-                <p className="mb-2 text-muted-foreground">版本历史</p>
+                <p className="mb-2 text-muted-foreground">{t("files.versionHistory")}</p>
                 <div className="space-y-2">
                   {versions.map((item) => (
                     <div
@@ -170,7 +180,7 @@ export function FilePreviewDialog({
                         </p>
                       </div>
                       <Badge className={statusBadge(item.status)}>
-                        {item.status}
+                        {statusLabel(item.status)}
                       </Badge>
                       {item.id !== file.id && (
                         <Button
@@ -178,7 +188,7 @@ export function FilePreviewDialog({
                           size="sm"
                           onClick={() => setComparePair({ a: file, b: item })}
                         >
-                          对比
+                          {t("files.compare")}
                         </Button>
                       )}
                     </div>
@@ -205,10 +215,10 @@ export function FilePreviewDialog({
               ) : (
                 <div className="py-8 text-center">
                   <p className="text-sm text-muted-foreground">
-                    该文件类型无法在线预览
+                    {t("files.previewUnavailable")}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground/70">
-                    请点击下方下载按钮查看文档内容
+                    {t("files.previewDownloadHint")}
                   </p>
                 </div>
               )}
@@ -218,14 +228,14 @@ export function FilePreviewDialog({
               <a href={objectUrl ?? ""} download={file.filename}>
                 <Button type="button" variant="outline">
                   <Download className="mr-2 h-4 w-4" />
-                  下载
+                  {t("files.download")}
                 </Button>
               </a>
             </div>
           </div>
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            加载中...
+            {t("files.loading")}
           </p>
         )}
         </DialogContent>

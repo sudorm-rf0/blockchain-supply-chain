@@ -9,26 +9,10 @@ import {
   ArrowRight,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { LogoMark } from "@/components/LogoMark";
-
-const features = [
-  {
-    icon: ShieldCheck,
-    title: "链上存证 · 不可篡改",
-    desc: "单据哈希实时上链，Solana 链上可核验",
-  },
-  {
-    icon: FileCheck2,
-    title: "单据审核 · 全流程留痕",
-    desc: "上传 → 审核 → 存证 → 归档，审计日志可追溯",
-  },
-  {
-    icon: Landmark,
-    title: "资金池 · 透明可查",
-    desc: "NAV 实时计算，LP 铸造/赎回公开透明",
-  },
-];
 
 /** 实时 UTC 时钟（真实信息，非伪造数据） */
 function useUtcClock() {
@@ -41,7 +25,26 @@ function useUtcClock() {
 }
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const utc = useUtcClock();
+
+  const features = [
+    {
+      icon: ShieldCheck,
+      title: t("auth.feature.title.onChain"),
+      desc: t("auth.feature.desc.onChain"),
+    },
+    {
+      icon: FileCheck2,
+      title: t("auth.feature.title.audit"),
+      desc: t("auth.feature.desc.audit"),
+    },
+    {
+      icon: Landmark,
+      title: t("auth.feature.title.pool"),
+      desc: t("auth.feature.desc.pool"),
+    },
+  ];
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -54,7 +57,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           <Link href="/login" className="inline-flex items-center gap-3">
             <LogoMark className="h-9 w-9" />
             <span className="font-mono text-sm tracking-widest">
-              DFR 区块链 · 供应链系统
+              {t("auth.appName")}
             </span>
           </Link>
           <span className="flex items-center gap-1.5 font-mono text-xs text-[#00E676]">
@@ -70,10 +73,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             SYSTEM ONLINE
           </div>
           <div className="space-y-1.5">
-            <div>平台：DFR 区块链 · 供应链系统</div>
-            <div className="text-[#8A8A8A]">网络：Solana · Anchor</div>
-            <div className="text-[#8A8A8A]">链路：单据哈希实时上链，链上可核验</div>
-            <div className="text-[#8A8A8A]">时钟：{utc}</div>
+            <div>{t("auth.terminalPlatform", { appName: t("auth.appName") })}</div>
+            <div className="text-[#8A8A8A]">{t("auth.terminalNetwork")}</div>
+            <div className="text-[#8A8A8A]">{t("auth.terminalChain")}</div>
+            <div className="text-[#8A8A8A]">{t("auth.terminalClock", { utc })}</div>
             <div className="text-[#00E676]">
               <span className="cursor-blink inline-block h-3.5 w-2 translate-y-0.5 bg-[#00E676]" />
             </div>
@@ -94,14 +97,15 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative z-10 flex items-center gap-2 font-mono text-xs text-[#8A8A8A]">
-          Solana · Anchor DFR 供应链系统
+          {t("auth.terminalFooter")}
           <ArrowRight className="h-3.5 w-3.5" />
         </div>
       </div>
 
       {/* 表单右栏 */}
       <div className="relative flex items-center justify-center bg-background p-6">
-        <div className="absolute right-6 top-6">
+        <div className="absolute right-6 top-6 flex items-center gap-2">
+          <LanguageSwitcher />
           <ThemeToggle />
         </div>
         <div className="w-full max-w-md">{children}</div>

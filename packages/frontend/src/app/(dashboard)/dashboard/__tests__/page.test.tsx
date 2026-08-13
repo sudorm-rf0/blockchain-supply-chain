@@ -107,13 +107,13 @@ describe("DashboardPage", () => {
     await waitFor(() => {
       expect(indexerMock).toHaveBeenCalledTimes(1);
     });
-    expect(await screen.findByText(/synced · last snapshot/)).toBeTruthy();
+    expect(await screen.findByText(/已同步 · 上次快照/)).toBeTruthy();
   });
 
   it("marks indexer as unreachable when status fetch fails", async () => {
     indexerMock.mockRejectedValue(new Error("down"));
     render(<DashboardPage />);
-    expect(await screen.findByText("unreachable")).toBeTruthy();
+    expect(await screen.findByText("无法连接")).toBeTruthy();
   });
 
   it("shows an emergency-pause banner when the pool is paused on chain", async () => {

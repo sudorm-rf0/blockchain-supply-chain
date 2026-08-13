@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
@@ -38,10 +39,10 @@ import {
   NEXT_TRADE_STATUS,
   TRADE_LIFECYCLE,
   TRADE_STATUS_STYLE,
-  TRADE_STATUS_LABEL,
 } from "@/lib/status";
 
 export default function TradeDetailPage() {
+  const { t } = useTranslation();
   const params = useParams<{ tradeId: string }>();
   const { connection } = useConnection();
   const { connected, publicKey, sendTransaction } = useWallet();
@@ -52,6 +53,14 @@ export default function TradeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  const tradeStatusLabel = (status: string) =>
+    t(`orders.status.${status}`, { defaultValue: status });
+
+  const advanceLabel = (status: string) =>
+    t(`orders.advance.${status}`, {
+      defaultValue: t("orders.action.advanceStatus"),
+    });
+
   const load = useCallback(async () => {
     try {
       const [tradeData, fileData] = await Promise.all([
@@ -61,11 +70,11 @@ export default function TradeDetailPage() {
       setTrade(tradeData);
       setFiles(fileData.items);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载订单失败");
+      toast.error(error instanceof Error ? error.message : t("orders.toast.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [params.tradeId]);
+  }, [params.tradeId, t]);
 
   useEffect(() => {
     void load();
@@ -82,7 +91,7 @@ export default function TradeDetailPage() {
   ) => {
     if (!trade) return;
     if (!connected || !publicKey) {
-      toast.error("请先连接钱包");
+      toast.error(t("orders.toast.connectWallet"));
       return;
     }
     setBusy(true);
@@ -94,24 +103,28 @@ export default function TradeDetailPage() {
       const signature = await sendTransaction(transaction, connection);
       await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirm(signature);
-      toast.success(`订单状态已更新：${TRADE_STATUS_LABEL[result.status] ?? result.status}`);
+      toast.success(
+        t("orders.toast.statusUpdated", {
+          status: tradeStatusLabel(result.status),
+        }),
+      );
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "链上操作失败");
+      toast.error(error instanceof Error ? error.message : t("orders.toast.chainFailed"));
     } finally {
       setBusy(false);
     }
   };
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">加载中...</p>;
+    return <p className="text-sm text-muted-foreground">{t("orders.loading")}</p>;
   }
   if (!trade) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">订单不存在</p>
+        <p className="text-sm text-muted-foreground">{t("orders.detail.notFound")}</p>
         <Button variant="outline" asChild>
-          <Link href="/orders">返回订单列表</Link>
+          <Link href="/orders">{t("orders.detail.backToList")}</Link>
         </Button>
       </div>
     );
@@ -128,16 +141,19 @@ export default function TradeDetailPage() {
   const canRelease = isAdmin && trade.status === "DELIVERED";
 
   const rows: Array<[string, string]> = [
-    ["订单 ID", trade.tradeId],
-    ["金额", `${formatUsdc(trade.amount)} USDC`],
-    ["30% 首付", `${formatUsdc(trade.downPayment)} USDC`],
-    ["70% 垫付", `${formatUsdc(trade.poolPortion)} USDC`],
-    ["账期", `${Math.round(trade.tenor / 86400)} 天`],
-    ["买方", trade.buyerWallet],
-    ["卖方", trade.sellerWallet],
-    ["创建时间", formatDateTime(trade.createdAt)],
-    ["交易签名", trade.txSignature ?? "未上链"],
-    ["物流哈希", trade.logisticsHash ?? "-"],
+    [t("orders.detail.id"), trade.tradeId],
+    [t("orders.detail.amount"), `${formatUsdc(trade.amount)} USDC`],
+    [t("orders.detail.downPayment"), `${formatUsdc(trade.downPayment)} USDC`],
+    [t("orders.detail.poolPortion"), `${formatUsdc(trade.poolPortion)} USDC`],
+    [
+      t("orders.detail.tenor"),
+      t("orders.days", { count: Math.round(trade.tenor / 86400) }),
+    ],
+    [t("orders.detail.buyer"), trade.buyerWallet],
+    [t("orders.detail.seller"), trade.sellerWallet],
+    [t("orders.detail.createdAt"), formatDateTime(trade.createdAt)],
+    [t("orders.detail.txSignature"), trade.txSignature ?? t("orders.detail.notOnChain")],
+    [t("orders.detail.logisticsHash"), trade.logisticsHash ?? "-"],
   ];
 
   const currentIndex = TRADE_LIFECYCLE.indexOf(trade.status);
@@ -147,15 +163,15 @@ export default function TradeDetailPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">订单详情</h1>
+          <h1 className="text-lg font-semibold">{t("orders.detail.title")}</h1>
           <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
-            {TRADE_STATUS_LABEL[trade.status] ?? trade.status}
+            {tradeStatusLabel(trade.status)}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
           <WalletConnectButton />
           <Button variant="outline" asChild>
-            <Link href="/orders">返回列表</Link>
+            <Link href="/orders">{t("orders.detail.back")}</Link>
           </Button>
         </div>
       </div>
@@ -194,7 +210,7 @@ export default function TradeDetailPage() {
 
           {isDefaulted && (
             <p className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30">
-              该订单已违约：30% 抵押金已清算，保险基金完成赔付。
+              {t("orders.detail.defaultedNote")}
             </p>
           )}
 
@@ -234,7 +250,7 @@ export default function TradeDetailPage() {
                     )
                   }
                 >
-                  拨款
+                  {t("orders.action.fund")}
                 </Button>
               )}
               {canAdvance && (
@@ -260,7 +276,7 @@ export default function TradeDetailPage() {
                     );
                   }}
                 >
-                  {NEXT_TRADE_STATUS[trade.status]?.label ?? "推进状态"}
+                  {advanceLabel(trade.status)}
                 </Button>
               )}
               {canRelease && (
@@ -278,7 +294,7 @@ export default function TradeDetailPage() {
                     )
                   }
                 >
-                  释放货款
+                  {t("orders.action.releasePayment")}
                 </Button>
               )}
               {canRepay && (
@@ -291,7 +307,7 @@ export default function TradeDetailPage() {
                     )
                   }
                 >
-                  还款
+                  {t("orders.action.repay")}
                 </Button>
               )}
               {canDefault && (
@@ -309,7 +325,7 @@ export default function TradeDetailPage() {
                     )
                   }
                 >
-                  标记违约
+                  {t("orders.action.default")}
                 </Button>
               )}
             </div>
@@ -319,11 +335,13 @@ export default function TradeDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">关联单据（{files.length}）</CardTitle>
+          <CardTitle className="text-base">
+            {t("orders.detail.relatedFiles", { count: files.length })}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {files.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无关联单据</p>
+            <p className="text-sm text-muted-foreground">{t("orders.detail.noFiles")}</p>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {files.map((file) => (
@@ -337,7 +355,7 @@ export default function TradeDetailPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       v{file.version ?? 1}
-                      {file.isLatest === false ? "（已更新）" : ""} ·{" "}
+                      {file.isLatest === false ? t("orders.detail.updated") : ""} ·{" "}
                       {formatDateTime(file.createdAt)}
                     </p>
                   </div>
@@ -347,7 +365,7 @@ export default function TradeDetailPage() {
                     onClick={() => setPreviewId(file.id)}
                   >
                     <Eye className="mr-1 h-3 w-3" />
-                    预览
+                    {t("orders.action.preview")}
                   </Button>
                 </div>
               ))}
@@ -358,7 +376,7 @@ export default function TradeDetailPage() {
               href={`/user/upload?tradeId=${encodeURIComponent(trade.tradeId)}`}
             >
               <FileUp className="mr-2 h-4 w-4" />
-              上传关联单据
+              {t("orders.action.uploadDocs")}
             </Link>
           </Button>
         </CardContent>

@@ -3,10 +3,12 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
+  const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -20,8 +22,8 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggle}
-      aria-label="切换主题"
-      title={resolvedTheme === "dark" ? "切换到亮色" : "切换到暗色"}
+      aria-label={t("common.theme")}
+      title={resolvedTheme === "dark" ? t("themeSwitch.toLight") : t("themeSwitch.toDark")}
     >
       {mounted && resolvedTheme === "dark" ? (
         <Sun className="h-4 w-4" />

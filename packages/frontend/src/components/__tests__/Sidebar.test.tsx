@@ -42,6 +42,6 @@ describe("Sidebar", () => {
     pathnameMock.mockReturnValue("/user/upload");
     const { container } = render(<Sidebar role="USER" />);
     const activeLink = container.querySelector('a[href="/user/upload"]');
-    expect(activeLink?.className).toContain("bg-slate-700");
+    expect(activeLink?.className).toContain("border-[#00E676]");
   });
 });

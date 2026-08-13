@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { Transaction } from "@solana/web3.js";
@@ -47,10 +48,10 @@ import {
   CAN_DEFAULT_TRADE,
   NEXT_TRADE_STATUS,
   TRADE_STATUS_STYLE,
-  TRADE_STATUS_LABEL,
 } from "@/lib/status";
 
 export default function OrdersPage() {
+  const { t } = useTranslation();
   const { connection } = useConnection();
   const { connected, publicKey, sendTransaction } = useWallet();
   const user = useUserStore((state) => state.user);
@@ -59,6 +60,14 @@ export default function OrdersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+
+  const tradeStatusLabel = (status: string) =>
+    t(`orders.status.${status}`, { defaultValue: status });
+
+  const advanceLabel = (status: string) =>
+    t(`orders.advance.${status}`, {
+      defaultValue: t("orders.action.advanceStatus"),
+    });
 
   const load = useCallback(async () => {
     try {
@@ -69,11 +78,11 @@ export default function OrdersPage() {
         }),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载订单失败");
+      toast.error(error instanceof Error ? error.message : t("orders.toast.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, t]);
 
   useEffect(() => {
     void load();
@@ -90,7 +99,7 @@ export default function OrdersPage() {
     confirm: (signature: string) => Promise<{ status: string }>,
   ) => {
     if (!connected || !publicKey) {
-      toast.error("请先连接钱包");
+      toast.error(t("orders.toast.connectWallet"));
       return;
     }
     setBusyId(tradeId);
@@ -102,10 +111,12 @@ export default function OrdersPage() {
       const signature = await sendTransaction(transaction, connection);
       await confirmTransactionWithTimeout(connection, signature, "confirmed");
       const result = await confirm(signature);
-      toast.success(`订单状态已更新：${result.status}`);
+      toast.success(
+        t("orders.toast.statusUpdated", { status: tradeStatusLabel(result.status) }),
+      );
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "链上操作失败");
+      toast.error(error instanceof Error ? error.message : t("orders.toast.chainFailed"));
     } finally {
       setBusyId(null);
     }
@@ -160,12 +171,12 @@ export default function OrdersPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">我的订单</h1>
+        <h1 className="text-lg font-semibold">{t("orders.title")}</h1>
         <WalletConnectButton />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Input
-          placeholder="搜索订单 ID / 钱包地址"
+          placeholder={t("orders.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
@@ -175,35 +186,35 @@ export default function OrdersPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">全部状态</SelectItem>
-            <SelectItem value="PENDING">待放款</SelectItem>
-            <SelectItem value="FUNDED">已放款</SelectItem>
-            <SelectItem value="IN_TRANSIT">运输中</SelectItem>
-            <SelectItem value="CUSTOMS_CLEAR">已清关</SelectItem>
-            <SelectItem value="DELIVERED">已交付</SelectItem>
-            <SelectItem value="REPAYING">还款中</SelectItem>
-            <SelectItem value="SETTLED">已结清</SelectItem>
-            <SelectItem value="DEFAULTED">已违约</SelectItem>
+            <SelectItem value="ALL">{t("orders.filterAll")}</SelectItem>
+            <SelectItem value="PENDING">{t("orders.status.PENDING")}</SelectItem>
+            <SelectItem value="FUNDED">{t("orders.status.FUNDED")}</SelectItem>
+            <SelectItem value="IN_TRANSIT">{t("orders.status.IN_TRANSIT")}</SelectItem>
+            <SelectItem value="CUSTOMS_CLEAR">{t("orders.status.CUSTOMS_CLEAR")}</SelectItem>
+            <SelectItem value="DELIVERED">{t("orders.status.DELIVERED")}</SelectItem>
+            <SelectItem value="REPAYING">{t("orders.status.REPAYING")}</SelectItem>
+            <SelectItem value="SETTLED">{t("orders.status.SETTLED")}</SelectItem>
+            <SelectItem value="DEFAULTED">{t("orders.status.DEFAULTED")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       {loading ? (
-        <p className="text-sm text-muted-foreground">加载中...</p>
+        <p className="text-sm text-muted-foreground">{t("orders.loading")}</p>
       ) : trades.length === 0 ? (
-        <p className="text-sm text-muted-foreground">暂无订单</p>
+        <p className="text-sm text-muted-foreground">{t("orders.empty")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
-                <TableHead>订单 ID</TableHead>
-                <TableHead>金额</TableHead>
-                <TableHead>首付</TableHead>
-                <TableHead>垫付</TableHead>
-                <TableHead>账期</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead>操作</TableHead>
+                <TableHead>{t("orders.columns.id")}</TableHead>
+                <TableHead>{t("orders.columns.amount")}</TableHead>
+                <TableHead>{t("orders.columns.downPayment")}</TableHead>
+                <TableHead>{t("orders.columns.poolPortion")}</TableHead>
+                <TableHead>{t("orders.columns.tenor")}</TableHead>
+                <TableHead>{t("orders.columns.status")}</TableHead>
+                <TableHead>{t("orders.columns.createdAt")}</TableHead>
+                <TableHead>{t("orders.columns.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,10 +237,14 @@ export default function OrdersPage() {
                     <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
                     <TableCell>{formatUsdc(trade.downPayment)}</TableCell>
                     <TableCell>{formatUsdc(trade.poolPortion)}</TableCell>
-                    <TableCell>{Math.round(trade.tenor / 86400)} 天</TableCell>
+                    <TableCell>
+                      {t("orders.days", {
+                        count: Math.round(trade.tenor / 86400),
+                      })}
+                    </TableCell>
                     <TableCell>
                       <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
-                        {TRADE_STATUS_LABEL[trade.status] ?? trade.status}
+                        {tradeStatusLabel(trade.status)}
                       </Badge>
                       <RepaymentCountdown
                         createdAt={trade.createdAt}
@@ -243,7 +258,9 @@ export default function OrdersPage() {
                     <TableCell>
                       <div className="space-x-2">
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={`/orders/${trade.tradeId}`}>详情</Link>
+                          <Link href={`/orders/${trade.tradeId}`}>
+                            {t("orders.action.details")}
+                          </Link>
                         </Button>
                         {canFund && (
                           <Button
@@ -251,7 +268,7 @@ export default function OrdersPage() {
                             disabled={busyId === trade.tradeId}
                             onClick={() => onFund(trade)}
                           >
-                            拨款
+                            {t("orders.action.fund")}
                           </Button>
                         )}
                         {canAdvance && NEXT_TRADE_STATUS[trade.status] && (
@@ -261,7 +278,7 @@ export default function OrdersPage() {
                             disabled={busyId === trade.tradeId}
                             onClick={() => onAdvance(trade)}
                           >
-                            {NEXT_TRADE_STATUS[trade.status]!.label}
+                            {advanceLabel(trade.status)}
                           </Button>
                         )}
                         {canRepay && (
@@ -270,7 +287,7 @@ export default function OrdersPage() {
                             disabled={busyId === trade.tradeId}
                             onClick={() => onRepay(trade)}
                           >
-                            还款
+                            {t("orders.action.repay")}
                           </Button>
                         )}
                         {canDefault && (
@@ -280,7 +297,7 @@ export default function OrdersPage() {
                             disabled={busyId === trade.tradeId}
                             onClick={() => onDefault(trade)}
                           >
-                            标记违约
+                            {t("orders.action.default")}
                           </Button>
                         )}
                         {canRelease && (
@@ -289,7 +306,7 @@ export default function OrdersPage() {
                             disabled={busyId === trade.tradeId}
                             onClick={() => onRelease(trade)}
                           >
-                            释放资金并还款
+                            {t("orders.action.releaseFunds")}
                           </Button>
                         )}
                         {!canFund &&

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import { changePassword, fetchSession, sendEmailOtpCode } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 
 export default function ChangePasswordPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
   const user = useUserStore((state) => state.user);
@@ -22,18 +24,18 @@ export default function ChangePasswordPage() {
     () =>
       z
         .object({
-          currentPassword: z.string().min(6, "请输入当前密码"),
-          newPassword: z.string().min(8, "新密码至少 8 位"),
-          confirmPassword: z.string().min(8, "请再次输入新密码"),
+          currentPassword: z.string().min(6, t("changePassword.validation.currentPassword")),
+          newPassword: z.string().min(8, t("changePassword.validation.newPassword")),
+          confirmPassword: z.string().min(8, t("changePassword.validation.confirmPassword")),
           emailCode: requiresCode
-            ? z.string().regex(/^\d{6}$/, "请输入 6 位邮箱验证码")
+            ? z.string().regex(/^\d{6}$/, t("changePassword.validation.emailCode"))
             : z.string().optional(),
         })
         .refine((data) => data.newPassword === data.confirmPassword, {
-          message: "两次输入的新密码不一致",
+          message: t("changePassword.validation.passwordMismatch"),
           path: ["confirmPassword"],
         }),
-    [requiresCode],
+    [requiresCode, t],
   );
   type ChangePasswordForm = z.infer<typeof schema>;
   const [sendingCode, setSendingCode] = useState(false);
@@ -77,9 +79,9 @@ export default function ChangePasswordPage() {
     try {
       const result = await sendEmailOtpCode();
       setCooldown(result.cooldownSeconds ?? 60);
-      toast.success("验证码已发送到邮箱，请查收");
+      toast.success(t("changePassword.toast.codeSent"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "验证码发送失败");
+      toast.error(error instanceof Error ? error.message : t("changePassword.error.sendCodeFailed"));
     } finally {
       setSendingCode(false);
     }
@@ -93,12 +95,12 @@ export default function ChangePasswordPage() {
         values.emailCode || undefined,
       );
       setAuth(result.user);
-      toast.success("密码修改成功");
+      toast.success(t("changePassword.toast.success"));
       router.push(
         result.user.role === "USER" ? "/user/upload" : "/admin/files",
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "修改密码失败");
+      toast.error(error instanceof Error ? error.message : t("changePassword.error.failed"));
     }
   };
 
@@ -113,15 +115,15 @@ export default function ChangePasswordPage() {
   return (
         <Card className="w-full shadow-xl">
         <CardHeader>
-          <CardTitle className="text-center text-xl">设置新密码</CardTitle>
+          <CardTitle className="text-center text-xl">{t("changePassword.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-muted-foreground">
-            首次登录或使用初始密码时，需要先设置新密码才能继续操作。
+            {t("changePassword.notice")}
           </p>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="currentPassword">当前密码</Label>
+              <Label htmlFor="currentPassword">{t("changePassword.currentPassword")}</Label>
               <Input
                 id="currentPassword"
                 type="password"
@@ -134,7 +136,7 @@ export default function ChangePasswordPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="newPassword">新密码</Label>
+              <Label htmlFor="newPassword">{t("changePassword.newPassword")}</Label>
               <Input
                 id="newPassword"
                 type="password"
@@ -147,7 +149,7 @@ export default function ChangePasswordPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">确认新密码</Label>
+              <Label htmlFor="confirmPassword">{t("changePassword.confirmPassword")}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -161,13 +163,13 @@ export default function ChangePasswordPage() {
             </div>
             {requiresCode && (
             <div className="space-y-2">
-              <Label htmlFor="emailCode">邮箱验证码</Label>
+              <Label htmlFor="emailCode">{t("changePassword.emailCode")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="emailCode"
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="6 位邮箱验证码"
+                  placeholder={t("changePassword.emailCodePlaceholder")}
                   {...register("emailCode")}
                 />
                 <Button
@@ -178,10 +180,10 @@ export default function ChangePasswordPage() {
                   disabled={sendingCode || cooldown > 0}
                 >
                   {cooldown > 0
-                    ? `${cooldown}s 后可重发`
+                    ? t("changePassword.cooldown", { s: cooldown })
                     : sendingCode
-                      ? "发送中..."
-                      : "发送验证码"}
+                      ? t("changePassword.sending")
+                      : t("changePassword.sendCode")}
                 </Button>
               </div>
               {errors.emailCode && (
@@ -190,12 +192,14 @@ export default function ChangePasswordPage() {
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                验证码将发送到 {user?.email ?? "你的注册邮箱"}
+                {t("changePassword.codeWillSend", {
+                  email: user?.email ?? t("changePassword.yourEmail"),
+                })}
               </p>
             </div>
             )}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "提交中..." : "修改密码"}
+              {isSubmitting ? t("changePassword.submitting") : t("changePassword.submit")}
             </Button>
           </form>
         </CardContent>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
@@ -33,6 +34,7 @@ import {
 const TENOR_OPTIONS = [30, 60, 90, 120];
 
 export default function NewTradePage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
@@ -55,13 +57,13 @@ export default function NewTradePage() {
     setQuote(null);
 
     if (!connected || !publicKey) {
-      setError("请先连接钱包再创建订单");
+      setError(t("trade.errors.connectWallet"));
       return;
     }
 
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setError("请输入有效的贸易金额");
+      setError(t("trade.errors.invalidAmount"));
       return;
     }
     const seller = sellerWallet.trim();
@@ -69,7 +71,7 @@ export default function NewTradePage() {
       seller &&
       !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(seller)
     ) {
-      setError("卖方钱包地址格式不正确");
+      setError(t("trade.errors.invalidSeller"));
       return;
     }
 
@@ -116,22 +118,22 @@ export default function NewTradePage() {
       <header className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold text-primary">DFR SUPPLY CHAIN</p>
-          <h1 className="mt-2 text-2xl font-bold text-foreground">创建贸易订单</h1>
+          <h1 className="mt-2 text-2xl font-bold text-foreground">
+            {t("trade.title")}
+          </h1>
         </div>
         <WalletConnectButton />
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">订单参数</CardTitle>
-          <CardDescription>
-            预构建交易由资金池服务完成，钱包确认签名后上链
-          </CardDescription>
+          <CardTitle className="text-base">{t("trade.parameters")}</CardTitle>
+          <CardDescription>{t("trade.parametersDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div className="space-y-2">
-              <Label htmlFor="amount">贸易金额（USDC）</Label>
+              <Label htmlFor="amount">{t("trade.amountLabel")}</Label>
               <Input
                 id="amount"
                 type="number"
@@ -145,7 +147,7 @@ export default function NewTradePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tenor">账期</Label>
+              <Label htmlFor="tenor">{t("trade.tenorLabel")}</Label>
               <Select value={tenorDays} onValueChange={setTenorDays}>
                 <SelectTrigger id="tenor" className="w-full">
                   <SelectValue />
@@ -153,7 +155,7 @@ export default function NewTradePage() {
                 <SelectContent>
                   {TENOR_OPTIONS.map((days) => (
                     <SelectItem key={days} value={String(days)}>
-                      {days} 天
+                      {t("trade.days", { count: days })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -161,27 +163,31 @@ export default function NewTradePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sellerWallet">卖方钱包（可选）</Label>
+              <Label htmlFor="sellerWallet">{t("trade.sellerLabel")}</Label>
               <Input
                 id="sellerWallet"
                 type="text"
                 value={sellerWallet}
                 onChange={(event) => setSellerWallet(event.target.value)}
-                placeholder="默认使用买方钱包"
+                placeholder={t("trade.sellerPlaceholder")}
                 className="font-mono text-sm"
               />
             </div>
 
             {connected && publicKey && (
               <p className="truncate font-mono text-xs text-muted-foreground">
-                买方: {publicKey.toBase58()}
+                {t("trade.buyer")}: {publicKey.toBase58()}
               </p>
             )}
 
             {quote && (
               <div className="rounded-md border border-emerald-500/40 bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
-                <p>30% 首付: ${formatUsdc(quote.downPayment)}</p>
-                <p className="mt-1">70% 池垫付: ${formatUsdc(quote.poolPortion)}</p>
+                <p>
+                  {t("trade.downPayment")}: ${formatUsdc(quote.downPayment)}
+                </p>
+                <p className="mt-1">
+                  {t("trade.poolPortion")}: ${formatUsdc(quote.poolPortion)}
+                </p>
                 <p className="mt-1 font-mono text-xs opacity-80">
                   tradeId: {quote.tradeId}
                 </p>
@@ -192,7 +198,7 @@ export default function NewTradePage() {
                   className="mt-3"
                   onClick={() => router.push("/orders")}
                 >
-                  查看订单列表
+                  {t("trade.viewOrders")}
                 </Button>
               </div>
             )}
@@ -208,7 +214,7 @@ export default function NewTradePage() {
               disabled={submitting || !connected}
               className="w-full"
             >
-              {submitting ? "准备中..." : "预构建并签名"}
+              {submitting ? t("trade.submitting") : t("trade.submit")}
             </Button>
           </form>
         </CardContent>
