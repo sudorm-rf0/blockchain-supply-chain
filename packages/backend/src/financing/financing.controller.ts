@@ -31,19 +31,19 @@ export class FinancingController {
   }
 
   @Get("admin")
-  @UseGuards(AdminGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   adminList() {
     return this.financing.adminList();
   }
 
   @Post(":id/approve")
-  @UseGuards(AdminGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   approve(@Param("id") id: string, @Req() req: Request) {
     return this.financing.approve(id, req.user!.sub);
   }
 
   @Post(":id/reject")
-  @UseGuards(AdminGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   reject(@Param("id") id: string, @Req() req: Request) {
     return this.financing.reject(id, req.user!.sub);
   }
