@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Matches, Max, Min } from "class-validator";
+import { IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from "class-validator";
 
 export class ApplyFinancingDto {
   @IsString()
@@ -26,4 +26,9 @@ export class ApplyFinancingDto {
   @Min(1)
   @Max(3650)
   tenorDays!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  turnstileToken?: string;
 }

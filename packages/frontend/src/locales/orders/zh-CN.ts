@@ -178,6 +178,7 @@ export default {
   "financing.loadFailed": "加载失败",
   "financing.selectInvoiceErr": "请选择发票",
   "financing.amountInvalid": "金额格式不正确",
+  "financing.captchaRequired": "请先完成人机验证",
   "financing.tenorInvalid": "期限不正确",
   "financing.status.PENDING": "待审核",
   "financing.status.APPROVED": "已批准",

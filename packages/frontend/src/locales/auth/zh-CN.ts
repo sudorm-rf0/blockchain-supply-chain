@@ -161,5 +161,6 @@ export default {
   "account.deleteConfirmMismatch": "确认文字不匹配，请输入「注销」",
   "account.deleted": "账号已注销",
   "account.deleting": "注销中...",
+  "account.captchaRequired": "请先完成人机验证",
   "account.deleteFailed": "注销失败",
 };

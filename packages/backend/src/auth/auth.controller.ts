@@ -20,6 +20,7 @@ import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { ChangeEmailDto } from "./dto/change-email.dto";
+import { DeleteAccountDto } from "./dto/delete-account.dto";
 import { BindWalletDto } from "./dto/bind-wallet.dto";
 import { VerifyEmailCodeDto } from "../email-verification/dto/verify-email-code.dto";
 import {
@@ -166,6 +167,7 @@ export class AuthController {
       body.newPassword,
       body.emailCode,
       refreshToken,
+      body.turnstileToken,
     );
     return { ok: true, user, mustChangePassword: false };
   }
@@ -179,6 +181,7 @@ export class AuthController {
       req.user!.sub,
       body.newEmail,
       body.emailCode,
+      body.turnstileToken,
     );
     return { ok: true, user };
   }
@@ -187,8 +190,8 @@ export class AuthController {
   @Post("delete-account")
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
-  async deleteAccount(@Req() req: Request) {
-    return this.authService.deleteAccount(req.user!.sub);
+  async deleteAccount(@Req() req: Request, @Body() body: DeleteAccountDto) {
+    return this.authService.deleteAccount(req.user!.sub, body.turnstileToken);
   }
 
   @Patch("wallet")

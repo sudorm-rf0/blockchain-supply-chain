@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { TurnstileService } from "../auth/turnstile.service";
 
 const DEFAULT_DISCOUNT_RATE = 800; // 8%
 
@@ -15,12 +16,16 @@ export class FinancingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   async apply(
     userId: string,
-    input: { invoiceId: string; invoiceAmount: string; amount: string; discountRate?: number; tenorDays: number },
+    input: { invoiceId: string; invoiceAmount: string; amount: string; discountRate?: number; tenorDays: number; turnstileToken?: string },
   ) {
+    if (!(await this.turnstile.verify(input.turnstileToken, { expectedAction: "sensitive" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     const invoice = await this.prisma.file.findUnique({
       where: { id: input.invoiceId },
       select: { id: true, uploaderId: true, status: true, hash: true, filename: true },

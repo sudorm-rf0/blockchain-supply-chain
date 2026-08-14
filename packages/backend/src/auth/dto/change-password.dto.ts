@@ -16,4 +16,8 @@ export class ChangePasswordDto {
   @IsString()
   @Matches(/^\d{6}$/, { message: "邮箱验证码为 6 位数字" })
   emailCode?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  turnstileToken?: string;
 }

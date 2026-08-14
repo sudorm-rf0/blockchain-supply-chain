@@ -1,4 +1,4 @@
-import { IsEmail, IsString, Matches, MaxLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 
 export class ChangeEmailDto {
   @IsEmail()
@@ -9,4 +9,8 @@ export class ChangeEmailDto {
   @IsString()
   @Matches(/^\d{6}$/, { message: "邮箱验证码为 6 位数字" })
   emailCode!: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  turnstileToken?: string;
 }

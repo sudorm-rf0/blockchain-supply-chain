@@ -18,6 +18,8 @@ import {
 import { getFiles, type FileRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { formatUsdc } from "@/lib/http";
+import Turnstile from "@/components/Turnstile";
+import { TURNSTILE_SITE_KEY } from "@/lib/env";
 
 export default function FinancingPage() {
   const { t } = useTranslation();
@@ -29,6 +31,8 @@ export default function FinancingPage() {
   const [tenorDays, setTenorDays] = useState("30");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +66,10 @@ export default function FinancingPage() {
       toast.error(t("financing.tenorInvalid"));
       return;
     }
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      toast.error(t("financing.captchaRequired"));
+      return;
+    }
     setBusy(true);
     try {
       await applyFinancing({
@@ -70,14 +78,19 @@ export default function FinancingPage() {
         amount,
         discountRate: 800,
         tenorDays: Number(tenorDays),
+        turnstileToken: turnstileToken || undefined,
       });
       toast.success(t("financing.applied"));
       setInvoiceId("");
       setInvoiceAmount("");
       setAmount("");
       setTenorDays("30");
+      setTurnstileToken("");
+      setCaptchaKey((k) => k + 1);
       await load();
     } catch (error) {
+      setTurnstileToken("");
+      setCaptchaKey((k) => k + 1);
       toast.error(error instanceof Error ? error.message : t("financing.applyFailed"));
     } finally {
       setBusy(false);
@@ -187,6 +200,7 @@ export default function FinancingPage() {
           <p className="text-xs text-muted-foreground">
             {t("financing.discountHint", { rate: "8%" })}
           </p>
+          <Turnstile key={captchaKey} action="sensitive" onVerify={setTurnstileToken} />
           <Button disabled={busy} onClick={() => void handleApply()}>
             {busy ? t("financing.submitting") : t("financing.submit")}
           </Button>

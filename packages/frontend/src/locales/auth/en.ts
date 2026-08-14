@@ -161,5 +161,6 @@ export default {
   "account.deleteConfirmMismatch": "Confirmation text does not match. Type DELETE",
   "account.deleted": "Account deleted",
   "account.deleting": "Deleting...",
+  "account.captchaRequired": "Please complete the human verification first",
   "account.deleteFailed": "Failed to delete account",
 };

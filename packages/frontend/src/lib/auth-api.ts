@@ -155,18 +155,23 @@ export async function logout(): Promise<void> {
   useUserStore.getState().logout();
 }
 
-export async function deleteAccount(): Promise<{ ok: boolean }> {
-  return request(`${BACKEND_URL}/api/auth/delete-account`, { method: "POST" });
+export async function deleteAccount(turnstileToken?: string): Promise<{ ok: boolean }> {
+  return request(`${BACKEND_URL}/api/auth/delete-account`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ turnstileToken }),
+  });
 }
 
 export async function changeEmail(
   newEmail: string,
   emailCode: string,
+  turnstileToken?: string,
 ): Promise<{ ok: boolean; user: AuthUser }> {
   return request(`${BACKEND_URL}/api/auth/change-email`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ newEmail, emailCode }),
+    body: JSON.stringify({ newEmail, emailCode, turnstileToken }),
   });
 }
 
@@ -174,10 +179,11 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string,
   emailCode: string | undefined,
+  turnstileToken?: string,
 ): Promise<{ ok: boolean; user: AuthUser; mustChangePassword: boolean }> {
   return request(`${BACKEND_URL}/api/auth/change-password`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ currentPassword, newPassword, emailCode }),
+    body: JSON.stringify({ currentPassword, newPassword, emailCode, turnstileToken }),
   });
 }

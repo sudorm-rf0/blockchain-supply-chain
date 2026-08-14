@@ -19,6 +19,8 @@ import {
   sendEmailOtpCode,
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
+import Turnstile from "@/components/Turnstile";
+import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +71,12 @@ export default function AccountPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [emailTurnstile, setEmailTurnstile] = useState("");
+  const [emailCaptchaKey, setEmailCaptchaKey] = useState(0);
+  const [pwTurnstile, setPwTurnstile] = useState("");
+  const [pwCaptchaKey, setPwCaptchaKey] = useState(0);
+  const [deleteTurnstile, setDeleteTurnstile] = useState("");
+  const [deleteCaptchaKey, setDeleteCaptchaKey] = useState(0);
 
   // 引导账号（emailOtpEnabled=false）改密豁免验证码
   const requiresEmailCode = user?.emailOtpEnabled !== false;
@@ -109,14 +117,22 @@ export default function AccountPage() {
       toast.error(t("account.emailCodeRequired"));
       return;
     }
+    if (TURNSTILE_SITE_KEY && !emailTurnstile) {
+      toast.error(t("account.captchaRequired"));
+      return;
+    }
     setEmailBusy(true);
     try {
-      const result = await changeEmail(email, emailCode);
+      const result = await changeEmail(email, emailCode, emailTurnstile || undefined);
       setAuth(result.user);
       toast.success(t("account.emailChanged"));
       setNewEmail("");
       setEmailCode("");
+      setEmailTurnstile("");
+      setEmailCaptchaKey((k) => k + 1);
     } catch (error) {
+      setEmailTurnstile("");
+      setEmailCaptchaKey((k) => k + 1);
       toast.error(error instanceof Error ? error.message : t("account.emailChangeFailed"));
     } finally {
       setEmailBusy(false);
@@ -149,12 +165,17 @@ export default function AccountPage() {
       toast.error(t("account.emailCodeRequired"));
       return;
     }
+    if (TURNSTILE_SITE_KEY && !pwTurnstile) {
+      toast.error(t("account.captchaRequired"));
+      return;
+    }
     setPwBusy(true);
     try {
       const result = await changePassword(
         currentPassword,
         newPassword,
         requiresEmailCode ? pwCode : undefined,
+        pwTurnstile || undefined,
       );
       setAuth(result.user);
       toast.success(t("account.pwChanged"));
@@ -162,7 +183,11 @@ export default function AccountPage() {
       setNewPassword("");
       setConfirmPassword("");
       setPwCode("");
+      setPwTurnstile("");
+      setPwCaptchaKey((k) => k + 1);
     } catch (error) {
+      setPwTurnstile("");
+      setPwCaptchaKey((k) => k + 1);
       toast.error(error instanceof Error ? error.message : t("account.pwChangeFailed"));
     } finally {
       setPwBusy(false);
@@ -174,14 +199,20 @@ export default function AccountPage() {
       toast.error(t("account.deleteConfirmMismatch"));
       return;
     }
+    if (TURNSTILE_SITE_KEY && !deleteTurnstile) {
+      toast.error(t("account.captchaRequired"));
+      return;
+    }
     setDeleting(true);
     try {
-      await deleteAccount();
+      await deleteAccount(deleteTurnstile || undefined);
       toast.success(t("account.deleted"));
       await logoutApi();
       useUserStore.getState().logout();
       router.replace("/login");
     } catch (error) {
+      setDeleteTurnstile("");
+      setDeleteCaptchaKey((k) => k + 1);
       toast.error(error instanceof Error ? error.message : t("account.deleteFailed"));
       setDeleting(false);
     }
@@ -255,6 +286,7 @@ export default function AccountPage() {
               {t("account.emailCodeHint", { email: newEmail || t("account.newEmail") })}
             </p>
           </div>
+          <Turnstile key={emailCaptchaKey} action="sensitive" onVerify={setEmailTurnstile} />
           <Button className="w-full" disabled={emailBusy} onClick={() => void handleChangeEmail()}>
             {emailBusy ? t("account.submitting") : t("account.confirmChangeEmail")}
           </Button>
@@ -328,6 +360,7 @@ export default function AccountPage() {
               </p>
             </div>
           )}
+          <Turnstile key={pwCaptchaKey} action="sensitive" onVerify={setPwTurnstile} />
           <Button className="w-full" disabled={pwBusy} onClick={() => void handleChangePassword()}>
             {pwBusy ? t("account.submitting") : t("account.confirmChangePassword")}
           </Button>
@@ -372,6 +405,7 @@ export default function AccountPage() {
               placeholder={t("account.deleteConfirmWord")}
             />
           </div>
+          <Turnstile key={deleteCaptchaKey} action="sensitive" onVerify={setDeleteTurnstile} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction

@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useMemo, useState } from "react";
 import { changePassword, fetchSession, sendEmailOtpCode } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
+import Turnstile from "@/components/Turnstile";
+import { TURNSTILE_SITE_KEY } from "@/lib/env";
 
 export default function ChangePasswordPage() {
   const { t } = useTranslation();
@@ -41,6 +43,8 @@ export default function ChangePasswordPage() {
   const [sendingCode, setSendingCode] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [ready, setReady] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
   const {
     register,
     handleSubmit,
@@ -89,17 +93,26 @@ export default function ChangePasswordPage() {
 
   const onSubmit = async (values: ChangePasswordForm) => {
     try {
+      if (TURNSTILE_SITE_KEY && !turnstileToken) {
+        toast.error(t("account.captchaRequired"));
+        return;
+      }
       const result = await changePassword(
         values.currentPassword,
         values.newPassword,
         values.emailCode || undefined,
+        turnstileToken || undefined,
       );
       setAuth(result.user);
+      setTurnstileToken("");
+      setCaptchaKey((k) => k + 1);
       toast.success(t("changePassword.toast.success"));
       router.push(
         result.user.role === "USER" ? "/user/upload" : "/admin/files",
       );
     } catch (error) {
+      setTurnstileToken("");
+      setCaptchaKey((k) => k + 1);
       toast.error(error instanceof Error ? error.message : t("changePassword.error.failed"));
     }
   };
@@ -198,6 +211,7 @@ export default function ChangePasswordPage() {
               </p>
             </div>
             )}
+            <Turnstile key={captchaKey} action="sensitive" onVerify={setTurnstileToken} />
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? t("changePassword.submitting") : t("changePassword.submit")}
             </Button>

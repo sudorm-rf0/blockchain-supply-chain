@@ -486,8 +486,12 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
     emailCode: string | undefined,
-    currentRefreshToken?: string,
+    currentRefreshToken?: string | undefined,
+    turnstileToken?: string,
   ): Promise<PublicUser> {
+    if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     if (!newPassword || newPassword.length < 8) {
       throw new BadRequestException("新密码至少 8 位");
     }
@@ -586,7 +590,10 @@ export class AuthService {
   }
 
   /** 注销账号（软删除）：置 deletedAt，撤销全部会话；保留数据以维护审计与单据完整性 */
-  async deleteAccount(userId: string): Promise<{ ok: boolean }> {
+  async deleteAccount(userId: string, turnstileToken?: string): Promise<{ ok: boolean }> {
+    if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("用户不存在");
     if (user.deletedAt) throw new BadRequestException("账号已注销");
@@ -614,7 +621,11 @@ export class AuthService {
     userId: string,
     newEmail: string,
     emailCode: string,
+    turnstileToken?: string,
   ): Promise<PublicUser> {
+    if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     const normalized = newEmail.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("用户不存在");

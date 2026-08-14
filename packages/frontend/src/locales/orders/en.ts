@@ -178,6 +178,7 @@ export default {
   "financing.loadFailed": "Failed to load",
   "financing.selectInvoiceErr": "Please select an invoice",
   "financing.amountInvalid": "Invalid amount",
+  "financing.captchaRequired": "Please complete the human verification first",
   "financing.tenorInvalid": "Invalid tenor",
   "financing.status.PENDING": "Pending",
   "financing.status.APPROVED": "Approved",

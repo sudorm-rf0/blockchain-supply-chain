@@ -23,6 +23,7 @@ export async function applyFinancing(input: {
   amount: string;
   discountRate?: number;
   tenorDays: number;
+  turnstileToken?: string;
 }): Promise<FinancingRecord> {
   return request("/api/financing/apply", {
     method: "POST",

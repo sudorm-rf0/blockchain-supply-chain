@@ -161,5 +161,6 @@ export default {
   "account.deleteConfirmMismatch": "確認文字不符，請輸入「註銷」",
   "account.deleted": "帳號已註銷",
   "account.deleting": "註銷中...",
+  "account.captchaRequired": "請先完成人機驗證",
   "account.deleteFailed": "註銷失敗",
 };
