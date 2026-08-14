@@ -1,4 +1,4 @@
-export default {
+const zh_TW = {
   "orders.title": "我的訂單",
   "orders.searchPlaceholder": "搜尋訂單 ID / 錢包地址",
   "orders.filterAll": "全部狀態",
@@ -183,5 +183,5 @@ export default {
   "financing.status.PENDING": "待審核",
   "financing.status.APPROVED": "已批准",
   "financing.status.REJECTED": "已駁回",
-  "financing.status.REPAID": "已還款",
-};
+  "financing.status.REPAID": "已還款",};
+export default zh_TW;

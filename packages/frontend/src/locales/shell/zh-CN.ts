@@ -1,4 +1,4 @@
-export default {
+const zh_CN = {
   "sidebar.dashboard": "数据看板",
   "sidebar.accounts": "账号管理",
   "sidebar.fileReview": "文件审核",
@@ -21,5 +21,5 @@ export default {
   "notFound.title": "页面不存在",
   "notFound.description": "你访问的页面不存在或已被移除，请检查地址是否正确。",
   "notFound.backHome": "返回首页",
-  "shell.changeLanguage": "更改语言",
-};
+  "shell.changeLanguage": "更改语言",};
+export default zh_CN;

@@ -13,6 +13,7 @@ import i18n, {
   isSupportedLocale,
   type SupportedLocale,
 } from "@/lib/i18n";
+import { BACKEND_URL } from "@/lib/env";
 
 const STORAGE_KEY = "dfr-locale";
 
@@ -33,7 +34,10 @@ export function useLanguage() {
 /** 根据浏览器请求的 IP 国家码（后端 cf-ipcountry 推断）返回建议语言 */
 async function detectLocale(): Promise<SupportedLocale> {
   try {
-    const res = await fetch("/api/meta/locale", { cache: "no-store" });
+    // 修复：语言检测接口在主后端，须用绝对地址（相对路径会打到前端导致 404）
+    const res = await fetch(`${BACKEND_URL}/api/meta/locale`, {
+      cache: "no-store",
+    });
     if (res.ok) {
       const data = (await res.json()) as { locale?: string };
       if (isSupportedLocale(data.locale)) return data.locale;

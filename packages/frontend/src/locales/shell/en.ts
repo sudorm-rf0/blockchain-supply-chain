@@ -1,4 +1,4 @@
-export default {
+const en = {
   "sidebar.dashboard": "Dashboard",
   "sidebar.accounts": "Account Management",
   "sidebar.fileReview": "File Review",
@@ -21,5 +21,5 @@ export default {
   "notFound.title": "Page not found",
   "notFound.description": "The page you visited does not exist or has been removed. Please check the address.",
   "notFound.backHome": "Back to home",
-  "shell.changeLanguage": "Change Language",
-};
+  "shell.changeLanguage": "Change Language",};
+export default en;

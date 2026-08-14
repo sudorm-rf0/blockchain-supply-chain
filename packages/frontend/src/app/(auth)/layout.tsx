@@ -14,14 +14,21 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { LogoMark } from "@/components/LogoMark";
 
-/** 实时 UTC 时钟（真实信息，非伪造数据） */
+/**
+ * 实时 UTC 时钟（真实信息，非伪造数据）。
+ * 修复：初始为 null，仅在客户端 effect 中赋值，避免 SSR 与客户端首次渲染
+ * 的 `new Date()` 时间不同导致 React Hydration 文本不匹配（整树重渲染）。
+ */
 function useUtcClock() {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
+    setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
-  return now.toISOString().replace("T", " ").slice(0, 19) + " UTC";
+  return now === null
+    ? null
+    : now.toISOString().replace("T", " ").slice(0, 19) + " UTC";
 }
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
@@ -76,7 +83,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <div>{t("auth.terminalPlatform", { appName: t("auth.appName") })}</div>
             <div className="text-[#8A8A8A]">{t("auth.terminalNetwork")}</div>
             <div className="text-[#8A8A8A]">{t("auth.terminalChain")}</div>
-            <div className="text-[#8A8A8A]">{t("auth.terminalClock", { utc })}</div>
+            <div className="text-[#8A8A8A]">
+              {utc === null ? (
+                <span className="inline-block h-4 w-44 animate-pulse rounded bg-white/10" />
+              ) : (
+                t("auth.terminalClock", { utc })
+              )}
+            </div>
             <div className="text-[#00E676]">
               <span className="cursor-blink inline-block h-3.5 w-2 translate-y-0.5 bg-[#00E676]" />
             </div>

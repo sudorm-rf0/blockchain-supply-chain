@@ -128,7 +128,7 @@ export default function FinancingPage() {
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="mr-1 h-3 w-3" />
-          {t("common.refresh")}
+          {t("refresh")}
         </Button>
       </div>
 
@@ -213,7 +213,7 @@ export default function FinancingPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t("common.loading")}</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t("loading")}</p>
           ) : requests.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">{t("financing.empty")}</p>
           ) : (
@@ -224,9 +224,9 @@ export default function FinancingPage() {
                     <th className="py-2 pr-4">{t("financing.invoice")}</th>
                     <th className="py-2 pr-4">{t("financing.amount")}</th>
                     <th className="py-2 pr-4">{t("financing.tenor")}</th>
-                    <th className="py-2 pr-4">{t("common.status")}</th>
+                    <th className="py-2 pr-4">{t("status")}</th>
                     <th className="py-2 pr-4">{t("financing.createdAt")}</th>
-                    <th className="py-2">{t("common.actions")}</th>
+                    <th className="py-2">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>

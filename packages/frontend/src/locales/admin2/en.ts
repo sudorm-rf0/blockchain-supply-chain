@@ -1,4 +1,4 @@
-export default {
+const en = {
   "audit.title": "Audit Logs",
   "audit.loadFailed": "Failed to load audit logs",
   "audit.filterAll": "All",
@@ -127,5 +127,5 @@ export default {
   "security.walletResendAfter": "Resend in {{seconds}}s",
   "security.walletSending": "Sending...",
   "security.walletSendCode": "Send Code",
-  "security.walletBind": "Bind Wallet",
-};
+  "security.walletBind": "Bind Wallet",};
+export default en;

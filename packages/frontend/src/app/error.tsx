@@ -22,7 +22,7 @@ export default function ErrorBoundary({
       <p className="max-w-md text-center text-sm text-muted-foreground">
         {error.message || t("error.unknown")}
       </p>
-      <Button onClick={reset}>{t("common.retry")}</Button>
+      <Button onClick={reset}>{t("retry")}</Button>
     </div>
   );
 }

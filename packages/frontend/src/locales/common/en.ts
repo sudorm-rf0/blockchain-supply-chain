@@ -1,4 +1,4 @@
-export default {
+const en = {
   appName: "DFR Blockchain · Supply Chain",
   save: "Save",
   cancel: "Cancel",
@@ -33,5 +33,5 @@ export default {
   theme: "Toggle theme",
   language: "Language",
   error: { title: "Something went wrong", unknown: "An unknown error occurred. Please try again." },
-  themeSwitch: { toLight: "Switch to light mode", toDark: "Switch to dark mode" },
-};
+  themeSwitch: { toLight: "Switch to light mode", toDark: "Switch to dark mode" },};
+export default en;

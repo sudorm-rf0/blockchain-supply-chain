@@ -1,4 +1,4 @@
-export default {
+const zh_CN = {
   "orders.title": "我的订单",
   "orders.searchPlaceholder": "搜索订单 ID / 钱包地址",
   "orders.filterAll": "全部状态",
@@ -183,5 +183,5 @@ export default {
   "financing.status.PENDING": "待审核",
   "financing.status.APPROVED": "已批准",
   "financing.status.REJECTED": "已驳回",
-  "financing.status.REPAID": "已还款",
-};
+  "financing.status.REPAID": "已还款",};
+export default zh_CN;

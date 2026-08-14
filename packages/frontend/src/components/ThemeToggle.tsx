@@ -16,16 +16,18 @@ export function ThemeToggle() {
   const toggle = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
+  const isDark = mounted && resolvedTheme === "dark";
 
   return (
     <Button
       variant="ghost"
       size="icon"
       onClick={toggle}
-      aria-label={t("common.theme")}
-      title={resolvedTheme === "dark" ? t("themeSwitch.toLight") : t("themeSwitch.toDark")}
+      aria-label={t("theme")}
+      // 修复：mounted 前 title 用固定文案，避免 SSR/客户端主题解析不同导致 hydration 属性不匹配
+      title={mounted ? (isDark ? t("themeSwitch.toLight") : t("themeSwitch.toDark")) : t("theme")}
     >
-      {mounted && resolvedTheme === "dark" ? (
+      {isDark ? (
         <Sun className="h-4 w-4" />
       ) : (
         <Moon className="h-4 w-4" />

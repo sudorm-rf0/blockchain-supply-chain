@@ -1,4 +1,4 @@
-export default {
+const en = {
   "orders.title": "My Orders",
   "orders.searchPlaceholder": "Search order ID / wallet address",
   "orders.filterAll": "All statuses",
@@ -183,5 +183,5 @@ export default {
   "financing.status.PENDING": "Pending",
   "financing.status.APPROVED": "Approved",
   "financing.status.REJECTED": "Rejected",
-  "financing.status.REPAID": "Repaid",
-};
+  "financing.status.REPAID": "Repaid",};
+export default en;

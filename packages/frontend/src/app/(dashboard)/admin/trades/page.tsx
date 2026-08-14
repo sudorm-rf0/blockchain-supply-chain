@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -51,7 +53,13 @@ export default function AdminTradesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">{t("trades.title")}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">{t("trades.title")}</h1>
+        <Button variant="outline" size="sm" onClick={() => void load()}>
+          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+          {t("refresh")}
+        </Button>
+      </div>
       {loading ? (
         <p className="text-sm text-muted-foreground">{t("trades.loading")}</p>
       ) : trades.length === 0 ? (

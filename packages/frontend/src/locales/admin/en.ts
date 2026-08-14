@@ -1,4 +1,4 @@
-export default {
+const en = {
   "files.title": "All Files",
   "files.loadFailed": "Failed to load files",
   "files.actionFailed": "Action failed",
@@ -150,5 +150,5 @@ export default {
   "journey.pda": "Attestation PDA",
   "journey.txSignature": "Tx Signature",
   "journey.attestedAt": "Attested At",
-  "journey.notAttested": "Not attested",
-};
+  "journey.notAttested": "Not attested",};
+export default en;

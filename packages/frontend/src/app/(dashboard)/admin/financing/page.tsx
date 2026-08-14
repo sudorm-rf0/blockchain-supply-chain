@@ -68,7 +68,7 @@ export default function AdminFinancingPage() {
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="mr-1 h-3 w-3" />
-          {t("common.refresh")}
+          {t("refresh")}
         </Button>
       </div>
 
@@ -78,7 +78,7 @@ export default function AdminFinancingPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">{t("common.loading")}</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t("loading")}</p>
           ) : items.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">{t("financing.empty")}</p>
           ) : (
@@ -92,9 +92,9 @@ export default function AdminFinancingPage() {
                     <th className="py-2 pr-4">{t("financing.amount")}</th>
                     <th className="py-2 pr-4">{t("financing.discount")}</th>
                     <th className="py-2 pr-4">{t("financing.tenor")}</th>
-                    <th className="py-2 pr-4">{t("common.status")}</th>
+                    <th className="py-2 pr-4">{t("status")}</th>
                     <th className="py-2 pr-4">{t("financing.createdAt")}</th>
-                    <th className="py-2">{t("common.actions")}</th>
+                    <th className="py-2">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -121,7 +121,7 @@ export default function AdminFinancingPage() {
                               disabled={busyId !== null}
                               onClick={() => void handleReview(r.id, "approve")}
                             >
-                              {t("common.approve")}
+                              {t("approve")}
                             </Button>
                             <Button
                               size="sm"
@@ -129,7 +129,7 @@ export default function AdminFinancingPage() {
                               disabled={busyId !== null}
                               onClick={() => void handleReview(r.id, "reject")}
                             >
-                              {t("common.reject")}
+                              {t("reject")}
                             </Button>
                           </div>
                         )}

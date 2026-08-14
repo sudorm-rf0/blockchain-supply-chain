@@ -1,4 +1,4 @@
-export default {
+const en = {
   "login.title": "Login",
   "login.email": "Email",
   "login.password": "Password",
@@ -162,5 +162,5 @@ export default {
   "account.deleted": "Account deleted",
   "account.deleting": "Deleting...",
   "account.captchaRequired": "Please complete the human verification first",
-  "account.deleteFailed": "Failed to delete account",
-};
+  "account.deleteFailed": "Failed to delete account",};
+export default en;

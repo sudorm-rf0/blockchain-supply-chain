@@ -1,4 +1,4 @@
-export default {
+const zh_TW = {
   appName: "DFR 區塊鏈 · 供應鏈系統",
   save: "儲存",
   cancel: "取消",
@@ -33,5 +33,5 @@ export default {
   theme: "切換主題",
   language: "語言",
   error: { title: "頁面發生錯誤", unknown: "發生未知錯誤，請重試。" },
-  themeSwitch: { toLight: "切換至亮色", toDark: "切換至暗色" },
-};
+  themeSwitch: { toLight: "切換至亮色", toDark: "切換至暗色" },};
+export default zh_TW;

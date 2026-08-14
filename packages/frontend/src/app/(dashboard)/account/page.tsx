@@ -407,7 +407,7 @@ export default function AccountPage() {
           </div>
           <Turnstile key={deleteCaptchaKey} action="sensitive" onVerify={setDeleteTurnstile} />
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting || deleteConfirm.trim() !== t("account.deleteConfirmWord")}
               onClick={(e) => {

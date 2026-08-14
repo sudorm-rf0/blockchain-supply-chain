@@ -1,4 +1,4 @@
-export default {
+const zh_CN = {
   "login.title": "登录",
   "login.email": "邮箱",
   "login.password": "密码",
@@ -162,5 +162,5 @@ export default {
   "account.deleted": "账号已注销",
   "account.deleting": "注销中...",
   "account.captchaRequired": "请先完成人机验证",
-  "account.deleteFailed": "注销失败",
-};
+  "account.deleteFailed": "注销失败",};
+export default zh_CN;

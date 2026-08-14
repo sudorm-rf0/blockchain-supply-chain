@@ -1,4 +1,4 @@
-export default {
+const en = {
   "dashboard.connectWalletFirst": "Please connect your wallet first",
   "dashboard.invalidLpAmount": "Please enter a valid LP amount",
   "dashboard.redeemExecuted": "LP redemption executed: {{status}}",
@@ -47,5 +47,5 @@ export default {
   "dashboard.quickOrders": "My Orders",
   "dashboard.quickAccounts": "Account Management",
   "dashboard.quickAudit": "Audit Log",
-  "dashboard.quickSupply": "Supply Chain",
-};
+  "dashboard.quickSupply": "Supply Chain",};
+export default en;

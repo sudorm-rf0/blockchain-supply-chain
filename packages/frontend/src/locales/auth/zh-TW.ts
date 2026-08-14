@@ -1,4 +1,4 @@
-export default {
+const zh_TW = {
   "login.title": "登入",
   "login.email": "電子郵件",
   "login.password": "密碼",
@@ -162,5 +162,5 @@ export default {
   "account.deleted": "帳號已註銷",
   "account.deleting": "註銷中...",
   "account.captchaRequired": "請先完成人機驗證",
-  "account.deleteFailed": "註銷失敗",
-};
+  "account.deleteFailed": "註銷失敗",};
+export default zh_TW;

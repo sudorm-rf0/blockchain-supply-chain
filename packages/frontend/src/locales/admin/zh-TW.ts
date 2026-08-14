@@ -1,4 +1,4 @@
-export default {
+const zh_TW = {
   "files.title": "全部檔案",
   "files.loadFailed": "載入檔案失敗",
   "files.actionFailed": "操作失敗",
@@ -150,5 +150,5 @@ export default {
   "journey.pda": "存證 PDA",
   "journey.txSignature": "交易簽名",
   "journey.attestedAt": "存證時間",
-  "journey.notAttested": "未上鏈",
-};
+  "journey.notAttested": "未上鏈",};
+export default zh_TW;

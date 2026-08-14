@@ -1,4 +1,4 @@
-export default {
+const zh_TW = {
   "sidebar.dashboard": "資料看板",
   "sidebar.accounts": "帳號管理",
   "sidebar.fileReview": "檔案審核",
@@ -21,5 +21,5 @@ export default {
   "notFound.title": "頁面不存在",
   "notFound.description": "你瀏覽的頁面不存在或已移除，請檢查網址是否正確。",
   "notFound.backHome": "返回首頁",
-  "shell.changeLanguage": "更改語言",
-};
+  "shell.changeLanguage": "更改語言",};
+export default zh_TW;

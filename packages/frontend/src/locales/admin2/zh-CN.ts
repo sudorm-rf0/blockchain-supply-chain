@@ -1,4 +1,4 @@
-export default {
+const zh_CN = {
   "audit.title": "审计日志",
   "audit.loadFailed": "加载审计日志失败",
   "audit.filterAll": "全部",
@@ -127,5 +127,5 @@ export default {
   "security.walletResendAfter": "{{seconds}}s 后可重发",
   "security.walletSending": "发送中...",
   "security.walletSendCode": "发送验证码",
-  "security.walletBind": "绑定钱包",
-};
+  "security.walletBind": "绑定钱包",};
+export default zh_CN;

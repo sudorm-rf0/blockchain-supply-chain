@@ -1,4 +1,4 @@
-export default {
+const zh_CN = {
   appName: "DFR 区块链 · 供应链系统",
   save: "保存",
   cancel: "取消",
@@ -33,5 +33,5 @@ export default {
   theme: "切换主题",
   language: "语言",
   error: { title: "页面出错了", unknown: "发生未知错误，请重试。" },
-  themeSwitch: { toLight: "切换到亮色", toDark: "切换到暗色" },
-};
+  themeSwitch: { toLight: "切换到亮色", toDark: "切换到暗色" },};
+export default zh_CN;

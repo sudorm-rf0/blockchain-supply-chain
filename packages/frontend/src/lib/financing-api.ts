@@ -1,4 +1,5 @@
 import { request } from "@/lib/http";
+import { BACKEND_URL } from "@/lib/env";
 
 export interface FinancingRecord {
   id: string;
@@ -25,7 +26,7 @@ export async function applyFinancing(input: {
   tenorDays: number;
   turnstileToken?: string;
 }): Promise<FinancingRecord> {
-  return request("/api/financing/apply", {
+  return request(`${BACKEND_URL}/api/financing/apply`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
@@ -33,20 +34,20 @@ export async function applyFinancing(input: {
 }
 
 export async function fetchMyFinancing(): Promise<{ items: FinancingRecord[] }> {
-  return request("/api/financing/mine");
+  return request(`${BACKEND_URL}/api/financing/mine`);
 }
 
 export async function fetchAdminFinancing(): Promise<{ items: FinancingRecord[] }> {
-  return request("/api/financing/admin");
+  return request(`${BACKEND_URL}/api/financing/admin`);
 }
 
 export async function reviewFinancing(
   id: string,
   action: "approve" | "reject",
 ): Promise<FinancingRecord> {
-  return request(`/api/financing/${id}/${action}`, { method: "POST" });
+  return request(`${BACKEND_URL}/api/financing/${id}/${action}`, { method: "POST" });
 }
 
 export async function repayFinancing(id: string): Promise<FinancingRecord> {
-  return request(`/api/financing/${id}/repay`, { method: "POST" });
+  return request(`${BACKEND_URL}/api/financing/${id}/repay`, { method: "POST" });
 }

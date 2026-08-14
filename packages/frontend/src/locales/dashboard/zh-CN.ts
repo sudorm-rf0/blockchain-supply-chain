@@ -1,4 +1,4 @@
-export default {
+const zh_CN = {
   "dashboard.connectWalletFirst": "请先连接钱包",
   "dashboard.invalidLpAmount": "请输入有效的 LP 数量",
   "dashboard.redeemExecuted": "LP 赎回已执行：{{status}}",
@@ -47,5 +47,5 @@ export default {
   "dashboard.quickOrders": "我的订单",
   "dashboard.quickAccounts": "账号管理",
   "dashboard.quickAudit": "审计日志",
-  "dashboard.quickSupply": "供应链管理",
-};
+  "dashboard.quickSupply": "供应链管理",};
+export default zh_CN;
