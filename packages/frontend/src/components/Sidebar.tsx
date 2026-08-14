@@ -53,7 +53,7 @@ export function Sidebar({ role }: SidebarProps) {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-background">
+    <aside className="flex h-full w-64 flex-col border-r border-border bg-background">
       <div className="border-b border-border px-5 py-4 font-mono text-sm font-semibold tracking-widest text-foreground">
         DFR SUPPLY CHAIN
       </div>
