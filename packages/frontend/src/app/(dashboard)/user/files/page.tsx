@@ -5,7 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { FilePreviewDialog } from "@/components/FilePreviewDialog";
+import dynamic from "next/dynamic";
+const FilePreviewDialog = dynamic(
+  () =>
+    import("@/components/FilePreviewDialog").then((m) => m.FilePreviewDialog),
+  { ssr: false, loading: () => null },
+);
 import {
   AlertDialog,
   AlertDialogAction,

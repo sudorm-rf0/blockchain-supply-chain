@@ -8,19 +8,22 @@ export function RepaymentCountdown({
   createdAt,
   tenorSeconds,
   status,
+  tickMs = 1000,
 }: {
   createdAt: string;
   tenorSeconds: number;
   status: string;
+  /** 刷新间隔（ms）。列表页可传较大值（如 30_000）减少无谓重渲染，详情页保持 1s。 */
+  tickMs?: number;
 }) {
   const { t } = useTranslation();
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
     setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const timer = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(timer);
-  }, []);
+  }, [tickMs]);
 
   if (status !== "REPAYING") return null;
   if (now === null) {

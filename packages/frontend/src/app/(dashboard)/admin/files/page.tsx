@@ -4,7 +4,12 @@ import { use, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { FilePreviewDialog } from "@/components/FilePreviewDialog";
+import dynamic from "next/dynamic";
+const FilePreviewDialog = dynamic(
+  () =>
+    import("@/components/FilePreviewDialog").then((m) => m.FilePreviewDialog),
+  { ssr: false, loading: () => null },
+);
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

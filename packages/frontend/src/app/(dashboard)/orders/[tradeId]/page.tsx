@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useIntervalWhenVisible } from "@/hooks/useIntervalWhenVisible";
 import { useTranslation } from "react-i18next";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
@@ -12,7 +13,12 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FilePreviewDialog } from "@/components/FilePreviewDialog";
+import dynamic from "next/dynamic";
+const FilePreviewDialog = dynamic(
+  () =>
+    import("@/components/FilePreviewDialog").then((m) => m.FilePreviewDialog),
+  { ssr: false, loading: () => null },
+);
 import { RepaymentCountdown } from "@/components/RepaymentCountdown";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import {
@@ -80,10 +86,8 @@ export default function TradeDetailPage() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const timer = setInterval(() => void load(), 15_000);
-    return () => clearInterval(timer);
-  }, [load]);
+  // 性能优化：页面隐藏时暂停轮询，恢复可见立即刷新
+  useIntervalWhenVisible(() => void load(), 15_000);
 
   const signAndConfirm = async (
     build: () => Promise<{ transaction: string }>,

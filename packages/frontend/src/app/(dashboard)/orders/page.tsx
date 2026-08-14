@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
@@ -43,6 +43,7 @@ import {
   type TradeRecord,
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
+import { useIntervalWhenVisible } from "@/hooks/useIntervalWhenVisible";
 import { formatDateTime } from "@/lib/format";
 import {
   CAN_DEFAULT_TRADE,
@@ -69,14 +70,15 @@ export default function OrdersPage() {
       defaultValue: t("orders.action.advanceStatus"),
     });
 
+  const requestSeq = useRef(0);
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current; // 竞态保护：丢弃过期响应
     try {
-      setTrades(
-        await fetchMyTrades({
-          search: search.trim() || undefined,
-          status: statusFilter,
-        }),
-      );
+      const next = await fetchMyTrades({
+        search: search.trim() || undefined,
+        status: statusFilter,
+      });
+      if (seq === requestSeq.current) setTrades(next);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("orders.toast.loadFailed"));
     } finally {
@@ -88,10 +90,8 @@ export default function OrdersPage() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const timer = setInterval(() => void load(), 15_000);
-    return () => clearInterval(timer);
-  }, [load]);
+  // 性能优化：页面隐藏时暂停轮询，恢复可见立即刷新
+  useIntervalWhenVisible(() => void load(), 15_000);
 
   const signAndConfirm = async (
     tradeId: string,
@@ -247,6 +247,7 @@ export default function OrdersPage() {
                         {tradeStatusLabel(trade.status)}
                       </Badge>
                       <RepaymentCountdown
+                tickMs={30_000}
                         createdAt={trade.createdAt}
                         tenorSeconds={trade.tenor}
                         status={trade.status}

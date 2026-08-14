@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { useUserStore } from "@/stores/user-store";
+import { useIntervalWhenVisible } from "@/hooks/useIntervalWhenVisible";
 import { ClipboardCheck, Upload, Files, ReceiptText, Users, ScrollText, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,13 +89,11 @@ export default function DashboardPage() {
     void refreshIndexer();
   }, [refreshIndexer]);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      void load();
-      void refreshIndexer();
-    }, 30_000);
-    return () => clearInterval(timer);
-  }, [load, refreshIndexer]);
+  // 性能优化：页面隐藏时暂停轮询，恢复可见立即刷新
+  useIntervalWhenVisible(() => {
+    void load();
+    void refreshIndexer();
+  }, 30_000);
 
   const handleRedeem = async () => {
     if (!connected || !publicKey) {
