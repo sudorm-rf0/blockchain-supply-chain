@@ -3,9 +3,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import { FinancingController } from "./financing.controller";
 import { FinancingService } from "./financing.service";
 import { AuditModule } from "../audit/audit.module";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, AuthModule],
   controllers: [FinancingController],
   providers: [FinancingService, PrismaService],
 })
