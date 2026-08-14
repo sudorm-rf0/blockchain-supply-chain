@@ -145,4 +145,10 @@ export default {
   "journey.current": "進行中",
   "journey.qrTitle": "核驗二維碼",
   "journey.qrHint": "掃碼或開啟連結，任何人都可核驗該單據的存證與真偽",
+  "journey.digitalTwin": "數位孿生 · 存證憑證",
+  "journey.vcDownload": "下載核驗憑證",
+  "journey.pda": "存證 PDA",
+  "journey.txSignature": "交易簽名",
+  "journey.attestedAt": "存證時間",
+  "journey.notAttested": "未上鏈",
 };

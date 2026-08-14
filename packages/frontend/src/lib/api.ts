@@ -88,5 +88,13 @@ export type {
   UploadFields,
   PoolTrendPoint,
 } from "./types";
+export {
+  applyFinancing,
+  fetchMyFinancing,
+  fetchAdminFinancing,
+  reviewFinancing,
+  repayFinancing,
+} from "./financing-api";
+export type { FinancingRecord } from "./financing-api";
 export { formatUsdc } from "./http";
 export type { AttestDocumentResponse as AttestDocumentResponseType } from "./types";

@@ -8,6 +8,8 @@ export default {
   "sidebar.security": "Security Settings",
   "sidebar.withdrawals": "Withdrawal Management",
   "sidebar.myOrders": "My Orders",
+  "sidebar.financing": "Financing",
+  "sidebar.financingReview": "Financing Review",
   "sidebar.accountInfo": "Manage Account Info",
   "sidebar.uploadFile": "Upload File",
   "sidebar.myFiles": "My Files",

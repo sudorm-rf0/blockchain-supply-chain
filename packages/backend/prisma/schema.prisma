@@ -43,6 +43,8 @@ model User {
   buyerDeals    TradeDeal[]   @relation("Buyer")
   sellerDeals   TradeDeal[]   @relation("Seller")
   files         File[]
+  financingRequests         FinancingRequest[]  @relation("FinancingApplicant")
+  reviewedFinancingRequests FinancingRequest[]  @relation("FinancingReviewer")
   refreshTokens RefreshToken[]
 }
 
@@ -186,6 +188,7 @@ model File {
   analyzedAt       DateTime?
   uploaderId       String?
   uploader         User?      @relation(fields: [uploaderId], references: [id])
+  financingRequests FinancingRequest[]
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
@@ -240,4 +243,29 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+
+model FinancingRequest {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  invoice      File     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  applicantId  String
+  applicant    User     @relation("FinancingApplicant", fields: [applicantId], references: [id])
+  invoiceAmount BigInt
+  amount       BigInt
+  discountRate Int
+  tenorDays    Int
+  status       String   @default("PENDING")
+  reviewedById String?
+  reviewedBy   User?    @relation("FinancingReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  repaidAt     DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([applicantId])
+  @@index([invoiceId])
+  @@map("financing_requests")
 }

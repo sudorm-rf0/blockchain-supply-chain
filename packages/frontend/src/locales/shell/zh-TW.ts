@@ -8,6 +8,8 @@ export default {
   "sidebar.security": "安全設定",
   "sidebar.withdrawals": "提款管理",
   "sidebar.myOrders": "我的訂單",
+  "sidebar.financing": "融資管理",
+  "sidebar.financingReview": "融資審核",
   "sidebar.accountInfo": "管理帳號資訊",
   "sidebar.uploadFile": "上傳檔案",
   "sidebar.myFiles": "我的檔案",

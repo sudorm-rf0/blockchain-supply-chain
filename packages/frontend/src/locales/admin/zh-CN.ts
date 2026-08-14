@@ -145,4 +145,10 @@ export default {
   "journey.current": "进行中",
   "journey.qrTitle": "核验二维码",
   "journey.qrHint": "扫码或打开链接，任何人都可核验该单据的存证与真伪",
+  "journey.digitalTwin": "数字孪生 · 存证凭证",
+  "journey.vcDownload": "下载核验凭证",
+  "journey.pda": "存证 PDA",
+  "journey.txSignature": "交易签名",
+  "journey.attestedAt": "存证时间",
+  "journey.notAttested": "未上链",
 };

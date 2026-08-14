@@ -24,7 +24,7 @@ import {
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { regionLabel } from "@/lib/region";
-import { ShieldCheck, ScanText, FileText, Route, QrCode } from "lucide-react";
+import { ShieldCheck, ScanText, FileText, Route, QrCode, Fingerprint } from "lucide-react";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -98,6 +98,31 @@ export function FilePreviewDialog({
     await navigator.clipboard.writeText(file.hash);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const downloadAttestation = () => {
+    if (!file) return;
+    const vc = {
+      "@context": ["https://www.w3.org/2018/credentials/v1"],
+      type: ["VerifiableCredential", "DocumentAttestationCredential"],
+      issuer: { id: window.location.origin, name: "DFR 区块链 · 供应链系统" },
+      issuedAt: file.attestedAt ?? new Date().toISOString(),
+      credentialSubject: {
+        id: `${window.location.origin}/verify?h=${file.hash}`,
+        filename: file.filename,
+        hash: file.hash,
+        txSignature: file.txSignature ?? null,
+        documentPda: file.documentPda ?? null,
+        status: file.status,
+      },
+    };
+    const blob = new Blob([JSON.stringify(vc, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${file.filename.replace(/\.[^.]+$/, "")}-attestation.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const isImage = file?.mimeType.startsWith("image/") ?? false;
@@ -243,6 +268,33 @@ export function FilePreviewDialog({
                   </div>
                 </div>
               )}
+
+            <div className="rounded-md border">
+              <div className="flex items-center gap-2 border-b p-3">
+                <Fingerprint className="h-4 w-4 text-[#00E676]" />
+                <p className="font-mono text-sm font-semibold">{t("journey.digitalTwin")}</p>
+                {file.attestedAt && (
+                  <Button variant="outline" size="sm" className="ml-auto" onClick={downloadAttestation}>
+                    <Download className="mr-1 h-3 w-3" />
+                    {t("journey.vcDownload")}
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2 p-3 font-mono text-xs">
+                <div>
+                  <span className="text-muted-foreground">{t("journey.pda")}：</span>
+                  <span className="break-all">{file.documentPda ?? t("journey.notAttested")}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t("journey.txSignature")}：</span>
+                  <span className="break-all">{file.txSignature ?? t("journey.notAttested")}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t("journey.attestedAt")}：</span>
+                  <span>{file.attestedAt ? formatDateTime(file.attestedAt) : t("journey.notAttested")}</span>
+                </div>
+              </div>
+            </div>
 
             <div className="rounded-md border">
               <div className="flex items-center gap-2 border-b p-3">

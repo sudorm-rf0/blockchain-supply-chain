@@ -12,6 +12,7 @@ import { AuditModule } from "./audit/audit.module";
 import { FilesModule } from "./files/files.module";
 import { SupplyChainModule } from "./supply-chain/supply-chain.module";
 import { EmailVerificationModule } from "./email-verification/email-verification.module";
+import { FinancingModule } from "./financing/financing.module";
 import { MetricsController } from "./shared/metrics.controller";
 import { MetaController } from "./shared/meta.controller";
 import { PublicVerifyController } from "./shared/public-verify.controller";
@@ -35,6 +36,7 @@ import { RedisService } from "@supply-chain/common";
     FilesModule,
     SupplyChainModule,
     EmailVerificationModule,
+    FinancingModule,
   ],
   controllers: [
     AppController,

@@ -145,4 +145,10 @@ export default {
   "journey.current": "In progress",
   "journey.qrTitle": "Verification QR",
   "journey.qrHint": "Scan or open the link to verify this document's attestation & authenticity",
+  "journey.digitalTwin": "Digital Twin · Attestation",
+  "journey.vcDownload": "Download Credential",
+  "journey.pda": "Attestation PDA",
+  "journey.txSignature": "Tx Signature",
+  "journey.attestedAt": "Attested At",
+  "journey.notAttested": "Not attested",
 };

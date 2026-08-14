@@ -8,6 +8,8 @@ export default {
   "sidebar.security": "安全设置",
   "sidebar.withdrawals": "提款管理",
   "sidebar.myOrders": "我的订单",
+  "sidebar.financing": "融资管理",
+  "sidebar.financingReview": "融资审核",
   "sidebar.accountInfo": "管理账号信息",
   "sidebar.uploadFile": "上传文件",
   "sidebar.myFiles": "我的文件",
