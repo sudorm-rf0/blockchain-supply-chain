@@ -78,8 +78,9 @@ export class FilesController {
   /** 运行 OCR 与真伪分析（上传时已自动触发；失败或需要重跑时手动调用） */
   @Post(":id/analyze")
   @UseGuards(AuthGuard)
-  analyze(@Param("id") id: string) {
-    return this.analysisService.analyze(id);
+  analyze(@Param("id") id: string, @Req() req: Request) {
+    // 审计深测：analyze 必须校验归属，防止任意登录用户对他人文件触发 OCR/内容分析（信息泄露+资源滥用）
+    return this.analysisService.analyze(id, req.user!.sub, req.user!.role);
   }
 
   @Get()

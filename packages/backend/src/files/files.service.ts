@@ -249,7 +249,7 @@ export class FilesService {
       });
       // 上传后异步触发 OCR 与真伪分析（失败不影响上传）
       void this.analysis
-        .analyze(created.id)
+        .analyze(created.id, uploaderId, "USER")
         .catch((e) => this.logger.warn(`auto analysis failed: ${String(e)}`));
       return this.publicFile(created);
     } catch (error) {

@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -185,9 +186,17 @@ export class FilesAnalysisService {
     });
   }
 
-  async analyze(fileId: string): Promise<AnalysisResult> {
+  async analyze(
+    fileId: string,
+    userId: string,
+    role: string,
+  ): Promise<AnalysisResult> {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) throw new NotFoundException("文件不存在");
+    // 审计深测：仅上传者本人或管理员可分析文件，防止越权读取 OCR 内容/关键字段。
+    if (role !== "ADMIN" && role !== "SUPER_ADMIN" && file.uploaderId !== userId) {
+      throw new ForbiddenException("无权分析此文件");
+    }
     await this.prisma.file.update({
       where: { id: fileId },
       data: { ocrStatus: "PROCESSING", authStatus: "PROCESSING" },
