@@ -96,10 +96,10 @@ export function extractKeyFields(raw: string): KeyFields {
   const contract = text.match(/合同(?:编号|号)?[:：\s]*([A-Za-z0-9\-]{3,40})/);
   if (contract) fields.contractNo = { value: contract[1] };
 
-  const seller = text.match(/(?:销售方|销方|卖方)[:：\s]*([\u4e00-\u9fffA-Za-z0-9（）()·]{2,40})/);
+  const seller = text.match(/(?:销售方|销方|卖方)[:：\s]*([\u4e00-\u9fffA-Za-z0-9（）()·]{2,40}?)(?:备注|电话|地址|开户|税号|$)/);
   if (seller) fields.seller = { value: seller[1] };
 
-  const buyer = text.match(/(?:购买方|购方|买方)[:：\s]*([\u4e00-\u9fffA-Za-z0-9（）()·]{2,40})/);
+  const buyer = text.match(/(?:购买方|购方|买方)[:：\s]*([\u4e00-\u9fffA-Za-z0-9（）()·]{2,40}?)(?:备注|电话|地址|开户|税号|$)/);
   if (buyer) fields.buyer = { value: buyer[1] };
 
   // 金额：先数字，再大写
