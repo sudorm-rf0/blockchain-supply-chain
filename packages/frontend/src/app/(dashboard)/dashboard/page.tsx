@@ -14,6 +14,8 @@ import {
   Percent,
 } from "lucide-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
+import { useUserStore } from "@/stores/user-store";
+import { ClipboardCheck, Upload, Files, ReceiptText, Users, ScrollText, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,7 @@ const LiquidityUtilizationChart = dynamic(
 export default function DashboardPage() {
   const { connection } = useConnection();
   const { connected, publicKey, sendTransaction } = useWallet();
+  const user = useUserStore((s) => s.user);
   const [overview, setOverview] = useState<PoolOverview | null>(null);
   const [indexer, setIndexer] = useState<IndexerStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +170,32 @@ export default function DashboardPage() {
           <WalletConnectButton />
         </div>
       </header>
+
+      <section>
+        <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          {t("dashboard.quickActions")}
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {user?.role === "USER"
+            ? [
+                { href: "/user/upload", label: t("dashboard.quickUpload"), icon: Upload },
+                { href: "/user/files", label: t("dashboard.quickFiles"), icon: Files },
+                { href: "/orders", label: t("dashboard.quickOrders"), icon: ReceiptText },
+              ].map((a) => (
+                <QuickAction key={a.href} href={a.href} label={a.label} icon={a.icon} />
+              ))
+            : [
+                { href: "/admin/files?status=PENDING", label: t("dashboard.quickReview"), icon: ClipboardCheck },
+                ...(user?.role === "SUPER_ADMIN"
+                  ? [{ href: "/admin/accounts", label: t("dashboard.quickAccounts"), icon: Users }]
+                  : []),
+                { href: "/admin/audit", label: t("dashboard.quickAudit"), icon: ScrollText },
+                { href: "/admin/supply-chain", label: t("dashboard.quickSupply"), icon: Boxes },
+              ].map((a) => (
+                <QuickAction key={a.href} href={a.href} label={a.label} icon={a.icon} />
+              ))}
+        </div>
+      </section>
 
       <Card>
         <CardHeader>
@@ -387,5 +416,25 @@ export default function DashboardPage() {
         </>
       )}
     </main>
+  );
+}
+
+function QuickAction({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: typeof Upload;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:border-[#00E676]/50 hover:bg-primary/5"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-[#00E676]" />
+      <span className="truncate text-sm">{label}</span>
+    </Link>
   );
 }

@@ -14,6 +14,7 @@ import { SupplyChainModule } from "./supply-chain/supply-chain.module";
 import { EmailVerificationModule } from "./email-verification/email-verification.module";
 import { MetricsController } from "./shared/metrics.controller";
 import { MetaController } from "./shared/meta.controller";
+import { PublicVerifyController } from "./shared/public-verify.controller";
 import { MetricsMiddleware } from "./shared/metrics.middleware";
 import { MetricsService } from "./shared/metrics.service";
 import { RequestIdMiddleware } from "./shared/request-id.middleware";
@@ -40,6 +41,7 @@ import { RedisService } from "@supply-chain/common";
     CspReportController,
     MetricsController,
     MetaController,
+    PublicVerifyController,
     AdminStatsController,
     AccountsController,
   ],

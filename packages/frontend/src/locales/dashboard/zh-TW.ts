@@ -40,4 +40,12 @@ export default {
   "dashboard.activeDeals": "進行中訂單",
   "dashboard.settledDeals": "已結清",
   "dashboard.defaultedDeals": "已違約",
+  "dashboard.quickActions": "快速操作",
+  "dashboard.quickReview": "審核待辦",
+  "dashboard.quickUpload": "上傳檔案",
+  "dashboard.quickFiles": "我的檔案",
+  "dashboard.quickOrders": "我的訂單",
+  "dashboard.quickAccounts": "帳號管理",
+  "dashboard.quickAudit": "審計日誌",
+  "dashboard.quickSupply": "供應鏈管理",
 };

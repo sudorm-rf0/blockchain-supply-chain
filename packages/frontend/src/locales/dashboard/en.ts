@@ -40,4 +40,12 @@ export default {
   "dashboard.activeDeals": "Active Orders",
   "dashboard.settledDeals": "Settled",
   "dashboard.defaultedDeals": "Defaulted",
+  "dashboard.quickActions": "Quick Actions",
+  "dashboard.quickReview": "Review Queue",
+  "dashboard.quickUpload": "Upload File",
+  "dashboard.quickFiles": "My Files",
+  "dashboard.quickOrders": "My Orders",
+  "dashboard.quickAccounts": "Account Management",
+  "dashboard.quickAudit": "Audit Log",
+  "dashboard.quickSupply": "Supply Chain",
 };

@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileCompareDialog } from "@/components/FileCompareDialog";
+import { FileJourneyTimeline } from "@/components/FileJourneyTimeline";
+import { QRCodeSVG } from "qrcode.react";
 import {
   fetchFileBlob,
   fetchFileVersions,
@@ -22,7 +24,7 @@ import {
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { regionLabel } from "@/lib/region";
-import { ShieldCheck, ScanText, FileText } from "lucide-react";
+import { ShieldCheck, ScanText, FileText, Route, QrCode } from "lucide-react";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -241,6 +243,42 @@ export function FilePreviewDialog({
                   </div>
                 </div>
               )}
+
+            <div className="rounded-md border">
+              <div className="flex items-center gap-2 border-b p-3">
+                <Route className="h-4 w-4 text-[#00E676]" />
+                <p className="font-mono text-sm font-semibold">{t("journey.title")}</p>
+              </div>
+              <div className="p-4">
+                <FileJourneyTimeline file={file} />
+              </div>
+            </div>
+
+            <div className="rounded-md border">
+              <div className="flex items-center gap-2 border-b p-3">
+                <QrCode className="h-4 w-4 text-[#00E676]" />
+                <p className="font-mono text-sm font-semibold">{t("journey.qrTitle")}</p>
+              </div>
+              <div className="flex items-start gap-4 p-4">
+                <QRCodeSVG
+                  value={`${typeof window !== "undefined" ? window.location.origin : ""}/verify?h=${file.hash}`}
+                  size={128}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                />
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm text-muted-foreground">{t("journey.qrHint")}</p>
+                  <a
+                    href={`/verify?h=${file.hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all font-mono text-xs text-[#00E676] hover:underline"
+                  >
+                    {`/verify?h=${file.hash.slice(0, 18)}…`}
+                  </a>
+                </div>
+              </div>
+            </div>
 
             <div className="rounded-md border">
               <div className="flex items-center gap-2 border-b p-3">

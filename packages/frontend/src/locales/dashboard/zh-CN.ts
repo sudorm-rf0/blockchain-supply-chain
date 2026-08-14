@@ -40,4 +40,12 @@ export default {
   "dashboard.activeDeals": "进行中订单",
   "dashboard.settledDeals": "已结清",
   "dashboard.defaultedDeals": "已违约",
+  "dashboard.quickActions": "快捷操作",
+  "dashboard.quickReview": "审核待办",
+  "dashboard.quickUpload": "上传文件",
+  "dashboard.quickFiles": "我的文件",
+  "dashboard.quickOrders": "我的订单",
+  "dashboard.quickAccounts": "账号管理",
+  "dashboard.quickAudit": "审计日志",
+  "dashboard.quickSupply": "供应链管理",
 };
