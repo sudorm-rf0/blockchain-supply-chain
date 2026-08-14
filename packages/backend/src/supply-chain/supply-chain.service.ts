@@ -19,6 +19,8 @@ import {
   deriveSupplierPda,
   getConnection,
   getProgramId,
+  encodeI64,
+  INITIAL_REGISTRY_ADMIN_DELAY_SECS,
   serializeTransaction,
   supplyChainDiscriminator,
   verifySupplyChainInstruction,
@@ -95,7 +97,12 @@ export class SupplyChainService {
     await this.expectTransaction(() =>
       verifySupplyChainInstruction(
         txSignature,
-        supplyChainDiscriminator("initialize_registry"),
+        // 修复：initialize_registry 指令数据为 discriminator(8B) + initial_delay(8B)，
+        // 此前仅用 8B discriminator 比对导致 confirm 恒失败。
+        Buffer.concat([
+          supplyChainDiscriminator("initialize_registry"),
+          encodeI64(INITIAL_REGISTRY_ADMIN_DELAY_SECS),
+        ]),
       ),
     );
     const status = await this.registryStatus();
