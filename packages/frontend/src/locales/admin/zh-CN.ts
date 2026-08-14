@@ -118,4 +118,14 @@ export default {
   "files.authNotStarted": "未分析",
   "files.checkPassed": "通过",
   "files.checkFailed": "未通过",
-  "files.noAnalysis": "暂无分析结果",};
+  "files.noAnalysis": "暂无分析结果",  "files.keyFields": "关键信息",
+  "files.invoiceNumber": "发票号码",
+  "files.amount": "金额",
+  "files.date": "开票日期",
+  "files.contractNo": "合同号",
+  "files.seller": "销售方",
+  "files.buyer": "购买方",
+  "files.validations": "自动校验",
+  "files.reanalyze": "重新分析",
+  "files.analyzeSuccess": "「{{name}}」分析完成",
+};

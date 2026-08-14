@@ -17,6 +17,7 @@ export {
 export type { AuthUser } from "./auth-api";
 export {
   uploadFile,
+  analyzeFile,
   uploadFileWithProgress,
   getFiles,
   getFile,

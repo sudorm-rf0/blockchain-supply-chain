@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { extractKeyFields, validateFields, type KeyFields } from "./ocr-fields";
 import type { StorageService } from "../storage/storage.service";
 import { AuditService } from "../audit/audit.service";
 
@@ -232,12 +233,25 @@ export class FilesAnalysisService {
         checks.push({ name: "content", passed: true, detail: "非图片/PDF，跳过视觉与 OCR 检测" });
       }
 
+      let keyFields: KeyFields = {};
+      if (ocrText) {
+        keyFields = extractKeyFields(ocrText);
+        const validations = validateFields(keyFields);
+        checks.push(...validations.map((v) => ({ name: v.name, passed: v.passed, detail: v.detail })));
+      }
+
       const passed = checks.filter((c) => c.passed).length;
       const score = Math.round((passed / checks.length) * 100);
       const verdict: AnalysisResult["verdict"] =
         score >= 80 ? "LOW_RISK" : score >= 55 ? "MEDIUM_RISK" : "HIGH_RISK";
 
-      const result = { score, verdict, checks } as unknown as Prisma.InputJsonValue;
+      const result = {
+        score,
+        verdict,
+        checks,
+        keyFields,
+        validations: validateFields(keyFields),
+      } as unknown as Prisma.InputJsonValue;
       await this.prisma.file.update({
         where: { id: fileId },
         data: {

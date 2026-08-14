@@ -50,10 +50,24 @@ export interface FileAuthCheck {
   detail: string;
 }
 
+export interface FileAuthKeyField {
+  value: string;
+  numeric?: string | null;
+}
+
 export interface FileAuthResult {
   score: number;
   verdict: "LOW_RISK" | "MEDIUM_RISK" | "HIGH_RISK";
   checks: FileAuthCheck[];
+  keyFields?: {
+    invoiceNumber?: FileAuthKeyField;
+    amount?: FileAuthKeyField;
+    date?: FileAuthKeyField;
+    contractNo?: FileAuthKeyField;
+    seller?: FileAuthKeyField;
+    buyer?: FileAuthKeyField;
+  };
+  validations?: FileAuthCheck[];
 }
 
 export interface FilesResponse {

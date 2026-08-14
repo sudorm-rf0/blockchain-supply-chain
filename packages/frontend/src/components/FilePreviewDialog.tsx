@@ -22,7 +22,7 @@ import {
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { regionLabel } from "@/lib/region";
-import { ShieldCheck, ScanText } from "lucide-react";
+import { ShieldCheck, ScanText, FileText } from "lucide-react";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -191,6 +191,57 @@ export function FilePreviewDialog({
               </div>
             </div>
 
+            {file.authResult?.keyFields &&
+              Object.values(file.authResult.keyFields).some((f) => f?.value) && (
+                <div className="rounded-md border">
+                  <div className="flex items-center gap-2 border-b p-3">
+                    <FileText className="h-4 w-4 text-[#00E676]" />
+                    <p className="font-mono text-sm font-semibold">{t("files.keyFields")}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 p-3 text-sm">
+                    {file.authResult.keyFields.invoiceNumber?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.invoiceNumber")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.invoiceNumber.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.amount?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.amount")}：</span>
+                        <span className="font-mono">
+                          {file.authResult.keyFields.amount.value}
+                          {file.authResult.keyFields.amount.numeric ? ` = ¥${file.authResult.keyFields.amount.numeric}` : ""}
+                        </span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.date?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.date")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.date.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.contractNo?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.contractNo")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.contractNo.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.seller?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.seller")}：</span>
+                        <span>{file.authResult.keyFields.seller.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.buyer?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.buyer")}：</span>
+                        <span>{file.authResult.keyFields.buyer.value}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
             <div className="rounded-md border">
               <div className="flex items-center gap-2 border-b p-3">
                 <ShieldCheck className="h-4 w-4 text-[#00E676]" />
@@ -247,6 +298,24 @@ export function FilePreviewDialog({
                 </ul>
               ) : (
                 <p className="p-3 text-sm text-muted-foreground">{t("files.noAnalysis")}</p>
+              )}
+              {file.authResult?.validations && file.authResult.validations.length > 0 && (
+                <div className="border-t p-3">
+                  <p className="mb-2 font-mono text-xs font-semibold text-muted-foreground">
+                    {t("files.validations")}
+                  </p>
+                  <ul className="space-y-1">
+                    {file.authResult.validations.map((v) => (
+                      <li key={v.name} className="flex items-start gap-2 text-sm">
+                        <span className={`mt-1 h-2 w-2 shrink-0 ${v.passed ? "bg-[#00E676]" : "bg-amber-500"}`} />
+                        <span className="flex-1 text-muted-foreground">{v.detail}</span>
+                        <span className={`font-mono text-xs ${v.passed ? "text-[#00E676]" : "text-amber-500"}`}>
+                          {v.passed ? t("files.checkPassed") : t("files.checkFailed")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
 

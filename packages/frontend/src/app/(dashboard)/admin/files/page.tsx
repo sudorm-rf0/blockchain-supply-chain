@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye } from "lucide-react";
+import { Eye, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { FilePreviewDialog } from "@/components/FilePreviewDialog";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  analyzeFile,
   batchReviewFiles,
   getFiles,
   reviewFile,
@@ -71,6 +72,7 @@ export default function AdminFilesPage({
     searchParams ?? Promise.resolve<{ status?: string }>({}),
   );
   const [files, setFiles] = useState<FileRecord[]>([]);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState(resolvedParams.status ?? "PENDING");
@@ -190,6 +192,19 @@ export default function AdminFilesPage({
     }
   };
 
+  const handleAnalyze = async (id: string) => {
+    setAnalyzingId(id);
+    try {
+      const updated = await analyzeFile(id);
+      toast.success(t("files.analyzeSuccess", { name: updated.filename }));
+      setFiles((prev) => prev.map((f) => (f.id === id ? updated : f)));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("files.actionFailed"));
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -292,6 +307,15 @@ export default function AdminFilesPage({
                   >
                     <Eye className="mr-1 h-3 w-3" />
                     {t("files.preview")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={analyzingId !== null}
+                    onClick={() => void handleAnalyze(file.id)}
+                  >
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    {t("files.reanalyze")}
                   </Button>
                   {file.status === "PENDING" && (
                     <>

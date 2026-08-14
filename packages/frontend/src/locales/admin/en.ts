@@ -118,4 +118,14 @@ export default {
   "files.authNotStarted": "Not analyzed",
   "files.checkPassed": "Passed",
   "files.checkFailed": "Failed",
-  "files.noAnalysis": "No analysis result yet",};
+  "files.noAnalysis": "No analysis result yet",  "files.keyFields": "Key Fields",
+  "files.invoiceNumber": "Invoice No.",
+  "files.amount": "Amount",
+  "files.date": "Invoice Date",
+  "files.contractNo": "Contract No.",
+  "files.seller": "Seller",
+  "files.buyer": "Buyer",
+  "files.validations": "Auto Validations",
+  "files.reanalyze": "Re-analyze",
+  "files.analyzeSuccess": "Analysis complete for \"{{name}}\"",
+};

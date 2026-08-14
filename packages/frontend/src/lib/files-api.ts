@@ -83,6 +83,10 @@ export async function getFiles(params: {
   return request(`${BACKEND_URL}/api/files?${query.toString()}`);
 }
 
+export async function analyzeFile(id: string): Promise<FileRecord> {
+  return request(`${BACKEND_URL}/api/files/${id}/analyze`, { method: "POST" });
+}
+
 export async function getFile(id: string): Promise<FileRecord> {
   return request(`${BACKEND_URL}/api/files/${id}`);
 }

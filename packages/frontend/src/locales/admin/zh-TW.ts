@@ -118,4 +118,14 @@ export default {
   "files.authNotStarted": "未分析",
   "files.checkPassed": "通過",
   "files.checkFailed": "未通過",
-  "files.noAnalysis": "暫無分析結果",};
+  "files.noAnalysis": "暫無分析結果",  "files.keyFields": "關鍵資訊",
+  "files.invoiceNumber": "發票號碼",
+  "files.amount": "金額",
+  "files.date": "開票日期",
+  "files.contractNo": "合約編號",
+  "files.seller": "銷售方",
+  "files.buyer": "購買方",
+  "files.validations": "自動校驗",
+  "files.reanalyze": "重新分析",
+  "files.analyzeSuccess": "「{{name}}」分析完成",
+};
