@@ -582,6 +582,45 @@ export class AuthService {
     }
   }
 
+  /** 修改绑定邮箱：需先通过发送到新邮箱的验证码核验新邮箱所有权 */
+  async changeEmail(
+    userId: string,
+    newEmail: string,
+    emailCode: string,
+  ): Promise<PublicUser> {
+    const normalized = newEmail.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("用户不存在");
+    if (!user.email || user.email.toLowerCase() === normalized) {
+      throw new BadRequestException("新邮箱不能与当前邮箱相同");
+    }
+    const existing = await this.prisma.user.findUnique({
+      where: { email: normalized },
+      select: { id: true },
+    });
+    if (existing && existing.id !== userId) {
+      throw new ConflictException("该邮箱已被注册");
+    }
+    // 必须通过发送到新邮箱的验证码
+    await this.emailVerification.verifyCode(normalized, emailCode);
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: normalized,
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+      },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "EMAIL_CHANGED",
+      targetType: "AUTH",
+      targetId: userId,
+      metadata: { from: user.email, to: normalized },
+    });
+    return this.publicUser(updated);
+  }
+
   /** 发送邮箱验证码到当前登录用户（用于开启/关闭 Email OTP 及敏感操作确认）。 */
   async sendEmailOtpCode(userId: string): Promise<{
     expiresIn: number;

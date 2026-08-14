@@ -19,6 +19,7 @@ import { AuthGuard } from "@supply-chain/common";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
+import { ChangeEmailDto } from "./dto/change-email.dto";
 import { BindWalletDto } from "./dto/bind-wallet.dto";
 import { VerifyEmailCodeDto } from "../email-verification/dto/verify-email-code.dto";
 import {
@@ -167,6 +168,19 @@ export class AuthController {
       refreshToken,
     );
     return { ok: true, user, mustChangePassword: false };
+  }
+
+  /** 修改绑定邮箱（需新邮箱验证码） */
+  @Post("change-email")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  async changeEmail(@Body() body: ChangeEmailDto, @Req() req: Request) {
+    const user = await this.authService.changeEmail(
+      req.user!.sub,
+      body.newEmail,
+      body.emailCode,
+    );
+    return { ok: true, user };
   }
 
   @Patch("wallet")

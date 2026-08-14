@@ -155,6 +155,17 @@ export async function logout(): Promise<void> {
   useUserStore.getState().logout();
 }
 
+export async function changeEmail(
+  newEmail: string,
+  emailCode: string,
+): Promise<{ ok: boolean; user: AuthUser }> {
+  return request(`${BACKEND_URL}/api/auth/change-email`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ newEmail, emailCode }),
+  });
+}
+
 export async function changePassword(
   currentPassword: string,
   newPassword: string,

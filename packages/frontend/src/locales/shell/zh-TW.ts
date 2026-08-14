@@ -8,6 +8,7 @@ export default {
   "sidebar.security": "安全設定",
   "sidebar.withdrawals": "提款管理",
   "sidebar.myOrders": "我的訂單",
+  "sidebar.accountInfo": "管理帳號資訊",
   "sidebar.uploadFile": "上傳檔案",
   "sidebar.myFiles": "我的檔案",
   "sidebar.allFiles": "全部檔案",
