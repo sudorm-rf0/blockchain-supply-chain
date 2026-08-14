@@ -15,6 +15,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { CleanupUploadedFilesInterceptor } from "../shared/cleanup-uploaded-files.interceptor";
 import { diskStorage } from "multer";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
@@ -57,6 +58,7 @@ export class FilesController {
       storage,
       limits: { fileSize: MAX_FILE_SIZE },
     }),
+    CleanupUploadedFilesInterceptor,
   )
   upload(
     @UploadedFile() file: Express.Multer.File,
