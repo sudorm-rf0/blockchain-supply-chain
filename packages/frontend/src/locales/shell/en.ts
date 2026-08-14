@@ -19,4 +19,5 @@ export default {
   "notFound.title": "Page not found",
   "notFound.description": "The page you visited does not exist or has been removed. Please check the address.",
   "notFound.backHome": "Back to home",
+  "shell.changeLanguage": "Change Language",
 };

@@ -2,13 +2,12 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { LogOut, Menu, User as UserIcon, UserCog } from "lucide-react";
+import { Languages, LogOut, Menu, User as UserIcon, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Sidebar } from "@/components/Sidebar";
 import { LogoMark } from "@/components/LogoMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,18 +15,27 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { fetchSession, logout as logoutApi } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
+import { useLanguage } from "@/components/LanguageProvider";
+import { LOCALE_NAMES, type SupportedLocale } from "@/locales";
+import { SUPPORTED_LOCALES } from "@/lib/i18n";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, hydrated, setHydrated } = useUserStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { locale, setLocale } = useLanguage();
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -98,7 +106,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <span className="font-mono font-semibold tracking-wide">{t("shell.appName")}</span>
           </div>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -116,6 +123,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   {user?.email ?? ""}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Languages className="mr-2 h-4 w-4" />
+                    {t("shell.changeLanguage")}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuRadioGroup
+                      value={locale}
+                      onValueChange={(v) => setLocale(v as SupportedLocale)}
+                    >
+                      {SUPPORTED_LOCALES.map((l) => (
+                        <DropdownMenuRadioItem key={l} value={l}>
+                          {LOCALE_NAMES[l as SupportedLocale]}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuItem onClick={() => router.push("/account")}>
                   <UserCog className="mr-2 h-4 w-4" />
                   {t("account.manageAccountInfo")}

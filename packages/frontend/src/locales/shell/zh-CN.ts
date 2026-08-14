@@ -19,4 +19,5 @@ export default {
   "notFound.title": "页面不存在",
   "notFound.description": "你访问的页面不存在或已被移除，请检查地址是否正确。",
   "notFound.backHome": "返回首页",
+  "shell.changeLanguage": "更改语言",
 };
