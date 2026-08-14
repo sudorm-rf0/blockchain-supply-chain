@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { extractKeyFields, validateFields, type KeyFields } from "./ocr-fields";
+import { extractKeyFields, validateFields, type KeyFields, type ValidationItem } from "./ocr-fields";
 import type { StorageService } from "../storage/storage.service";
 import { AuditService } from "../audit/audit.service";
 
@@ -37,6 +37,8 @@ export interface AnalysisResult {
   verdict: "LOW_RISK" | "MEDIUM_RISK" | "HIGH_RISK";
   checks: AnalysisCheck[];
   ocrText: string;
+  keyFields?: KeyFields;
+  validations?: ValidationItem[];
 }
 
 const OCR_LANG = "chi_sim+eng";
@@ -271,7 +273,14 @@ export class FilesAnalysisService {
         targetId: fileId,
         metadata: { score, verdict, ocrChars: ocrText.length },
       });
-      return { score, verdict, checks, ocrText };
+      return {
+        score,
+        verdict,
+        checks,
+        ocrText,
+        keyFields,
+        validations: validateFields(keyFields),
+      };
     } catch (error) {
       this.logger.error(`analyze failed: ${String(error)}`);
       await this.prisma.file.update({
