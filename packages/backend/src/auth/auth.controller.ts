@@ -183,6 +183,14 @@ export class AuthController {
     return { ok: true, user };
   }
 
+  /** 注销账号（软删除，需二次确认由前端弹窗完成） */
+  @Post("delete-account")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  async deleteAccount(@Req() req: Request) {
+    return this.authService.deleteAccount(req.user!.sub);
+  }
+
   @Patch("wallet")
   @UseGuards(AuthGuard)
   bindWallet(@Req() req: Request, @Body() body: BindWalletDto) {

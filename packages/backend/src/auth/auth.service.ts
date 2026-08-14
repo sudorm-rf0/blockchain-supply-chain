@@ -357,6 +357,9 @@ export class AuthService {
     if (hash.length !== stored.length || !timingSafeEqual(hash, stored)) {
       throw new UnauthorizedException("邮箱或密码错误");
     }
+    if (user.deletedAt) {
+      throw new UnauthorizedException("账号已注销，无法登录");
+    }
     if (user.emailVerified === false) {
       throw new ForbiddenException("邮箱尚未验证，请先完成邮箱验证后登录");
     }
@@ -580,6 +583,30 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  /** 注销账号（软删除）：置 deletedAt，撤销全部会话；保留数据以维护审计与单据完整性 */
+  async deleteAccount(userId: string): Promise<{ ok: boolean }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("用户不存在");
+    if (user.deletedAt) throw new BadRequestException("账号已注销");
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { deletedAt: new Date() },
+      }),
+    ]);
+    await this.audit.record({
+      actorId: userId,
+      action: "ACCOUNT_DELETED",
+      targetType: "AUTH",
+      targetId: userId,
+    });
+    return { ok: true };
   }
 
   /** 修改绑定邮箱：需先通过发送到新邮箱的验证码核验新邮箱所有权 */

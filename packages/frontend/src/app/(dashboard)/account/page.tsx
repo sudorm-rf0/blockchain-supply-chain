@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Mail, Lock, KeyRound } from "lucide-react";
+import { Mail, Lock, KeyRound, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,23 @@ import { Label } from "@/components/ui/label";
 import {
   changeEmail,
   changePassword,
+  deleteAccount,
   fetchSession,
+  logout as logoutApi,
   sendEmailCode,
   sendEmailOtpCode,
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function AccountPage() {
   const { t } = useTranslation();
@@ -54,6 +66,9 @@ export default function AccountPage() {
   const [pwCooldown, setPwCooldown] = useState(0);
   const [pwSending, setPwSending] = useState(false);
   const [pwBusy, setPwBusy] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // 引导账号（emailOtpEnabled=false）改密豁免验证码
   const requiresEmailCode = user?.emailOtpEnabled !== false;
@@ -151,6 +166,24 @@ export default function AccountPage() {
       toast.error(error instanceof Error ? error.message : t("account.pwChangeFailed"));
     } finally {
       setPwBusy(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm.trim() !== t("account.deleteConfirmWord")) {
+      toast.error(t("account.deleteConfirmMismatch"));
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      toast.success(t("account.deleted"));
+      await logoutApi();
+      useUserStore.getState().logout();
+      router.replace("/login");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("account.deleteFailed"));
+      setDeleting(false);
     }
   };
 
@@ -300,6 +333,60 @@ export default function AccountPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* 注销账号 */}
+      <Card className="border-red-500/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-red-500">
+            <Trash2 className="h-4 w-4" />
+            {t("account.deleteTitle")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t("account.deleteWarning")}</p>
+          <Button
+            variant="destructive"
+            className="border border-red-500/40 bg-red-500/10 text-red-500 hover:bg-red-500/20"
+            onClick={() => {
+              setDeleteConfirm("");
+              setDeleteOpen(true);
+            }}
+          >
+            {t("account.deleteButton")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("account.deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("account.deleteConfirmDesc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="delete-confirm">{t("account.deleteConfirmLabel")}</Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={t("account.deleteConfirmWord")}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting || deleteConfirm.trim() !== t("account.deleteConfirmWord")}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeleteAccount();
+              }}
+              className="border border-red-500/40 bg-red-500/10 text-red-500 hover:bg-red-500/20"
+            >
+              {deleting ? t("account.deleting") : t("account.deleteButton")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

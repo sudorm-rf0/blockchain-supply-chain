@@ -155,6 +155,10 @@ export async function logout(): Promise<void> {
   useUserStore.getState().logout();
 }
 
+export async function deleteAccount(): Promise<{ ok: boolean }> {
+  return request(`${BACKEND_URL}/api/auth/delete-account`, { method: "POST" });
+}
+
 export async function changeEmail(
   newEmail: string,
   emailCode: string,

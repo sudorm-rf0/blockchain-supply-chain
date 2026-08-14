@@ -11,6 +11,7 @@ export {
   logout,
   changePassword,
   changeEmail,
+  deleteAccount,
   setupTotp,
   enableTotp,
   disableTotp,
