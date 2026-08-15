@@ -39,7 +39,7 @@ export class IntegrationsService {
 
   async createApiKey(
     userId: string,
-    input: { name: string; role?: string },
+    input: { name?: string; role?: string },
   ) {
     const name = (input.name ?? "").trim();
     if (!name || name.length > 64) {
@@ -89,7 +89,7 @@ export class IntegrationsService {
 
   async createWebhook(
     userId: string,
-    input: { name: string; url: string; events: string[]; active?: boolean },
+    input: { name?: string; url?: string; events?: string[]; active?: boolean },
   ) {
     const name = (input.name ?? "").trim();
     const url = (input.url ?? "").trim();
