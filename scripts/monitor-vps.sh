@@ -30,13 +30,27 @@ else
 fi
 
 # 3) 容器健康：非 healthy / restarting 的 supply-chain 容器
+#    自愈：首次发现异常先自动重启该容器并标记，下轮确认仍异常才告警，
+#    避免瞬时/启动期状态导致「一直报容器异常」。
+HEAL_MARKER="${ALERT_STATE_DIR}/selfheal"
 unhealthy=""
 for c in $(docker ps -a --format '{{.Names}}' | grep '^supply-chain-' | grep -vE 'backup'); do
   st=$(docker inspect --format '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$c" 2>/dev/null)
   status="${st%%|*}"
   health="${st##*|}"
   if [ "$status" != "running" ] || { [ "$health" != "healthy" ] && [ "$health" != "none" ]; }; then
-    unhealthy="$unhealthy\n  - $c ($status / $health)"
+    if grep -qx "$c" "$HEAL_MARKER" 2>/dev/null; then
+      # 上一轮已自动重启过，本轮仍异常 -> 真异常，告警并清除标记
+      unhealthy="$unhealthy\n  - $c ($status / $health) [自愈失败]"
+      sed -i "/^$c$/d" "$HEAL_MARKER" 2>/dev/null
+    else
+      # 首次发现：标记 + 自动重启，本轮不告警，等待下轮确认
+      docker restart "$c" >/dev/null 2>&1 || true
+      echo "$c" >> "$HEAL_MARKER"
+      echo "${DATE} [自愈] 已自动重启容器 $c，等待下轮确认" >> /var/log/supply-chain-monitor.log
+    fi
+  else
+    sed -i "/^$c$/d" "$HEAL_MARKER" 2>/dev/null
   fi
 done
 if [ -n "$unhealthy" ]; then
