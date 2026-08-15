@@ -238,3 +238,31 @@ node scripts/scan-uploads.mjs <目录>     # 指定其他目录
 
 见 [LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md) 与
 [GO-LIVE-RUNBOOK.md](GO-LIVE-RUNBOOK.md)。
+
+## 9. 2026-08-15 生产运维补全（VPS）
+
+### 证书自动续期
+- 方式：certbot **容器**（`certbot/certbot:latest`）+ webroot，无需宿主机安装 certbot。
+- 脚本：`/opt/deploy/certbot-renew.sh`（renew 成功后自动 `docker exec supply-chain-nginx nginx -s reload`）。
+- 调度：`/etc/cron.d/vps-maintenance` 每天 `03:17 / 15:17` 各跑一次。
+- 验证：`docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/certbot:/var/www/certbot certbot/certbot renew --dry-run --webroot -w /var/www/certbot`
+- 三个证书（supplychain.de5.net / supplychain.cn.mt / 103-39-79-7.sslip.io）续期链路均验证通过。
+
+### nginx /api/files 超时
+- `deploy/vps/nginx.conf`：`location /api/files` 单独 `proxy_read_timeout 300s`，避免多页 PDF OCR 分析超过默认 60s 报 504。
+
+### deploy-vps.sh 健康检查修复
+- 原 `curl localhost:PORT` 探测未发布端口导致 [3/5] 恒失败并跳过 [4/5] 数据库迁移。
+- 改为 `docker inspect` 检查容器 `running` +（有 healthcheck 时）`healthy`，迁移步骤恢复自动执行。
+
+### 磁盘清理（2026-08-15）
+- 清理前 `/` 83%，清理后 26%（释放约 42GB）。
+- 内容：`docker builder prune -af`（44.7GB 构建缓存）+ 无用旧镜像（n8n/node:20/certbot-dns 等）+ dangling volumes。
+- 保留：`supply-chain-{frontend,backend}:pre-20260813`（回滚）、`certbot/certbot`（续期）、全部运行容器镜像。
+- 定期：`docker system df` 观察，或用 `/opt/deploy/resource-guard.sh`。
+
+### 监控
+- `/opt/deploy/health-check.sh` 新增公网探测 `https://supplychain.de5.net/health`（每 15 分钟 cron），报告含「公网站点」行。
+- uptime-kuma（127.0.0.1:3006）已初始化管理员并添加 HTTP 监控 `supplychain.de5.net/health`（间隔 60s）。
+  - 管理员凭据：`/opt/deploy/kuma-admin.txt`（权限 600）。
+  - ⚠️ 特性：kuma 心跳依赖活跃 WebSocket 连接（打开 dashboard 时持续记录）；断开后停止，7×24 探测请以 health-check.sh 为准。
