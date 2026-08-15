@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus, Search, Ticket } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -37,8 +36,6 @@ import {
   createAccount,
   changeAccountRole,
   getAccount,
-  generateInviteCodes,
-  fetchInviteCodesExport,
   type AccountRecord,
   type AccountRole,
   type AccountDeal,
@@ -90,58 +87,6 @@ export default function AccountsPage() {
 
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getAccount>> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-
-  // 邀请码生成
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteCount, setInviteCount] = useState("10");
-  const [generating, setGenerating] = useState(false);
-  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
-  const [copied, setCopied] = useState(false);
-
-  const handleGenerateInvites = async () => {
-    const n = Number(inviteCount);
-    if (!Number.isInteger(n) || n < 1 || n > 500) {
-      toast.error(t("accounts.generateInviteCount"));
-      return;
-    }
-    setGenerating(true);
-    try {
-      const res = await generateInviteCodes(n);
-      setGeneratedCodes(res.codes);
-      setCopied(false);
-      toast.success(t("accounts.generatedCount", { count: res.count }));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("accounts.generateInviteCount"));
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const copyAll = async () => {
-    if (generatedCodes.length === 0) return;
-    try {
-      await navigator.clipboard.writeText(generatedCodes.join("\n"));
-      setCopied(true);
-      toast.success(t("accounts.copied"));
-    } catch {
-      toast.error(t("accounts.copied"));
-    }
-  };
-
-  const exportList = async () => {
-    try {
-      const text = await fetchInviteCodesExport();
-      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "invite-codes.txt";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("accounts.generateInviteCount"));
-    }
-  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -213,9 +158,6 @@ export default function AccountsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{t("accounts.title")}</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowInvite(true)}>
-            <Ticket className="mr-1 h-4 w-4" /> {t("accounts.generateInviteCodes")}
-          </Button>
           <Button onClick={() => setShowAdd(true)}>
             <Plus className="mr-1 h-4 w-4" /> {t("accounts.addAdmin")}
           </Button>
@@ -418,52 +360,6 @@ export default function AccountsPage() {
             </Button>
             <Button onClick={handleAdd} disabled={adding}>
               {adding ? t("accounts.creating") : t("accounts.createAccount")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 批量生成邀请码 */}
-      <Dialog open={showInvite} onOpenChange={setShowInvite}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("accounts.generateInviteTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t("accounts.generateInviteCount")}</Label>
-              <Input
-                type="number"
-                min={1}
-                max={500}
-                value={inviteCount}
-                onChange={(e) => setInviteCount(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleGenerateInvites} disabled={generating} className="w-full">
-              {generating ? t("accounts.generating") : t("accounts.generate")}
-            </Button>
-            {generatedCodes.length > 0 && (
-              <>
-                <Textarea
-                  readOnly
-                  value={generatedCodes.join("\n")}
-                  className="h-48 font-mono text-xs"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={copyAll}>
-                    {copied ? t("accounts.copied") : t("accounts.copyAll")}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={exportList}>
-                    {t("accounts.exportList")}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInvite(false)}>
-              {t("accounts.cancel")}
             </Button>
           </DialogFooter>
         </DialogContent>
