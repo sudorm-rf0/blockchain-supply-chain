@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { Eye, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -65,6 +66,7 @@ export default function AdminFilesPage({
   searchParams?: Promise<{ status?: string }>;
 }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const statusLabel = (status: string) =>
     status === "APPROVED"
       ? t("files.statusApproved")
@@ -76,6 +78,7 @@ export default function AdminFilesPage({
   const resolvedParams = use(
     searchParams ?? Promise.resolve<{ status?: string }>({}),
   );
+  const urlStatus = resolvedParams.status ?? "PENDING";
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -90,6 +93,12 @@ export default function AdminFilesPage({
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchReason, setBatchReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // 跟随 URL 的 status 参数：点击侧边栏「文件审核/全部文件」时，列表内容与高亮同步切换。
+  useEffect(() => {
+    setStatus(urlStatus);
+    setPage(1);
+  }, [urlStatus]);
 
   const load = useCallback(async () => {
     try {
@@ -237,7 +246,16 @@ export default function AdminFilesPage({
               </Button>
             </>
           )}
-          <Select value={status} onValueChange={setStatus}>
+          <Select
+            value={status}
+            onValueChange={(value) => {
+              const params = new URLSearchParams(window.location.search);
+              params.set("status", value);
+              router.replace(`/admin/files?${params.toString()}`, {
+                scroll: false,
+              });
+            }}
+          >
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>

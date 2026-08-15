@@ -4,14 +4,19 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import AdminFilesPage from "../page";
 import type { FileRecord, FilesResponse } from "@/lib/types";
 
-const { getFilesMock, reviewFileMock, batchReviewMock, toastSuccess, toastError } =
+const { getFilesMock, reviewFileMock, batchReviewMock, toastSuccess, toastError, replaceMock } =
   vi.hoisted(() => ({
     getFilesMock: vi.fn(),
     reviewFileMock: vi.fn(),
     batchReviewMock: vi.fn(),
     toastSuccess: vi.fn(),
     toastError: vi.fn(),
+    replaceMock: vi.fn(),
   }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: replaceMock }),
+}));
 
 vi.mock("@/lib/api", () => ({
   getFiles: (...args: unknown[]) => getFilesMock(...args),
@@ -57,12 +62,12 @@ function makeFiles(overrides: Partial<FileRecord>[] = []): FilesResponse {
   return { items, total: items.length, page: 1, limit: 10 };
 }
 
-async function renderPage(): Promise<void> {
+async function renderPage(status = "PENDING"): Promise<void> {
   // Next 15 用 use(Promise) 读 searchParams：组件会 suspend，需在 await act 内渲染。
   await act(async () => {
     render(
       <Suspense fallback={<div>loading</div>}>
-        <AdminFilesPage searchParams={Promise.resolve({})} />
+        <AdminFilesPage searchParams={Promise.resolve({ status })} />
       </Suspense>,
     );
   });
@@ -109,4 +114,38 @@ describe("AdminFilesPage", () => {
       expect(toastError).toHaveBeenCalledWith("db down");
     });
   });
+
+  it("loads ALL files when the URL status is ALL (sidebar 全部文件)", async () => {
+    await renderPage("ALL");
+    await screen.findByText("invoice-v1.pdf");
+    expect(getFilesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: undefined }),
+    );
+  });
+
+  it("reloads the list when the URL status changes (sidebar navigation)", async () => {
+    const view = await act(async () =>
+      render(
+        <Suspense fallback={<div>loading</div>}>
+          <AdminFilesPage searchParams={Promise.resolve({ status: "PENDING" })} />
+        </Suspense>,
+      ),
+    );
+    await screen.findByText("invoice-v1.pdf");
+    getFilesMock.mockClear();
+
+    await act(async () => {
+      view.rerender(
+        <Suspense fallback={<div>loading</div>}>
+          <AdminFilesPage searchParams={Promise.resolve({ status: "ALL" })} />
+        </Suspense>,
+      );
+    });
+    await waitFor(() => {
+      expect(getFilesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: undefined }),
+      );
+    });
+  });
+
 });

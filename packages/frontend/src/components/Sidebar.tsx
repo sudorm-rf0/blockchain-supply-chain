@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, ShieldCheck, Ticket, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -15,6 +15,7 @@ interface SidebarProps {
 export function Sidebar({ role, onNavigate }: SidebarProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
   const items =
     isAdmin
@@ -57,10 +58,7 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
     // 带 query 的菜单项（如 /admin/files?status=…）需精确匹配 status，
     // 避免「文件审核」与「全部文件」因 path 相同而同时高亮。
     const want = new URLSearchParams(query).get("status");
-    const have =
-      typeof window !== "undefined"
-        ? new URLSearchParams(window.location.search).get("status")
-        : undefined;
+    const have = searchParams.get("status");
     return want === have;
   };
 

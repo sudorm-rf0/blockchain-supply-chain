@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Languages, LogOut, Menu, ShieldCheck, User as UserIcon, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -105,7 +105,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <div className="hidden md:block">
-        <Sidebar role={role} onNavigate={() => setMobileOpen(false)} />
+        <Suspense fallback={null}>
+          <Sidebar role={role} onNavigate={() => setMobileOpen(false)} />
+        </Suspense>
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
@@ -114,7 +116,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">
-          <Sidebar role={role} onNavigate={() => setMobileOpen(false)} />
+          <Suspense fallback={null}>
+            <Sidebar role={role} onNavigate={() => setMobileOpen(false)} />
+          </Suspense>
         </SheetContent>
       </Sheet>
 
