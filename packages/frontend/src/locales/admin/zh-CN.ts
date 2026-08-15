@@ -195,5 +195,7 @@ const zh_CN = {
   "files.consignee": "境内收货人",
   "files.shipper": "境外发货人",
   "files.currency": "币制",
+  "files.previewPdfFailed": "PDF 预览失败，请在新窗口打开或下载查看",
+  "files.openInNewTab": "在新标签页打开",
 };
 export default zh_CN;

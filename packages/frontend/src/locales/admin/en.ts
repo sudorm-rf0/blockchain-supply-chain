@@ -195,5 +195,7 @@ const en = {
   "files.consignee": "Consignee",
   "files.shipper": "Shipper",
   "files.currency": "Currency",
+  "files.previewPdfFailed": "Failed to preview PDF. Open in a new tab or download.",
+  "files.openInNewTab": "Open in new tab",
 };
 export default en;

@@ -195,5 +195,7 @@ const zh_TW = {
   "files.consignee": "境內收貨人",
   "files.shipper": "境外發貨人",
   "files.currency": "幣制",
+  "files.previewPdfFailed": "PDF 預覽失敗，請在新視窗開啟或下載查看",
+  "files.openInNewTab": "在新分頁開啟",
 };
 export default zh_TW;

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileCompareDialog } from "@/components/FileCompareDialog";
 import { FileJourneyTimeline } from "@/components/FileJourneyTimeline";
+import { PdfPreview } from "@/components/PdfPreview";
 import { QRCodeSVG } from "qrcode.react";
 import {
   fetchFileBlob,
@@ -498,11 +499,7 @@ export function FilePreviewDialog({
                   className="object-contain"
                 />
               ) : isPdf ? (
-                <iframe
-                  src={objectUrl ?? ""}
-                  title={file.filename}
-                  className="h-96 w-full"
-                />
+                <PdfPreview url={objectUrl ?? ""} fileName={file.filename} />
               ) : (
                 <div className="py-8 text-center">
                   <p className="text-sm text-muted-foreground">

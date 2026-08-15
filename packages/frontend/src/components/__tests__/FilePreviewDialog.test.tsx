@@ -13,6 +13,20 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+// pdfjs-dist 依赖浏览器 API（DOMMatrix），jsdom 环境不可用，mock 掉
+vi.mock("pdfjs-dist", () => ({
+  GlobalWorkerOptions: { workerSrc: "" },
+  getDocument: () => ({
+    promise: Promise.resolve({
+      numPages: 1,
+      getPage: async () => ({
+        getViewport: () => ({ width: 100, height: 100 }),
+        render: () => ({ promise: Promise.resolve() }),
+      }),
+    }),
+  }),
+}));
+
 import { fetchFileBlob, fetchFileVersions, getFile } from "@/lib/api";
 import { toast } from "sonner";
 
