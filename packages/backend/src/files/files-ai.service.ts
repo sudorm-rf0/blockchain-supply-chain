@@ -47,6 +47,8 @@ export class FilesAiService {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly model: string;
+  /** DeepSeek 思考强度（reasoning_effort）：最低为 none；留空则不发送该参数 */
+  private readonly reasoningEffort: string;
   private readonly enabled: boolean;
 
   constructor(
@@ -56,6 +58,7 @@ export class FilesAiService {
     this.apiKey = (process.env.AI_API_KEY ?? "").trim();
     this.baseUrl = (process.env.AI_BASE_URL ?? "https://api.openai.com/v1").trim().replace(/\/+$/, "");
     this.model = (process.env.AI_MODEL ?? "gpt-4o-mini").trim();
+    this.reasoningEffort = (process.env.AI_REASONING_EFFORT ?? "none").trim();
     this.enabled = this.apiKey.length > 0;
     if (!this.enabled) {
       this.logger.warn("AI_API_KEY 未配置：AI 审核助手停用（返回 503）");
@@ -88,6 +91,8 @@ export class FilesAiService {
           messages,
           temperature: 0.2,
           max_tokens: maxTokens,
+          // 思考强度拉到最低（DeepSeek v4：none=最低，high=默认）
+          ...(this.reasoningEffort ? { reasoning_effort: this.reasoningEffort } : {}),
         }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
