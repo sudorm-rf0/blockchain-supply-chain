@@ -80,6 +80,7 @@ const zh_CN = {
   "trade.errors.connectWallet": "请先连接钱包再创建订单",
   "trade.errors.invalidAmount": "请输入有效的贸易金额",
   "trade.errors.invalidSeller": "卖方钱包地址格式不正确",
+  "trade.errors.unauthorized": "仅管理员可创建贸易订单",
   "upload.title": "上传文件",
   "upload.attestHint": "上传后可使用钱包将文件哈希写入 Solana 存证",
   "upload.dropzone": "拖拽文件到这里，或点击选择文件",

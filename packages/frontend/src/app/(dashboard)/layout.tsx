@@ -69,7 +69,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       router.replace("/change-password");
       return;
     }
-    if (pathname.startsWith("/admin") && user.role === "USER") {
+    if (
+      (pathname.startsWith("/admin") || pathname.startsWith("/trade")) &&
+      user.role === "USER"
+    ) {
       router.replace("/user/files");
     } else if (
       pathname.startsWith("/user") &&

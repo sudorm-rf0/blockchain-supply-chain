@@ -80,6 +80,7 @@ const en = {
   "trade.errors.connectWallet": "Please connect your wallet before creating an order",
   "trade.errors.invalidAmount": "Please enter a valid trade amount",
   "trade.errors.invalidSeller": "Invalid seller wallet address",
+  "trade.errors.unauthorized": "Only admins can create trade orders",
   "upload.title": "Upload File",
   "upload.attestHint": "After uploading, use your wallet to write the file hash to Solana for proof.",
   "upload.dropzone": "Drag and drop a file here, or click to select",

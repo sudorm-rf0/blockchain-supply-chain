@@ -226,6 +226,10 @@ export class TradesService {
 
     const buyer = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!buyer) throw new ForbiddenException("登录用户不存在");
+    // 贸易订单创建仅限管理员/超级管理员（前端隐藏入口 + 后端双重校验）
+    if (buyer.role !== "ADMIN" && buyer.role !== "SUPER_ADMIN") {
+      throw new ForbiddenException("仅管理员可创建贸易订单");
+    }
     if (buyer.wallet !== dto.buyerWallet) {
       throw new ForbiddenException("buyer wallet does not match the signed-in user");
     }

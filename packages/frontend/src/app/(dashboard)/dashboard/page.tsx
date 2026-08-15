@@ -167,9 +167,11 @@ export default function DashboardPage() {
           <h1 className="mt-2 text-2xl font-bold text-foreground">{t("dashboard.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/trade/new">{t("dashboard.createOrder")}</Link>
-          </Button>
+          {user?.role !== "USER" && (
+            <Button variant="outline" asChild>
+              <Link href="/trade/new">{t("dashboard.createOrder")}</Link>
+            </Button>
+          )}
           <WalletConnectButton />
         </div>
       </header>

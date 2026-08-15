@@ -79,6 +79,7 @@ const zh_TW = {
   "trade.errors.connectWallet": "請先連接錢包再建立訂單",
   "trade.errors.invalidAmount": "請輸入有效的貿易金額",
   "trade.errors.invalidSeller": "賣方錢包地址格式不正確",
+  "trade.errors.unauthorized": "僅管理員可建立貿易訂單",
   "upload.title": "上傳檔案",
   "upload.attestHint": "上傳後可使用錢包將檔案雜湊寫入 Solana 存證",
   "upload.dropzone": "拖曳檔案到這裡，或點擊選擇檔案",

@@ -7,6 +7,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Transaction } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
+import { useUserStore } from "@/stores/user-store";
 import { TransactionStatusToast } from "@/components/TransactionStatusToast";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ const TENOR_OPTIONS = [30, 60, 90, 120];
 export default function NewTradePage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const user = useUserStore((state) => state.user);
   const { connected, publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -53,6 +55,17 @@ export default function NewTradePage() {
     poolPortion: string;
     tradeId: string;
   } | null>(null);
+
+  // 贸易订单创建仅限管理员/超级管理员
+  if (user && user.role === "USER") {
+    return (
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        <p className="rounded-md border border-red-500/50 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-200">
+          {t("trade.errors.unauthorized")}
+        </p>
+      </main>
+    );
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -45,7 +45,15 @@ function makeAudit() {
 
 describe("TradesService", () => {
   it("rejects non-matching buyer wallets on create", async () => {
-    const prisma = makePrisma();
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: "user-1",
+          wallet: "adminWallet",
+          role: "ADMIN",
+        })),
+      },
+    });
     const service = new TradesService(prisma as never, makeAudit() as never, makeRedis() as never);
     await expect(
       service.createTrade(
@@ -66,10 +74,9 @@ describe("TradesService", () => {
         findUnique: jest.fn(async () => ({
           id: "user-1",
           wallet: "buyerWallet",
-          role: "USER",
+          role: "ADMIN",
         })),
-      },
-    });
+      },    });
     const service = new TradesService(prisma as never, makeAudit() as never, makeRedis() as never);
     await expect(
       service.createTrade(
@@ -152,7 +159,7 @@ describe("TradesService", () => {
         findUnique: jest.fn(async () => ({
           id: "user-1",
           wallet: "CxnwqG86ibkHhmNSrcCCbUTmmWvTTQZZddgb7d5YNxtV",
-          role: "USER",
+          role: "ADMIN",
         })),
       },
       tradeDeal: {
@@ -227,10 +234,9 @@ describe("TradesService", () => {
         findUnique: jest.fn(async () => ({
           id: "user-1",
           wallet: "buyerWallet",
-          role: "USER",
+          role: "ADMIN",
         })),
-      },
-    });
+      },    });
     const service = new TradesService(
       prisma as never,
       makeAudit() as never,
@@ -247,6 +253,26 @@ describe("TradesService", () => {
         "user-1",
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects create for regular users (admin-only)", async () => {
+    const prisma = makePrisma(); // user-1 默认 role=USER
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(
+      service.createTrade(
+        {
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: "100",
+          tenor: "30",
+        },
+        "user-1",
+      ),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it("rejects create when the signed-in user does not exist", async () => {

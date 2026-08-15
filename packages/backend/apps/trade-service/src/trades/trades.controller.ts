@@ -35,10 +35,10 @@ export class TradesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @ApiOperation({
     summary: "预构建创建贸易订单交易",
-    description: "校验用户权限并计算 30% 首付/70% 垫付，返回待签名交易",
+    description: "仅管理员/超级管理员可创建贸易订单；校验权限并计算 30% 首付/70% 垫付，返回待签名交易",
   })
   @ApiCreatedResponse({ type: CreateTradeResponseDto })
   create(
