@@ -19,6 +19,7 @@ services:
         NEXT_PUBLIC_CSP_REPORT_URI: ${NEXT_PUBLIC_CSP_REPORT_URI:-}
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     image: supply-chain-backend:latest
+    mem_limit: 768m
     container_name: supply-chain-backend
     restart: unless-stopped
     command: ["npm", "run", "start"]
@@ -38,6 +39,7 @@ services:
   indexer:
     networks: [supply-chain-net]
     image: supply-chain-backend:latest
+    mem_limit: 384m
     container_name: supply-chain-indexer
     restart: unless-stopped
     command: ["npm", "run", "start:indexer"]
@@ -55,6 +57,7 @@ services:
   trade:
     networks: [supply-chain-net]
     image: supply-chain-backend:latest
+    mem_limit: 384m
     container_name: supply-chain-trade
     restart: unless-stopped
     command: ["npm", "run", "start:trade"]
@@ -72,6 +75,7 @@ services:
   pool:
     networks: [supply-chain-net]
     image: supply-chain-backend:latest
+    mem_limit: 384m
     container_name: supply-chain-pool
     restart: unless-stopped
     command: ["npm", "run", "start:pool"]
@@ -101,6 +105,7 @@ services:
         NEXT_PUBLIC_CSP_REPORT_URI: ${NEXT_PUBLIC_CSP_REPORT_URI:-}
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     image: supply-chain-frontend:latest
+    mem_limit: 512m
     container_name: supply-chain-frontend
     restart: unless-stopped
     environment:
@@ -117,6 +122,7 @@ services:
   clamav:
     networks: [supply-chain-net]
     image: clamav/clamav:stable
+    mem_limit: 1536m
     container_name: supply-chain-clamav
     restart: unless-stopped
     volumes:
@@ -131,6 +137,7 @@ services:
   nginx:
     networks: [supply-chain-net]
     image: nginx:1.27-alpine
+    mem_limit: 256m
     container_name: supply-chain-nginx
     restart: unless-stopped
     ports:
@@ -150,6 +157,7 @@ services:
   # Cloudflare 告警 Webhook 接收转发（校验 cf-webhook-auth → Resend 邮件）
   cf-alert-relay:
     image: python:3.12-alpine
+    mem_limit: 128m
     container_name: supply-chain-cf-relay
     restart: unless-stopped
     networks: [supply-chain-net]
