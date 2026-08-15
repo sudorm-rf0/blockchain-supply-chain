@@ -139,6 +139,9 @@ export class InviteCodesService {
           name: u?.name ?? null,
           generated: v.generated,
           used: v.used,
+          // 管理员使用率：生成后实际被用掉的比例（1 位小数）
+          usageRate:
+            v.generated > 0 ? Math.round((v.used / v.generated) * 1000) / 10 : 0,
         };
       })
       .sort((a, b) => b.generated - a.generated);

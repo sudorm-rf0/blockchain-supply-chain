@@ -140,6 +140,7 @@ export interface InviteStats {
     name: string | null;
     generated: number;
     used: number;
+    usageRate: number;
   }>;
   recentUsed: Array<{
     id: string;

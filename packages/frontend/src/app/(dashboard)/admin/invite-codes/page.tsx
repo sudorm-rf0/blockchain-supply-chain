@@ -33,6 +33,7 @@ export default function InviteCodesPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"used" | "unused">("used");
   const [range, setRange] = useState<"7" | "30" | "90">("30");
+  const [granularity, setGranularity] = useState<"day" | "week" | "month">("day");
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
@@ -91,7 +92,39 @@ export default function InviteCodesPage() {
           : role;
 
   const trendDays = Number(range);
-  const trend = stats?.trend?.slice(-trendDays) ?? [];
+  const isoWeekKey = (dateStr: string) => {
+    const d = new Date(`${dateStr}T00:00:00`);
+    const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const day = (t.getDay() + 6) % 7;
+    t.setDate(t.getDate() - day + 3);
+    const firstThursday = new Date(t.getFullYear(), 0, 4);
+    const week =
+      1 +
+      Math.round(
+        ((t.getTime() - firstThursday.getTime()) / 86_400_000 -
+          3 +
+          ((firstThursday.getDay() + 6) % 7)) /
+          7,
+      );
+    return `${t.getFullYear()}-W${String(week).padStart(2, "0")}`;
+  };
+  let trend: Array<{ date: string; generated: number; used: number }> = [];
+  if (stats) {
+    if (granularity === "day") {
+      trend = stats.trend.slice(-trendDays);
+    } else {
+      const map = new Map<string, { generated: number; used: number }>();
+      for (const d of stats.trend) {
+        const key =
+          granularity === "week" ? isoWeekKey(d.date) : d.date.slice(0, 7);
+        const cur = map.get(key) ?? { generated: 0, used: 0 };
+        cur.generated += d.generated;
+        cur.used += d.used;
+        map.set(key, cur);
+      }
+      trend = [...map.entries()].map(([date, v]) => ({ date, ...v }));
+    }
+  }
   const maxTrend = Math.max(1, ...trend.map((d) => Math.max(d.generated, d.used)));
 
   const usedItems = items.filter((i) => i.usedAt);
@@ -164,17 +197,33 @@ export default function InviteCodesPage() {
                   <BarChart3 className="h-4 w-4 text-[#00E676]" />
                   {t("inviteStats.trend")}
                 </CardTitle>
-                <div className="flex items-center gap-1 rounded-md border p-0.5">
-                  {(["7", "30", "90"] as const).map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setRange(d)}
-                      className={`rounded px-2 py-1 text-xs ${range === d ? "bg-primary/15 text-[#00E676]" : "text-muted-foreground"}`}
-                    >
-                      {d}{t("inviteStats.days")}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-md border p-0.5">
+                    {(["day", "week", "month"] as const).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setGranularity(g)}
+                        className={`rounded px-2 py-1 text-xs ${granularity === g ? "bg-primary/15 text-[#00E676]" : "text-muted-foreground"}`}
+                      >
+                        {t(`inviteStats.by${g === "day" ? "Day" : g === "week" ? "Week" : "Month"}`)}
+                      </button>
+                    ))}
+                  </div>
+                  {granularity === "day" && (
+                    <div className="flex items-center gap-1 rounded-md border p-0.5">
+                      {(["7", "30", "90"] as const).map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setRange(d)}
+                          className={`rounded px-2 py-1 text-xs ${range === d ? "bg-primary/15 text-[#00E676]" : "text-muted-foreground"}`}
+                        >
+                          {d}{t("inviteStats.days")}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -199,7 +248,11 @@ export default function InviteCodesPage() {
                 <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />{t("inviteStats.used")}</span>
                   <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-primary/30" />{t("inviteStats.generated")}</span>
-                  <span className="text-muted-foreground/70">{t("inviteStats.lastNDays", { n: trendDays })}</span>
+                  <span className="text-muted-foreground/70">
+                    {granularity === "day"
+                      ? t("inviteStats.lastNDays", { n: trendDays })
+                      : t("inviteStats.lastNDays", { n: 90 })}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -222,6 +275,7 @@ export default function InviteCodesPage() {
                         <TableHead>{t("inviteStats.creator")}</TableHead>
                         <TableHead>{t("inviteStats.generated")}</TableHead>
                         <TableHead>{t("inviteStats.used")}</TableHead>
+                        <TableHead>{t("inviteStats.usageRate")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -233,6 +287,11 @@ export default function InviteCodesPage() {
                           </TableCell>
                           <TableCell className="text-xs">{c.generated}</TableCell>
                           <TableCell className="text-xs text-emerald-600">{c.used}</TableCell>
+                          <TableCell className="text-xs">
+                            <span className={c.usageRate > 0 ? "text-emerald-600" : "text-muted-foreground"}>
+                              {c.usageRate}%
+                            </span>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
