@@ -67,6 +67,9 @@ export {
   getAccount,
   createAccount,
   changeAccountRole,
+  generateInviteCodes,
+  fetchInviteCodes,
+  fetchInviteCodesExport,
 } from "./accounts-api";
 export type {
   AccountRecord,
@@ -75,6 +78,7 @@ export type {
   AccountDeal,
   AccountFile,
   AccountDetail,
+  InviteCodeRecord,
 } from "./accounts-api";
 export type { PoolOverview, WithdrawRequestRecord } from "./pool-api";
 export { fetchIndexerStatus } from "./indexer-api";

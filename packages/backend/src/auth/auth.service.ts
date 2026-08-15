@@ -190,6 +190,7 @@ export class AuthService {
     email: string;
     password: string;
     wallet?: string;
+    inviteCode: string;
     turnstileToken?: string;
   }): Promise<RegisterResult> {
     if (!(await this.turnstile.verify(body.turnstileToken, { expectedAction: "signup" }))) {
@@ -200,6 +201,9 @@ export class AuthService {
     }
     if (body.password.length < 6) {
       throw new BadRequestException("密码至少 6 位");
+    }
+    if (!body.inviteCode || !/^[A-Za-z0-9]{6}$/.test(body.inviteCode)) {
+      throw new BadRequestException("邀请码为 6 位数字或字母");
     }
     if (body.wallet) {
       try {
@@ -229,25 +233,46 @@ export class AuthService {
     // 输入验证码激活前不可登录。验证码 5 分钟有效、单次使用。
     const sent = await this.emailVerification.sendCode(body.email);
 
+    // 邀请码校验：必须存在且未被使用
+    const invite = await this.prisma.inviteCode.findUnique({
+      where: { code: body.inviteCode },
+      select: { id: true, usedAt: true },
+    });
+    if (!invite) {
+      throw new BadRequestException("邀请码无效");
+    }
+    if (invite.usedAt) {
+      throw new ConflictException("邀请码已被使用");
+    }
+
     const salt = randomBytes(16).toString("hex");
     const passwordHash = (await hashPassword(body.password, salt)).toString("hex");
     let user;
     try {
-      user = await this.prisma.user.create({
-        data: {
-          wallet,
-          email: body.email,
-          name: body.name,
-          passwordHash: `${salt}:${passwordHash}`,
-          role: "USER",
-          emailVerified: false,
-          // 最高安全：真实注册账号强制开启邮箱验证码登录
-          emailOtpEnabled: true,
-        },
+      // 事务：创建用户 + 原子占用邀请码（User.inviteCodeId 唯一约束防并发占用）
+      user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            wallet,
+            email: body.email,
+            name: body.name,
+            passwordHash: `${salt}:${passwordHash}`,
+            role: "USER",
+            emailVerified: false,
+            // 最高安全：真实注册账号强制开启邮箱验证码登录
+            emailOtpEnabled: true,
+            inviteCodeId: invite.id,
+          },
+        });
+        await tx.inviteCode.update({
+          where: { id: invite.id },
+          data: { usedById: created.id, usedAt: new Date() },
+        });
+        return created;
       });
     } catch (error: any) {
       if (error?.code === "P2002") {
-        throw new ConflictException("该钱包地址或邮箱已被其他用户绑定");
+        throw new ConflictException("该钱包地址、邮箱或邀请码已被使用");
       }
       throw error;
     }

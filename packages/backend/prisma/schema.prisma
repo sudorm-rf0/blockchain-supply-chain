@@ -42,12 +42,31 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
+  /// 注册时使用的邀请码
+  inviteCodeId String?      @unique
+  inviteCode   InviteCode?  @relation("InviteCodeUser", fields: [inviteCodeId], references: [id])
+
   buyerDeals    TradeDeal[]   @relation("Buyer")
   sellerDeals   TradeDeal[]   @relation("Seller")
   files         File[]
   financingRequests         FinancingRequest[]  @relation("FinancingApplicant")
   reviewedFinancingRequests FinancingRequest[]  @relation("FinancingReviewer")
   refreshTokens RefreshToken[]
+}
+
+model InviteCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  /// 生成该邀请码的管理员（超管 id，仅展示用）
+  createdById String?
+  /// 使用该邀请码注册的用户（一个码仅能被一个用户使用）
+  usedById    String?   @unique
+  usedBy      User?     @relation("InviteCodeUser")
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([createdById])
+  @@map("invite_codes")
 }
 
 model RefreshToken {

@@ -38,7 +38,7 @@ function makePrisma(
     byWallet.set(String(u.wallet), u);
     byId.set(String(u.id), u);
   }
-  return {
+  const db: any = {
     refreshToken: {
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "rt1", ...data })),
       findUnique: jest.fn(async () => null),
@@ -46,6 +46,14 @@ function makePrisma(
       updateMany: jest.fn(async () => ({ count: 0 })),
       deleteMany: jest.fn(async () => ({ count: 0 })),
     },
+    inviteCode: {
+      // "AB12CD" 视为有效未用邀请码；其他视为无效
+      findUnique: jest.fn(async ({ where }: { where: { code: string } }) =>
+        where.code === "AB12CD" ? { id: "ic1", usedAt: null } : null,
+      ),
+      update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "ic1", ...data })),
+    },
+    $transaction: jest.fn(async (cb: (tx: unknown) => unknown) => cb(db)),
     user: {
       findUnique: jest.fn(
         async ({ where }: { where: { email?: string; wallet?: string; id?: string } }) => {
@@ -75,6 +83,7 @@ function makePrisma(
       ),
     },
   };
+  return db;
 }
 
 function makeRedis() {
@@ -107,7 +116,8 @@ describe("AuthService", () => {
       makeEmailVerification() as never,
     );
     await expect(
-      service.register({ name: "A", email: "a@example.com", password: "123" }),
+      service.register({
+      inviteCode: "AB12CD", name: "A", email: "a@example.com", password: "123" }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -121,6 +131,7 @@ describe("AuthService", () => {
     );
     await expect(
       service.register({
+      inviteCode: "AB12CD",
         name: "A",
         email: "a@example.com",
         password: "secret123",
@@ -140,6 +151,7 @@ describe("AuthService", () => {
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "dup@example.com",
       password: "secret123",
@@ -147,6 +159,7 @@ describe("AuthService", () => {
     });
     await expect(
       service.register({
+      inviteCode: "AB12CD",
         name: "B",
         email: "dup@example.com",
         password: "secret123",
@@ -186,6 +199,7 @@ describe("AuthService", () => {
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "login@example.com",
       password: "secret123",
@@ -222,6 +236,7 @@ describe("AuthService", () => {
       makeEmailVerification() as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "T",
       email: "setup@example.com",
       password: "secret123",
@@ -257,6 +272,7 @@ describe("AuthService", () => {
     );
     // 密码正确性仍校验：用真实注册流程生成合法密码哈希
     await service.register({
+      inviteCode: "AB12CD",
       name: "T",
       email: "totp2@example.com",
       password: "secret123",
@@ -309,6 +325,7 @@ describe("AuthService", () => {
       makeEmailVerification() as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "T",
       email: "enable@example.com",
       password: "secret123",
@@ -335,6 +352,7 @@ describe("AuthService", () => {
       makeEmailVerification() as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "T",
       email: "disable@example.com",
       password: "secret123",
@@ -365,6 +383,7 @@ describe("AuthService", () => {
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "audit-login@example.com",
       password: "secret123",
@@ -392,6 +411,7 @@ describe("AuthService", () => {
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "change@example.com",
       password: "secret123",
@@ -425,6 +445,7 @@ describe("AuthService", () => {
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     const reg = await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "audit-pass@example.com",
       password: "secret123",
@@ -463,6 +484,7 @@ describe("AuthService", () => {
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     const result = await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "pending@example.com",
       password: "secret123",
@@ -498,6 +520,7 @@ describe("AuthService", () => {
     );
     await expect(
       service.register({
+      inviteCode: "AB12CD",
         name: "A",
         email: "send-fail@example.com",
         password: "secret123",
@@ -517,6 +540,7 @@ describe("AuthService", () => {
       makeEmailVerification() as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "activate@example.com",
       password: "secret123",
@@ -555,6 +579,7 @@ describe("AuthService", () => {
       makeEmailVerification() as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "unverified@example.com",
       password: "secret123",
@@ -576,6 +601,7 @@ describe("AuthService", () => {
       emailVerification as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "otp-login@example.com",
       password: "secret123",
@@ -604,6 +630,7 @@ describe("AuthService", () => {
       makeEmailVerification() as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "otp-login2@example.com",
       password: "secret123",
@@ -637,6 +664,7 @@ describe("AuthService", () => {
       emailVerification as never,
     );
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "cp-code@example.com",
       password: "secret123",
@@ -662,6 +690,7 @@ describe("AuthService", () => {
     const wallet1 = Keypair.generate().publicKey.toBase58();
     const wallet2 = Keypair.generate().publicKey.toBase58();
     await service.register({
+      inviteCode: "AB12CD",
       name: "A",
       email: "bind-wallet@example.com",
       password: "secret123",
@@ -673,5 +702,54 @@ describe("AuthService", () => {
       "bind-wallet@example.com",
       "123456",
     );
+  });
+});
+
+describe("AuthService invite codes", () => {
+  function makeService(prisma: any, redis: any = makeRedis()) {
+    return new AuthService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+    );
+  }
+
+  it("rejects invalid invite code format", async () => {
+    const service = makeService(makePrisma());
+    await expect(
+      service.register({ name: "A", email: "a@example.com", password: "secret123", inviteCode: "abc" }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects unknown invite code", async () => {
+    const service = makeService(makePrisma());
+    await expect(
+      service.register({ name: "A", email: "a@example.com", password: "secret123", inviteCode: "ZZZZ99" }),
+    ).rejects.toThrow("邀请码无效");
+  });
+
+  it("rejects already-used invite code", async () => {
+    const prisma = makePrisma();
+    (prisma.inviteCode.findUnique as jest.Mock).mockResolvedValue({ id: "ic1", usedAt: new Date() });
+    const service = makeService(prisma);
+    await expect(
+      service.register({ name: "A", email: "a@example.com", password: "secret123", inviteCode: "AB12CD" }),
+    ).rejects.toThrow("邀请码已被使用");
+  });
+
+  it("claims invite code on successful register", async () => {
+    const prisma = makePrisma();
+    const service = makeService(prisma);
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({ name: "A", email: "a@example.com", password: "secret123", wallet, inviteCode: "AB12CD" });
+    // user.create 收到 inviteCodeId
+    const createCall = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
+    expect(createCall.inviteCodeId).toBe("ic1");
+    // 邀请码被更新为已使用
+    const updateCall = (prisma.inviteCode.update as jest.Mock).mock.calls[0];
+    expect(updateCall[0].where.id).toBe("ic1");
+    expect(updateCall[0].data.usedById).toBeTruthy();
   });
 });

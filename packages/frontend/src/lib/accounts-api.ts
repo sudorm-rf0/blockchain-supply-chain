@@ -15,7 +15,18 @@ export interface AccountRecord {
   mustChangePassword: boolean;
   createdAt: string;
   lastPasswordChangeAt: string | null;
+  inviteCode: { code: string } | null;
   _count?: { files: number; buyerDeals: number; sellerDeals: number };
+}
+
+export interface InviteCodeRecord {
+  id: string;
+  code: string;
+  usedAt: string | null;
+  usedByEmail: string | null;
+  usedByName: string | null;
+  usedByRole: string | null;
+  createdAt: string;
 }
 
 export interface AccountsResponse {
@@ -90,5 +101,28 @@ export async function changeAccountRole(
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ role }),
+  });
+}
+
+export async function generateInviteCodes(
+  count: number,
+): Promise<{ ok: boolean; count: number; codes: string[] }> {
+  return request(`${BACKEND_URL}/api/admin/invite-codes/generate`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ count }),
+  });
+}
+
+export async function fetchInviteCodes(): Promise<{
+  items: InviteCodeRecord[];
+}> {
+  return request(`${BACKEND_URL}/api/admin/invite-codes`);
+}
+
+/** 导出邀请码清单（纯文本，含 Bearer 认证），由前端触发下载。 */
+export async function fetchInviteCodesExport(): Promise<string> {
+  return request(`${BACKEND_URL}/api/admin/invite-codes/export`, {
+    headers: { accept: "text/plain" },
   });
 }

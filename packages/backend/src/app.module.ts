@@ -7,8 +7,10 @@ import { AppController } from "./app.controller";
 import { CspReportController } from "./csp-report.controller";
 import { AdminStatsController } from "./admin/admin.controller";
 import { AccountsController } from "./admin/accounts.controller";
+import { InviteCodesController } from "./admin/invite-codes.controller";
 import { AuthModule } from "./auth/auth.module";
 import { AuditModule } from "./audit/audit.module";
+import { InviteCodesService } from "./admin/invite-codes.service";
 import { FilesModule } from "./files/files.module";
 import { SupplyChainModule } from "./supply-chain/supply-chain.module";
 import { EmailVerificationModule } from "./email-verification/email-verification.module";
@@ -46,9 +48,11 @@ import { RedisService } from "@supply-chain/common";
     PublicVerifyController,
     AdminStatsController,
     AccountsController,
+    InviteCodesController,
   ],
   providers: [
     PrismaService,
+    InviteCodesService,
     RedisService,
     MetricsService,
     {

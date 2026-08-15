@@ -36,6 +36,9 @@ export default function RegisterPage() {
             .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, t("register.validation.wallet"))
             .optional()
             .or(z.literal("")),
+          inviteCode: z
+            .string()
+            .regex(/^[A-Za-z0-9]{6}$/, t("register.validation.inviteCode")),
         })
         .refine((data) => data.password === data.confirmPassword, {
           message: t("register.validation.passwordMismatch"),
@@ -55,6 +58,7 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      inviteCode: "",
     },
   });
 
@@ -69,6 +73,7 @@ export default function RegisterPage() {
         email: values.email,
         password: values.password,
         wallet: values.wallet || undefined,
+        inviteCode: values.inviteCode.trim(),
         turnstileToken: turnstileToken || undefined,
       });
       if (result.requiresEmailVerification) {
@@ -132,6 +137,19 @@ export default function RegisterPage() {
                 <p className="text-sm text-destructive">
                   {errors.confirmPassword.message}
                 </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inviteCode">{t("register.inviteCode")}</Label>
+              <Input
+                id="inviteCode"
+                placeholder={t("register.inviteCodePlaceholder")}
+                maxLength={6}
+                autoCapitalize="characters"
+                {...register("inviteCode")}
+              />
+              {errors.inviteCode && (
+                <p className="text-sm text-destructive">{errors.inviteCode.message}</p>
               )}
             </div>
             <div className="space-y-2">

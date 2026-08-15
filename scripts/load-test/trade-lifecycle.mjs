@@ -17,8 +17,34 @@ const TOTAL       = Number(process.env.TOTAL ?? 20);
 
 const EMAIL = `trade-load-${Date.now()}@example.com`;
 
+// 邀请码制度：并发注册需要多个一次性邀请码，启动时由管理员批量生成
+let INVITE_CODES = process.env.INVITE_CODE
+  ? [process.env.INVITE_CODE]
+  : (async () => {
+      const login = await fetch(`${BACKEND}/api/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
+          password: process.env.ADMIN_PASSWORD ?? "Admin123!",
+        }),
+      });
+      const { accessToken } = await login.json();
+      if (!accessToken) throw new Error("admin login failed for invite code");
+      const gen = await fetch(`${BACKEND}/api/admin/invite-codes/generate`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ count: TOTAL + CONCURRENCY }),
+      });
+      const body = await gen.json();
+      return body.codes ?? [];
+    })();
+
 async function register() {
   const wallet = Keypair.generate().publicKey.toBase58();
+  const codes = await INVITE_CODES;
+  if (codes.length === 0) throw new Error("no invite codes available");
+  const inviteCode = codes.shift();
   const res = await fetch(`${BACKEND}/api/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -27,6 +53,7 @@ async function register() {
       email: EMAIL,
       password: "secret123",
       wallet,
+      inviteCode,
     }),
   });
   if (!res.ok) throw new Error(`register failed: ${res.status} ${await res.text()}`);

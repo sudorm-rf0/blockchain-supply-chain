@@ -79,6 +79,7 @@ export async function register(input: {
   email: string;
   password: string;
   wallet?: string;
+  inviteCode: string;
   turnstileToken?: string;
 }): Promise<{
   accessToken?: string;

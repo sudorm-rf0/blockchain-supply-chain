@@ -63,6 +63,7 @@ async function register() {
       email: EMAIL,
       password: "secret123",
       wallet,
+      inviteCode: process.env.INVITE_CODE ?? "AB12CD",
     }),
   });
   if (!res.ok) {

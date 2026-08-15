@@ -82,11 +82,27 @@ await fund(wallet.publicKey);
 await new Promise((r) => setTimeout(r, 1200));
 
 const email = `smoke-${Date.now()}@example.com`;
+// 邀请码制度：注册前用管理员生成一个邀请码
+const adminLogin = await api(BASE, "/api/auth/login", null, "POST", {
+  email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
+  password: process.env.ADMIN_PASSWORD ?? "Admin123!",
+});
+if (!adminLogin.accessToken) throw new Error("admin login failed for invite code generation");
+const inviteRes = await api(
+  BASE,
+  "/api/admin/invite-codes/generate",
+  adminLogin.accessToken,
+  "POST",
+  { count: 1 },
+);
+const inviteCode = inviteRes.codes?.[0];
+if (!inviteCode) throw new Error("failed to generate invite code");
 const reg = await api(BASE, "/api/auth/register", null, "POST", {
   name: "Smoke",
   email,
   password: "secret123",
   wallet: wallet.publicKey.toBase58(),
+  inviteCode,
 });
 results.register = true;
 

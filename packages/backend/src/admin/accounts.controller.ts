@@ -72,6 +72,7 @@ export class AccountsController {
           mustChangePassword: true,
           createdAt: true,
           lastPasswordChangeAt: true,
+          inviteCode: { select: { code: true } },
           _count: { select: { files: true, buyerDeals: true, sellerDeals: true } },
         },
       }),
