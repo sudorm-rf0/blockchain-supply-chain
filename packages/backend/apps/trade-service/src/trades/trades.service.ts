@@ -348,7 +348,7 @@ export class TradesService {
     params: { search?: string; status?: string } = {},
   ): Promise<TradeItemDto[]> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role !== "ADMIN") {
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
       throw new ForbiddenException("仅管理员可查看全部订单");
     }
     const where: Prisma.TradeDealWhereInput = this.applyTradeFilters({}, params);
@@ -387,6 +387,7 @@ export class TradesService {
     if (!user) throw new ForbiddenException("登录用户不存在");
     if (
       user.role !== "ADMIN" &&
+      user.role !== "SUPER_ADMIN" &&
       user.wallet !== trade.buyerWallet &&
       user.wallet !== trade.sellerWallet
     ) {
@@ -874,7 +875,7 @@ export class TradesService {
 
   private async requireAdminAndDeal(tradeId: string, userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role !== "ADMIN") {
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
       throw new ForbiddenException("仅管理员可执行此操作");
     }
     this.parseTradeId(tradeId);

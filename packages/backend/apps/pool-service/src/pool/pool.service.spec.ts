@@ -16,6 +16,9 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
         if (where.id === "user-1") {
           return { id: "user-1", wallet: "lpWallet", role: "USER" };
         }
+        if (where.id === "super-1") {
+          return { id: "super-1", wallet: "superWallet", role: "SUPER_ADMIN" };
+        }
         return null;
       }),
     },
@@ -297,6 +300,42 @@ describe("PoolService", () => {
       ForbiddenException,
     );
     await expect(service.listWithdrawals("admin-1")).resolves.toEqual([]);
+    await expect(service.listWithdrawals("super-1")).resolves.toEqual([]);
+  });
+
+  it("lets super admins execute withdrawals", async () => {
+    const prisma = makePrisma({
+      withdrawRequest: {
+        findUnique: jest.fn(async () => ({
+          id: "wr-1",
+          lpAddress: "lpWallet",
+          status: "READY",
+        })),
+        updateMany: jest.fn(async () => ({ count: 1 })),
+        findUniqueOrThrow: jest.fn(async () => ({
+          id: "wr-1",
+          status: "EXECUTED",
+          lpAddress: "lpWallet",
+        })),
+        update: jest.fn(async ({ data }) => ({
+          id: "wr-1",
+          status: data.status,
+        })),
+      },
+    });
+    const redis = makeRedis();
+    const service = new PoolService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+    );
+    const result = await service.executeWithdrawal(
+      "wr-1",
+      { confirm: true },
+      "super-1",
+    );
+    expect(result.status).toBe("EXECUTED");
+    expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
   });
 
   it("requires an explicit confirmation to execute a withdrawal", async () => {

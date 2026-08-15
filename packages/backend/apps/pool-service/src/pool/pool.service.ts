@@ -285,7 +285,7 @@ export class PoolService {
     userId: string,
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role !== "ADMIN") {
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
       throw new ForbiddenException("仅管理员可执行提款");
     }
     const request = await this.prisma.withdrawRequest.findUnique({
@@ -442,7 +442,7 @@ export class PoolService {
 
   async listWithdrawals(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role !== "ADMIN") {
+    if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
       throw new ForbiddenException("仅管理员可查看提款列表");
     }
     const requests = await this.prisma.withdrawRequest.findMany({

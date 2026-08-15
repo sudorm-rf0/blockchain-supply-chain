@@ -16,6 +16,9 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
         if (where.id === "user-1") {
           return { id: "user-1", wallet: "buyerWallet", role: "USER" };
         }
+        if (where.id === "super-1") {
+          return { id: "super-1", wallet: "superWallet", role: "SUPER_ADMIN" };
+        }
         return null;
       }),
     },
@@ -112,6 +115,35 @@ describe("TradesService", () => {
       ForbiddenException,
     );
     await expect(service.listAllTrades("admin-1")).resolves.toEqual([]);
+    await expect(service.listAllTrades("super-1")).resolves.toEqual([]);
+  });
+
+  it("lets super admins view any trade detail", async () => {
+    const prisma = makePrisma({
+      tradeDeal: {
+        findUnique: jest.fn(async () => ({
+          id: "t-1",
+          dealId: "1",
+          buyerWallet: "buyerWallet",
+          sellerWallet: "sellerWallet",
+          amount: "100",
+          downPayment: "30",
+          poolPortion: "70",
+          tenor: "30",
+          status: "PENDING",
+          createdAt: new Date(),
+        })),
+      },
+    });
+    const service = new TradesService(
+      prisma as never,
+      makeAudit() as never,
+      makeRedis() as never,
+    );
+    await expect(service.getTrade("1", "super-1")).resolves.toMatchObject({
+      tradeId: "1",
+      status: "PENDING",
+    });
   });
 
   it("returns the existing pending deal instead of building a new transaction", async () => {
