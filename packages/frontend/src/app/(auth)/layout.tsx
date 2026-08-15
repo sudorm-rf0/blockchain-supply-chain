@@ -68,13 +68,17 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <span className="flex items-center gap-1.5 font-mono text-xs text-[#00E676]">
-            <span className="h-1.5 w-1.5 bg-[#00E676]" />
+            <span className="h-1.5 w-1.5 animate-pulse-soft bg-[#00E676]" />
             LIVE
           </span>
         </div>
 
         {/* 中部：终端信息块（真实信息） */}
-        <div className="relative z-10 border border-white/15 bg-black/70 p-5 font-mono text-[13px] leading-relaxed">
+        <div className="relative z-10 overflow-hidden border border-white/15 bg-black/70 p-5 font-mono text-[13px] leading-relaxed">
+          <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+            <div className="animate-scan absolute inset-x-0 h-10 bg-gradient-to-b from-transparent via-[#00E676]/6 to-transparent" />
+          </div>
+          <div className="relative">
           <div className="mb-3 flex items-center gap-2 text-[#00E676]">
             <span className="h-2 w-2 bg-[#00E676]" />
             SYSTEM ONLINE
@@ -93,6 +97,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <div className="text-[#00E676]">
               <span className="cursor-blink inline-block h-3.5 w-2 translate-y-0.5 bg-[#00E676]" />
             </div>
+          </div>
           </div>
         </div>
 

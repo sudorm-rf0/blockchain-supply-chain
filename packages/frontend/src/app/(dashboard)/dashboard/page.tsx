@@ -14,6 +14,7 @@ import {
   Percent,
 } from "lucide-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { useUserStore } from "@/stores/user-store";
 import { useIntervalWhenVisible } from "@/hooks/useIntervalWhenVisible";
 import { ClipboardCheck, Upload, Files, ReceiptText, Users, ScrollText, Boxes } from "lucide-react";
@@ -131,12 +132,14 @@ export default function DashboardPage() {
         {
           label: t("dashboard.poolSize"),
           value: `$${formatUsdc(overview.totalAssets)}`,
+          count: Number(overview.totalAssets) / 1e6,
           accent: "text-sky-600 dark:text-sky-300",
           icon: CircleDollarSign,
         },
         {
           label: t("dashboard.nav"),
           value: `$${formatUsdc(overview.nav)}`,
+          count: Number(overview.nav) / 1e6,
           accent: "text-emerald-600 dark:text-emerald-300",
           icon: Landmark,
         },
@@ -271,14 +274,23 @@ export default function DashboardPage() {
       {overview && (
         <>
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {stats.map((stat) => (
-              <Card key={stat.label}>
+            {stats.map((stat, i) => (
+              <Card
+                key={stat.label}
+                className={`animate-fade-in-up animate-delay-${i + 1}`}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardDescription>{stat.label}</CardDescription>
                   <stat.icon className={`h-4 w-4 ${stat.accent}`} />
                 </CardHeader>
                 <CardContent>
-                  <p className={`text-2xl font-semibold ${stat.accent}`}>{stat.value}</p>
+                  <p className={`text-2xl font-semibold ${stat.accent}`}>
+                    {stat.count != null ? (
+                      <AnimatedNumber value={stat.count} prefix="$" />
+                    ) : (
+                      stat.value
+                    )}
+                  </p>
                 </CardContent>
               </Card>
             ))}
@@ -430,9 +442,9 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:border-[#00E676]/50 hover:bg-primary/5"
+      className="group flex items-center gap-3 rounded-md border border-border bg-background p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/60 hover:bg-primary/5 hover:shadow-[0_4px_16px_-8px_rgba(0,230,118,0.4)]"
     >
-      <Icon className="h-4 w-4 shrink-0 text-[#00E676]" />
+      <Icon className="h-4 w-4 shrink-0 text-[#00E676] transition-transform duration-200 group-hover:scale-110" />
       <span className="truncate text-sm">{label}</span>
     </Link>
   );

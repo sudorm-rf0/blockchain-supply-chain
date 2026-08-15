@@ -73,3 +73,49 @@
     animation: blink 1s steps(1) infinite;
   }
 }
+
+/* ===== 动效系统（克制、柔和，遵循 Industrial 风格）===== */
+@layer utilities {
+  .animate-fade-in { animation: dfrFadeIn 0.4s ease-out both; }
+  .animate-fade-in-up { animation: dfrFadeInUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-scale-in { animation: dfrScaleIn 0.3s ease-out both; }
+  .animate-pulse-soft { animation: dfrPulseSoft 2.4s ease-in-out infinite; }
+  .animate-scan { animation: dfrScan 6s linear infinite; }
+  .animate-delay-1 { animation-delay: 60ms; }
+  .animate-delay-2 { animation-delay: 120ms; }
+  .animate-delay-3 { animation-delay: 180ms; }
+  .animate-delay-4 { animation-delay: 240ms; }
+}
+
+@keyframes dfrFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dfrFadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dfrScaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dfrPulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+@keyframes dfrScan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+/* 系统开启「减弱动态」时关闭动画/过渡 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

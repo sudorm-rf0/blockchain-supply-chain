@@ -8,6 +8,13 @@ const { overviewMock, indexerMock, toastError } = vi.hoisted(() => ({
   toastError: vi.fn(),
 }));
 
+// 数字滚动动画：让 rAF 立即完成，测试中直接显示终值
+vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+  cb(performance.now() + 1000);
+  return 1;
+});
+vi.stubGlobal("cancelAnimationFrame", () => undefined);
+
 vi.mock("next/link", () => ({
   default: ({ children, ...rest }: { children: React.ReactNode }) => (
     <a {...rest}>{children}</a>
