@@ -113,8 +113,9 @@ export default function AccountPage() {
   const [deleteCaptchaKey, setDeleteCaptchaKey] = useState(0);
   const [spamOpen, setSpamOpen] = useState(false);
 
-  // 引导账号（emailOtpEnabled=false）改密豁免验证码
-  const requiresEmailCode = user?.emailOtpEnabled !== false;
+  // 修改密码必须邮箱验证码；仅「强制首登改密 + 引导账号无真实邮箱」这一种情况豁免
+  const requiresEmailCode =
+    user?.emailOtpEnabled !== false || user?.mustChangePassword !== true;
 
   useEffect(() => {
     if (emailCooldown <= 0) return;

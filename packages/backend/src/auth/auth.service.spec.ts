@@ -750,6 +750,94 @@ describe("AuthService", () => {
     );
   });
 
+  it("changePassword requires email code for ops accounts after bootstrap", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      inviteCode: "AB12CD",
+      name: "A",
+      email: "ops-change@example.com",
+      password: "secret123",
+      wallet,
+    });
+    const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
+    // 引导账号已过首登改密（mustChangePassword=false），改密仍必须验证码
+    (prisma.user.findUnique as jest.Mock).mockImplementation(
+      async ({ where }: { where: { id?: string } }) =>
+        where.id
+          ? {
+              id: "u1",
+              email: created.email,
+              name: created.name,
+              wallet,
+              role: "ADMIN",
+              passwordHash: created.passwordHash,
+              mustChangePassword: false,
+              emailOtpEnabled: false,
+            }
+          : null,
+    );
+    await expect(
+      service.changePassword("u1", "secret123", "secret1234", undefined),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.changePassword("u1", "secret123", "secret1234", "123456"),
+    ).resolves.toBeTruthy();
+    expect(emailVerification.verifyCode).toHaveBeenCalledWith(
+      created.email,
+      "123456",
+    );
+  });
+
+  it("changePassword skips email code only for forced bootstrap first change", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      inviteCode: "AB12CD",
+      name: "A",
+      email: "bootstrap@example.com",
+      password: "secret123",
+      wallet,
+    });
+    const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
+    // 强制首登改密 + 无真实邮箱：豁免验证码，避免死锁
+    (prisma.user.findUnique as jest.Mock).mockImplementation(
+      async ({ where }: { where: { id?: string } }) =>
+        where.id
+          ? {
+              id: "u1",
+              email: created.email,
+              name: created.name,
+              wallet,
+              role: "SUPER_ADMIN",
+              passwordHash: created.passwordHash,
+              mustChangePassword: true,
+              emailOtpEnabled: false,
+            }
+          : null,
+    );
+    await expect(
+      service.changePassword("u1", "secret123", "secret1234", undefined),
+    ).resolves.toBeTruthy();
+    expect(emailVerification.verifyCode).not.toHaveBeenCalled();
+  });
+
   it("bindWallet requires and verifies an email code", async () => {
     const prisma = makePrisma();
     const emailVerification = makeEmailVerification();

@@ -22,7 +22,9 @@ export default function ChangePasswordPage() {
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
   const user = useUserStore((state) => state.user);
-  const requiresCode = user?.emailOtpEnabled !== false;
+  // 修改密码必须邮箱验证码；仅「强制首登改密 + 引导账号无真实邮箱」豁免
+  const requiresCode =
+    user?.emailOtpEnabled !== false || user?.mustChangePassword !== true;
   const schema = useMemo(
     () =>
       z

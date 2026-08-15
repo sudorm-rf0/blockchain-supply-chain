@@ -549,8 +549,8 @@ export class AuthService {
     if (!user?.passwordHash) {
       throw new UnauthorizedException("用户不存在");
     }
-    // 敏感操作：修改密码前必须通过邮箱验证码确认
-    await this.requireEmailCode(user, emailCode);
+    // 敏感操作：修改密码前必须通过邮箱验证码确认（强制，见 requireEmailCodeForPassword）
+    await this.requireEmailCodeForPassword(user, emailCode);
     const [salt, storedHash] = user.passwordHash.split(":");
     const hash = await hashPassword(currentPassword, salt);
     const stored = Buffer.from(storedHash, "hex");
@@ -756,6 +756,25 @@ export class AuthService {
       cooldownSeconds: sent.cooldownSeconds,
       ...(sent.devCode ? { devCode: sent.devCode } : {}),
     };
+  }
+
+  /**
+   * 修改密码专用：一律要求邮箱验证码，必须验证通过后才能更改密码。
+   * 唯一豁免：引导/运营账号「强制首登改密」且无真实邮箱（emailOtpEnabled=false + mustChangePassword=true），
+   * 避免新部署引导管理员改密死锁；除此之外（含引导账号后续改密）一律强制邮箱验证码。
+   */
+  private async requireEmailCodeForPassword(
+    user: { email: string | null; emailOtpEnabled?: boolean; mustChangePassword?: boolean },
+    code: string | undefined,
+  ): Promise<void> {
+    if (user.emailOtpEnabled === false && user.mustChangePassword === true) return;
+    if (!user.email) {
+      throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
+    }
+    if (code === undefined) {
+      throw new BadRequestException("邮箱验证码为 6 位数字");
+    }
+    await this.emailVerification.verifyCode(user.email, code);
   }
 
   /** 敏感操作统一入口：校验邮箱验证码（用户必须存在邮箱）。 */
