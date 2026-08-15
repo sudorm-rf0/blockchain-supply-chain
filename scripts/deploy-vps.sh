@@ -119,7 +119,8 @@ if [[ "$REHEARSAL" == "1" ]]; then
     echo "==> 可选冒烟：BACKEND_URL=$SMOKE_BACKEND_URL ..."
   fi
 else
-  echo "部署完成：$(get_env PUBLIC_BASE_URL)"
+  PUBLIC_BASE_URL="$(get_env PUBLIC_BASE_URL)"
+  echo "部署完成：$PUBLIC_BASE_URL"
   echo "健康检查: curl -s https://${PUBLIC_BASE_URL#https://}/health"
   echo "日志: docker compose -f ${COMPOSE_DIR}/app-compose.yml logs -f backend"
 fi
