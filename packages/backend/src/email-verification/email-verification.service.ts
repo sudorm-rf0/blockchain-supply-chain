@@ -151,7 +151,7 @@ export class EmailVerificationService {
       const { data, error } = await this.resend.emails.send({
         from: this.from,
         to: [normalized],
-        subject: "供应链金融平台 - 邮箱验证码",
+        subject: "DFR 供应链金融平台邮箱验证码",
         html: this.renderCodeEmail(code),
       });
       if (error) {
