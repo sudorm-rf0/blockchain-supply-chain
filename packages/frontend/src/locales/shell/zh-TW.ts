@@ -10,6 +10,7 @@ const zh_TW = {
   "sidebar.myOrders": "我的訂單",
   "sidebar.financing": "融資管理",
   "sidebar.financingReview": "融資審核",
+    "sidebar.inviteStats": "邀請碼統計",
   "sidebar.accountInfo": "管理帳號資訊",
   "sidebar.uploadFile": "上傳檔案",
   "sidebar.myFiles": "我的檔案",

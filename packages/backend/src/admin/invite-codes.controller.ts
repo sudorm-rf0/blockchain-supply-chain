@@ -51,6 +51,12 @@ export class InviteCodesController {
     return { items: await this.inviteCodes.list() };
   }
 
+  /** 邀请码使用统计：总数/已用/未用/使用率、角色分布、近 30 天趋势、最近使用。 */
+  @Get("stats")
+  async stats() {
+    return this.inviteCodes.stats();
+  }
+
   /** 导出清单：纯文本，每行一个邀请码（含使用状态），可直接复制/打印。 */
   @Get("export")
   @Header("Content-Type", "text/plain; charset=utf-8")

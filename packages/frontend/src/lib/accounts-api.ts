@@ -126,3 +126,24 @@ export async function fetchInviteCodesExport(): Promise<string> {
     headers: { accept: "text/plain" },
   });
 }
+
+export interface InviteStats {
+  total: number;
+  used: number;
+  unused: number;
+  usageRate: number;
+  byRole: Record<string, number>;
+  trend: Array<{ date: string; generated: number; used: number }>;
+  recentUsed: Array<{
+    id: string;
+    code: string;
+    usedAt: string | null;
+    usedByEmail: string | null;
+    usedByName: string | null;
+    usedByRole: string | null;
+  }>;
+}
+
+export async function fetchInviteStats(): Promise<InviteStats> {
+  return request(`${BACKEND_URL}/api/admin/invite-codes/stats`);
+}

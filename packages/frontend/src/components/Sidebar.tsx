@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, ShieldCheck, Upload } from "lucide-react";
+import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, ShieldCheck, Ticket, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -18,7 +18,10 @@ export function Sidebar({ role }: SidebarProps) {
     isAdmin
       ? [
           ...(role === "SUPER_ADMIN"
-            ? [{ href: "/admin/accounts", label: t("sidebar.accounts"), icon: ShieldCheck }]
+            ? [
+                { href: "/admin/accounts", label: t("sidebar.accounts"), icon: ShieldCheck },
+                { href: "/admin/invite-codes", label: t("sidebar.inviteStats"), icon: Ticket },
+              ]
             : []),
           {
             href: "/admin/files?status=PENDING",

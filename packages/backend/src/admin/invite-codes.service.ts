@@ -73,6 +73,63 @@ export class InviteCodesService {
     return codes;
   }
 
+
+  async stats() {
+    const rows = await this.prisma.inviteCode.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 2000,
+      include: {
+        usedBy: { select: { email: true, name: true, role: true } },
+      },
+    });
+    const total = rows.length;
+    const usedRows = rows.filter((r) => r.usedAt !== null);
+    const used = usedRows.length;
+    const unused = total - used;
+    const usageRate = total > 0 ? Math.round((used / total) * 1000) / 10 : 0;
+
+    // 角色分布（使用人账户类型）
+    const byRole: Record<string, number> = {};
+    for (const r of usedRows) {
+      const role = r.usedBy?.role ?? "UNKNOWN";
+      byRole[role] = (byRole[role] ?? 0) + 1;
+    }
+
+    // 近 30 天趋势：按天统计生成数 / 使用数
+    const dayKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const trendMap = new Map<string, { generated: number; used: number }>();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      trendMap.set(dayKey(d), { generated: 0, used: 0 });
+    }
+    for (const r of rows) {
+      const g = trendMap.get(dayKey(r.createdAt));
+      if (g) g.generated += 1;
+      if (r.usedAt) {
+        const u = trendMap.get(dayKey(r.usedAt));
+        if (u) u.used += 1;
+      }
+    }
+    const trend = [...trendMap.entries()].map(([date, v]) => ({ date, ...v }));
+
+    // 最近使用的邀请码（含使用人信息）
+    const recentUsed = usedRows
+      .sort((a, b) => (b.usedAt?.getTime() ?? 0) - (a.usedAt?.getTime() ?? 0))
+      .slice(0, 20)
+      .map((r) => ({
+        id: r.id,
+        code: r.code,
+        usedAt: r.usedAt,
+        usedByEmail: r.usedBy?.email ?? null,
+        usedByName: r.usedBy?.name ?? null,
+        usedByRole: r.usedBy?.role ?? null,
+      }));
+
+    return { total, used, unused, usageRate, byRole, trend, recentUsed };
+  }
+
   async list(): Promise<InviteCodeRecord[]> {
     const rows = await this.prisma.inviteCode.findMany({
       orderBy: { createdAt: "desc" },

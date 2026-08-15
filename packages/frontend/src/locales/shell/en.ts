@@ -10,6 +10,7 @@ const en = {
   "sidebar.myOrders": "My Orders",
   "sidebar.financing": "Financing",
   "sidebar.financingReview": "Financing Review",
+    "sidebar.inviteStats": "Invite Stats",
   "sidebar.accountInfo": "Manage Account Info",
   "sidebar.uploadFile": "Upload File",
   "sidebar.myFiles": "My Files",
