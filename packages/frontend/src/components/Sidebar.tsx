@@ -8,9 +8,11 @@ import { useTranslation } from "react-i18next";
 
 interface SidebarProps {
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
+  /** 点击菜单项后的回调（移动端用于关闭抽屉） */
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, onNavigate }: SidebarProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
@@ -60,6 +62,7 @@ export function Sidebar({ role }: SidebarProps) {
       <nav className="flex-1 space-y-px p-2">
         <Link
           href="/dashboard"
+          onClick={onNavigate}
           className={cn(
             "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-colors",
             pathname === "/dashboard"
@@ -77,6 +80,7 @@ export function Sidebar({ role }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-colors",
                 active

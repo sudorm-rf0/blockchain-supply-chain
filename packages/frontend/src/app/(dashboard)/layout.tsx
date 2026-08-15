@@ -100,7 +100,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <div className="hidden md:block">
-        <Sidebar role={role} />
+        <Sidebar role={role} onNavigate={() => setMobileOpen(false)} />
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">
-          <Sidebar role={role} />
+          <Sidebar role={role} onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 

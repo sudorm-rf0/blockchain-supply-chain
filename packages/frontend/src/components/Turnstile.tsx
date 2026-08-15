@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
+import { SUPPORTED_LOCALES } from "@/lib/i18n";
 
 declare global {
   interface Window {
@@ -15,6 +17,7 @@ declare global {
           "expired-callback"?: () => void;
           "error-callback"?: () => void;
           theme?: string;
+          language?: string;
         },
       ) => string;
       remove: (widgetId?: string) => void;
@@ -33,12 +36,17 @@ interface TurnstileProps {
  * 未配置 NEXT_PUBLIC_TURNSTILE_SITE_KEY 时不渲染（开发/过渡阶段）。
  */
 export default function Turnstile({ onVerify, action }: TurnstileProps) {
+  const { i18n } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
   const onVerifyRef = useRef(onVerify);
   onVerifyRef.current = onVerify;
   const actionRef = useRef(action);
   actionRef.current = action;
+  // Turnstile 语言：跟随界面语言（zh-CN / en / zh-TW），未知语言回退 auto
+  const language = (SUPPORTED_LOCALES as string[]).includes(i18n.language)
+    ? i18n.language
+    : "auto";
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY) return;
@@ -60,6 +68,7 @@ export default function Turnstile({ onVerify, action }: TurnstileProps) {
         "expired-callback": () => onVerifyRef.current(""),
         "error-callback": () => onVerifyRef.current(""),
         theme: "auto",
+        language,
       });
     };
 
@@ -87,7 +96,7 @@ export default function Turnstile({ onVerify, action }: TurnstileProps) {
       }
       widgetIdRef.current = undefined;
     };
-  }, []);
+  }, [language]);
 
   if (!TURNSTILE_SITE_KEY) return null;
   return <div ref={containerRef} className="cf-turnstile-widget" />;
