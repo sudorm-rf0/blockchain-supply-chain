@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, Trash2 } from "lucide-react";
+import { ExternalLink, Route, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 const FilePreviewDialog = dynamic(
@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/table";
 import { deleteFile, getFiles, type FileRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { solscanTxUrl } from "@/lib/solscan";
 import { fileStatusClass } from "@/lib/status";
 
 const LIMIT = 10;
@@ -192,6 +193,21 @@ export default function UserFilesPage() {
                             >
                               {t("files.uploadNewVersion")}
                             </Link>
+                          </Button>
+                        )}
+                        {file.txSignature && (
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/trace/${file.id}`}>
+                              <Route className="mr-1 h-3 w-3" />
+                              {t("onchain.trace.entry")}
+                            </Link>
+                          </Button>
+                        )}
+                        {file.txSignature && (
+                          <Button variant="ghost" size="sm" asChild>
+                            <a href={solscanTxUrl(file.txSignature)} target="_blank" rel="noreferrer">
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
                           </Button>
                         )}
                         <Button

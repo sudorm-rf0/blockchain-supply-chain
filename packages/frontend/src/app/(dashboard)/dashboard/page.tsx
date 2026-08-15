@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { OnchainActivity } from "@/components/OnchainActivity";
 import { useUserStore } from "@/stores/user-store";
 import { useIntervalWhenVisible } from "@/hooks/useIntervalWhenVisible";
 import { ClipboardCheck, Upload, Files, ReceiptText, Users, ScrollText, Boxes } from "lucide-react";
@@ -198,6 +199,8 @@ export default function DashboardPage() {
               ))}
         </div>
       </section>
+
+      <OnchainActivity />
 
       <Card>
         <CardHeader>

@@ -246,6 +246,11 @@ export default function LoginPage() {
                 {t("login.goRegister")}
               </Link>
             </p>
+            <p className="text-center text-xs text-muted-foreground">
+              <Link href="/verify" className="underline-offset-4 hover:underline">
+                {t("onchain.verify.entry")} · {t("onchain.trace.entry")}
+              </Link>
+            </p>
           </form>
         </CardContent>
     </Card>

@@ -28,6 +28,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { fetchSession, logout as logoutApi } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 import { useLanguage } from "@/components/LanguageProvider";
+import { WalletConnectButton } from "@/components/WalletConnectButton";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { LOCALE_NAMES, type SupportedLocale } from "@/locales";
 import { SUPPORTED_LOCALES } from "@/lib/i18n";
 
@@ -141,6 +143,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <span className="font-mono font-semibold tracking-wide">{t("shell.appName")}</span>
           </div>
           <div className="flex items-center gap-2">
+            <NetworkBadge />
+            <WalletConnectButton />
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -204,3 +208,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+
+function NetworkBadge() {
+  const { t } = useTranslation();
+  const { connection } = useConnection();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  const rpc = connection.rpcEndpoint ?? "";
+  const isDevnet = rpc.includes("devnet") || rpc.includes("api.devnet");
+  const label = isDevnet ? t("onchain.network.devnet") : t("onchain.network.mainnet");
+  return (
+    <span
+      title={rpc}
+      className={`hidden items-center gap-1 rounded border px-2 py-1 font-mono text-[11px] sm:inline-flex ${
+        isDevnet
+          ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+          : "border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]"
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${isDevnet ? "bg-amber-500" : "bg-[#00E676]"}`} />
+      {t("onchain.network")}: {label}
+    </span>
+  );
+}
+

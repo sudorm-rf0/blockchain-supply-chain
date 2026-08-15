@@ -2,8 +2,9 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslation } from "react-i18next";
-import { Bot, Eye, RefreshCw } from "lucide-react";
+import { Bot, ExternalLink, Eye, RefreshCw, Route } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 const FilePreviewDialog = dynamic(
@@ -56,6 +57,7 @@ import {
 } from "@/lib/api";
 import { AiAssistantDialog } from "@/components/AiAssistantDialog";
 import { formatDateTime } from "@/lib/format";
+import { solscanTxUrl } from "@/lib/solscan";
 import { regionLabel } from "@/lib/region";
 import { fileStatusClass } from "@/lib/status";
 
@@ -342,6 +344,21 @@ export default function AdminFilesPage({
                     <RefreshCw className="mr-1 h-3 w-3" />
                     {t("files.reanalyze")}
                   </Button>
+                  {file.txSignature && (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/trace/${file.id}`}>
+                        <Route className="mr-1 h-3 w-3" />
+                        {t("onchain.trace.entry")}
+                      </Link>
+                    </Button>
+                  )}
+                  {file.txSignature && (
+                    <Button variant="ghost" size="sm" asChild>
+                      <a href={solscanTxUrl(file.txSignature)} target="_blank" rel="noreferrer">
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
