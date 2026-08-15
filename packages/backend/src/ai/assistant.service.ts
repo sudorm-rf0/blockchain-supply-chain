@@ -1,7 +1,38 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { RedisService } from "@supply-chain/common";
 import { AiLlmService, type AiChatMessage } from "./ai-llm.service";
 import { AuditService } from "../audit/audit.service";
 import type { AiChatDto } from "./dto/ai-chat.dto";
+
+/** 对话历史保留时长：30 天 */
+const HISTORY_TTL_SECONDS = 30 * 24 * 60 * 60;
+/** 每用户最多保留的会话数 */
+const MAX_SESSIONS = 50;
+/** 单会话最多保留的消息数 */
+const MAX_MESSAGES = 100;
+/** 送入 LLM 的上下文最近消息数 */
+const MAX_CONTEXT_MESSAGES = 20;
+
+interface StoredMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface SessionMeta {
+  id: string;
+  title: string;
+  messageCount: number;
+  updatedAt: string;
+}
+
+interface StoredSession {
+  id: string;
+  title: string;
+  messages: StoredMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 /** 平台操作知识库：引导用户完成常用操作、答疑解惑 */
 const SYSTEM_PROMPT = `你是「DFR 供应链金融平台」的 AI 助手，负责引导用户完成平台操作、解答疑问。
@@ -38,22 +69,104 @@ export class AssistantService {
   constructor(
     private readonly llm: AiLlmService,
     private readonly audit: AuditService,
+    private readonly redis: RedisService,
   ) {}
 
+  private sessionKey(userId: string, sessionId: string): string {
+    return `ai:msg:${userId}:${sessionId}`;
+  }
+
+  private indexKey(userId: string): string {
+    return `ai:hist:${userId}`;
+  }
+
+  private async readSession(userId: string, sessionId: string): Promise<StoredSession | null> {
+    const raw = await this.redis.get(this.sessionKey(userId, sessionId));
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as StoredSession;
+      return parsed && typeof parsed.id === "string" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async readIndex(userId: string): Promise<SessionMeta[]> {
+    const raw = await this.redis.get(this.indexKey(userId));
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? (parsed as SessionMeta[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeSession(userId: string, session: StoredSession): Promise<void> {
+    await this.redis.setEx(
+      this.sessionKey(userId, session.id),
+      HISTORY_TTL_SECONDS,
+      JSON.stringify(session),
+    );
+  }
+
+  private async writeIndex(userId: string, metas: SessionMeta[]): Promise<void> {
+    await this.redis.setEx(this.indexKey(userId), HISTORY_TTL_SECONDS, JSON.stringify(metas));
+  }
+
   async chat(userId: string, dto: AiChatDto) {
-    const history: AiChatMessage[] = (dto.history ?? [])
-      .slice(-20)
+    let session: StoredSession;
+    if (dto.sessionId) {
+      const existing = await this.readSession(userId, dto.sessionId);
+      if (!existing) throw new NotFoundException("会话不存在或已过期，请开始新对话");
+      session = existing;
+    } else {
+      session = {
+        id: randomUUID(),
+        title: dto.message.trim().slice(0, 30),
+        messages: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    // 上下文：服务端持久化的会话历史优先；兼容客户端直接传入 history
+    const storedHistory: AiChatMessage[] = session.messages.slice(-MAX_CONTEXT_MESSAGES);
+    const fallbackHistory: AiChatMessage[] = (dto.history ?? [])
+      .slice(-MAX_CONTEXT_MESSAGES)
       .map((m): AiChatMessage => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: String(m.content ?? "").slice(0, 4000),
       }))
       .filter((m) => m.content.length > 0);
+    const history = storedHistory.length > 0 ? storedHistory : fallbackHistory;
+
     const messages: AiChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
       ...history,
       { role: "user", content: dto.message },
     ];
     const reply = await this.llm.complete(messages, 1000);
+
+    // 持久化：追加用户消息 + AI 回复，刷新 30 天 TTL
+    const nextMessages: StoredMessage[] = [
+      ...session.messages,
+      { role: "user" as const, content: dto.message },
+      { role: "assistant" as const, content: reply },
+    ].slice(-MAX_MESSAGES);
+    session.messages = nextMessages;
+    session.updatedAt = new Date().toISOString();
+    await this.writeSession(userId, session);
+
+    const metas = (await this.readIndex(userId)).filter((m) => m.id !== session.id);
+    const meta: SessionMeta = {
+      id: session.id,
+      title: session.title,
+      messageCount: session.messages.length,
+      updatedAt: session.updatedAt,
+    };
+    await this.writeIndex(userId, [meta, ...metas].slice(0, MAX_SESSIONS));
+
     await this.audit.record({
       actorId: userId,
       action: "AI_ASSISTANT_CHAT",
@@ -61,9 +174,52 @@ export class AssistantService {
       targetId: userId,
       metadata: {
         model: this.llm.modelName,
+        sessionId: session.id,
         question: dto.message.slice(0, 200),
       },
     });
-    return { reply };
+    return { reply, sessionId: session.id };
+  }
+
+  /** 历史会话列表（按最近更新倒序） */
+  async listHistory(userId: string): Promise<SessionMeta[]> {
+    const metas = await this.readIndex(userId);
+    // 用户仍在查看历史，续期索引
+    await this.redis.expire(this.indexKey(userId), HISTORY_TTL_SECONDS).catch(() => undefined);
+    return metas;
+  }
+
+  /** 恢复某个会话的完整消息 */
+  async getHistory(userId: string, sessionId: string) {
+    const session = await this.readSession(userId, sessionId);
+    if (!session) throw new NotFoundException("会话不存在或已过期");
+    await this.redis
+      .expire(this.sessionKey(userId, sessionId), HISTORY_TTL_SECONDS)
+      .catch(() => undefined);
+    return {
+      id: session.id,
+      title: session.title,
+      messages: session.messages,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
+  }
+
+  /** 删除单个会话（传 sessionId）或清空全部（不传） */
+  async deleteHistory(userId: string, sessionId?: string) {
+    if (sessionId) {
+      await this.redis.del(this.sessionKey(userId, sessionId));
+      const metas = (await this.readIndex(userId)).filter((m) => m.id !== sessionId);
+      if (metas.length > 0) {
+        await this.writeIndex(userId, metas);
+      } else {
+        await this.redis.del(this.indexKey(userId));
+      }
+      return { ok: true, deleted: 1 };
+    }
+    const metas = await this.readIndex(userId);
+    await Promise.all(metas.map((m) => this.redis.del(this.sessionKey(userId, m.id))));
+    await this.redis.del(this.indexKey(userId));
+    return { ok: true, deleted: metas.length };
   }
 }

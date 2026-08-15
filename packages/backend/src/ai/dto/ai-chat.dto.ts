@@ -15,4 +15,13 @@ export class AiChatDto {
   @IsArray()
   @ArrayMaxSize(20)
   history?: Array<{ role: string; content: string }>;
+
+  @ApiPropertyOptional({
+    description: "会话 ID（多轮对话续聊时传入；不传则新建会话）",
+    example: "6f2a4b7c-...",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  sessionId?: string;
 }

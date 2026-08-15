@@ -39,5 +39,17 @@ const en = {
   "shell.ai.commands.financing": "How do I apply for financing?",
   "shell.ai.commands.feedback": "How do I submit feedback?",
   "shell.ai.commands.roles": "What roles does the platform have?",
+  "shell.aiAssistant.history": "History",
+  "shell.aiAssistant.newChat": "New chat",
+  "shell.aiAssistant.historyBack": "Back to chat",
+  "shell.aiAssistant.clearAll": "Clear all",
+  "shell.aiAssistant.clearConfirm": "Confirm clear?",
+  "shell.aiAssistant.historyLoading": "Loading...",
+  "shell.aiAssistant.historyEmpty": "No chat history",
+  "shell.aiAssistant.historyCleared": "Chat history cleared",
+  "shell.aiAssistant.messagesUnit": "messages",
+  "shell.aiAssistant.deleteSession": "Delete this conversation",
+  "shell.aiAssistant.restoreHint": "You have a previous conversation. Resume it:",
+  "shell.aiAssistant.restore": "Resume last chat: {{title}}",
 };
 export default en;

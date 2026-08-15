@@ -39,5 +39,17 @@ const zh_TW = {
   "shell.ai.commands.financing": "如何申請融資？",
   "shell.ai.commands.feedback": "如何提交意見回饋？",
   "shell.ai.commands.roles": "平台有哪些角色？",
+  "shell.aiAssistant.history": "歷史對話",
+  "shell.aiAssistant.newChat": "新對話",
+  "shell.aiAssistant.historyBack": "返回對話",
+  "shell.aiAssistant.clearAll": "清空全部",
+  "shell.aiAssistant.clearConfirm": "確認清空？",
+  "shell.aiAssistant.historyLoading": "載入中...",
+  "shell.aiAssistant.historyEmpty": "暫無歷史對話",
+  "shell.aiAssistant.historyCleared": "已清空歷史對話",
+  "shell.aiAssistant.messagesUnit": "則訊息",
+  "shell.aiAssistant.deleteSession": "刪除該會話",
+  "shell.aiAssistant.restoreHint": "你有一段歷史對話，可以恢復繼續聊：",
+  "shell.aiAssistant.restore": "恢復上次對話：{{title}}",
 };
 export default zh_TW;

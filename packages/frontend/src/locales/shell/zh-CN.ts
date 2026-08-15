@@ -39,5 +39,17 @@ const zh_CN = {
   "shell.ai.commands.financing": "如何申请融资？",
   "shell.ai.commands.feedback": "如何提交意见反馈？",
   "shell.ai.commands.roles": "平台有哪些角色？",
+  "shell.aiAssistant.history": "历史对话",
+  "shell.aiAssistant.newChat": "新对话",
+  "shell.aiAssistant.historyBack": "返回对话",
+  "shell.aiAssistant.clearAll": "清空全部",
+  "shell.aiAssistant.clearConfirm": "确认清空？",
+  "shell.aiAssistant.historyLoading": "加载中...",
+  "shell.aiAssistant.historyEmpty": "暂无历史对话",
+  "shell.aiAssistant.historyCleared": "已清空历史对话",
+  "shell.aiAssistant.messagesUnit": "条消息",
+  "shell.aiAssistant.deleteSession": "删除该会话",
+  "shell.aiAssistant.restoreHint": "你有一段历史对话，可以恢复继续聊：",
+  "shell.aiAssistant.restore": "恢复上次对话：{{title}}",
 };
 export default zh_CN;
