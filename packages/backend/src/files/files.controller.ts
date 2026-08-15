@@ -26,10 +26,12 @@ import { AdminGuard } from "@supply-chain/common";
 import { FilesService } from "./files.service";
 import { FilesAnalysisService } from "./files-analysis.service";
 import { FilesTranslationService } from "./files-translation.service";
+import { FilesAiService } from "./files-ai.service";
 import { decodeFilename } from "./filename";
 import { ReviewFileDto } from "./dto/review-file.dto";
 import { BatchReviewDto } from "./dto/batch-review.dto";
 import { UploadFileDto } from "./dto/upload-file.dto";
+import { AiChatDto } from "./dto/ai-chat.dto";
 import type { FileStatus } from "@prisma/client";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -53,6 +55,7 @@ export class FilesController {
     private readonly filesService: FilesService,
     private readonly analysisService: FilesAnalysisService,
     private readonly translationService: FilesTranslationService,
+    private readonly aiService: FilesAiService,
   ) {}
 
   @Post()
@@ -85,6 +88,20 @@ export class FilesController {
   analyze(@Param("id") id: string, @Req() req: Request) {
     // 审计深测：analyze 必须校验归属，防止任意登录用户对他人文件触发 OCR/内容分析（信息泄露+资源滥用）
     return this.analysisService.analyze(id, req.user!.sub, req.user!.role);
+  }
+
+  /** AI 审核助手：生成单据 AI 审核报告（摘要 + 风险评估 + 建议） */
+  @Post(":id/ai/review")
+  @UseGuards(AuthGuard)
+  aiReview(@Param("id") id: string, @Req() req: Request) {
+    return this.aiService.review(id, req.user!.sub, req.user!.role);
+  }
+
+  /** AI 审核助手：基于单据上下文对话问答 */
+  @Post(":id/ai/chat")
+  @UseGuards(AuthGuard)
+  aiChat(@Param("id") id: string, @Body() body: AiChatDto, @Req() req: Request) {
+    return this.aiService.chat(id, req.user!.sub, req.user!.role, body);
   }
 
   /** 翻译文档（基于 OCR 文本），targetLang: en | zh-CN | zh-TW */

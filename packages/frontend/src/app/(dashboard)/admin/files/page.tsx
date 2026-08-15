@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import { Eye, RefreshCw } from "lucide-react";
+import { Bot, Eye, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 const FilePreviewDialog = dynamic(
@@ -54,6 +54,7 @@ import {
   reviewFile,
   type FileRecord,
 } from "@/lib/api";
+import { AiAssistantDialog } from "@/components/AiAssistantDialog";
 import { formatDateTime } from "@/lib/format";
 import { regionLabel } from "@/lib/region";
 import { fileStatusClass } from "@/lib/status";
@@ -85,6 +86,7 @@ export default function AdminFilesPage({
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState(resolvedParams.status ?? "PENDING");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [aiFile, setAiFile] = useState<FileRecord | null>(null);
   const [approveId, setApproveId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -340,6 +342,14 @@ export default function AdminFilesPage({
                     <RefreshCw className="mr-1 h-3 w-3" />
                     {t("files.reanalyze")}
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAiFile(file)}
+                  >
+                    <Bot className="mr-1 h-3 w-3" />
+                    {t("files.ai.button")}
+                  </Button>
                   {file.status === "PENDING" && (
                     <>
                       <Button
@@ -391,6 +401,14 @@ export default function AdminFilesPage({
         onOpenChange={(open) => !open && setPreviewId(null)}
         fileId={previewId}
       />
+
+      {aiFile && (
+        <AiAssistantDialog
+          file={aiFile}
+          open
+          onOpenChange={(open) => !open && setAiFile(null)}
+        />
+      )}
 
       <AlertDialog
         open={batchApproveOpen}

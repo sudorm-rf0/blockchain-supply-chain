@@ -174,5 +174,16 @@ const zh_CN = {
   "account.deleted": "账号已注销",
   "account.deleting": "注销中...",
   "account.captchaRequired": "请先完成人机验证",
-  "account.deleteFailed": "注销失败",};
+  "account.deleteFailed": "注销失败",
+  "account.feedback.title": "意见反馈",
+  "account.feedback.desc": "欢迎提出功能建议或问题反馈，提交后将发送给平台运营。",
+  "account.feedback.contentLabel": "反馈内容",
+  "account.feedback.contentPlaceholder": "请描述你的建议或遇到的问题（2000 字以内）",
+  "account.feedback.contactLabel": "联系方式（选填）",
+  "account.feedback.contactPlaceholder": "邮箱或手机号，便于我们回复你",
+  "account.feedback.submit": "提交反馈",
+  "account.feedback.submitting": "提交中...",
+  "account.feedback.success": "反馈已提交，感谢你的建议！",
+  "account.feedback.failed": "反馈提交失败，请稍后重试",
+};
 export default zh_CN;

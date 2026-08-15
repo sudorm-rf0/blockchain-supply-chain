@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Mail, Lock, KeyRound, Trash2, UserRound } from "lucide-react";
+import { Mail, Lock, KeyRound, MessageSquareText, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   changeEmail,
   changeName,
@@ -18,6 +19,7 @@ import {
   logout as logoutApi,
   sendEmailCode,
   sendEmailOtpCode,
+  submitFeedback,
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 import Turnstile from "@/components/Turnstile";
@@ -40,6 +42,27 @@ export default function AccountPage() {
   const setAuth = useUserStore((state) => state.setAuth);
   const user = useUserStore((state) => state.user);
   const [ready, setReady] = useState(false);
+
+  // 意见反馈
+  const [feedbackContent, setFeedbackContent] = useState("");
+  const [feedbackContact, setFeedbackContact] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+
+  const handleSubmitFeedback = async () => {
+    const content = feedbackContent.trim();
+    if (!content || feedbackBusy) return;
+    setFeedbackBusy(true);
+    try {
+      await submitFeedback({ content, contact: feedbackContact.trim() || undefined });
+      toast.success(t("account.feedback.success"));
+      setFeedbackContent("");
+      setFeedbackContact("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("account.feedback.failed"));
+    } finally {
+      setFeedbackBusy(false);
+    }
+  };
 
   // 直达/刷新本页时恢复会话
   useEffect(() => {
@@ -511,6 +534,49 @@ export default function AccountPage() {
             }}
           >
             {t("account.deleteButton")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* 意见反馈 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageSquareText className="h-4 w-4 text-[#00E676]" />
+            {t("account.feedback.title")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t("account.feedback.desc")}</p>
+          <div className="space-y-2">
+            <Label htmlFor="feedbackContent">{t("account.feedback.contentLabel")}</Label>
+            <Textarea
+              id="feedbackContent"
+              value={feedbackContent}
+              onChange={(e) => setFeedbackContent(e.target.value)}
+              placeholder={t("account.feedback.contentPlaceholder")}
+              maxLength={2000}
+              rows={4}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="feedbackContact">{t("account.feedback.contactLabel")}</Label>
+            <Input
+              id="feedbackContact"
+              value={feedbackContact}
+              onChange={(e) => setFeedbackContact(e.target.value)}
+              placeholder={t("account.feedback.contactPlaceholder")}
+              maxLength={200}
+            />
+          </div>
+          <Button
+            className="w-full"
+            disabled={feedbackBusy || !feedbackContent.trim()}
+            onClick={() => void handleSubmitFeedback()}
+          >
+            {feedbackBusy
+              ? t("account.feedback.submitting")
+              : t("account.feedback.submit")}
           </Button>
         </CardContent>
       </Card>

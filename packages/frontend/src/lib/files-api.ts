@@ -181,3 +181,35 @@ export async function confirmDocumentAttest(
     body: JSON.stringify(body),
   });
 }
+
+export interface AiReviewReport {
+  summary: string;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  riskAssessment: string;
+  suggestions: string[];
+  concerns: string[];
+}
+
+export interface AiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function aiReviewFile(fileId: string): Promise<AiReviewReport> {
+  return request(`${BACKEND_URL}/api/files/${fileId}/ai/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+export async function aiChatFile(
+  fileId: string,
+  body: { message: string; history?: AiChatMessage[] },
+): Promise<{ reply: string }> {
+  return request(`${BACKEND_URL}/api/files/${fileId}/ai/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}

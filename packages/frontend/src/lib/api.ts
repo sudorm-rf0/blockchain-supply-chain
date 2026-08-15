@@ -33,8 +33,16 @@ export {
   batchReviewFiles,
   buildDocumentAttest,
   confirmDocumentAttest,
+  aiReviewFile,
+  aiChatFile,
 } from "./files-api";
-export type { FileRecord, FilesResponse } from "./files-api";
+export type {
+  FileRecord,
+  FilesResponse,
+  AiReviewReport,
+  AiChatMessage,
+} from "./files-api";
+export { submitFeedback } from "./feedback-api";
 export {
   createTrade,
   confirmTrade,

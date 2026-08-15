@@ -174,5 +174,16 @@ const en = {
   "account.deleted": "Account deleted",
   "account.deleting": "Deleting...",
   "account.captchaRequired": "Please complete the human verification first",
-  "account.deleteFailed": "Failed to delete account",};
+  "account.deleteFailed": "Failed to delete account",
+  "account.feedback.title": "Feedback",
+  "account.feedback.desc": "Share feature suggestions or report issues; submissions are sent to the platform team.",
+  "account.feedback.contentLabel": "Feedback",
+  "account.feedback.contentPlaceholder": "Describe your suggestion or issue (up to 2000 characters)",
+  "account.feedback.contactLabel": "Contact (optional)",
+  "account.feedback.contactPlaceholder": "Email or phone so we can reply",
+  "account.feedback.submit": "Submit feedback",
+  "account.feedback.submitting": "Submitting...",
+  "account.feedback.success": "Feedback submitted. Thank you!",
+  "account.feedback.failed": "Failed to submit feedback. Please try again later",
+};
 export default en;

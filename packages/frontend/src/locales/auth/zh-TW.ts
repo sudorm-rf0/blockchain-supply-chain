@@ -174,5 +174,16 @@ const zh_TW = {
   "account.deleted": "帳號已註銷",
   "account.deleting": "註銷中...",
   "account.captchaRequired": "請先完成人機驗證",
-  "account.deleteFailed": "註銷失敗",};
+  "account.deleteFailed": "註銷失敗",
+  "account.feedback.title": "意見回饋",
+  "account.feedback.desc": "歡迎提出功能建議或問題回饋，提交後將發送給平台營運。",
+  "account.feedback.contentLabel": "回饋內容",
+  "account.feedback.contentPlaceholder": "請描述你的建議或遇到的問題（2000 字以內）",
+  "account.feedback.contactLabel": "聯絡方式（選填）",
+  "account.feedback.contactPlaceholder": "信箱或手機號碼，方便我們回覆你",
+  "account.feedback.submit": "提交回饋",
+  "account.feedback.submitting": "提交中...",
+  "account.feedback.success": "回饋已提交，感謝你的建議！",
+  "account.feedback.failed": "回饋提交失敗，請稍後重試",
+};
 export default zh_TW;
