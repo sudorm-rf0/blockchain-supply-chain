@@ -20,6 +20,7 @@ import { useUserStore } from "@/stores/user-store";
 import { useIntervalWhenVisible } from "@/hooks/useIntervalWhenVisible";
 import { ClipboardCheck, Upload, Files, ReceiptText, Users, ScrollText, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -165,6 +166,24 @@ export default function DashboardPage() {
         <div>
           <p className="text-xs font-semibold text-primary">DFR SUPPLY CHAIN</p>
           <h1 className="mt-2 text-2xl font-bold text-foreground">{t("dashboard.title")}</h1>
+          {user && (
+            <Badge
+              variant="outline"
+              className={
+                user.role === "SUPER_ADMIN"
+                  ? "mt-1 border-amber-500/40 bg-amber-500/15 text-amber-600"
+                  : user.role === "ADMIN"
+                    ? "mt-1 border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]"
+                    : "mt-1 border-muted bg-muted text-muted-foreground"
+              }
+            >
+              {user.role === "SUPER_ADMIN"
+                ? t("accounts.roleSuperAdmin")
+                : user.role === "ADMIN"
+                  ? t("accounts.roleAdmin")
+                  : t("accounts.roleUser")}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {user?.role !== "USER" && (

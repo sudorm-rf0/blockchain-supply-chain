@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, Settings2, ShieldCheck, Ticket, Upload } from "lucide-react";
+import { BarChart3, Bell, Boxes, ClipboardCheck, Banknote, Files, KeyRound, LayoutDashboard, ReceiptText, ScrollText, Settings2, ShieldCheck, Ticket, Upload, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -17,6 +17,9 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+  const commonItems = [
+    { href: "/notifications", label: t("panels.sidebar.notifications"), icon: Bell },
+  ];
   const items =
     isAdmin
       ? [
@@ -25,6 +28,7 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
                 { href: "/admin/accounts", label: t("sidebar.accounts"), icon: ShieldCheck },
                 { href: "/admin/invite-codes", label: t("sidebar.inviteStats"), icon: Ticket },
                 { href: "/admin/settings", label: t("sidebar.systemSettings"), icon: Settings2 },
+                { href: "/admin/onchain-governance", label: t("panels.sidebar.governance"), icon: Wrench },
               ]
             : []),
           {
@@ -42,6 +46,8 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
           { href: "/admin/supply-chain", label: t("sidebar.supplyChain"), icon: Boxes },
           { href: "/admin/withdrawals", label: t("sidebar.withdrawals"), icon: Banknote },
           { href: "/admin/financing", label: t("sidebar.financingReview"), icon: Banknote },
+          { href: "/admin/reports", label: t("panels.sidebar.reports"), icon: BarChart3 },
+          { href: "/admin/integrations", label: t("panels.sidebar.integrations"), icon: KeyRound },
           { href: "/orders", label: t("sidebar.myOrders"), icon: ReceiptText },
           {
             href: "/admin/files?status=ALL",
@@ -87,6 +93,26 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
           <LayoutDashboard className="h-4 w-4" />
           {t("sidebar.dashboard")}
         </Link>
+        {commonItems.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-all duration-200",
+                active
+                  ? "border-[#00E676] bg-[#00E676]/10 text-[#00E676]"
+                  : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
         {items.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);

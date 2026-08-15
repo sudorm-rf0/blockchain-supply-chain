@@ -127,3 +127,33 @@ export {
 export type { FinancingRecord } from "./financing-api";
 export { formatUsdc } from "./http";
 export type { AttestDocumentResponse as AttestDocumentResponseType } from "./types";
+
+export {
+  fetchNotifications,
+  fetchUnreadCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "./notifications-api";
+export type { NotificationRecord, NotificationsResponse } from "./notifications-api";
+export {
+  fetchOrdersReport,
+  fetchFinancingReport,
+  fetchAuditReport,
+  ordersExportUrl,
+  financingExportUrl,
+  auditExportUrl,
+} from "./reports-api";
+export type { ReportResponse, ReportSummary, ReportItem } from "./reports-api";
+export { fetchGovernanceStatus } from "./governance-api";
+export type { GovernanceStatus } from "./governance-api";
+export {
+  fetchApiKeys,
+  createApiKey,
+  revokeApiKey,
+  fetchWebhooks,
+  createWebhook,
+  updateWebhook,
+  deleteWebhook,
+  testWebhook,
+} from "./integrations-api";
+export type { ApiKeyRecord, WebhookRecord } from "./integrations-api";

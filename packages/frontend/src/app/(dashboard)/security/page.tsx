@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { MailCheck, ShieldCheck, ShieldOff, Wallet } from "lucide-react";
+import { MailCheck, Monitor, ShieldCheck, ShieldOff, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +23,9 @@ import {
   setupTotp,
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
+import { fetchSessions, revokeOtherSessions } from "@/lib/auth-api";
+import { formatDateTime } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
 
 export default function SecurityPage() {
   const { t } = useTranslation();
@@ -294,6 +297,71 @@ export default function SecurityPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <SessionCard />
     </div>
+  );
+}
+
+function SessionCard() {
+  const { t } = useTranslation();
+  const [sessions, setSessions] = useState<Array<{ id: string; createdAt: string; expiresAt: string; current: boolean }>>([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    try {
+      setSessions(await fetchSessions());
+    } catch {
+      /* ignore */
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const handleRevokeOthers = async () => {
+    setBusy(true);
+    try {
+      await revokeOtherSessions();
+      toast.success(t("panels.security.revoked"));
+      await load();
+    } catch {
+      toast.error(t("panels.security.revoked"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Monitor className="h-4 w-4 text-[#00E676]" />
+          {t("panels.security.sessions")}
+        </CardTitle>
+        <CardDescription>{t("panels.security.activeSessions")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <ul className="divide-y divide-border/60 rounded-md border border-border/60">
+          {sessions.slice(0, 10).map((s) => (
+            <li key={s.id} className="flex items-center justify-between px-3 py-2 text-sm">
+              <span className="font-mono text-xs text-muted-foreground">{s.createdAt ? formatDateTime(s.createdAt) : "-"}</span>
+              <span className="font-mono text-xs text-muted-foreground">{formatDateTime(s.expiresAt)}</span>
+              {s.current && (
+                <Badge variant="outline" className="border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]">
+                  {t("panels.security.current")}
+                </Badge>
+              )}
+            </li>
+          ))}
+          {sessions.length === 0 && (
+            <li className="px-3 py-2 text-sm text-muted-foreground">{t("panels.integrations.empty")}</li>
+          )}
+        </ul>
+        <Button variant="outline" size="sm" className="text-destructive" disabled={busy} onClick={() => void handleRevokeOthers()}>
+          {t("panels.security.revokeAll")}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
