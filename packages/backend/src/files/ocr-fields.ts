@@ -136,7 +136,7 @@ export function extractKeyFields(raw: string): KeyFields {
   const consignee = text.match(/境内收货人[:：\s]*\(?([A-Za-z0-9]{6,30})\)?/);
   if (consignee) fields.consignee = { value: consignee[1] };
 
-  const shipper = text.match(/境外发货人[:：\s]*([^\n]{1,50})/);
+  const shipper = text.match(/境外发货人[:：\s]*([^\n]{2,40}?)(?:运输方式|提运单号|货物存放|联系电话|国别|贸易国|境内|$/);
   if (shipper) fields.shipper = { value: shipper[1].trim() };
 
   const currency = text.match(/币制[:：\s]*([A-Z]{3})/);
