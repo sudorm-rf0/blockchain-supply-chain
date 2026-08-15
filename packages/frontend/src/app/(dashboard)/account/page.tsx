@@ -22,7 +22,6 @@ import {
 import { useUserStore } from "@/stores/user-store";
 import Turnstile from "@/components/Turnstile";
 import { SpamWarningDialog, shouldShowSpamHint } from "@/components/SpamWarningDialog";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import {
   AlertDialog,
@@ -518,9 +517,6 @@ export default function AccountPage() {
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
-          <div className="flex justify-end">
-            <LanguageSwitcher />
-          </div>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("account.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{t("account.deleteConfirmDesc")}</AlertDialogDescription>

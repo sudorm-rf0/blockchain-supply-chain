@@ -104,9 +104,9 @@ describe("DashboardPage", () => {
   it("renders pool overview stats after loading", async () => {
     render(<DashboardPage />);
     expect(await screen.findByText("资金池规模")).toBeTruthy();
-    expect(screen.getByText("$100.00")).toBeTruthy(); // 100_000_000 / 1e6
+    expect(await screen.findByText("$100.00")).toBeTruthy(); // 100_000_000 / 1e6（数字滚动动画）
     expect(screen.getByText("当前净值 NAV")).toBeTruthy();
-    expect(screen.getByText("$99.00")).toBeTruthy(); // 99_000_000 / 1e6
+    expect(await screen.findByText("$99.00")).toBeTruthy(); // 99_000_000 / 1e6（数字滚动动画）
   });
 
   it("shows indexer sync status", async () => {
