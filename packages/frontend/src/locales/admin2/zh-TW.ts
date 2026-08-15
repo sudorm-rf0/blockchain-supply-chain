@@ -30,6 +30,7 @@ const zh_TW = {
   "trades.loading": "載入中...",
   "trades.empty": "暫無訂單",
   "trades.colId": "訂單 ID",
+  "trades.colName": "訂單名稱",
   "trades.colAmount": "金額",
   "trades.colStatus": "狀態",
   "trades.colBuyer": "買方",

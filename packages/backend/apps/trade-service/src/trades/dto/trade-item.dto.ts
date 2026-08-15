@@ -34,6 +34,12 @@ export class TradeItemDto {
   @ApiPropertyOptional({ description: "物流哈希" })
   logisticsHash?: string | null;
 
+  @ApiPropertyOptional({ description: "订单名称" })
+  name?: string | null;
+
+  @ApiPropertyOptional({ description: "订单备注" })
+  remark?: string | null;
+
   @ApiProperty({ description: "创建时间" })
   createdAt!: string;
 }

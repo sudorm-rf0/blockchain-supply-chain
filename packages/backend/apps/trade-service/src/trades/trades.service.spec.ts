@@ -558,6 +558,7 @@ describe("TradesService", () => {
             { dealId: { contains: "wallet" } },
             { buyerWallet: { contains: "wallet" } },
             { sellerWallet: { contains: "wallet" } },
+            { name: { contains: "wallet" } },
           ],
           status: "SETTLED",
         },

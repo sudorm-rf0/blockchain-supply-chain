@@ -208,6 +208,7 @@ export default function OrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("orders.columns.id")}</TableHead>
+                <TableHead>{t("orders.columns.name")}</TableHead>
                 <TableHead>{t("orders.columns.amount")}</TableHead>
                 <TableHead>{t("orders.columns.downPayment")}</TableHead>
                 <TableHead>{t("orders.columns.poolPortion")}</TableHead>
@@ -233,6 +234,9 @@ export default function OrdersPage() {
                   <TableRow key={trade.id}>
                     <TableCell className="font-mono text-xs">
                       {trade.tradeId}
+                    </TableCell>
+                    <TableCell className="max-w-[160px] truncate text-sm">
+                      {trade.name || "-"}
                     </TableCell>
                     <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
                     <TableCell>{formatUsdc(trade.downPayment)}</TableCell>

@@ -22,6 +22,8 @@ export async function confirmTrade(
     amount: string;
     tenor: string;
     txSignature: string;
+    name?: string | null;
+    remark?: string | null;
   },
 ): Promise<{ ok: boolean; tradeId: string; dealPda: string; status: string }> {
   return request(`${TRADE_API_URL}/api/trades/${tradeId}/confirm`, {

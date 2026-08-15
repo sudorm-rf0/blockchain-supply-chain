@@ -146,6 +146,8 @@ export default function TradeDetailPage() {
 
   const rows: Array<[string, string]> = [
     [t("orders.detail.id"), trade.tradeId],
+    [t("orders.detail.name"), trade.name ?? "-"],
+    [t("orders.detail.remark"), trade.remark ?? "-"],
     [t("orders.detail.amount"), `${formatUsdc(trade.amount)} USDC`],
     [t("orders.detail.downPayment"), `${formatUsdc(trade.downPayment)} USDC`],
     [t("orders.detail.poolPortion"), `${formatUsdc(trade.poolPortion)} USDC`],
@@ -182,8 +184,8 @@ export default function TradeDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-mono text-base">
-            {trade.tradeId}
+          <CardTitle className={trade.name ? "text-base" : "font-mono text-base"}>
+            {trade.name || trade.tradeId}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

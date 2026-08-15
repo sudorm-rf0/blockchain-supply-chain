@@ -108,6 +108,8 @@ export interface CreateTradeRequest {
   amount: string;
   tenor: string;
   logisticsHash?: string | null;
+  name?: string | null;
+  remark?: string | null;
 }
 
 export interface CreateTradeResponse {
@@ -131,6 +133,8 @@ export interface TradeRecord {
   status: string;
   txSignature?: string | null;
   logisticsHash?: string | null;
+  name?: string | null;
+  remark?: string | null;
   createdAt: string;
 }
 

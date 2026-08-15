@@ -30,6 +30,7 @@ const zh_CN = {
   "trades.loading": "加载中...",
   "trades.empty": "暂无订单",
   "trades.colId": "订单 ID",
+  "trades.colName": "订单名称",
   "trades.colAmount": "金额",
   "trades.colStatus": "状态",
   "trades.colBuyer": "买方",

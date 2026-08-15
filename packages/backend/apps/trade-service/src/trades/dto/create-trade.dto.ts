@@ -37,4 +37,20 @@ export class CreateTradeDto {
   @IsOptional()
   @IsString()
   logisticsHash?: string | null;
+
+  @ApiPropertyOptional({
+    description: "订单名称，用于标识该项目交易",
+    example: "2026-08 电子元件出口订单",
+  })
+  @IsOptional()
+  @IsString()
+  name?: string | null;
+
+  @ApiPropertyOptional({
+    description: "订单备注",
+    example: "首付到账后 3 天内发货",
+  })
+  @IsOptional()
+  @IsString()
+  remark?: string | null;
 }

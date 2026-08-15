@@ -75,6 +75,8 @@ const TRADE_LIST_SELECT = {
   status: true,
   txSignature: true,
   logisticsHash: true,
+  name: true,
+  remark: true,
   createdAt: true,
 } satisfies Prisma.TradeDealSelect;
 
@@ -339,6 +341,8 @@ export class TradesService {
       status: trade.status,
       txSignature: trade.txSignature,
       logisticsHash: trade.logisticsHash,
+      name: trade.name,
+      remark: trade.remark,
       createdAt: trade.createdAt.toISOString(),
     }));
   }
@@ -370,6 +374,8 @@ export class TradesService {
       status: trade.status,
       txSignature: trade.txSignature,
       logisticsHash: trade.logisticsHash,
+      name: trade.name,
+      remark: trade.remark,
       createdAt: trade.createdAt.toISOString(),
     }));
   }
@@ -405,6 +411,8 @@ export class TradesService {
       status: trade.status,
       txSignature: trade.txSignature,
       logisticsHash: trade.logisticsHash,
+      name: trade.name,
+      remark: trade.remark,
       createdAt: trade.createdAt.toISOString(),
     };
   }
@@ -420,6 +428,7 @@ export class TradesService {
         { dealId: { contains: search } },
         { buyerWallet: { contains: search } },
         { sellerWallet: { contains: search } },
+        { name: { contains: search } },
       ];
     }
     const status = params.status?.trim().toUpperCase();
@@ -522,6 +531,8 @@ export class TradesService {
           createdAt: new Date(),
           txSignature: dto.txSignature,
           logisticsHash: dto.logisticsHash ?? null,
+          name: dto.name ?? null,
+          remark: dto.remark ?? null,
         };
 
         const updateData = {
@@ -536,6 +547,8 @@ export class TradesService {
           tenor: data.tenor,
           status: data.status,
           txSignature: data.txSignature,
+          ...(dto.name !== undefined ? { name: dto.name } : {}),
+          ...(dto.remark !== undefined ? { remark: dto.remark } : {}),
         };
         let deal;
         try {

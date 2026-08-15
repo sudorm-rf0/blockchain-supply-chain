@@ -30,6 +30,7 @@ const en = {
   "trades.loading": "Loading...",
   "trades.empty": "No trades",
   "trades.colId": "Trade ID",
+  "trades.colName": "Order name",
   "trades.colAmount": "Amount",
   "trades.colStatus": "Status",
   "trades.colBuyer": "Buyer",

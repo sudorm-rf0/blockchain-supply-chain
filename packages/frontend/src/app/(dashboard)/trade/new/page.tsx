@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -42,6 +43,8 @@ export default function NewTradePage() {
   const [amount, setAmount] = useState("");
   const [tenorDays, setTenorDays] = useState("30");
   const [sellerWallet, setSellerWallet] = useState("");
+  const [orderName, setOrderName] = useState("");
+  const [remark, setRemark] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
@@ -84,6 +87,8 @@ export default function NewTradePage() {
           sellerWallet: sellerWallet.trim() || publicKey.toBase58(),
           amount: amountRaw.toString(10),
           tenor: tenorDays,
+          name: orderName.trim() || null,
+          remark: remark.trim() || null,
         },
       );
 
@@ -98,6 +103,8 @@ export default function NewTradePage() {
         amount: amountRaw.toString(10),
         tenor: tenorDays,
         txSignature,
+        name: orderName.trim() || null,
+        remark: remark.trim() || null,
       });
 
       setQuote({
@@ -171,6 +178,30 @@ export default function NewTradePage() {
                 onChange={(event) => setSellerWallet(event.target.value)}
                 placeholder={t("trade.sellerPlaceholder")}
                 className="font-mono text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="orderName">{t("trade.nameLabel")}</Label>
+              <Input
+                id="orderName"
+                type="text"
+                value={orderName}
+                onChange={(event) => setOrderName(event.target.value)}
+                placeholder={t("trade.namePlaceholder")}
+                maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="remark">{t("trade.remarkLabel")}</Label>
+              <Textarea
+                id="remark"
+                value={remark}
+                onChange={(event) => setRemark(event.target.value)}
+                placeholder={t("trade.remarkPlaceholder")}
+                maxLength={500}
+                rows={3}
               />
             </div>
 

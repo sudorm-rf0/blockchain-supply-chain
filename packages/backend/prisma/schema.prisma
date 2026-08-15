@@ -100,6 +100,8 @@ model TradeDeal {
   repaidAt             DateTime?
   txSignature          String?
   logisticsHash        String?
+  name                 String?
+  remark               String?
   defaultWebhookSentAt DateTime?
   rawData              Json?
   updatedAt            DateTime   @updatedAt

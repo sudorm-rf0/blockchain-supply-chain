@@ -70,6 +70,7 @@ export default function AdminTradesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("trades.colId")}</TableHead>
+                <TableHead>{t("trades.colName")}</TableHead>
                 <TableHead>{t("trades.colAmount")}</TableHead>
                 <TableHead>{t("trades.colStatus")}</TableHead>
                 <TableHead>{t("trades.colBuyer")}</TableHead>
@@ -82,6 +83,9 @@ export default function AdminTradesPage() {
                 <TableRow key={trade.id}>
                   <TableCell className="font-mono text-xs">
                     {trade.tradeId}
+                  </TableCell>
+                  <TableCell className="max-w-[160px] truncate text-sm">
+                    {trade.name || "-"}
                   </TableCell>
                   <TableCell>{formatUsdc(trade.amount)} USDC</TableCell>
                   <TableCell>
