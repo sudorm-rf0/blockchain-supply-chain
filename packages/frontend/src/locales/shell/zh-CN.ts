@@ -26,7 +26,7 @@ const zh_CN = {
   "shell.changeLanguage": "更改语言",  "shell.aiAssistant.open": "AI 助手",
   "shell.aiAssistant.title": "AI 助手",
   "shell.aiAssistant.desc": "平台操作引导与答疑，点击快捷指令或直接提问",
-  "shell.aiAssistant.welcome": "你好，我是平台 AI 助手 🤖\n\n我可以引导你完成上传单据、创建贸易订单、绑定钱包、文件审核等操作，也可以解答任何疑问。\n\n点击下方快捷指令，或直接输入问题。",
+  "shell.aiAssistant.welcome": "你好，我是平台 AI 助手\n\n我可以引导你完成上传单据、创建贸易订单、绑定钱包、文件审核等操作，也可以解答任何疑问。\n\n点击下方快捷指令，或直接输入问题。",
   "shell.aiAssistant.quickTitle": "快捷指令",
   "shell.aiAssistant.inputPlaceholder": "输入问题，Enter 发送",
   "shell.aiAssistant.thinking": "AI 思考中...",

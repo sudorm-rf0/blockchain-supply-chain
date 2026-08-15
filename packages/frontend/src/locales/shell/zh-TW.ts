@@ -26,7 +26,7 @@ const zh_TW = {
   "shell.changeLanguage": "更改語言",  "shell.aiAssistant.open": "AI 助手",
   "shell.aiAssistant.title": "AI 助手",
   "shell.aiAssistant.desc": "平台操作引導與答疑，點擊快捷指令或直接提問",
-  "shell.aiAssistant.welcome": "你好，我是平台 AI 助手 🤖\n\n我可以引導你完成上傳單據、建立貿易訂單、綁定錢包、檔案審核等操作，也可以解答任何疑問。\n\n點擊下方快捷指令，或直接輸入問題。",
+  "shell.aiAssistant.welcome": "你好，我是平台 AI 助手\n\n我可以引導你完成上傳單據、建立貿易訂單、綁定錢包、檔案審核等操作，也可以解答任何疑問。\n\n點擊下方快捷指令，或直接輸入問題。",
   "shell.aiAssistant.quickTitle": "快捷指令",
   "shell.aiAssistant.inputPlaceholder": "輸入問題，Enter 傳送",
   "shell.aiAssistant.thinking": "AI 思考中...",

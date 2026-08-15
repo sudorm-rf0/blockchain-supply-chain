@@ -62,7 +62,7 @@ export function AiAssistant() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full border border-[#00E676]/50 bg-background/90 px-4 py-2.5 text-sm font-medium text-[#00E676] shadow-[0_0_20px_-6px_rgba(0,230,118,0.6)] backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/10"
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full border border-[#00E676]/60 bg-[#00E676] px-4 py-2.5 text-sm font-semibold text-emerald-950 shadow-[0_0_20px_-4px_rgba(0,230,118,0.7)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#00E676]/90"
       >
         <Bot className="h-4 w-4" />
         {t("shell.aiAssistant.open")}

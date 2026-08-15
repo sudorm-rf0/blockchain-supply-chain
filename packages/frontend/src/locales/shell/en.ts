@@ -26,7 +26,7 @@ const en = {
   "shell.changeLanguage": "Change Language",  "shell.aiAssistant.open": "AI Assistant",
   "shell.aiAssistant.title": "AI Assistant",
   "shell.aiAssistant.desc": "Platform guidance & Q&A — tap a quick command or ask directly",
-  "shell.aiAssistant.welcome": "Hi, I'm the platform AI assistant 🤖\n\nI can guide you through uploading documents, creating trade orders, binding a wallet, reviewing files, and more.\n\nTap a quick command below or type your question.",
+  "shell.aiAssistant.welcome": "Hi, I'm the platform AI assistant\n\nI can guide you through uploading documents, creating trade orders, binding a wallet, reviewing files, and more.\n\nTap a quick command below or type your question.",
   "shell.aiAssistant.quickTitle": "Quick commands",
   "shell.aiAssistant.inputPlaceholder": "Type a question and press Enter",
   "shell.aiAssistant.thinking": "AI is thinking...",
