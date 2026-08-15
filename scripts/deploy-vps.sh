@@ -76,16 +76,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "==> [3/5] 等待健康检查"
-declare -A HEALTH=([backend]=3001 [indexer]=3003 [trade]=3004 [pool]=3005 [frontend]=3000)
+echo "==> [3/5] 等待服务健康"
+# 注：服务端口未发布到宿主机，不能用 localhost curl 探测；
+# 改用容器运行状态 + healthcheck 状态（有 healthcheck 则要求 healthy）。
+SERVICES="backend indexer trade pool frontend"
 ok=0
 for i in $(seq 1 30); do
   ok=1
-  for svc in "${!HEALTH[@]}"; do
-    if ! curl -sf -m 3 "http://localhost:${HEALTH[$svc]}/health" >/dev/null 2>&1 \
-       && [[ "$svc" != "frontend" ]]; then
-      ok=0
-    fi
+  for svc in $SERVICES; do
+    cid=$($COMPOSE ps -q "$svc" 2>/dev/null)
+    [[ -z "$cid" ]] && ok=0 && break
+    state=$(docker inspect --format "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" "$cid" 2>/dev/null)
+    status="${state%%|*}"
+    health="${state#*|}"
+    if [[ "$status" != "running" ]]; then ok=0; break; fi
+    if [[ "$health" != "none" && "$health" != "healthy" ]]; then ok=0; break; fi
   done
   [[ "$ok" == "1" ]] && break
   sleep 5
