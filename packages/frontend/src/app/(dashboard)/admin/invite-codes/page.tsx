@@ -187,10 +187,6 @@ export default function InviteCodesPage() {
           {t("inviteStats.title")}
         </h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowInvite(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            {t("accounts.generateInviteCodes")}
-          </Button>
           <Button variant="outline" size="sm" onClick={copyUnused}>
             <Copy className="mr-1.5 h-3.5 w-3.5" />
             {copied ? t("inviteStats.copied") : t("inviteStats.copyUnused")}
@@ -198,6 +194,14 @@ export default function InviteCodesPage() {
           <Button variant="outline" size="sm" onClick={exportList}>
             <Download className="mr-1.5 h-3.5 w-3.5" />
             {t("inviteStats.export")}
+          </Button>
+          <Button
+            size="sm"
+            className="bg-[#00E676] font-semibold text-black shadow-sm hover:bg-[#00E676]/85"
+            onClick={() => setShowInvite(true)}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            {t("accounts.generateInviteCodes")}
           </Button>
         </div>
       </div>
