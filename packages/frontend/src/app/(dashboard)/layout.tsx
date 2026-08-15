@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { LogoMark } from "@/components/LogoMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -77,6 +78,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const role = user.role;
 
+  const roleLabel =
+    user.role === "SUPER_ADMIN"
+      ? t("accounts.roleSuperAdmin")
+      : user.role === "ADMIN"
+        ? t("accounts.roleAdmin")
+        : t("accounts.roleUser");
+  const roleBadgeClass =
+    user.role === "SUPER_ADMIN"
+      ? "border-amber-500/40 bg-amber-500/15 text-amber-600"
+      : user.role === "ADMIN"
+        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-600"
+        : "border-muted bg-muted text-muted-foreground";
+
   const handleLogout = async () => {
     await logoutApi();
     toast.success(t("shell.logoutSuccess"));
@@ -123,6 +137,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
                   {user?.email ?? ""}
                 </DropdownMenuLabel>
+                <DropdownMenuLabel className="pt-0.5">
+                  <Badge variant="outline" className={`px-1.5 py-0 text-[11px] font-medium ${roleBadgeClass}`}>
+                    {roleLabel}
+                  </Badge>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
@@ -142,6 +161,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push("/security")}>
                   <ShieldCheck className="mr-2 h-4 w-4" />
                   {t("shell.securitySettings")}
@@ -150,6 +170,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   <UserCog className="mr-2 h-4 w-4" />
                   {t("account.manageAccountInfo")}
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   {t("shell.logout")}
