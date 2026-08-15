@@ -68,7 +68,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
     if (pathname.startsWith("/admin") && user.role === "USER") {
       router.replace("/user/files");
-    } else if (pathname.startsWith("/user") && user.role !== "USER") {
+    } else if (
+      pathname.startsWith("/user") &&
+      user.role !== "USER" &&
+      // 管理员/超管拥有与用户端一致的上传文件能力
+      pathname !== "/user/upload" &&
+      pathname !== "/user/files"
+    ) {
       router.replace("/admin/files");
     }
   }, [hydrated, user, pathname, router]);

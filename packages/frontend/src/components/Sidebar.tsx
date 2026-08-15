@@ -27,6 +27,11 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
               ]
             : []),
           {
+            href: "/user/upload",
+            label: t("sidebar.uploadFile"),
+            icon: Upload,
+          },
+          {
             href: "/admin/files?status=PENDING",
             label: t("sidebar.fileReview"),
             icon: ClipboardCheck,

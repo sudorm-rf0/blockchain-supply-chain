@@ -26,6 +26,7 @@ describe("Sidebar", () => {
 
   it("renders admin menu items for ADMIN role", () => {
     render(<Sidebar role="ADMIN" />);
+    expect(screen.getByText("上传文件")).toBeTruthy();
     expect(screen.getByText("文件审核")).toBeTruthy();
     expect(screen.getByText("审计日志")).toBeTruthy();
     expect(screen.getByText("全部订单")).toBeTruthy();
