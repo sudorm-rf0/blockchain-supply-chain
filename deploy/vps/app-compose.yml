@@ -147,6 +147,20 @@ services:
       - indexer
       - frontend
 
+  # Cloudflare 告警 Webhook 接收转发（校验 cf-webhook-auth → Resend 邮件）
+  cf-alert-relay:
+    image: python:3.12-alpine
+    container_name: supply-chain-cf-relay
+    restart: unless-stopped
+    networks: [supply-chain-net]
+    volumes:
+      - ./cf-webhook-relay.py:/app/relay.py:ro
+      - /etc/supply-chain-alert.env:/etc/supply-chain-alert.env:ro
+    environment:
+      - RELAY_PORT=8099
+    # python:3.12-alpine 无 curl，先装 curl 再启动（Resend 必须用 curl 发）
+    command: ["sh", "-c", "apk add --no-cache curl && python /app/relay.py"]
+
 volumes:
   uploads:
   clamav_db:

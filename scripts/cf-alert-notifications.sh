@@ -5,6 +5,9 @@
 #   bash scripts/cf-alert-notifications.sh list     # 列出当前策略
 #   bash scripts/cf-alert-notifications.sh ensure   # 幂等创建缺失的策略
 #   bash scripts/cf-alert-notifications.sh verify   # 验证 token 与邮箱目的地
+#   bash scripts/cf-alert-notifications.sh webhook  # 显示 webhook 目的地并发送测试
+# 可选：设置 CF_WEBHOOK_ID 后，ensure 创建/更新策略时同时加入 webhook 投递（邮箱验证不可用时的替代通道）。
+#   webhook 目的地 id 保存在 ~/.cf-secrets/cf-webhook-id
 # 令牌来源（按优先级）：CLOUDFLARE_ALERT_TOKEN 环境变量
 #   > ~/.cf-secrets/supply-chain-alert-token（推荐，自建令牌，Notifications 权限）
 #   > CLOUDFLARE_API_TOKEN 环境变量（通用回退）
@@ -27,6 +30,11 @@ fi
 if [[ -z "$TOKEN" ]]; then
   echo "ERROR: 未找到 API 令牌。请设置 CLOUDFLARE_ALERT_TOKEN 或 ~/.cf-secrets/supply-chain-alert-token" >&2
   exit 1
+fi
+
+WEBHOOK_ID="${CF_WEBHOOK_ID:-}"
+if [[ -z "$WEBHOOK_ID" && -f "$HOME/.cf-secrets/cf-webhook-id" ]]; then
+  WEBHOOK_ID="$(cat "$HOME/.cf-secrets/cf-webhook-id")"
 fi
 
 BASE="$API/accounts/$ACCT/alerting/v3/policies"
@@ -81,10 +89,14 @@ PY
       ok "${name}（已存在，跳过）"
       continue
     fi
+    local mech="{\"email\":[{\"id\":\"$EMAIL\"}]}"
+    if [[ -n "$WEBHOOK_ID" ]]; then
+      mech="{\"email\":[{\"id\":\"$EMAIL\"}],\"webhooks\":[{\"id\":\"$WEBHOOK_ID\"}]}"
+    fi
     if [[ -n "$filters" ]]; then
-      body="{\"name\":\"$name\",\"alert_type\":\"$atype\",\"enabled\":true,\"description\":\"$desc\",\"mechanisms\":{\"email\":[{\"id\":\"$EMAIL\"}]},\"filters\":$filters}"
+      body="{\"name\":\"$name\",\"alert_type\":\"$atype\",\"enabled\":true,\"description\":\"$desc\",\"mechanisms\":$mech,\"filters\":$filters}"
     else
-      body="{\"name\":\"$name\",\"alert_type\":\"$atype\",\"enabled\":true,\"description\":\"$desc\",\"mechanisms\":{\"email\":[{\"id\":\"$EMAIL\"}]}}"
+      body="{\"name\":\"$name\",\"alert_type\":\"$atype\",\"enabled\":true,\"description\":\"$desc\",\"mechanisms\":$mech}"
     fi
     res="$(cf POST "$BASE" "$body")"
     if python3 -c "import json,sys; raise SystemExit(0 if json.loads('''$res''').get('success') else 1)" 2>/dev/null; then
@@ -106,9 +118,26 @@ verify_token() {
   echo "请确认 139 邮箱收到过 Cloudflare 的验证邮件并已点击验证：控制台 → 通知 → 管理通知 → 邮箱。"
 }
 
+webhook_info() {
+  if [[ -z "$WEBHOOK_ID" ]]; then
+    echo "未找到 webhook 目的地 id（设置 CF_WEBHOOK_ID 或 ~/.cf-secrets/cf-webhook-id）"
+    return 1
+  fi
+  echo "== webhook 目的地 $WEBHOOK_ID =="
+  cf GET "$API/accounts/$ACCT/alerting/v3/destinations/webhooks" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for w in d.get('result',[]):
+    if w.get('id')=='$WEBHOOK_ID':
+        print('名称:', w.get('name')); print('URL:', w.get('url')); print('启用:', w.get('enabled'))
+print('全部目的地:', [w.get('name') for w in d.get('result',[])])
+"
+}
+
 case "${1:-list}" in
   list)   echo "== 当前 Cloudflare 告警策略 =="; list_policies ;;
-  ensure) echo "== 幂等创建缺失策略（发往 ${EMAIL}）=="; ensure_policies ;;
+  ensure) echo "== 幂等创建缺失策略（发往 ${EMAIL}${WEBHOOK_ID:+ + webhook}）=="; ensure_policies ;;
   verify) echo "== 令牌校验 =="; verify_token ;;
-  *) echo "用法: $0 {list|ensure|verify}"; exit 1 ;;
+  webhook) webhook_info ;;
+  *) echo "用法: $0 {list|ensure|verify|webhook}"; exit 1 ;;
 esac
