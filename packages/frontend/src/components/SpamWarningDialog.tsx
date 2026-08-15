@@ -75,7 +75,7 @@ export function SpamWarningDialog({ open, onOpenChange }: SpamWarningDialogProps
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => handleClose(false)}>
-            {t("common.cancel")}
+            {t("cancel")}
           </AlertDialogCancel>
           <AlertDialogAction onClick={() => handleClose(true)}>
             {t("spamHint.gotIt")}
