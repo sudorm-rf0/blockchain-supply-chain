@@ -549,8 +549,8 @@ export class AuthService {
     if (!user?.passwordHash) {
       throw new UnauthorizedException("用户不存在");
     }
-    // 敏感操作：修改密码前必须通过邮箱验证码确认（强制，见 requireEmailCodeForPassword）
-    await this.requireEmailCodeForPassword(user, emailCode);
+    // 敏感操作：开启两步验证须通过 TOTP；否则须通过邮箱验证码（保留首登引导豁免）
+    await this.verifySensitiveFactor(user, emailCode, { allowBootstrapSkip: true });
     const [salt, storedHash] = user.passwordHash.split(":");
     const hash = await hashPassword(currentPassword, salt);
     const stored = Buffer.from(storedHash, "hex");
@@ -607,8 +607,8 @@ export class AuthService {
   async bindWallet(userId: string, wallet: string, emailCode: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("用户不存在");
-    // 敏感操作：更换/绑定钱包前必须通过邮箱验证码确认
-    await this.requireEmailCode(user, emailCode);
+    // 敏感操作：开启两步验证须通过 TOTP；否则须通过邮箱验证码（引导账号无邮箱豁免）
+    await this.verifySensitiveFactor(user, emailCode, { allowOpsEmailSkip: true });
     const existing = await this.prisma.user.findUnique({
       where: { wallet },
     });
@@ -637,13 +637,19 @@ export class AuthService {
   }
 
   /** 注销账号（软删除）：置 deletedAt，撤销全部会话；保留数据以维护审计与单据完整性 */
-  async deleteAccount(userId: string, turnstileToken?: string): Promise<{ ok: boolean }> {
+  async deleteAccount(
+    userId: string,
+    code: string | undefined,
+    turnstileToken?: string,
+  ): Promise<{ ok: boolean }> {
     if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("用户不存在");
     if (user.deletedAt) throw new BadRequestException("账号已注销");
+    // 敏感操作：开启两步验证须通过 TOTP；否则须通过邮箱验证码（引导账号无邮箱豁免）
+    await this.verifySensitiveFactor(user, code, { allowOpsEmailSkip: true });
     await this.prisma.$transaction([
       this.prisma.refreshToken.updateMany({
         where: { userId, revokedAt: null },
@@ -680,11 +686,8 @@ export class AuthService {
     }
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("用户不存在");
-    if (!user.email) {
-      throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
-    }
-    // 敏感操作：修改名称前必须通过发送到当前邮箱的验证码
-    await this.emailVerification.verifyCode(user.email, emailCode);
+    // 敏感操作：开启两步验证须通过 TOTP；否则须通过发送到当前邮箱的验证码
+    await this.verifySensitiveFactor(user, emailCode);
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { name: trimmed },
@@ -705,6 +708,7 @@ export class AuthService {
     newEmail: string,
     emailCode: string,
     turnstileToken?: string,
+    totpCode?: string,
   ): Promise<PublicUser> {
     if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
@@ -722,7 +726,9 @@ export class AuthService {
     if (existing && existing.id !== userId) {
       throw new ConflictException("该邮箱已被注册");
     }
-    // 必须通过发送到新邮箱的验证码
+    // 开启两步验证后，改邮箱前必须先通过 TOTP 校验
+    await this.requireTotpIfEnabled(user, totpCode);
+    // 必须通过发送到新邮箱的验证码核验新邮箱所有权
     await this.emailVerification.verifyCode(normalized, emailCode);
     const updated = await this.prisma.user.update({
       where: { id: userId },
@@ -759,15 +765,27 @@ export class AuthService {
   }
 
   /**
-   * 修改密码专用：一律要求邮箱验证码，必须验证通过后才能更改密码。
-   * 唯一豁免：引导/运营账号「强制首登改密」且无真实邮箱（emailOtpEnabled=false + mustChangePassword=true），
-   * 避免新部署引导管理员改密死锁；除此之外（含引导账号后续改密）一律强制邮箱验证码。
+   * 敏感操作统一校验：
+   * - 已开启两步验证（TOTP）→ 必须提供有效的 6 位 TOTP 验证码；
+   * - 未开启两步验证 → 必须通过邮箱验证码（可选豁免：引导账号无邮箱 / 强制首登改密死锁）。
    */
-  private async requireEmailCodeForPassword(
-    user: { email: string | null; emailOtpEnabled?: boolean; mustChangePassword?: boolean },
+  private async verifySensitiveFactor(
+    user: {
+      email: string | null;
+      emailOtpEnabled?: boolean;
+      totpEnabled?: boolean;
+      totpSecret?: string | null;
+      mustChangePassword?: boolean;
+    },
     code: string | undefined,
+    opts: { allowOpsEmailSkip?: boolean; allowBootstrapSkip?: boolean } = {},
   ): Promise<void> {
-    if (user.emailOtpEnabled === false && user.mustChangePassword === true) return;
+    await this.requireTotpIfEnabled(user, code);
+    if (user.totpEnabled) return;
+    if (opts.allowOpsEmailSkip && user.emailOtpEnabled === false) return;
+    if (opts.allowBootstrapSkip && user.emailOtpEnabled === false && user.mustChangePassword === true) {
+      return;
+    }
     if (!user.email) {
       throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
     }
@@ -777,21 +795,16 @@ export class AuthService {
     await this.emailVerification.verifyCode(user.email, code);
   }
 
-  /** 敏感操作统一入口：校验邮箱验证码（用户必须存在邮箱）。 */
-  private async requireEmailCode(
-    user: { email: string | null; emailOtpEnabled?: boolean },
+  /** 开启两步验证后，敏感操作必须提供有效 TOTP 验证码 */
+  private async requireTotpIfEnabled(
+    user: { totpEnabled?: boolean; totpSecret?: string | null },
     code: string | undefined,
   ): Promise<void> {
-    // 引导/运营账号（emailOtpEnabled=false，如种子管理员/超级管理员、超管创建的管理员）
-    // 不强制邮箱验证码，避免「强制改密 + 无真实邮箱」死锁；真实用户仍强制校验。
-    if (user.emailOtpEnabled === false) return;
-    if (!user.email) {
-      throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
+    if (!user.totpEnabled) return;
+    const secret = user.totpSecret ? decryptTotpSecret(user.totpSecret) : null;
+    if (!secret || !isValidTotpCode(code ?? "", secret)) {
+      throw new BadRequestException("两步验证码错误，请重试");
     }
-    if (code === undefined) {
-      throw new BadRequestException("邮箱验证码为 6 位数字");
-    }
-    await this.emailVerification.verifyCode(user.email, code);
   }
 
   async setupTotp(userId: string) {

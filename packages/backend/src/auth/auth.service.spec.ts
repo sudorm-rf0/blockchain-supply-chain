@@ -838,6 +838,100 @@ describe("AuthService", () => {
     expect(emailVerification.verifyCode).not.toHaveBeenCalled();
   });
 
+  it("changePassword requires a valid TOTP code when two-factor is enabled", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      inviteCode: "AB12CD",
+      name: "A",
+      email: "totp-pass@example.com",
+      password: "secret123",
+      wallet,
+    });
+    const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
+    const secret = generateTotpSecret();
+    const goodCode = totpCodeAt(secret, Math.floor(Date.now() / 1000 / 30));
+    (prisma.user.findUnique as jest.Mock).mockImplementation(
+      async ({ where }: { where: { id?: string } }) =>
+        where.id
+          ? {
+              id: "u1",
+              email: created.email,
+              name: created.name,
+              wallet,
+              role: "USER",
+              passwordHash: created.passwordHash,
+              mustChangePassword: false,
+              emailOtpEnabled: true,
+              totpEnabled: true,
+              totpSecret: encryptForTest(secret),
+            }
+          : null,
+    );
+    // 开启两步验证后：错误/缺失 TOTP → 拒绝（即使有邮箱验证码）
+    await expect(
+      service.changePassword("u1", "secret123", "secret1234", "123456"),
+    ).rejects.toThrow(BadRequestException);
+    // 有效 TOTP → 通过
+    await expect(
+      service.changePassword("u1", "secret123", "secret1234", goodCode),
+    ).resolves.toBeTruthy();
+  });
+
+  it("bindWallet requires a valid TOTP code when two-factor is enabled", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      inviteCode: "AB12CD",
+      name: "A",
+      email: "totp-wallet@example.com",
+      password: "secret123",
+      wallet,
+    });
+    const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
+    const secret = generateTotpSecret();
+    const goodCode = totpCodeAt(secret, Math.floor(Date.now() / 1000 / 30));
+    (prisma.user.findUnique as jest.Mock).mockImplementation(
+      async ({ where }: { where: { id?: string } }) =>
+        where.id
+          ? {
+              id: "u1",
+              email: created.email,
+              name: created.name,
+              wallet,
+              role: "USER",
+              passwordHash: created.passwordHash,
+              mustChangePassword: false,
+              emailOtpEnabled: true,
+              totpEnabled: true,
+              totpSecret: encryptForTest(secret),
+            }
+          : null,
+    );
+    await expect(
+      service.bindWallet("u1", "newWallet", "123456"),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.bindWallet("u1", "newWallet", goodCode),
+    ).resolves.toBeTruthy();
+  });
+
   it("bindWallet requires and verifies an email code", async () => {
     const prisma = makePrisma();
     const emailVerification = makeEmailVerification();

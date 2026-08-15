@@ -196,6 +196,7 @@ export class AuthController {
       body.newEmail,
       body.emailCode,
       body.turnstileToken,
+      body.totpCode,
     );
     return { ok: true, user };
   }
@@ -205,7 +206,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
   async deleteAccount(@Req() req: Request, @Body() body: DeleteAccountDto) {
-    return this.authService.deleteAccount(req.user!.sub, body.turnstileToken);
+    return this.authService.deleteAccount(req.user!.sub, body.code, body.turnstileToken);
   }
 
   @Patch("wallet")

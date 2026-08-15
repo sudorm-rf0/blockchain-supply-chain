@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SensitiveCodeField } from "@/components/SensitiveCodeField";
 import {
   bindWallet,
   disableTotp,
@@ -119,7 +120,7 @@ export default function SecurityPage() {
       return;
     }
     if (!/^\d{6}$/.test(walletCode)) {
-      toast.error(t("security.wallet.codeRequired"));
+      toast.error(totpEnabled ? t("account.totpCodeRequired") : t("security.wallet.codeRequired"));
       return;
     }
     setWalletBusy(true);
@@ -279,27 +280,15 @@ export default function SecurityPage() {
               onChange={(e) => setWallet(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-            <Input
-              inputMode="numeric"
-              maxLength={6}
-              placeholder={t("security.walletCodePlaceholder")}
-              value={walletCode}
-              onChange={(e) => setWalletCode(e.target.value.replace(/\D/g, ""))}
-            />
-            <Button
-              variant="outline"
-              className="shrink-0"
-              onClick={handleSendWalletCode}
-              disabled={walletBusy || walletCooldown > 0}
-            >
-              {walletCooldown > 0
-                ? t("security.walletResendAfter", { seconds: walletCooldown })
-                : walletBusy
-                  ? t("security.walletSending")
-                  : t("security.walletSendCode")}
-            </Button>
-          </div>
+          <SensitiveCodeField
+            id="walletCode"
+            totpEnabled={totpEnabled}
+            value={walletCode}
+            onChange={setWalletCode}
+            onSend={() => void handleSendWalletCode()}
+            sending={walletBusy}
+            cooldown={walletCooldown}
+          />
           <Button onClick={handleBindWallet} disabled={walletBusy}>
             {t("security.walletBind")}
           </Button>

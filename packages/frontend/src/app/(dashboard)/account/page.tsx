@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SensitiveCodeField } from "@/components/SensitiveCodeField";
 import {
   changeEmail,
   changeName,
@@ -87,9 +88,10 @@ export default function AccountPage() {
   const [nameTurnstile, setNameTurnstile] = useState("");
   const [nameCaptchaKey, setNameCaptchaKey] = useState(0);
 
-  // 邮箱修改
+  // 邮箱修改（开启两步验证后还需 TOTP 验证码）
   const [newEmail, setNewEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
+  const [totpCode, setTotpCode] = useState("");
   const [emailCooldown, setEmailCooldown] = useState(0);
   const [emailSending, setEmailSending] = useState(false);
   const [emailBusy, setEmailBusy] = useState(false);
@@ -104,6 +106,9 @@ export default function AccountPage() {
   const [pwBusy, setPwBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteCode, setDeleteCode] = useState("");
+  const [deleteCooldown, setDeleteCooldown] = useState(0);
+  const [deleteSending, setDeleteSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [emailTurnstile, setEmailTurnstile] = useState("");
   const [emailCaptchaKey, setEmailCaptchaKey] = useState(0);
@@ -113,9 +118,11 @@ export default function AccountPage() {
   const [deleteCaptchaKey, setDeleteCaptchaKey] = useState(0);
   const [spamOpen, setSpamOpen] = useState(false);
 
-  // 修改密码必须邮箱验证码；仅「强制首登改密 + 引导账号无真实邮箱」这一种情况豁免
+  // 敏感操作验证：开启两步验证 → TOTP 验证码；未开启 → 邮箱验证码。
+  // 仅「强制首登改密 + 引导账号无真实邮箱」这一种情况豁免（requiresEmailCode=false）。
   const requiresEmailCode =
     user?.emailOtpEnabled !== false || user?.mustChangePassword !== true;
+  const totpEnabled = user?.totpEnabled ?? false;
 
   useEffect(() => {
     if (emailCooldown <= 0) return;
@@ -128,6 +135,12 @@ export default function AccountPage() {
     const timer = setInterval(() => setPwCooldown((c) => c - 1), 1000);
     return () => clearInterval(timer);
   }, [pwCooldown]);
+
+  useEffect(() => {
+    if (deleteCooldown <= 0) return;
+    const timer = setInterval(() => setDeleteCooldown((c) => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, [deleteCooldown]);
 
   useEffect(() => {
     if (nameCooldown <= 0) return;
@@ -156,7 +169,7 @@ export default function AccountPage() {
       return;
     }
     if (!/^\d{6}$/.test(nameCode)) {
-      toast.error(t("account.emailCodeRequired"));
+      toast.error(totpEnabled ? t("account.totpCodeRequired") : t("account.emailCodeRequired"));
       return;
     }
     if (TURNSTILE_SITE_KEY && !nameTurnstile) {
@@ -206,13 +219,22 @@ export default function AccountPage() {
       toast.error(t("account.emailCodeRequired"));
       return;
     }
+    if (totpEnabled && !/^\d{6}$/.test(totpCode)) {
+      toast.error(t("account.totpCodeRequired"));
+      return;
+    }
     if (TURNSTILE_SITE_KEY && !emailTurnstile) {
       toast.error(t("account.captchaRequired"));
       return;
     }
     setEmailBusy(true);
     try {
-      const result = await changeEmail(email, emailCode, emailTurnstile || undefined);
+      const result = await changeEmail(
+        email,
+        emailCode,
+        emailTurnstile || undefined,
+        totpEnabled ? totpCode : undefined,
+      );
       setAuth(result.user);
       toast.success(t("account.emailChanged"));
       setNewEmail("");
@@ -252,7 +274,7 @@ export default function AccountPage() {
       return;
     }
     if (requiresEmailCode && !/^\d{6}$/.test(pwCode)) {
-      toast.error(t("account.emailCodeRequired"));
+      toast.error(totpEnabled ? t("account.totpCodeRequired") : t("account.emailCodeRequired"));
       return;
     }
     if (TURNSTILE_SITE_KEY && !pwTurnstile) {
@@ -284,9 +306,27 @@ export default function AccountPage() {
     }
   };
 
+  const handleSendDeleteCode = async () => {
+    setDeleteSending(true);
+    try {
+      const r = await sendEmailOtpCode();
+      setDeleteCooldown(r.cooldownSeconds ?? 60);
+      toast.success(t("account.emailSent"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("account.sendFailed"));
+    } finally {
+      setDeleteSending(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (deleteConfirm.trim() !== t("account.deleteConfirmWord")) {
       toast.error(t("account.deleteConfirmMismatch"));
+      return;
+    }
+    if (requiresEmailCode && !/^\d{6}$/.test(deleteCode)) {
+      toast.error(totpEnabled ? t("account.totpCodeRequired") : t("account.emailCodeRequired"));
       return;
     }
     if (TURNSTILE_SITE_KEY && !deleteTurnstile) {
@@ -295,7 +335,10 @@ export default function AccountPage() {
     }
     setDeleting(true);
     try {
-      await deleteAccount(deleteTurnstile || undefined);
+      await deleteAccount(
+        requiresEmailCode ? deleteCode : undefined,
+        deleteTurnstile || undefined,
+      );
       toast.success(t("account.deleted"));
       await logoutApi();
       useUserStore.getState().logout();
@@ -346,35 +389,16 @@ export default function AccountPage() {
               placeholder={t("account.newNamePlaceholder")}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="nameCode">{t("account.emailCode")}</Label>
-            <div className="flex gap-2">
-              <Input
-                id="nameCode"
-                inputMode="numeric"
-                maxLength={6}
-                value={nameCode}
-                onChange={(e) => setNameCode(e.target.value.replace(/\D/g, ""))}
-                placeholder={t("account.codePlaceholder")}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={nameSending || nameCooldown > 0}
-                onClick={() => void handleSendNameCode()}
-              >
-                {nameCooldown > 0
-                  ? `${nameCooldown}s`
-                  : nameSending
-                    ? t("account.sending")
-                    : t("account.sendCode")}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("account.nameCodeHint")}
-            </p>
-          </div>
+          <SensitiveCodeField
+            id="nameCode"
+            totpEnabled={totpEnabled}
+            value={nameCode}
+            onChange={setNameCode}
+            onSend={() => void handleSendNameCode()}
+            sending={nameSending}
+            cooldown={nameCooldown}
+            emailHint={t("account.nameCodeHint")}
+          />
           <Turnstile key={nameCaptchaKey} action="sensitive" onVerify={setNameTurnstile} />
           <Button className="w-full" disabled={nameBusy} onClick={() => void handleChangeName()}>
             {nameBusy ? t("account.submitting") : t("account.confirmChangeName")}
@@ -406,35 +430,26 @@ export default function AccountPage() {
               placeholder={t("account.newEmailPlaceholder")}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="emailCode">{t("account.emailCode")}</Label>
-            <div className="flex gap-2">
-              <Input
-                id="emailCode"
-                inputMode="numeric"
-                maxLength={6}
-                value={emailCode}
-                onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ""))}
-                placeholder={t("account.codePlaceholder")}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={emailSending || emailCooldown > 0}
-                onClick={() => void handleSendEmailCode()}
-              >
-                {emailCooldown > 0
-                  ? `${emailCooldown}s`
-                  : emailSending
-                    ? t("account.sending")
-                    : t("account.sendCode")}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("account.emailCodeHint", { email: newEmail || t("account.newEmail") })}
-            </p>
-          </div>
+          {totpEnabled && (
+            <SensitiveCodeField
+              id="totpCode"
+              totpEnabled
+              value={totpCode}
+              onChange={setTotpCode}
+            />
+          )}
+          <SensitiveCodeField
+            id="emailCode"
+            totpEnabled={false}
+            value={emailCode}
+            onChange={setEmailCode}
+            onSend={() => void handleSendEmailCode()}
+            sending={emailSending}
+            cooldown={emailCooldown}
+            emailHint={t("account.emailCodeHint", {
+              email: newEmail || t("account.newEmail"),
+            })}
+          />
           <Turnstile key={emailCaptchaKey} action="sensitive" onVerify={setEmailTurnstile} />
           <Button className="w-full" disabled={emailBusy} onClick={() => void handleChangeEmail()}>
             {emailBusy ? t("account.submitting") : t("account.confirmChangeEmail")}
@@ -479,35 +494,16 @@ export default function AccountPage() {
             />
           </div>
           {requiresEmailCode && (
-            <div className="space-y-2">
-              <Label htmlFor="pwCode">{t("account.emailCode")}</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="pwCode"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={pwCode}
-                  onChange={(e) => setPwCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder={t("account.codePlaceholder")}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shrink-0"
-                  disabled={pwSending || pwCooldown > 0}
-                  onClick={() => void handleSendPwCode()}
-                >
-                  {pwCooldown > 0
-                    ? `${pwCooldown}s`
-                    : pwSending
-                      ? t("account.sending")
-                      : t("account.sendCode")}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("account.pwCodeHint")}
-              </p>
-            </div>
+            <SensitiveCodeField
+              id="pwCode"
+              totpEnabled={totpEnabled}
+              value={pwCode}
+              onChange={setPwCode}
+              onSend={() => void handleSendPwCode()}
+              sending={pwSending}
+              cooldown={pwCooldown}
+              emailHint={t("account.pwCodeHint")}
+            />
           )}
           <Turnstile key={pwCaptchaKey} action="sensitive" onVerify={setPwTurnstile} />
           <Button className="w-full" disabled={pwBusy} onClick={() => void handleChangePassword()}>
@@ -597,6 +593,17 @@ export default function AccountPage() {
               placeholder={t("account.deleteConfirmWord")}
             />
           </div>
+          {requiresEmailCode && (
+            <SensitiveCodeField
+              id="deleteCode"
+              totpEnabled={totpEnabled}
+              value={deleteCode}
+              onChange={setDeleteCode}
+              onSend={() => void handleSendDeleteCode()}
+              sending={deleteSending}
+              cooldown={deleteCooldown}
+            />
+          )}
           <Turnstile key={deleteCaptchaKey} action="sensitive" onVerify={setDeleteTurnstile} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>{t("cancel")}</AlertDialogCancel>

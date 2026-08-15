@@ -169,11 +169,14 @@ export async function logout(): Promise<void> {
   useUserStore.getState().logout();
 }
 
-export async function deleteAccount(turnstileToken?: string): Promise<{ ok: boolean }> {
+export async function deleteAccount(
+  code?: string,
+  turnstileToken?: string,
+): Promise<{ ok: boolean }> {
   return request(`${BACKEND_URL}/api/auth/delete-account`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ turnstileToken }),
+    body: JSON.stringify({ code, turnstileToken }),
   });
 }
 
@@ -181,11 +184,12 @@ export async function changeEmail(
   newEmail: string,
   emailCode: string,
   turnstileToken?: string,
+  totpCode?: string,
 ): Promise<{ ok: boolean; user: AuthUser }> {
   return request(`${BACKEND_URL}/api/auth/change-email`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ newEmail, emailCode, turnstileToken }),
+    body: JSON.stringify({ newEmail, emailCode, turnstileToken, totpCode }),
   });
 }
 
