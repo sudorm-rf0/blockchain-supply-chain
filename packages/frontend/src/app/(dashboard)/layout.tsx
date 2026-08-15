@@ -51,6 +51,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     };
   }, [setHydrated]);
 
+  // 兜底：路由变化时强制关闭移动端抽屉，确保点击菜单项后退出任务栏到达新页面
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   useEffect(() => {
     if (!hydrated) return;
     if (!user) {
