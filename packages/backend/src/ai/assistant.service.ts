@@ -14,7 +14,7 @@ const MAX_MESSAGES = 100;
 /** 送入 LLM 的上下文最近消息数 */
 const MAX_CONTEXT_MESSAGES = 20;
 
-interface StoredMessage {
+export interface StoredMessage {
   role: "user" | "assistant";
   content: string;
 }
