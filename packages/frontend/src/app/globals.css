@@ -40,7 +40,8 @@
     --secondary: 0 0% 9%;
     --secondary-foreground: 0 0% 92%;
     --muted: 0 0% 9%;
-    --muted-foreground: 0 0% 45%;
+    /* 暗黑模式灰色字体调亮（45% -> 80%，接近白色，提升可读性） */
+    --muted-foreground: 0 0% 80%;
     --accent: 0 0% 12%;
     --accent-foreground: 0 0% 92%;
     --destructive: 3 100% 55%;
