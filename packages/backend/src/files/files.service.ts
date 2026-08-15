@@ -25,6 +25,7 @@ import { AuditService } from "../audit/audit.service";
 import { RedisService } from "@supply-chain/common";
 import { ScanService } from "../security/scan.service";
 import { FilesAnalysisService } from "./files-analysis.service";
+import { decodeFilename } from "./filename";
 import { Logger } from "@nestjs/common";
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
@@ -208,7 +209,7 @@ export class FilesService {
       }
       const created = await this.prisma.file.create({
         data: {
-          filename: file.originalname,
+          filename: decodeFilename(file.originalname),
           size: persisted.size,
           mimeType: ALLOWED_EXTENSIONS[extension],
           path: persisted.storageKey,
@@ -241,7 +242,7 @@ export class FilesService {
         targetType: "FILE",
         targetId: created.id,
         metadata: {
-          filename: file.originalname,
+          filename: decodeFilename(file.originalname),
           size: persisted.size,
           hash: fileHash,
           tradeId: fields.tradeId ?? null,

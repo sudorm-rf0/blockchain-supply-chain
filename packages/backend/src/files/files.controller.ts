@@ -25,6 +25,7 @@ import { AuthGuard } from "@supply-chain/common";
 import { AdminGuard } from "@supply-chain/common";
 import { FilesService } from "./files.service";
 import { FilesAnalysisService } from "./files-analysis.service";
+import { decodeFilename } from "./filename";
 import { ReviewFileDto } from "./dto/review-file.dto";
 import { BatchReviewDto } from "./dto/batch-review.dto";
 import { UploadFileDto } from "./dto/upload-file.dto";
@@ -39,7 +40,8 @@ const storage = diskStorage({
     cb(null, UPLOAD_DIR);
   },
   filename: (_req, file, cb) => {
-    const safeName = file.originalname.replace(/[^\w.-]/g, "_");
+    const decoded = decodeFilename(file.originalname);
+    const safeName = decoded.replace(/[^\w.-]/g, "_");
     cb(null, `${Date.now()}_${randomUUID()}_${safeName}`);
   },
 });
