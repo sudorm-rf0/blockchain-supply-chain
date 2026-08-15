@@ -7,7 +7,13 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { Download, ExternalLink, FileWarning } from "lucide-react";
 import { getFile, fetchFileBlob, type FileRecord } from "@/lib/api";
-import { PdfPreview } from "@/components/PdfPreview";
+import dynamic from "next/dynamic";
+const PdfPreview = dynamic(() => import("@/components/PdfPreview").then((m) => m.PdfPreview), {
+  ssr: false,
+  loading: () => (
+    <p className="mt-20 text-sm text-muted-foreground">Loading…</p>
+  ),
+});
 import { Button } from "@/components/ui/button";
 
 /** 独立预览页：在新标签页打开文件（PDF 用 pdf.js 渲染，图片直接显示） */
