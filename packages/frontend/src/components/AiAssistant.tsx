@@ -166,7 +166,7 @@ export function AiAssistant() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="flex w-full max-w-sm flex-col gap-0 p-0 sm:max-w-sm">
           <SheetHeader className="border-b px-4 py-3">
-            <SheetTitle className="flex items-center justify-between gap-2 text-base">
+            <SheetTitle className="flex items-center justify-between gap-2 pr-11 text-base">
               <span className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#00E676]" />
                 {t("shell.aiAssistant.title")}
