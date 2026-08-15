@@ -52,6 +52,7 @@ export async function bindWallet(
 export async function setupTotp(): Promise<{
   secret: string;
   otpauthUrl: string;
+  qrCodeDataUrl: string;
 }> {
   return request(`${BACKEND_URL}/api/auth/totp/setup`, {
     method: "POST",

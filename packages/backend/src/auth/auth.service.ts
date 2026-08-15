@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { PublicKey } from "@solana/web3.js";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import QRCode from "qrcode";
 import { promisify } from "node:util";
 import { PrismaService } from "../prisma/prisma.service";
 import { getRedisFailureCount, RedisService } from "@supply-chain/common";
@@ -727,7 +728,13 @@ export class AuthService {
       data: { totpSecret: encryptTotpSecret(secret) },
     });
     const otpauthUrl = totpUri(secret, user.email ?? userId);
-    return { secret, otpauthUrl };
+    // 生成二维码（PNG data URL），前端直接展示供用户扫码添加
+    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, {
+      margin: 1,
+      width: 220,
+      errorCorrectionLevel: "M",
+    });
+    return { secret, otpauthUrl, qrCodeDataUrl };
   }
 
   async enableTotp(userId: string, code: string) {

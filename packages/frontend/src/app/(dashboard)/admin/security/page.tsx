@@ -27,7 +27,12 @@ export default function SecurityPage() {
   const { t } = useTranslation();
   const user = useUserStore((state) => state.user);
   const setAuth = useUserStore((state) => state.setAuth);
-  const [pending, setPending] = useState<{ secret: string; otpauthUrl: string } | null>(null);
+  const [pending, setPending] = useState<{
+    secret: string;
+    otpauthUrl: string;
+    qrCodeDataUrl: string;
+  } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const totpEnabled = user?.totpEnabled ?? false;
@@ -157,12 +162,44 @@ export default function SecurityPage() {
           {pending && (
             <div className="space-y-3 rounded-md border p-4">
               <p className="text-sm">{t("security.pendingSetup")}</p>
-              <p className="break-all rounded bg-muted p-2 text-xs">
-                {pending.otpauthUrl}
-              </p>
+              {/* 二维码：扫码即可添加 */}
+              <div className="flex flex-col items-center gap-2">
+                {pending.qrCodeDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={pending.qrCodeDataUrl}
+                    alt="TOTP QR"
+                    className="h-44 w-44 rounded-md border bg-white p-1"
+                  />
+                ) : null}
+                <p className="text-center text-xs text-muted-foreground">
+                  {t("security.qrHint")}
+                </p>
+              </div>
+              {/* 备用：手动输入密钥 / 复制链接 */}
               <p className="text-xs text-muted-foreground">
                 {t("security.secretHint")}<code>{pending.secret}</code>
               </p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 break-all rounded bg-muted px-2 py-1 text-xs">
+                  {pending.otpauthUrl}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(pending.otpauthUrl);
+                      setLinkCopied(true);
+                      toast.success(t("security.copied"));
+                    } catch {
+                      toast.error(t("security.copyLink"));
+                    }
+                  }}
+                >
+                  {linkCopied ? t("security.copied") : t("security.copyLink")}
+                </Button>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="enable-code">{t("security.enableCodeLabel")}</Label>
                 <div className="flex gap-2">
