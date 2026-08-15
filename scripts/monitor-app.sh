@@ -37,16 +37,69 @@ failed: ${prev} -> ${failed}，请查看 indexer 日志。"
   fi
   echo "$failed" > "$last_file"
   if [ -z "$last_snap" ]; then
-    # 池快照缺失（devnet 旧账户布局导致的已知状态），每天提示一次
-    alert indexer-snap "[提示] indexer 资金池快照缺失" "${DATE}
+    # 池快照缺失（devnet 旧账户布局导致的已知状态），每天最多提示一次
+    SNAP_STATE="$ALERT_STATE_DIR/indexer-snap-daily"
+    now_s=$(date +%s)
+    last_send=$(cat "$SNAP_STATE" 2>/dev/null || echo 0)
+    if [ $((now_s - last_send)) -gt 86400 ]; then
+      python3 "$ALERT_BIN" "[提示] indexer 资金池快照缺失" "${DATE}
 lastPoolSnapshotAt 为空（devnet 上旧版 PoolState 账户布局所致），
 需通过应用重新初始化资金池后才会同步。"
+      echo "$now_s" > "$SNAP_STATE"
+    fi
   else
-    alert_reset indexer-snap
+    alert_reset indexer-snap-daily
   fi
 else
   alert indexer-api "[系统告警] indexer 状态接口不可达" "${DATE}
 ${BASE}/api/indexer/status 无响应。"
+fi
+
+# 3.5) 今日上传数突增（阈值可调）
+UPLOAD_ALERT_THRESHOLD=${UPLOAD_ALERT_THRESHOLD:-200}
+today_uploads=$(docker exec supply-chain-postgres psql -U supply -d supply_chain -t -A \
+  -c "SELECT count(*) FROM files WHERE \"createdAt\" >= date_trunc('day', now());" 2>/dev/null | tr -d ' ')
+if [ "${today_uploads:-0}" -gt "$UPLOAD_ALERT_THRESHOLD" ]; then
+  alert app-uploads "[业务告警] 今日上传量突增 ${today_uploads} 份" "${DATE}
+今日文件上传数已达 ${today_uploads} 份（阈值 ${UPLOAD_ALERT_THRESHOLD}），请确认是否异常。"
+else
+  alert_reset app-uploads
+fi
+
+# 3.6) 今日注册数异常
+REGISTER_ALERT_THRESHOLD=${REGISTER_ALERT_THRESHOLD:-50}
+today_reg=$(docker exec supply-chain-postgres psql -U supply -d supply_chain -t -A \
+  -c "SELECT count(*) FROM \"User\" WHERE \"createdAt\" >= date_trunc('day', now());" 2>/dev/null | tr -d ' ')
+if [ "${today_reg:-0}" -gt "$REGISTER_ALERT_THRESHOLD" ]; then
+  alert app-register "[业务告警] 今日注册数异常 ${today_reg} 个" "${DATE}
+今日新增用户 ${today_reg} 个（阈值 ${REGISTER_ALERT_THRESHOLD}），可能存在批量注册。"
+else
+  alert_reset app-register
+fi
+
+# 3.7) 登录爆破检测（Redis login:fail:* 计数）
+RD_PW=$(grep -E "^REDIS_PASSWORD=" /opt/supply-chain/deploy/vps/.env.data | cut -d= -f2)
+max_fail=0
+while IFS= read -r k; do
+  v=$(docker exec supply-chain-redis redis-cli -a "$RD_PW" --no-auth-warning GET "$k" 2>/dev/null)
+  [ "${v:-0}" -gt "$max_fail" ] && max_fail=$v
+done < <(docker exec supply-chain-redis redis-cli -a "$RD_PW" --no-auth-warning --scan --pattern "login:fail:*" 2>/dev/null)
+if [ "$max_fail" -ge 5 ]; then
+  alert app-login-brute "[安全告警] 检测到登录爆破尝试" "${DATE}
+Redis 中登录失败计数最高达 ${max_fail} 次，可能存在暴力破解，请检查 fail2ban 与登录日志。"
+else
+  alert_reset app-login-brute
+fi
+
+# 3.8) 订单还款到期提醒（REPAYING 且 账期到期在 48h 内）
+REPAY_WINDOW_HOURS=${REPAY_WINDOW_HOURS:-48}
+due_deals=$(docker exec supply-chain-postgres psql -U supply -d supply_chain -t -A \
+  -c "SELECT string_agg(dealId || ' (' || to_char(\"createdAt\" + make_interval(secs => tenor*86400), 'MM-DD HH24:MI') || ')', ', ') FROM \"TradeDeal\" WHERE status='REPAYING' AND \"createdAt\" + make_interval(secs => tenor*86400) < now() + make_interval(hours => ${REPAY_WINDOW_HOURS}) AND \"createdAt\" + make_interval(secs => tenor*86400) > now();" 2>/dev/null | tr -d ' ')
+if [ -n "$due_deals" ] && [ "$due_deals" != "" ]; then
+  alert app-repay-due "[业务提醒] 订单即将到期还款" "${DATE}
+以下 ${REPAY_WINDOW_HOURS} 小时内到期的 REPAYING 订单：${due_deals}"
+else
+  alert_reset app-repay-due
 fi
 
 # 3) 每日备份产物检查（backup 容器每天 02:00 写入 /backups）

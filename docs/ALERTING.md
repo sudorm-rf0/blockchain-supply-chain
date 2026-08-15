@@ -11,6 +11,11 @@
 | 应用健康 | `/health` / `/health/ready` 连续 2 次失败 | 30 分钟 |
 | indexer | 队列 failed 增长；池快照缺失 | 30 分钟 / 1 天 |
 | 备份 | 无备份文件或最新备份 > 48h | 30 分钟 |
+| 上传突增 | 今日上传 > 200（`UPLOAD_ALERT_THRESHOLD`） | 30 分钟 |
+| 注册异常 | 今日注册 > 50（`REGISTER_ALERT_THRESHOLD`） | 30 分钟 |
+| 登录爆破 | Redis `login:fail:*` 计数 ≥ 5 | 30 分钟 |
+| 还款到期 | REPAYING 且账期到期在 48h 内（`REPAY_WINDOW_HOURS`） | 30 分钟 |
+| fail2ban | 新增封禁 IP | 30 分钟 |
 
 恢复时自动发送"已恢复"通知（除证书/池快照提示外）。
 
