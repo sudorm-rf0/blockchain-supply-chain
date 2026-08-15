@@ -101,7 +101,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
-          <div className="flex items-center gap-2">
+          {/* 移动端：左侧固定汉堡按钮占位，将品牌图标右移避开遮挡（md 以上按钮隐藏，恢复原位） */}
+          <div className="flex items-center gap-2 pl-11 md:pl-0">
             <LogoMark className="h-7 w-7" />
             <span className="font-mono font-semibold tracking-wide">{t("shell.appName")}</span>
           </div>
