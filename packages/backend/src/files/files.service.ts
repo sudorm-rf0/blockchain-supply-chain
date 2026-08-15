@@ -24,6 +24,7 @@ import type { StorageService } from "../storage/storage.service";
 import { AuditService } from "../audit/audit.service";
 import { RedisService } from "@supply-chain/common";
 import { ScanService } from "../security/scan.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { FilesAnalysisService } from "./files-analysis.service";
 import { decodeFilename } from "./filename";
 import { Logger } from "@nestjs/common";
@@ -80,6 +81,7 @@ export class FilesService {
     private readonly redis: RedisService,
     private readonly scan: ScanService,
     private readonly analysis: FilesAnalysisService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async upload(
@@ -387,6 +389,18 @@ export class FilesService {
         targetId: id,
         metadata: { from: file.status, remark: body.remark ?? null },
       });
+      if (file.uploaderId) {
+        await this.notifications.create({
+          userId: file.uploaderId,
+          type: "FILE_REVIEWED",
+          title:
+            body.status === "APPROVED"
+              ? "文件审核通过"
+              : "文件审核未通过",
+          body: `「${file.filename}」${body.status === "APPROVED" ? "已通过审核" : "未通过审核，请查看原因"}`,
+          metadata: { fileId: id, status: body.status, remark: body.remark ?? null },
+        }).catch(() => undefined);
+      }
     }
     await this.redis.incr("files:list:version").catch(() => undefined);
     return this.publicFile(updated);
@@ -407,7 +421,7 @@ export class FilesService {
     const uniqueIds = [...new Set(ids)].slice(0, 100);
     const files = await this.prisma.file.findMany({
       where: { id: { in: uniqueIds } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, uploaderId: true, filename: true },
     });
     const toUpdate = files.filter((file) => file.status !== body.status);
     let updated = 0;
@@ -429,6 +443,15 @@ export class FilesService {
           targetId: file.id,
           metadata: { from: file.status, remark: body.remark ?? null },
         });
+        if (file.uploaderId) {
+          await this.notifications.create({
+            userId: file.uploaderId,
+            type: "FILE_REVIEWED",
+            title: body.status === "APPROVED" ? "文件审核通过" : "文件审核未通过",
+            body: `「${file.filename}」${body.status === "APPROVED" ? "已通过审核" : "未通过审核，请查看原因"}`,
+            metadata: { fileId: file.id, status: body.status, remark: body.remark ?? null },
+          }).catch(() => undefined);
+        }
       }
       updated = toUpdate.length;
     }

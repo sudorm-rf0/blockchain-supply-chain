@@ -16,6 +16,10 @@ import { SupplyChainModule } from "./supply-chain/supply-chain.module";
 import { EmailVerificationModule } from "./email-verification/email-verification.module";
 import { FinancingModule } from "./financing/financing.module";
 import { FeedbackModule } from "./feedback/feedback.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { ReportsModule } from "./reports/reports.module";
+import { OnchainGovernanceModule } from "./onchain-governance/onchain-governance.module";
+import { IntegrationsModule } from "./integrations/integrations.module";
 import { AiModule } from "./ai/ai.module";
 import { MetricsController } from "./shared/metrics.controller";
 import { MetaController } from "./shared/meta.controller";
@@ -43,6 +47,10 @@ import { RedisService } from "@supply-chain/common";
     FinancingModule,
     FeedbackModule,
     AiModule,
+    NotificationsModule,
+    ReportsModule,
+    OnchainGovernanceModule,
+    IntegrationsModule,
   ],
   controllers: [
     AppController,

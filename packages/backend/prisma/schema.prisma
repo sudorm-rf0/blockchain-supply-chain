@@ -52,6 +52,9 @@ model User {
   financingRequests         FinancingRequest[]  @relation("FinancingApplicant")
   reviewedFinancingRequests FinancingRequest[]  @relation("FinancingReviewer")
   refreshTokens RefreshToken[]
+  notifications Notification[]
+  apiKeys       ApiKey[]
+  webhooks      Webhook[]
 }
 
 model InviteCode {
@@ -292,4 +295,61 @@ model FinancingRequest {
   @@index([applicantId])
   @@index([invoiceId])
   @@map("financing_requests")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  /// 通知类型：FILE_REVIEWED / TRADE_STATUS / WITHDRAWAL_STATUS / SYSTEM
+  type      String
+  title     String
+  body      String?
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  /// sha256(原始 Key)，原始 Key 仅在创建时返回一次
+  keyHash    String    @unique
+  /// 展示用前缀（原始 Key 前 8 位）
+  prefix     String
+  role       String    @default("USER")
+  userId     String
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id         String    @id @default(cuid())
+  name       String
+  url        String
+  /// 请求签名密钥（sha256），用于校验请求来自系统
+  secretHash String?
+  events     Json
+  active     Boolean   @default(true)
+  userId     String
+  lastSentAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("webhooks")
 }

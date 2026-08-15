@@ -90,6 +90,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "fake.png");
     writeFileSync(path, "this is not an image");
@@ -113,6 +114,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "ok.png");
     writeFileSync(path, PNG_BYTES);
@@ -149,6 +151,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       scan as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "ok.png");
     writeFileSync(path, PNG_BYTES);
@@ -177,6 +180,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "version.png");
     writeFileSync(path, PNG_BYTES);
@@ -223,6 +227,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "owned.png");
     writeFileSync(path, PNG_BYTES);
@@ -247,6 +252,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "dup.png");
     writeFileSync(path, PNG_BYTES);
@@ -271,6 +277,7 @@ describe("FilesService", () => {
       redis as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "quota.png");
     writeFileSync(path, PNG_BYTES);
@@ -295,6 +302,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const path = join(dir, "audit.png");
     writeFileSync(path, PNG_BYTES);
@@ -326,6 +334,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     await expect(
       service.patch("f1", { status: "APPROVED" }, { id: "admin-1" }),
@@ -347,6 +356,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const result = await service.batchReview(
       ["f1", "f2"],
@@ -373,6 +383,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const result = await service.batchReview(
       ["f1"],
@@ -396,6 +407,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     await expect(service.getVersions("f1", "user-1", "USER")).rejects.toThrow(
       ForbiddenException,
@@ -418,6 +430,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const result = await service.getVersions("f1", "user-1", "USER");
     expect(result).toHaveLength(1);
@@ -440,6 +453,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     await service.getVersions("f1", "user-1", "USER");
     expect(prisma.file.findMany).toHaveBeenCalledWith(
@@ -464,6 +478,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     await expect(
       service.remove("f1", "user-1", "USER", "true"),
@@ -485,6 +500,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     await expect(
       service.remove("f1", "user-1", "USER", "true"),
@@ -502,6 +518,7 @@ describe("FilesService", () => {
       makeRedisFiles() as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     await service.list({ page: 1, limit: 10, userId: "user-1" });
     expect(prisma.file.findMany).toHaveBeenCalledWith(
@@ -528,6 +545,7 @@ describe("FilesService", () => {
       redis as never,
       makeScan() as never,
     { analyze: jest.fn().mockResolvedValue({ score: 100, verdict: "LOW_RISK", checks: [], ocrText: "" }) } as never,
+    { create: jest.fn() } as never,
     );
     const result = await service.list({ page: 1, limit: 10, userId: "user-1" });
     expect(result.total).toBe(1);
