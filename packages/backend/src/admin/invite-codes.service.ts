@@ -95,11 +95,11 @@ export class InviteCodesService {
       byRole[role] = (byRole[role] ?? 0) + 1;
     }
 
-    // 近 30 天趋势：按天统计生成数 / 使用数
+    // 近 90 天趋势：按天统计生成数 / 使用数（前端可切换 7/30/90 天）
     const dayKey = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const trendMap = new Map<string, { generated: number; used: number }>();
-    for (let i = 29; i >= 0; i--) {
+    for (let i = 89; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       trendMap.set(dayKey(d), { generated: 0, used: 0 });
@@ -114,6 +114,35 @@ export class InviteCodesService {
     }
     const trend = [...trendMap.entries()].map(([date, v]) => ({ date, ...v }));
 
+    // 按管理员统计：谁生成了多少 / 用了多少（createdById 关联 User）
+    const creatorMap = new Map<string, { generated: number; used: number }>();
+    for (const r of rows) {
+      const key = r.createdById ?? "unknown";
+      const cur = creatorMap.get(key) ?? { generated: 0, used: 0 };
+      cur.generated += 1;
+      if (r.usedAt) cur.used += 1;
+      creatorMap.set(key, cur);
+    }
+    const creatorIds = [...creatorMap.keys()].filter((k) => k !== "unknown");
+    const creators = creatorIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, email: true, name: true },
+        })
+      : [];
+    const byCreator = [...creatorMap.entries()]
+      .map(([userId, v]) => {
+        const u = creators.find((c) => c.id === userId);
+        return {
+          userId,
+          email: u?.email ?? null,
+          name: u?.name ?? null,
+          generated: v.generated,
+          used: v.used,
+        };
+      })
+      .sort((a, b) => b.generated - a.generated);
+
     // 最近使用的邀请码（含使用人信息）
     const recentUsed = usedRows
       .sort((a, b) => (b.usedAt?.getTime() ?? 0) - (a.usedAt?.getTime() ?? 0))
@@ -127,7 +156,7 @@ export class InviteCodesService {
         usedByRole: r.usedBy?.role ?? null,
       }));
 
-    return { total, used, unused, usageRate, byRole, trend, recentUsed };
+    return { total, used, unused, usageRate, byRole, trend, recentUsed, byCreator };
   }
 
   async list(): Promise<InviteCodeRecord[]> {

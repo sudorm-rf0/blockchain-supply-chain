@@ -32,6 +32,7 @@ export default function InviteCodesPage() {
   const [items, setItems] = useState<InviteCodeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"used" | "unused">("used");
+  const [range, setRange] = useState<"7" | "30" | "90">("30");
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
@@ -89,7 +90,8 @@ export default function InviteCodesPage() {
           ? t("accounts.roleUser")
           : role;
 
-  const trend = stats?.trend?.slice(-14) ?? [];
+  const trendDays = Number(range);
+  const trend = stats?.trend?.slice(-trendDays) ?? [];
   const maxTrend = Math.max(1, ...trend.map((d) => Math.max(d.generated, d.used)));
 
   const usedItems = items.filter((i) => i.usedAt);
@@ -157,11 +159,23 @@ export default function InviteCodesPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader>
+              <CardHeader className="flex-row items-center justify-between space-y-0">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <BarChart3 className="h-4 w-4 text-[#00E676]" />
                   {t("inviteStats.trend")}
                 </CardTitle>
+                <div className="flex items-center gap-1 rounded-md border p-0.5">
+                  {(["7", "30", "90"] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setRange(d)}
+                      className={`rounded px-2 py-1 text-xs ${range === d ? "bg-primary/15 text-[#00E676]" : "text-muted-foreground"}`}
+                    >
+                      {d}{t("inviteStats.days")}
+                    </button>
+                  ))}
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="flex h-32 items-end gap-1">
@@ -185,11 +199,48 @@ export default function InviteCodesPage() {
                 <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />{t("inviteStats.used")}</span>
                   <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-primary/30" />{t("inviteStats.generated")}</span>
-                  <span className="text-muted-foreground/70">{t("inviteStats.last14Days")}</span>
+                  <span className="text-muted-foreground/70">{t("inviteStats.lastNDays", { n: trendDays })}</span>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* 按管理员统计 */}
+          {stats.byCreator.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Ticket className="h-4 w-4 text-[#00E676]" />
+                  {t("inviteStats.byCreator")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto rounded-md border">
+                  <Table className="min-w-[520px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("inviteStats.creator")}</TableHead>
+                        <TableHead>{t("inviteStats.generated")}</TableHead>
+                        <TableHead>{t("inviteStats.used")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stats.byCreator.map((c) => (
+                        <TableRow key={c.userId}>
+                          <TableCell className="text-xs">
+                            <span className="font-medium">{c.name ?? "-"}</span>
+                            <span className="ml-1 text-muted-foreground">{c.email ?? ""}</span>
+                          </TableCell>
+                          <TableCell className="text-xs">{c.generated}</TableCell>
+                          <TableCell className="text-xs text-emerald-600">{c.used}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* 已用 / 未用列表 */}
           <Card>

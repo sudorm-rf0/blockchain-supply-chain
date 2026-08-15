@@ -134,6 +134,13 @@ export interface InviteStats {
   usageRate: number;
   byRole: Record<string, number>;
   trend: Array<{ date: string; generated: number; used: number }>;
+  byCreator: Array<{
+    userId: string;
+    email: string | null;
+    name: string | null;
+    generated: number;
+    used: number;
+  }>;
   recentUsed: Array<{
     id: string;
     code: string;
