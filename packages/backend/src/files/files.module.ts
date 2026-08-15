@@ -11,10 +11,11 @@ import { ScanService } from "../security/scan.service";
 import { FilesAnalysisService } from "./files-analysis.service";
 import { FilesTranslationService } from "./files-translation.service";
 import { FilesAiService } from "./files-ai.service";
+import { AiModule } from "../ai/ai.module";
 
 @Module({
   controllers: [FilesController, AttestationController],
-  imports: [StorageModule, AuditModule, AuthModule],
+  imports: [StorageModule, AuditModule, AuthModule, AiModule],
   providers: [FilesService, AttestationService, FilesAnalysisService, FilesTranslationService, FilesAiService, PrismaService, ScanService],
 })
 export class FilesModule {}

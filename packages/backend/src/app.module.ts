@@ -16,6 +16,7 @@ import { SupplyChainModule } from "./supply-chain/supply-chain.module";
 import { EmailVerificationModule } from "./email-verification/email-verification.module";
 import { FinancingModule } from "./financing/financing.module";
 import { FeedbackModule } from "./feedback/feedback.module";
+import { AiModule } from "./ai/ai.module";
 import { MetricsController } from "./shared/metrics.controller";
 import { MetaController } from "./shared/meta.controller";
 import { PublicVerifyController } from "./shared/public-verify.controller";
@@ -41,6 +42,7 @@ import { RedisService } from "@supply-chain/common";
     EmailVerificationModule,
     FinancingModule,
     FeedbackModule,
+    AiModule,
   ],
   controllers: [
     AppController,

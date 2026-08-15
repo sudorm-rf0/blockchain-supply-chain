@@ -23,5 +23,21 @@ const en = {
   "notFound.title": "Page not found",
   "notFound.description": "The page you visited does not exist or has been removed. Please check the address.",
   "notFound.backHome": "Back to home",
-  "shell.changeLanguage": "Change Language",};
+  "shell.changeLanguage": "Change Language",  "shell.aiAssistant.open": "AI Assistant",
+  "shell.aiAssistant.title": "AI Assistant",
+  "shell.aiAssistant.desc": "Platform guidance & Q&A — tap a quick command or ask directly",
+  "shell.aiAssistant.welcome": "Hi, I'm the platform AI assistant 🤖\n\nI can guide you through uploading documents, creating trade orders, binding a wallet, reviewing files, and more.\n\nTap a quick command below or type your question.",
+  "shell.aiAssistant.quickTitle": "Quick commands",
+  "shell.aiAssistant.inputPlaceholder": "Type a question and press Enter",
+  "shell.aiAssistant.thinking": "AI is thinking...",
+  "shell.aiAssistant.sendFailed": "AI reply failed",
+  "shell.ai.commands.upload": "How do I upload a document?",
+  "shell.ai.commands.createOrder": "How do I create a trade order?",
+  "shell.ai.commands.bindWallet": "How do I bind a wallet?",
+  "shell.ai.commands.totp": "How do I enable two-factor auth?",
+  "shell.ai.commands.review": "File review workflow",
+  "shell.ai.commands.financing": "How do I apply for financing?",
+  "shell.ai.commands.feedback": "How do I submit feedback?",
+  "shell.ai.commands.roles": "What roles does the platform have?",
+};
 export default en;

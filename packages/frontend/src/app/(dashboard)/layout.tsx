@@ -6,6 +6,7 @@ import { Languages, LogOut, Menu, ShieldCheck, User as UserIcon, UserCog } from 
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Sidebar } from "@/components/Sidebar";
+import { AiAssistant } from "@/components/AiAssistant";
 import { LogoMark } from "@/components/LogoMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -205,6 +206,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
+      <AiAssistant />
     </div>
   );
 }

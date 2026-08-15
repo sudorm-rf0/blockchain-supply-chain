@@ -23,5 +23,21 @@ const zh_TW = {
   "notFound.title": "頁面不存在",
   "notFound.description": "你瀏覽的頁面不存在或已移除，請檢查網址是否正確。",
   "notFound.backHome": "返回首頁",
-  "shell.changeLanguage": "更改語言",};
+  "shell.changeLanguage": "更改語言",  "shell.aiAssistant.open": "AI 助手",
+  "shell.aiAssistant.title": "AI 助手",
+  "shell.aiAssistant.desc": "平台操作引導與答疑，點擊快捷指令或直接提問",
+  "shell.aiAssistant.welcome": "你好，我是平台 AI 助手 🤖\n\n我可以引導你完成上傳單據、建立貿易訂單、綁定錢包、檔案審核等操作，也可以解答任何疑問。\n\n點擊下方快捷指令，或直接輸入問題。",
+  "shell.aiAssistant.quickTitle": "快捷指令",
+  "shell.aiAssistant.inputPlaceholder": "輸入問題，Enter 傳送",
+  "shell.aiAssistant.thinking": "AI 思考中...",
+  "shell.aiAssistant.sendFailed": "AI 回覆失敗",
+  "shell.ai.commands.upload": "如何上傳單據？",
+  "shell.ai.commands.createOrder": "如何建立貿易訂單？",
+  "shell.ai.commands.bindWallet": "如何綁定錢包？",
+  "shell.ai.commands.totp": "如何開啟雙重驗證？",
+  "shell.ai.commands.review": "檔案審核流程",
+  "shell.ai.commands.financing": "如何申請融資？",
+  "shell.ai.commands.feedback": "如何提交意見回饋？",
+  "shell.ai.commands.roles": "平台有哪些角色？",
+};
 export default zh_TW;

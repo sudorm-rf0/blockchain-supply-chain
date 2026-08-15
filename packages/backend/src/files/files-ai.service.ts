@@ -1,18 +1,16 @@
 import {
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
-  ServiceUnavailableException,
 } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { AiLlmService, type AiChatMessage } from "../ai/ai-llm.service";
 import type { AiChatDto } from "./dto/ai-chat.dto";
 
 /** AI 能力开关由环境变量控制：AI_API_KEY 未配置时返回 503（fail-closed）。 */
 const MAX_CONTEXT_CHARS = 8000;
-const REQUEST_TIMEOUT_MS = 60_000;
 
 export interface AiReviewReport {
   summary: string;
@@ -20,12 +18,6 @@ export interface AiReviewReport {
   riskAssessment: string;
   suggestions: string[];
   concerns: string[];
-}
-
-type ChatRole = "system" | "user" | "assistant";
-interface ChatMessage {
-  role: ChatRole;
-  content: string;
 }
 
 interface FileForAi {
@@ -43,27 +35,11 @@ interface FileForAi {
 
 @Injectable()
 export class FilesAiService {
-  private readonly logger = new Logger(FilesAiService.name);
-  private readonly apiKey: string;
-  private readonly baseUrl: string;
-  private readonly model: string;
-  /** DeepSeek 思考强度（reasoning_effort）：最低为 none；留空则不发送该参数 */
-  private readonly reasoningEffort: string;
-  private readonly enabled: boolean;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-  ) {
-    this.apiKey = (process.env.AI_API_KEY ?? "").trim();
-    this.baseUrl = (process.env.AI_BASE_URL ?? "https://api.openai.com/v1").trim().replace(/\/+$/, "");
-    this.model = (process.env.AI_MODEL ?? "gpt-4o-mini").trim();
-    this.reasoningEffort = (process.env.AI_REASONING_EFFORT ?? "none").trim();
-    this.enabled = this.apiKey.length > 0;
-    if (!this.enabled) {
-      this.logger.warn("AI_API_KEY 未配置：AI 审核助手停用（返回 503）");
-    }
-  }
+    private readonly llm: AiLlmService,
+  ) {}
 
   private async requireFile(fileId: string, userId: string, role: string): Promise<FileForAi> {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
@@ -72,51 +48,6 @@ export class FilesAiService {
       throw new ForbiddenException("无权分析此文件");
     }
     return file;
-  }
-
-  private async complete(messages: ChatMessage[], maxTokens = 1400): Promise<string> {
-    if (!this.enabled) {
-      throw new ServiceUnavailableException("AI 服务未配置，请联系管理员（AI_API_KEY）");
-    }
-    let response: Response;
-    try {
-      response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          temperature: 0.2,
-          max_tokens: maxTokens,
-          // 思考强度拉到最低（DeepSeek v4：none=最低，high=默认）
-          ...(this.reasoningEffort ? { reasoning_effort: this.reasoningEffort } : {}),
-        }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (error) {
-      this.logger.error(`ai request threw: ${String(error)}`);
-      throw new ServiceUnavailableException("AI 服务暂不可用，请稍后重试");
-    }
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      this.logger.error(`ai api ${response.status}: ${body.slice(0, 300)}`);
-      throw new ServiceUnavailableException(
-        response.status === 401
-          ? "AI 服务鉴权失败，请检查 AI_API_KEY"
-          : `AI 服务调用失败（HTTP ${response.status}）`,
-      );
-    }
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      throw new ServiceUnavailableException("AI 服务返回为空，请重试");
-    }
-    return content;
   }
 
   private buildContext(file: FileForAi): string {
@@ -184,7 +115,7 @@ export class FilesAiService {
   async review(fileId: string, userId: string, role: string): Promise<AiReviewReport> {
     const file = await this.requireFile(fileId, userId, role);
     const context = this.buildContext(file);
-    const raw = await this.complete([
+    const raw = await this.llm.complete([
       {
         role: "system",
         content:
@@ -209,7 +140,7 @@ export class FilesAiService {
       action: "FILE_AI_REVIEWED",
       targetType: "FILE",
       targetId: fileId,
-      metadata: { riskLevel: normalized.riskLevel, model: this.model },
+      metadata: { riskLevel: normalized.riskLevel, model: this.llm.modelName },
     });
     return normalized;
   }
@@ -218,14 +149,14 @@ export class FilesAiService {
   async chat(fileId: string, userId: string, role: string, dto: AiChatDto) {
     const file = await this.requireFile(fileId, userId, role);
     const context = this.buildContext(file);
-    const history: ChatMessage[] = (dto.history ?? [])
+    const history: AiChatMessage[] = (dto.history ?? [])
       .slice(-20)
-      .map((m): ChatMessage => ({
+      .map((m): AiChatMessage => ({
         role: m.role === "assistant" ? "assistant" : "user",
         content: String(m.content ?? "").slice(0, 4000),
       }))
       .filter((m) => m.content.length > 0);
-    const messages: ChatMessage[] = [
+    const messages: AiChatMessage[] = [
       {
         role: "system",
         content:
@@ -235,13 +166,13 @@ export class FilesAiService {
       ...history,
       { role: "user", content: dto.message },
     ];
-    const reply = await this.complete(messages, 1000);
+    const reply = await this.llm.complete(messages, 1000);
     await this.audit.record({
       actorId: userId,
       action: "FILE_AI_CHAT",
       targetType: "FILE",
       targetId: fileId,
-      metadata: { model: this.model, question: dto.message.slice(0, 200) },
+      metadata: { model: this.llm.modelName, question: dto.message.slice(0, 200) },
     });
     return { reply };
   }

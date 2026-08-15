@@ -23,5 +23,21 @@ const zh_CN = {
   "notFound.title": "页面不存在",
   "notFound.description": "你访问的页面不存在或已被移除，请检查地址是否正确。",
   "notFound.backHome": "返回首页",
-  "shell.changeLanguage": "更改语言",};
+  "shell.changeLanguage": "更改语言",  "shell.aiAssistant.open": "AI 助手",
+  "shell.aiAssistant.title": "AI 助手",
+  "shell.aiAssistant.desc": "平台操作引导与答疑，点击快捷指令或直接提问",
+  "shell.aiAssistant.welcome": "你好，我是平台 AI 助手 🤖\n\n我可以引导你完成上传单据、创建贸易订单、绑定钱包、文件审核等操作，也可以解答任何疑问。\n\n点击下方快捷指令，或直接输入问题。",
+  "shell.aiAssistant.quickTitle": "快捷指令",
+  "shell.aiAssistant.inputPlaceholder": "输入问题，Enter 发送",
+  "shell.aiAssistant.thinking": "AI 思考中...",
+  "shell.aiAssistant.sendFailed": "AI 回复失败",
+  "shell.ai.commands.upload": "如何上传单据？",
+  "shell.ai.commands.createOrder": "如何创建贸易订单？",
+  "shell.ai.commands.bindWallet": "如何绑定钱包？",
+  "shell.ai.commands.totp": "如何开启双重验证？",
+  "shell.ai.commands.review": "文件审核流程",
+  "shell.ai.commands.financing": "如何申请融资？",
+  "shell.ai.commands.feedback": "如何提交意见反馈？",
+  "shell.ai.commands.roles": "平台有哪些角色？",
+};
 export default zh_CN;

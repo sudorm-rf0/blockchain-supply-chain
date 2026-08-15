@@ -43,6 +43,8 @@ export type {
   AiChatMessage,
 } from "./files-api";
 export { submitFeedback } from "./feedback-api";
+export { aiChat } from "./ai-api";
+export type { AiChatMessage as AiAssistantMessage } from "./ai-api";
 export {
   createTrade,
   confirmTrade,
