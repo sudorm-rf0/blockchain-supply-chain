@@ -212,5 +212,11 @@ const en = {
   "translate.status.PENDING": "Pending",
   "translate.status.APPROVED": "Verified",
   "translate.status.REJECTED": "Rejected",
+  "preview.title": "File Preview",
+  "preview.openTab": "Open in new tab",
+  "preview.openOriginal": "Open original",
+  "preview.loadFailed": "Failed to load. Please sign in or the file may not exist.",
+  "preview.goLogin": "Sign in",
+  "preview.unsupported": "This file type cannot be previewed online. Please download it.",
 };
 export default en;

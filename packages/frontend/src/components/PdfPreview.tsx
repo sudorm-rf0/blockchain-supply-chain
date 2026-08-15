@@ -18,13 +18,15 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 interface PdfPreviewProps {
   url: string; // blob URL
   fileName: string;
+  /** 预览最大高度（px），默认 480，用于限制弹窗内高度防止遮挡 */
+  maxHeight?: number;
 }
 
 /**
  * 基于 pdf.js 的 PDF 预览：不依赖浏览器内置 PDF 查看器，
  * 支持分页；加载失败时提供「新窗口打开 / 下载」兜底。
  */
-export function PdfPreview({ url, fileName }: PdfPreviewProps) {
+export function PdfPreview({ url, fileName, maxHeight = 480 }: PdfPreviewProps) {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -61,7 +63,10 @@ export function PdfPreview({ url, fileName }: PdfPreviewProps) {
     void (async () => {
       try {
         const p = await pdfDoc.getPage(page);
-        const viewport = p.getViewport({ scale: 1.5 });
+        const rawViewport = p.getViewport({ scale: 1 });
+        // 自适应缩放：在「宽度 ≤ 620px 且 高度 ≤ maxHeight」内完整显示，避免撑爆弹窗遮挡按钮
+        const fitScale = Math.min(1.5, 620 / rawViewport.width, maxHeight / rawViewport.height);
+        const viewport = p.getViewport({ scale: fitScale });
         const canvas = canvasRef.current;
         if (!canvas || cancelled) return;
         const ctx = canvas.getContext("2d");
@@ -88,7 +93,7 @@ export function PdfPreview({ url, fileName }: PdfPreviewProps) {
     return () => {
       cancelled = true;
     };
-  }, [pdfDoc, page]);
+  }, [pdfDoc, page, maxHeight]);
 
   if (error) {
     return (

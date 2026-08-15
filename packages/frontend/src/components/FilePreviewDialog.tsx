@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Image from "next/image";
-import { Copy, Check, Download } from "lucide-react";
+import { Copy, Check, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -601,7 +601,7 @@ export function FilePreviewDialog({
               </div>
             )}
 
-            <div className="relative h-96 rounded-md border bg-muted/30 p-3">
+            <div className="relative flex h-96 items-center justify-center overflow-hidden rounded-md border bg-muted/30 p-3">
               {isImage ? (
                 <Image
                   src={objectUrl ?? ""}
@@ -611,7 +611,7 @@ export function FilePreviewDialog({
                   className="object-contain"
                 />
               ) : isPdf ? (
-                <PdfPreview url={objectUrl ?? ""} fileName={file.filename} />
+                <PdfPreview url={objectUrl ?? ""} fileName={file.filename} maxHeight={340} />
               ) : (
                 <div className="py-8 text-center">
                   <p className="text-sm text-muted-foreground">
@@ -624,7 +624,13 @@ export function FilePreviewDialog({
               )}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <a href={`/preview/${file.id}`} target="_blank" rel="noopener noreferrer">
+                <Button type="button" variant="outline">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t("preview.openTab")}
+                </Button>
+              </a>
               <a href={objectUrl ?? ""} download={file.filename}>
                 <Button type="button" variant="outline">
                   <Download className="mr-2 h-4 w-4" />

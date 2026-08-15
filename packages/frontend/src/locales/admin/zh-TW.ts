@@ -212,5 +212,11 @@ const zh_TW = {
   "translate.status.PENDING": "待驗證",
   "translate.status.APPROVED": "已驗證",
   "translate.status.REJECTED": "已駁回",
+  "preview.title": "檔案預覽",
+  "preview.openTab": "在新分頁開啟",
+  "preview.openOriginal": "開啟原始檔案",
+  "preview.loadFailed": "載入失敗，請先登入或檔案不存在",
+  "preview.goLogin": "去登入",
+  "preview.unsupported": "此檔案類型不支援線上預覽，請下載查看",
 };
 export default zh_TW;

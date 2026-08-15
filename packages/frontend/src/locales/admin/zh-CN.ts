@@ -212,5 +212,11 @@ const zh_CN = {
   "translate.status.PENDING": "待验证",
   "translate.status.APPROVED": "已验证",
   "translate.status.REJECTED": "已驳回",
+  "preview.title": "文件预览",
+  "preview.openTab": "在新标签页打开",
+  "preview.openOriginal": "打开原文件",
+  "preview.loadFailed": "加载失败，请先登录或文件不存在",
+  "preview.goLogin": "去登录",
+  "preview.unsupported": "该文件类型不支持在线预览，请下载查看",
 };
 export default zh_CN;
