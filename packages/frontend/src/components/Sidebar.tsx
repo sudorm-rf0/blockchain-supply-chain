@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, ShieldCheck, Ticket, Upload } from "lucide-react";
+import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, Settings2, ShieldCheck, Ticket, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +24,7 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
             ? [
                 { href: "/admin/accounts", label: t("sidebar.accounts"), icon: ShieldCheck },
                 { href: "/admin/invite-codes", label: t("sidebar.inviteStats"), icon: Ticket },
+                { href: "/admin/settings", label: t("sidebar.systemSettings"), icon: Settings2 },
               ]
             : []),
           {

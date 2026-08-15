@@ -190,5 +190,16 @@ const zh_CN = {
   "account.feedback.submitting": "提交中...",
   "account.feedback.success": "反馈已提交，感谢你的建议！",
   "account.feedback.failed": "反馈提交失败，请稍后重试",
+  "security.sessionsTitle": "登录会话",
+  "security.sessionsDescription": "管理当前账号的活跃登录会话，可强制下线其他设备",
+  "security.sessionColCreated": "登录时间",
+  "security.sessionColExpires": "过期时间",
+  "security.sessionCurrent": "当前会话",
+  "security.sessionRevoke": "下线",
+  "security.sessionRevokeConfirm": "确定下线该登录会话？",
+  "security.sessionRevokeAll": "下线其他所有会话",
+  "security.sessionRevokeAllConfirm": "确定下线除当前设备外的所有会话？",
+  "security.sessionRevoked": "会话已下线",
+  "security.sessionEmpty": "暂无其他登录会话",
 };
 export default zh_CN;

@@ -205,3 +205,33 @@ export async function changePassword(
     body: JSON.stringify({ currentPassword, newPassword, emailCode, turnstileToken }),
   });
 }
+
+export interface SessionRecord {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  active: boolean;
+  current: boolean;
+}
+
+export async function fetchSessions(): Promise<SessionRecord[]> {
+  return request(`${BACKEND_URL}/api/auth/sessions`, { cache: "no-store" });
+}
+
+export async function revokeSession(
+  id: string,
+): Promise<{ ok: boolean; id: string }> {
+  return request(`${BACKEND_URL}/api/auth/sessions/${id}/revoke`, {
+    method: "POST",
+  });
+}
+
+export async function revokeOtherSessions(): Promise<{
+  ok: boolean;
+  count: number;
+}> {
+  return request(`${BACKEND_URL}/api/auth/sessions/revoke-others`, {
+    method: "POST",
+  });
+}

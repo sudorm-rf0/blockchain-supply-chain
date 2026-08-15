@@ -5,7 +5,8 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { Download, RefreshCw, Search, LogIn } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  exportAuditLogs,
   fetchAuditLogs,
   type AuditLogRecord,
 } from "@/lib/api";
@@ -35,7 +37,13 @@ export default function AuditLogsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [targetType, setTargetType] = useState("ALL");
+  const [action, setAction] = useState<string>("");
+  const [actorEmail, setActorEmail] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const actionLabel = (action: string): string => {
     const labels: Record<string, string> = {
@@ -54,11 +62,17 @@ export default function AuditLogsPage() {
   };
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await fetchAuditLogs({
         page,
         limit: LIMIT,
         targetType: targetType === "ALL" ? undefined : targetType,
+        action: action || undefined,
+        actorEmail: actorEmail.trim() || undefined,
+        keyword: keyword.trim() || undefined,
+        from: from || undefined,
+        to: to || undefined,
       });
       setLogs(data.items);
       setTotal(data.total);
@@ -67,23 +81,70 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, targetType, t]);
+  }, [page, targetType, action, actorEmail, keyword, from, to, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const applyFilter = () => {
+    setPage(1);
+    void load();
+  };
+
+  const showLoginOnly = () => {
+    setAction((prev) => (prev === "AUTH_LOGIN" ? "" : "AUTH_LOGIN"));
+    setPage(1);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportAuditLogs({
+        targetType: targetType === "ALL" ? undefined : targetType,
+        action: action || undefined,
+        actorEmail: actorEmail.trim() || undefined,
+        keyword: keyword.trim() || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "audit-logs.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("audit.loadFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">{t("audit.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-lg font-semibold">{t("audit.title")}</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExport()}
+            disabled={exporting}
+          >
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            {t("audit.export")}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => void load()}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             {t("refresh")}
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/20 p-3">
         <Select value={targetType} onValueChange={setTargetType}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -91,8 +152,58 @@ export default function AuditLogsPage() {
             <SelectItem value="FILE">{t("audit.filterFile")}</SelectItem>
             <SelectItem value="TRADE">{t("audit.filterTrade")}</SelectItem>
             <SelectItem value="WITHDRAW">{t("audit.filterWithdraw")}</SelectItem>
+            <SelectItem value="SYSTEM">{t("audit.filterAll")}</SelectItem>
           </SelectContent>
         </Select>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            {t("audit.filterActorEmail")}
+          </p>
+          <Input
+            className="h-9 w-48"
+            value={actorEmail}
+            onChange={(e) => setActorEmail(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">{t("audit.filterKeyword")}</p>
+          <Input
+            className="h-9 w-48"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">{t("audit.filterFrom")}</p>
+          <Input
+            type="date"
+            className="h-9 w-40"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">{t("audit.filterTo")}</p>
+          <Input
+            type="date"
+            className="h-9 w-40"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </div>
+        <Button size="sm" onClick={applyFilter}>
+          <Search className="mr-1.5 h-3.5 w-3.5" />
+          {t("audit.search")}
+        </Button>
+        <Button
+          size="sm"
+          variant={action === "AUTH_LOGIN" ? "default" : "outline"}
+          onClick={showLoginOnly}
+        >
+          <LogIn className="mr-1.5 h-3.5 w-3.5" />
+          {t("audit.filterLogin")}
+        </Button>
+      </div>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">{t("audit.loading")}</p>

@@ -21,12 +21,20 @@ export class AuditController {
     @Query("limit") limit = "20",
     @Query("action") action?: string,
     @Query("targetType") targetType?: string,
+    @Query("actorEmail") actorEmail?: string,
+    @Query("keyword") keyword?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ) {
     return this.audit.list({
       page: Math.max(1, Number(page) || 1),
       limit: Math.min(100, Math.max(1, Number(limit) || 20)),
       action,
       targetType,
+      actorEmail,
+      keyword,
+      from,
+      to,
     });
   }
 
@@ -39,11 +47,19 @@ export class AuditController {
   exportCsv(
     @Query("action") action?: string,
     @Query("targetType") targetType?: string,
+    @Query("actorEmail") actorEmail?: string,
+    @Query("keyword") keyword?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
     @Query("limit") limit = "10000",
   ) {
     const stream = this.audit.exportCsv({
       action,
       targetType,
+      actorEmail,
+      keyword,
+      from,
+      to,
       limit: Math.min(100_000, Math.max(1, Number(limit) || 10_000)),
     });
     return new StreamableFile(stream);

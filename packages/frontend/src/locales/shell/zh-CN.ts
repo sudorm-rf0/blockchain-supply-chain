@@ -1,6 +1,7 @@
 const zh_CN = {
   "sidebar.dashboard": "数据看板",
   "sidebar.accounts": "账号管理",
+  "sidebar.systemSettings": "系统设置",
   "sidebar.fileReview": "文件审核",
   "sidebar.auditLog": "审计日志",
   "sidebar.allOrders": "全部订单",

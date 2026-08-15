@@ -190,5 +190,16 @@ const zh_TW = {
   "account.feedback.submitting": "提交中...",
   "account.feedback.success": "回饋已提交，感謝你的建議！",
   "account.feedback.failed": "回饋提交失敗，請稍後重試",
+  "security.sessionsTitle": "登入會話",
+  "security.sessionsDescription": "管理目前帳號的有效登入會話，可強制登出其他裝置",
+  "security.sessionColCreated": "登入時間",
+  "security.sessionColExpires": "過期時間",
+  "security.sessionCurrent": "目前會話",
+  "security.sessionRevoke": "登出",
+  "security.sessionRevokeConfirm": "確定登出該登入會話？",
+  "security.sessionRevokeAll": "登出其他所有會話",
+  "security.sessionRevokeAllConfirm": "確定登出除目前裝置外的所有會話？",
+  "security.sessionRevoked": "會話已登出",
+  "security.sessionEmpty": "暫無其他登入會話",
 };
 export default zh_TW;

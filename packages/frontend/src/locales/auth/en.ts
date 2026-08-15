@@ -190,5 +190,16 @@ const en = {
   "account.feedback.submitting": "Submitting...",
   "account.feedback.success": "Feedback submitted. Thank you!",
   "account.feedback.failed": "Failed to submit feedback. Please try again later",
+  "security.sessionsTitle": "Login Sessions",
+  "security.sessionsDescription": "Manage active login sessions for this account; sign out other devices",
+  "security.sessionColCreated": "Signed in",
+  "security.sessionColExpires": "Expires",
+  "security.sessionCurrent": "Current session",
+  "security.sessionRevoke": "Sign out",
+  "security.sessionRevokeConfirm": "Sign out this session?",
+  "security.sessionRevokeAll": "Sign out all other sessions",
+  "security.sessionRevokeAllConfirm": "Sign out all sessions except this device?",
+  "security.sessionRevoked": "Session signed out",
+  "security.sessionEmpty": "No other active sessions",
 };
 export default en;

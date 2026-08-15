@@ -1,6 +1,7 @@
 const en = {
   "sidebar.dashboard": "Dashboard",
   "sidebar.accounts": "Account Management",
+  "sidebar.systemSettings": "System Settings",
   "sidebar.fileReview": "File Review",
   "sidebar.auditLog": "Audit Log",
   "sidebar.allOrders": "All Orders",

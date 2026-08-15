@@ -37,19 +37,17 @@ describe("AuditController", () => {
   it("returns a StreamableFile from exportCsv", () => {
     const svc = makeService();
     const ctrl = new AuditController(svc as never);
-    const result = ctrl.exportCsv(undefined, undefined, "10000");
-    expect(svc.exportCsv).toHaveBeenCalledWith({
-      action: undefined,
-      targetType: undefined,
-      limit: 10_000,
-    });
+    const result = ctrl.exportCsv(undefined, undefined, undefined, undefined, undefined, undefined, "10000");
+    expect(svc.exportCsv).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 10_000 }),
+    );
     expect(result).toBeInstanceOf(StreamableFile);
   });
 
   it("clamps export limit to 100k", () => {
     const svc = makeService();
     const ctrl = new AuditController(svc as never);
-    ctrl.exportCsv(undefined, undefined, "999999");
+    ctrl.exportCsv(undefined, undefined, undefined, undefined, undefined, undefined, "999999");
     expect(svc.exportCsv).toHaveBeenCalledWith(
       expect.objectContaining({ limit: 100_000 }),
     );

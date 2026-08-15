@@ -131,5 +131,12 @@ const zh_TW = {
   "security.walletResendAfter": "{{seconds}}s 後可重寄",
   "security.walletSending": "寄送中...",
   "security.walletSendCode": "寄送驗證碼",
-  "security.walletBind": "綁定錢包",};
+  "security.walletBind": "綁定錢包",
+  "audit.filterActorEmail": "操作人信箱",
+  "audit.filterKeyword": "關鍵字（信箱/動作/ID）",
+  "audit.filterFrom": "開始時間",
+  "audit.filterTo": "結束時間",
+  "audit.filterLogin": "登入紀錄",
+  "audit.export": "匯出 CSV",
+  "audit.search": "篩選",};
 export default zh_TW;

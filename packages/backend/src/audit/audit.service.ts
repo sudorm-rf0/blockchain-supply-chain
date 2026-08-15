@@ -37,15 +37,51 @@ export class AuditService {
     }
   }
 
+  private buildWhere(params: {
+    action?: string;
+    targetType?: string;
+    actorEmail?: string;
+    keyword?: string;
+    from?: string;
+    to?: string;
+  }): Prisma.AuditLogWhereInput {
+    const where: Prisma.AuditLogWhereInput = {};
+    if (params.action) where.action = params.action;
+    if (params.targetType) where.targetType = params.targetType;
+    if (params.actorEmail) {
+      where.actorEmail = { contains: params.actorEmail, mode: "insensitive" };
+    }
+    if (params.keyword) {
+      const kw = params.keyword;
+      where.OR = [
+        { actorEmail: { contains: kw, mode: "insensitive" } },
+        { action: { contains: kw, mode: "insensitive" } },
+        { targetType: { contains: kw, mode: "insensitive" } },
+        { targetId: { contains: kw, mode: "insensitive" } },
+      ];
+    }
+    if (params.from || params.to) {
+      const range: { gte?: Date; lte?: Date } = {};
+      const from = params.from ? new Date(params.from) : null;
+      const to = params.to ? new Date(params.to) : null;
+      if (from && !Number.isNaN(from.getTime())) range.gte = from;
+      if (to && !Number.isNaN(to.getTime())) range.lte = to;
+      if (range.gte || range.lte) where.createdAt = range;
+    }
+    return where;
+  }
+
   async list(params: {
     page: number;
     limit: number;
     action?: string;
     targetType?: string;
+    actorEmail?: string;
+    keyword?: string;
+    from?: string;
+    to?: string;
   }) {
-    const where: Prisma.AuditLogWhereInput = {};
-    if (params.action) where.action = params.action;
-    if (params.targetType) where.targetType = params.targetType;
+    const where = this.buildWhere(params);
     const [items, total] = await Promise.all([
       this.prisma.auditLog.findMany({
         where,
@@ -75,11 +111,13 @@ export class AuditService {
   exportCsv(params: {
     action?: string;
     targetType?: string;
+    actorEmail?: string;
+    keyword?: string;
+    from?: string;
+    to?: string;
     limit?: number;
   }): Readable {
-    const where: Prisma.AuditLogWhereInput = {};
-    if (params.action) where.action = params.action;
-    if (params.targetType) where.targetType = params.targetType;
+    const where = this.buildWhere(params);
     const limit = params.limit ?? 10_000;
     const batchSize = 2_000;
     const prisma = this.prisma;

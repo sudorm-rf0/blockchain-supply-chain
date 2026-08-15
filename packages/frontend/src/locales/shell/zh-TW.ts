@@ -1,6 +1,7 @@
 const zh_TW = {
   "sidebar.dashboard": "資料看板",
   "sidebar.accounts": "帳號管理",
+  "sidebar.systemSettings": "系統設定",
   "sidebar.fileReview": "檔案審核",
   "sidebar.auditLog": "稽核日誌",
   "sidebar.allOrders": "全部訂單",

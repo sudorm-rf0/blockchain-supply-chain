@@ -131,5 +131,12 @@ const en = {
   "security.walletResendAfter": "Resend in {{seconds}}s",
   "security.walletSending": "Sending...",
   "security.walletSendCode": "Send Code",
-  "security.walletBind": "Bind Wallet",};
+  "security.walletBind": "Bind Wallet",
+  "audit.filterActorEmail": "Actor email",
+  "audit.filterKeyword": "Keyword (email/action/ID)",
+  "audit.filterFrom": "From",
+  "audit.filterTo": "To",
+  "audit.filterLogin": "Login logs",
+  "audit.export": "Export CSV",
+  "audit.search": "Filter",};
 export default en;

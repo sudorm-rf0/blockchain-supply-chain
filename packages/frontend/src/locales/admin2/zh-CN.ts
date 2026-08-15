@@ -131,5 +131,12 @@ const zh_CN = {
   "security.walletResendAfter": "{{seconds}}s 后可重发",
   "security.walletSending": "发送中...",
   "security.walletSendCode": "发送验证码",
-  "security.walletBind": "绑定钱包",};
+  "security.walletBind": "绑定钱包",
+  "audit.filterActorEmail": "操作人邮箱",
+  "audit.filterKeyword": "关键字（邮箱/动作/ID）",
+  "audit.filterFrom": "开始时间",
+  "audit.filterTo": "结束时间",
+  "audit.filterLogin": "登录日志",
+  "audit.export": "导出 CSV",
+  "audit.search": "筛选",};
 export default zh_CN;

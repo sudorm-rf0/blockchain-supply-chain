@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  NotFoundException,
   Logger,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -16,6 +17,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { getRedisFailureCount, RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
 import { TurnstileService } from "./turnstile.service";
+import { SettingsService } from "../settings/settings.service";
 import { EmailVerificationService } from "../email-verification/email-verification.service";
 import { signJwt } from "@supply-chain/common";
 import {
@@ -184,6 +186,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly turnstile: TurnstileService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly settings: SettingsService,
   ) {}
 
   async register(body: {
@@ -196,6 +199,10 @@ export class AuthService {
   }): Promise<RegisterResult> {
     if (!(await this.turnstile.verify(body.turnstileToken, { expectedAction: "signup" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
+    }
+    const settings = await this.settings.get();
+    if (!settings.registration.allowRegister) {
+      throw new BadRequestException("注册已关闭，请联系管理员");
     }
     if (!body.name || !body.email || !body.password) {
       throw new BadRequestException("缺少注册字段");
@@ -341,17 +348,20 @@ export class AuthService {
       throw new BadRequestException("人机验证未通过，请重试");
     }
     const redisFailuresBefore = getRedisFailureCount();
+    const loginSettings = await this.settings.get();
+    const maxLoginFailures = loginSettings.security.maxLoginFailures;
+    const lockoutMinutes = loginSettings.security.lockoutMinutes;
     const failKey = `login:fail:${body.email}`;
     const fails = await this.redis.incr(failKey);
     if (fails === 1) {
-      await this.redis.expire(failKey, 15 * 60);
+      await this.redis.expire(failKey, lockoutMinutes * 60);
     }
     const ipKey = clientIp ? `login:fail:ip:${clientIp}` : null;
     let ipFails = 0;
     if (ipKey) {
       ipFails = await this.redis.incr(ipKey);
       if (ipFails === 1) {
-        await this.redis.expire(ipKey, 15 * 60);
+        await this.redis.expire(ipKey, lockoutMinutes * 60);
       }
     }
     if (getRedisFailureCount() > redisFailuresBefore) {
@@ -364,9 +374,9 @@ export class AuthService {
         new Error("REDIS_DEGRADED: login rate-limit fail-open (Redis unavailable)"),
       );
     }
-    if (fails >= 5 || (ipKey && ipFails >= 20)) {
+    if (fails >= maxLoginFailures || (ipKey && ipFails >= 20)) {
       throw new HttpException(
-        "尝试次数过多，请 15 分钟后再试",
+        `尝试次数过多，请 ${lockoutMinutes} 分钟后再试`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -430,6 +440,15 @@ export class AuthService {
         }
       }
       // emailAlreadyVerified === true：邮箱已验证，跳过，继续后续（TOTP 等）步骤
+    }
+    if (
+      loginSettings.security.requireTotpForAdmins &&
+      (user.role === "ADMIN" || user.role === "SUPER_ADMIN") &&
+      !user.totpEnabled
+    ) {
+      throw new ForbiddenException(
+        "系统要求管理员开启两步验证（TOTP），请联系超级管理员开启",
+      );
     }
     if (user.totpEnabled) {
       const secret = decryptTotpSecret(user.totpSecret);
@@ -505,6 +524,89 @@ export class AuthService {
       where: { expiresAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
     });
     return this.issueSession(user, nextRefreshToken);
+  }
+
+  /** 当前用户的活跃登录会话列表（未撤销、未过期） */
+  async listSessions(
+    userId: string,
+    currentTokenHash?: string,
+  ): Promise<
+    Array<{
+      id: string;
+      createdAt: string;
+      expiresAt: string;
+      revokedAt: string | null;
+      active: boolean;
+      current: boolean;
+    }>
+  > {
+    const now = new Date();
+    const records = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: now } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    return records.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt.toISOString(),
+      expiresAt: r.expiresAt.toISOString(),
+      revokedAt: null,
+      active: true,
+      current: currentTokenHash ? r.tokenHash === currentTokenHash : false,
+    }));
+  }
+
+  /** 强制下线指定会话（仅限本人会话，且不能下线自己当前使用的 token） */
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+    currentTokenHash?: string,
+  ): Promise<{ ok: true; id: string }> {
+    const record = await this.prisma.refreshToken.findFirst({
+      where: { id: sessionId, userId },
+    });
+    if (!record) {
+      throw new NotFoundException("会话不存在");
+    }
+    if (currentTokenHash && record.tokenHash === currentTokenHash) {
+      throw new BadRequestException("不能下线当前登录的会话");
+    }
+    await this.prisma.refreshToken.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "AUTH_SESSION_REVOKED",
+      targetType: "AUTH",
+      targetId: sessionId,
+    });
+    return { ok: true, id: sessionId };
+  }
+
+  /** 撤销除当前会话外的所有其他会话 */
+  async revokeOtherSessions(
+    userId: string,
+    currentTokenHash?: string,
+  ): Promise<{ ok: true; count: number }> {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(currentTokenHash
+          ? { tokenHash: { not: currentTokenHash } }
+          : {}),
+      },
+      data: { revokedAt: new Date() },
+    });
+    await this.audit.record({
+      actorId: userId,
+      action: "AUTH_SESSIONS_REVOKED_OTHER",
+      targetType: "AUTH",
+      targetId: userId,
+      metadata: { count: result.count },
+    });
+    return { ok: true, count: result.count };
   }
 
   async logout(rawRefreshToken: string): Promise<{ ok: true }> {
@@ -872,11 +974,15 @@ export class AuthService {
   ): Promise<SessionResult> {
     const refreshToken = existingRefreshToken ?? generateRefreshToken();
     if (!existingRefreshToken) {
+      const sessionHours =
+        (await this.settings.get()).security.sessionMaxAgeHours;
       await this.prisma.refreshToken.create({
         data: {
           tokenHash: hashRefreshToken(refreshToken),
           userId: user.id,
-          expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+          expiresAt: new Date(
+            Date.now() + sessionHours * 3600 * 1000,
+          ),
         },
       });
     }

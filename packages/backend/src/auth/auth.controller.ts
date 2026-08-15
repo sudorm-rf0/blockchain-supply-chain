@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Patch,
   Post,
   Req,
@@ -26,6 +27,7 @@ import { BindWalletDto } from "./dto/bind-wallet.dto";
 import { VerifyEmailCodeDto } from "../email-verification/dto/verify-email-code.dto";
 import {
   clearAuthCookies,
+  hashRefreshToken,
   REFRESH_TOKEN_COOKIE,
   setAuthCookies,
 } from "./session";
@@ -130,6 +132,49 @@ export class AuthController {
       user: session.user,
       mustChangePassword: session.mustChangePassword,
     };
+  }
+
+  @Get("sessions")
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async sessions(@Req() req: Request) {
+    const refreshToken = (
+      req.cookies as Record<string, string> | undefined
+    )?.[REFRESH_TOKEN_COOKIE];
+    return this.authService.listSessions(
+      req.user!.sub,
+      refreshToken ? hashRefreshToken(refreshToken) : undefined,
+    );
+  }
+
+  @Post("sessions/revoke-others")
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async revokeOtherSessions(@Req() req: Request) {
+    const refreshToken = (
+      req.cookies as Record<string, string> | undefined
+    )?.[REFRESH_TOKEN_COOKIE];
+    return this.authService.revokeOtherSessions(
+      req.user!.sub,
+      refreshToken ? hashRefreshToken(refreshToken) : undefined,
+    );
+  }
+
+  @Post("sessions/:id/revoke")
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(
+    @Param("id") id: string,
+    @Req() req: Request,
+  ) {
+    const refreshToken = (
+      req.cookies as Record<string, string> | undefined
+    )?.[REFRESH_TOKEN_COOKIE];
+    return this.authService.revokeSession(
+      req.user!.sub,
+      id,
+      refreshToken ? hashRefreshToken(refreshToken) : undefined,
+    );
   }
 
   @Post("logout")

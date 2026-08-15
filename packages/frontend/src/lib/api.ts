@@ -16,6 +16,9 @@ export {
   setupTotp,
   enableTotp,
   disableTotp,
+  fetchSessions,
+  revokeSession,
+  revokeOtherSessions,
 } from "./auth-api";
 export type { AuthUser } from "./auth-api";
 export {
@@ -104,7 +107,7 @@ export type {
 export type { PoolOverview, WithdrawRequestRecord } from "./pool-api";
 export { fetchIndexerStatus } from "./indexer-api";
 export type { IndexerStatus } from "./indexer-api";
-export { fetchAuditLogs } from "./admin-api";
+export { fetchAuditLogs, exportAuditLogs } from "./admin-api";
 export type { AuditLogRecord, AuditLogsResponse } from "./admin-api";
 export type {
   FileStatus,
