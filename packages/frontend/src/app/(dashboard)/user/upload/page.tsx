@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useDropzone } from "react-dropzone";
-import { Camera } from "lucide-react";
+import { Camera, CheckCircle2, Loader2, Trash2, XCircle } from "lucide-react";
 import { Transaction } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
@@ -32,6 +32,27 @@ const ACCEPT = {
 };
 const MAX_SIZE = 50 * 1024 * 1024;
 
+interface UploadItem {
+  localId: string;
+  file: File;
+  previewUrl?: string;
+  status: "pending" | "uploading" | "success" | "error";
+  progress?: number;
+  uploadedId?: string;
+  hash?: string;
+  version?: number;
+  error?: string;
+  txSignature?: string;
+  documentPda?: string;
+  attesting?: boolean;
+}
+
+let localSeq = 0;
+function nextLocalId(): string {
+  localSeq += 1;
+  return `${Date.now().toString(36)}-${localSeq}`;
+}
+
 function initialTradeId(): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("tradeId") ?? "";
@@ -42,99 +63,101 @@ function initialDocumentId(): string {
   return new URLSearchParams(window.location.search).get("documentId") ?? "";
 }
 
+function formatSize(bytes: number): string {
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
+
 export default function UploadPage() {
   const { t } = useTranslation();
-  const [file, setFile] = useState<File | null>(null);
+  const [items, setItems] = useState<UploadItem[]>([]);
   const [tradeId, setTradeId] = useState(initialTradeId);
   const [documentId, setDocumentId] = useState(initialDocumentId);
   const [description, setDescription] = useState("");
   const [remark, setRemark] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState<number | null>(null);
-  const [hash, setHash] = useState<string | null>(null);
-  const [version, setVersion] = useState<number | null>(null);
-  const [uploadedId, setUploadedId] = useState<string | null>(null);
-  const [attesting, setAttesting] = useState(false);
-  const [txSignature, setTxSignature] = useState<string | null>(null);
-  const [documentPda, setDocumentPda] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [attachedTradeId, setAttachedTradeId] = useState("");
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [lastUploadedName, setLastUploadedName] = useState<string | null>(null);
   const { connection, connected, publicKey, sendTransaction } =
     useWalletContext();
 
   const onDrop = useCallback((accepted: File[]) => {
-    if (accepted[0]) {
-      setFile(accepted[0]);
-      setUploadedId(null);
-      setHash(null);
-      setVersion(null);
-      setTxSignature(null);
-      setDocumentPda(null);
-      setAttachedTradeId("");
-      setUploadStatus("idle");
-      setUploadError(null);
-      setLastUploadedName(null);
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(
-        accepted[0].type.startsWith("image/")
-          ? URL.createObjectURL(accepted[0])
-          : null,
-      );
-    }
-  }, [previewUrl]);
+    if (accepted.length === 0) return;
+    const next: UploadItem[] = accepted.map((f) => ({
+      localId: nextLocalId(),
+      file: f,
+      previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
+      status: "pending",
+    }));
+    setItems((prev) => [...prev, ...next]);
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: ACCEPT,
     maxSize: MAX_SIZE,
-    multiple: false,
+    multiple: true,
   });
 
-  const handleUpload = async () => {
-    if (!file) {
+  const pendingCount = items.filter(
+    (i) => i.status === "pending" || i.status === "error",
+  ).length;
+  const successCount = items.filter((i) => i.status === "success").length;
+  const failCount = items.filter((i) => i.status === "error").length;
+
+  const patchItem = (localId: string, patch: Partial<UploadItem>) => {
+    setItems((prev) =>
+      prev.map((i) => (i.localId === localId ? { ...i, ...patch } : i)),
+    );
+  };
+
+  const handleUploadAll = async () => {
+    const targets = items.filter(
+      (i) => i.status === "pending" || i.status === "error",
+    );
+    if (targets.length === 0) {
       toast.error(t("upload.toasts.selectFile"));
       return;
     }
     setUploading(true);
-    setProgress(0);
-    try {
-      const result = await uploadFileWithProgress(
-        file,
-        { tradeId, documentId, description, remark },
-        ({ percent }) => setProgress(percent),
+    let failed = 0;
+    for (const target of targets) {
+      patchItem(target.localId, { status: "uploading", progress: 0, error: undefined });
+      try {
+        const result = await uploadFileWithProgress(
+          target.file,
+          { tradeId, documentId, description, remark },
+          ({ percent }) => patchItem(target.localId, { progress: percent }),
+        );
+        patchItem(target.localId, {
+          status: "success",
+          progress: 100,
+          uploadedId: result.id,
+          hash: result.hash,
+          version: result.version ?? undefined,
+        });
+      } catch (error) {
+        failed += 1;
+        patchItem(target.localId, {
+          status: "error",
+          error:
+            error instanceof Error
+              ? error.message
+              : t("upload.toasts.uploadFailed"),
+        });
+      }
+    }
+    setUploading(false);
+    setAttachedTradeId(tradeId.trim());
+    if (failed === 0) {
+      toast.success(t("upload.toasts.uploadSuccess"));
+    } else {
+      toast.error(
+        t("upload.failedCount", { count: failed }),
       );
-      setUploadStatus("success");
-      setLastUploadedName(file.name);
-      setUploadedId(result.id);
-      setHash(result.hash);
-      setVersion(result.version ?? null);
-      setTxSignature(null);
-      setDocumentPda(null);
-      setFile(null);
-      setTradeId("");
-      setDocumentId("");
-      setDescription("");
-      setRemark("");
-      setAttachedTradeId(tradeId.trim());
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-      setProgress(null);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : t("upload.toasts.uploadFailed");
-      setUploadStatus("error");
-      setUploadError(message);
-      setLastUploadedName(file.name);
-    } finally {
-      setUploading(false);
     }
   };
 
-  const handleAttest = async () => {
-    if (!uploadedId || !hash) {
+  const handleAttest = async (item: UploadItem) => {
+    if (!item.uploadedId || !item.hash) {
       toast.error(t("upload.toasts.uploadFirst"));
       return;
     }
@@ -142,9 +165,9 @@ export default function UploadPage() {
       toast.error(t("upload.toasts.connectWallet"));
       return;
     }
-    setAttesting(true);
+    patchItem(item.localId, { attesting: true });
     try {
-      const built = await buildDocumentAttest(uploadedId, {
+      const built = await buildDocumentAttest(item.uploadedId, {
         walletAddress: publicKey.toBase58(),
         tradeId: attachedTradeId || tradeId || undefined,
       });
@@ -153,19 +176,44 @@ export default function UploadPage() {
       );
       const signature = await sendTransaction(transaction, connection);
       await confirmTransactionWithTimeout(connection, signature, "confirmed");
-      const result = await confirmDocumentAttest(uploadedId, {
+      const result = await confirmDocumentAttest(item.uploadedId, {
         txSignature: signature,
         documentPda: built.documentPda,
         tradeId: attachedTradeId || tradeId || undefined,
       });
-      setTxSignature(result.txSignature);
-      setDocumentPda(result.documentPda);
+      patchItem(item.localId, {
+        attesting: false,
+        txSignature: result.txSignature ?? undefined,
+        documentPda: result.documentPda ?? undefined,
+      });
       toast.success(t("upload.toasts.attestSuccess"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("upload.toasts.attestFailed"));
-    } finally {
-      setAttesting(false);
+      patchItem(item.localId, { attesting: false });
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("upload.toasts.attestFailed"),
+      );
     }
+  };
+
+  const handleRemove = (localId: string) => {
+    setItems((prev) => {
+      const target = prev.find((i) => i.localId === localId);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((i) => i.localId !== localId);
+    });
+  };
+
+  const handleClearFinished = () => {
+    setItems((prev) => {
+      prev.forEach((i) => {
+        if (i.status === "success" || i.status === "error") {
+          if (i.previewUrl) URL.revokeObjectURL(i.previewUrl);
+        }
+      });
+      return prev.filter((i) => i.status === "pending" || i.status === "uploading");
+    });
   };
 
   return (
@@ -187,57 +235,41 @@ export default function UploadPage() {
             className={`flex min-h-[190px] cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed p-6 text-center transition-colors sm:p-10 ${
               isDragActive
                 ? "border-[#00E676] bg-[#00E676]/5"
-                : uploadStatus === "success"
-                  ? "border-[#00E676] bg-[#00E676]/5"
-                  : uploadStatus === "error"
-                    ? "border-red-500/60 bg-red-500/5"
+                : failCount > 0
+                  ? "border-red-500/60 bg-red-500/5"
+                  : successCount > 0
+                    ? "border-[#00E676] bg-[#00E676]/5"
                     : "border-[#00E676]/50 hover:border-[#00E676]"
             }`}
           >
             <input {...getInputProps()} />
-            {uploadStatus === "success" ? (
+            {successCount > 0 && failCount === 0 ? (
               <div className="space-y-2">
                 <p className="font-mono text-base font-bold text-[#00E676]">
-                  ✓ {t("upload.inlineSuccess")}
+                  ✓ {t("upload.successCount", { count: successCount })}
                 </p>
-                {lastUploadedName && (
-                  <p className="text-sm font-bold text-foreground">
-                    {lastUploadedName}
-                  </p>
-                )}
                 <p className="text-xs text-muted-foreground">
                   {t("upload.successPreviewHint")}
                 </p>
               </div>
-            ) : uploadStatus === "error" ? (
+            ) : failCount > 0 ? (
               <div className="space-y-2">
                 <p className="font-mono text-base font-bold text-red-500">
-                  ✗ {t("upload.inlineFailed")}
+                  ✗ {t("upload.failedCount", { count: failCount })}
                 </p>
-                {uploadError && (
-                  <p className="text-xs text-muted-foreground">{uploadError}</p>
-                )}
-                {lastUploadedName && (
-                  <p className="text-sm font-bold text-foreground">
-                    {lastUploadedName}
+                {successCount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("upload.successCount", { count: successCount })}
                   </p>
                 )}
-              </div>
-            ) : file ? (
-              <div className="flex flex-col items-center gap-2">
-                {previewUrl && (
-                  <Image
-                    src={previewUrl}
-                    alt={t("upload.previewAlt")}
-                    width={64}
-                    height={64}
-                    unoptimized
-                    className="h-16 w-16 rounded-md object-cover"
-                  />
-                )}
-                <p className="text-sm font-bold text-foreground">{file.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {(file.size / 1024).toFixed(0)} KB
+                  {t("upload.retryHint")}
+                </p>
+              </div>
+            ) : items.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-foreground">
+                  {t("upload.selectedCount", { count: items.length })}
                 </p>
                 <p className="text-xs font-medium text-[#00E676]">
                   {t("upload.selectedPreviewHint")}
@@ -247,7 +279,7 @@ export default function UploadPage() {
               <div className="space-y-2">
                 <p className="text-muted-foreground">{t("upload.dropzone")}</p>
                 <p className="text-xs text-muted-foreground/70">
-                  {t("upload.supportedTypes")}
+                  {t("upload.multiHint")}
                 </p>
               </div>
             )}
@@ -306,60 +338,148 @@ export default function UploadPage() {
             />
           </div>
 
-          {uploading && progress !== null && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{t("upload.uploading")}</span>
-                <span>{progress}%</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          <Button onClick={() => void handleUpload()} disabled={uploading}>
-            {uploading ? t("upload.uploading") : t("upload.upload")}
-          </Button>
-
-          {hash && (
-            <p className="break-all rounded-md bg-muted p-3 font-mono text-xs">
-              {t("upload.fileHash", { hash })}
-              {version ? t("upload.version", { version }) : ""}
-            </p>
-          )}
-
-          {uploadedId && hash && (
-            <div className="space-y-3">
-              <Button
-                onClick={() => void handleAttest()}
-                disabled={attesting || !connected || !!txSignature}
-              >
-                {attesting
-                  ? t("upload.attesting")
-                  : txSignature
-                    ? t("upload.attested")
-                    : connected
-                      ? t("upload.attest")
-                      : t("upload.connectWallet")}
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => void handleUploadAll()}
+              disabled={uploading || pendingCount === 0}
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t("upload.uploading")}
+                </>
+              ) : (
+                t("upload.uploadAll", { count: pendingCount })
+              )}
+            </Button>
+            {items.some((i) => i.status === "success" || i.status === "error") && (
+              <Button variant="outline" onClick={handleClearFinished}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("upload.clearList")}
               </Button>
-              {txSignature && (
-                <p className="break-all rounded-md bg-muted p-3 font-mono text-xs">
-                  {t("upload.txSignature", { signature: txSignature })}
-                </p>
-              )}
-              {documentPda && (
-                <p className="break-all rounded-md bg-muted p-3 font-mono text-xs">
-                  {t("upload.documentPda", { account: documentPda })}
-                </p>
-              )}
+            )}
+          </div>
+
+          {items.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">{t("upload.listTitle")}</p>
+              <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                {items.map((item) => (
+                  <div
+                    key={item.localId}
+                    className="rounded-md border bg-muted/30 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        {item.previewUrl && (
+                          <Image
+                            src={item.previewUrl}
+                            alt={t("upload.previewAlt")}
+                            width={48}
+                            height={48}
+                            unoptimized
+                            className="h-12 w-12 shrink-0 rounded-md object-cover"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-foreground">
+                            {item.file.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatSize(item.file.size)}
+                          </p>
+                          {item.status === "uploading" && item.progress != null && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                              <div className="h-1.5 w-40 overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-[#00E676] transition-all"
+                                  style={{ width: `${item.progress}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {item.progress}%
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={t("upload.removeItem")}
+                        className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                        onClick={() => handleRemove(item.localId)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {item.status === "success" && (
+                      <div className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
+                        <p className="flex items-start gap-1.5 text-xs">
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00E676]" />
+                          <span className="break-all font-mono text-foreground">
+                            {t("upload.fileHash", { hash: item.hash ?? "" })}
+                            {item.version
+                              ? t("upload.version", { version: item.version })
+                              : ""}
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void handleAttest(item)}
+                            disabled={
+                              item.attesting ||
+                              !connected ||
+                              !!item.txSignature
+                            }
+                          >
+                            {item.attesting ? (
+                              <>
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                {t("upload.attesting")}
+                              </>
+                            ) : item.txSignature ? (
+                              t("upload.attested")
+                            ) : connected ? (
+                              t("upload.attest")
+                            ) : (
+                              t("upload.connectWallet")
+                            )}
+                          </Button>
+                        </div>
+                        {item.txSignature && (
+                          <p className="break-all font-mono text-xs text-muted-foreground">
+                            {t("upload.txSignature", {
+                              signature: item.txSignature,
+                            })}
+                          </p>
+                        )}
+                        {item.documentPda && (
+                          <p className="break-all font-mono text-xs text-muted-foreground">
+                            {t("upload.documentPda", {
+                              account: item.documentPda,
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {item.status === "error" && (
+                      <div className="mt-2 flex items-start gap-1.5 border-t border-border/60 pt-2">
+                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                        <p className="text-xs text-red-500">
+                          {t("upload.inlineFailed")}：{item.error}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-
-
         </CardContent>
       </Card>
     </div>
