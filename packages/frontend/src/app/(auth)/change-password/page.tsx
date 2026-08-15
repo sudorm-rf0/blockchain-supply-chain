@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { changePassword, fetchSession, sendEmailOtpCode } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 import Turnstile from "@/components/Turnstile";
+import { SpamWarningDialog, shouldShowSpamHint } from "@/components/SpamWarningDialog";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
 
 export default function ChangePasswordPage() {
@@ -45,6 +46,7 @@ export default function ChangePasswordPage() {
   const [ready, setReady] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
+  const [spamOpen, setSpamOpen] = useState(false);
   const {
     register,
     handleSubmit,
@@ -84,6 +86,7 @@ export default function ChangePasswordPage() {
       const result = await sendEmailOtpCode();
       setCooldown(result.cooldownSeconds ?? 60);
       toast.success(t("changePassword.toast.codeSent"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("changePassword.error.sendCodeFailed"));
     } finally {
@@ -126,6 +129,7 @@ export default function ChangePasswordPage() {
   }
 
   return (
+    <>
         <Card className="w-full shadow-xl">
         <CardHeader>
           <CardTitle className="text-center text-xl">{t("changePassword.title")}</CardTitle>
@@ -218,5 +222,7 @@ export default function ChangePasswordPage() {
           </form>
         </CardContent>
     </Card>
+      <SpamWarningDialog open={spamOpen} onOpenChange={setSpamOpen} />
+    </>
   );
 }

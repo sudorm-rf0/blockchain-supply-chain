@@ -33,5 +33,12 @@ const zh_TW = {
   theme: "切換主題",
   language: "語言",
   error: { title: "頁面發生錯誤", unknown: "發生未知錯誤，請重試。" },
-  themeSwitch: { toLight: "切換至亮色", toDark: "切換至暗色" },};
+  themeSwitch: { toLight: "切換至亮色", toDark: "切換至暗色" },
+  spamHint: {
+    title: "驗證碼郵件可能在垃圾信箱",
+    desc: "驗證碼已發送至你的信箱。若 1-2 分鐘內未收到，請檢查「垃圾郵件 / 垃圾信箱」，並將 noreply@supplychain.de5.net 加入通訊錄或白名單。",
+    dontAsk: "不再提示",
+    gotIt: "我知道了",
+  },
+};
 export default zh_TW;

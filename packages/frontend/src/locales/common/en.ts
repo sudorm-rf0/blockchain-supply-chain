@@ -33,5 +33,12 @@ const en = {
   theme: "Toggle theme",
   language: "Language",
   error: { title: "Something went wrong", unknown: "An unknown error occurred. Please try again." },
-  themeSwitch: { toLight: "Switch to light mode", toDark: "Switch to dark mode" },};
+  themeSwitch: { toLight: "Switch to light mode", toDark: "Switch to dark mode" },
+  spamHint: {
+    title: "The verification email may be in spam",
+    desc: "The verification code has been sent. If you don't see it within 1-2 minutes, check the spam/junk folder and add noreply@supplychain.de5.net to your contacts or whitelist.",
+    dontAsk: "Don't show again",
+    gotIt: "Got it",
+  },
+};
 export default en;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { SpamWarningDialog, shouldShowSpamHint } from "@/components/SpamWarningDialog";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,7 @@ function VerifyEmailForm() {
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [spamOpen, setSpamOpen] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -47,6 +49,7 @@ function VerifyEmailForm() {
     try {
       await verifyEmail(email, code);
       toast.success(t("verifyEmail.toast.success"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
       router.push("/login");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("verifyEmail.error.failed"));
@@ -62,6 +65,7 @@ function VerifyEmailForm() {
       const result = await sendEmailCode(email);
       setCooldown(result.cooldownSeconds ?? 60);
       toast.success(t("verifyEmail.toast.resent"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("verifyEmail.error.sendFailed"));
     } finally {
@@ -70,6 +74,7 @@ function VerifyEmailForm() {
   };
 
   return (
+    <>
     <Card className="w-full shadow-xl">
       <CardHeader>
         <CardTitle className="text-center text-xl">{t("verifyEmail.title")}</CardTitle>
@@ -124,6 +129,8 @@ function VerifyEmailForm() {
         </form>
       </CardContent>
     </Card>
+      <SpamWarningDialog open={spamOpen} onOpenChange={setSpamOpen} />
+    </>
   );
 }
 

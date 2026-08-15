@@ -21,6 +21,7 @@ import {
 } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 import Turnstile from "@/components/Turnstile";
+import { SpamWarningDialog, shouldShowSpamHint } from "@/components/SpamWarningDialog";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import {
@@ -88,6 +89,7 @@ export default function AccountPage() {
   const [pwCaptchaKey, setPwCaptchaKey] = useState(0);
   const [deleteTurnstile, setDeleteTurnstile] = useState("");
   const [deleteCaptchaKey, setDeleteCaptchaKey] = useState(0);
+  const [spamOpen, setSpamOpen] = useState(false);
 
   // 引导账号（emailOtpEnabled=false）改密豁免验证码
   const requiresEmailCode = user?.emailOtpEnabled !== false;
@@ -116,6 +118,7 @@ export default function AccountPage() {
       const r = await sendEmailOtpCode();
       setNameCooldown(r.cooldownSeconds ?? 60);
       toast.success(t("account.emailSent"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("account.sendFailed"));
     } finally {
@@ -166,6 +169,7 @@ export default function AccountPage() {
       const r = await sendEmailCode(email);
       setEmailCooldown(r.cooldownSeconds ?? 60);
       toast.success(t("account.emailSent"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("account.sendFailed"));
     } finally {
@@ -207,6 +211,7 @@ export default function AccountPage() {
       const r = await sendEmailOtpCode();
       setPwCooldown(r.cooldownSeconds ?? 60);
       toast.success(t("account.pwCodeSent"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("account.sendFailed"));
     } finally {
@@ -545,6 +550,7 @@ export default function AccountPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <SpamWarningDialog open={spamOpen} onOpenChange={setSpamOpen} />
     </div>
   );
 }

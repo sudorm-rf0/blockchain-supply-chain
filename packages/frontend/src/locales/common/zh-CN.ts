@@ -33,5 +33,12 @@ const zh_CN = {
   theme: "切换主题",
   language: "语言",
   error: { title: "页面出错了", unknown: "发生未知错误，请重试。" },
-  themeSwitch: { toLight: "切换到亮色", toDark: "切换到暗色" },};
+  themeSwitch: { toLight: "切换到亮色", toDark: "切换到暗色" },
+  spamHint: {
+    title: "验证码邮件可能在垃圾箱",
+    desc: "验证码已发送到你的邮箱。如果 1-2 分钟内未收到，请检查「垃圾邮件 / 垃圾箱」，并将 noreply@supplychain.de5.net 加入通讯录或白名单。",
+    dontAsk: "不再提示",
+    gotIt: "我知道了",
+  },
+};
 export default zh_CN;

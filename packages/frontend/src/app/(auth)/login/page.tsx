@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login, sendEmailCode } from "@/lib/api";
 import Turnstile from "@/components/Turnstile";
+import { SpamWarningDialog, shouldShowSpamHint } from "@/components/SpamWarningDialog";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import { useUserStore } from "@/stores/user-store";
 
@@ -49,6 +50,7 @@ export default function LoginPage() {
   const emailValue = watch("email");
   const [emailOtpCooldown, setEmailOtpCooldown] = useState(0);
   const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [spamOpen, setSpamOpen] = useState(false);
 
   useEffect(() => {
     if (emailOtpCooldown <= 0) return;
@@ -93,6 +95,7 @@ export default function LoginPage() {
         setCaptchaKey((k) => k + 1);
         setTurnstileToken("");
         toast.info(t("login.toast.emailOtpRequired"));
+        if (shouldShowSpamHint()) setSpamOpen(true);
         if (result.devCode) {
           toast.info(t("login.toast.devCode", { code: result.devCode }));
         }
@@ -139,6 +142,7 @@ export default function LoginPage() {
   };
 
   return (
+    <>
         <Card className="w-full shadow-xl">
         <CardHeader>
           <CardTitle className="text-center text-xl">{t("login.title")}</CardTitle>
@@ -245,5 +249,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
     </Card>
+      <SpamWarningDialog open={spamOpen} onOpenChange={setSpamOpen} />
+    </>
   );
 }
