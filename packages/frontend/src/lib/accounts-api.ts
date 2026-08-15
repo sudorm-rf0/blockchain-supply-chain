@@ -1,5 +1,5 @@
 import { BACKEND_URL } from "./env";
-import { request } from "./http";
+import { request, requestWithRetry } from "./http";
 
 export type AccountRole = "USER" | "ADMIN" | "SUPER_ADMIN";
 
@@ -122,9 +122,13 @@ export async function fetchInviteCodes(): Promise<{
 
 /** 导出邀请码清单（纯文本，含 Bearer 认证），由前端触发下载。 */
 export async function fetchInviteCodesExport(): Promise<string> {
-  return request(`${BACKEND_URL}/api/admin/invite-codes/export`, {
-    headers: { accept: "text/plain" },
-  });
+  // 接口返回 text/plain，不能用 request()（内部强制 JSON.parse）
+  const response = await requestWithRetry(
+    `${BACKEND_URL}/api/admin/invite-codes/export`,
+    { method: "GET" },
+    { accept: "text/plain" },
+  );
+  return response.text();
 }
 
 export interface InviteStats {
