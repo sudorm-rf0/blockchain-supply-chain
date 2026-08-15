@@ -3,7 +3,6 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { TurnstileService } from "./turnstile.service";
-import { SettingsService } from "../settings/settings.service";
 import {
   AuthGuard,
   AdminGuard,
@@ -31,7 +30,6 @@ import { EmailVerificationModule } from "../email-verification/email-verificatio
   exports: [
     AuthService,
     TurnstileService,
-    SettingsService,
     AuthGuard,
     AdminGuard,
     SuperAdminGuard,
