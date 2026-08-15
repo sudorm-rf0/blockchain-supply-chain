@@ -515,29 +515,6 @@ export default function AccountPage() {
         </CardContent>
       </Card>
 
-      {/* 注销账号 */}
-      <Card className="border-red-500/40">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base text-red-500">
-            <Trash2 className="h-4 w-4" />
-            {t("account.deleteTitle")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t("account.deleteWarning")}</p>
-          <Button
-            variant="destructive"
-            className="border border-red-500/40 bg-red-500/10 text-red-500 hover:bg-red-500/20"
-            onClick={() => {
-              setDeleteConfirm("");
-              setDeleteOpen(true);
-            }}
-          >
-            {t("account.deleteButton")}
-          </Button>
-        </CardContent>
-      </Card>
-
       {/* 意见反馈 */}
       <Card>
         <CardHeader>
@@ -577,6 +554,29 @@ export default function AccountPage() {
             {feedbackBusy
               ? t("account.feedback.submitting")
               : t("account.feedback.submit")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* 注销账号 */}
+      <Card className="border-red-500/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-red-500">
+            <Trash2 className="h-4 w-4" />
+            {t("account.deleteTitle")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t("account.deleteWarning")}</p>
+          <Button
+            variant="destructive"
+            className="border border-red-500/40 bg-red-500/10 text-red-500 hover:bg-red-500/20"
+            onClick={() => {
+              setDeleteConfirm("");
+              setDeleteOpen(true);
+            }}
+          >
+            {t("account.deleteButton")}
           </Button>
         </CardContent>
       </Card>
