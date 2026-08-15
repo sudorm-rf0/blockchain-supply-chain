@@ -393,7 +393,28 @@ export class AuthService {
       if (!user.email) {
         throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
       }
-      if (!body.emailOtpCode) {
+      // 「邮箱OTP + TOTP」双验证修复：邮箱验证码单次有效（verifyCode 成功后即作废），
+      // 若同时开启 TOTP，第三步带 TOTP 的提交会再次校验已作废的邮箱验证码而永远失败。
+      // 因此在邮箱验证通过后写入一个 10 分钟一次性标记，后续提交跳过邮箱验证直接校验 TOTP。
+      const emailVerifiedKey = `login:email-verified:${createHash("sha256")
+        .update(user.email.trim().toLowerCase())
+        .digest("hex")}`;
+      let emailAlreadyVerified = false;
+      try {
+        emailAlreadyVerified = (await this.redis.get(emailVerifiedKey)) === "1";
+      } catch {
+        // Redis 异常时视为未验证，回退到原流程（不额外阻断登录）
+      }
+      if (body.emailOtpCode && !emailAlreadyVerified) {
+        await this.emailVerification.verifyCode(user.email, body.emailOtpCode);
+        try {
+          await this.redis.setEx(emailVerifiedKey, 10 * 60, "1");
+        } catch (error) {
+          this.logger.warn(
+            `login email-verified flag set failed: ${String(error)}`,
+          );
+        }
+      } else if (!body.emailOtpCode && !emailAlreadyVerified) {
         // 首次提交：向邮箱发送验证码并提示输入（冷却期内不重复发送）
         try {
           const sent = await this.emailVerification.sendCode(user.email);
@@ -408,7 +429,7 @@ export class AuthService {
           return { requiresEmailOtp: true };
         }
       }
-      await this.emailVerification.verifyCode(user.email, body.emailOtpCode);
+      // emailAlreadyVerified === true：邮箱已验证，跳过，继续后续（TOTP 等）步骤
     }
     if (user.totpEnabled) {
       const secret = decryptTotpSecret(user.totpSecret);

@@ -314,6 +314,79 @@ describe("AuthService", () => {
     expect(okResult.accessToken).toMatch(/^eyJ/);
   });
 
+  it("logs in when email OTP + TOTP are both enabled (dual step)", async () => {
+    const secret = generateTotpSecret();
+    const prisma = makePrisma();
+    const redis = makeRedis();
+    // 模拟：邮箱验证码通过后由 login 写入的 10 分钟已验证标记
+    let emailMarked = false;
+    redis.get.mockImplementation(
+      (async (key: string) =>
+        key.startsWith("login:email-verified:") && emailMarked
+          ? "1"
+          : null) as never,
+    );
+    redis.setEx.mockImplementation((async () => {
+      emailMarked = true;
+    }) as never);
+    const service = new AuthService(
+      prisma as never,
+      redis as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+    );
+    await service.register({
+      inviteCode: "AB12CD",
+      name: "D",
+      email: "dual@example.com",
+      password: "secret123",
+      wallet: Keypair.generate().publicKey.toBase58(),
+    });
+    await service.verifyEmail("dual@example.com", "123456");
+    // 用户同时开启邮箱 OTP 与 TOTP
+    await prisma.user.update({
+      data: {
+        emailOtpEnabled: true,
+        totpEnabled: true,
+        totpSecret: encryptForTest(secret),
+      },
+    });
+
+    // 第一步：无邮箱验证码 → 要求邮箱验证码
+    const step1 = await service.login({
+      email: "dual@example.com",
+      password: "secret123",
+    });
+    expect(step1).toEqual({ requiresEmailOtp: true });
+
+    // 第二步：带邮箱验证码 → 通过并写入标记 → 要求 TOTP
+    const step2 = await service.login({
+      email: "dual@example.com",
+      password: "secret123",
+      emailOtpCode: "123456",
+    });
+    expect(step2).toEqual({ requiresTotp: true });
+
+    // 第三步：邮箱验证码已作废，但标记存在跳过邮箱校验，TOTP 正确即成功
+    const validCode = totpCodeAt(
+      secret,
+      Math.floor(Date.now() / 1000 / 30),
+    );
+    const okResult = await service.login({
+      email: "dual@example.com",
+      password: "secret123",
+      emailOtpCode: "123456",
+      totpCode: validCode,
+    });
+    expect("requiresTotp" in okResult).toBe(false);
+    expect("requiresEmailOtp" in okResult).toBe(false);
+    if ("requiresTotp" in okResult || "requiresEmailOtp" in okResult) {
+      throw new Error("unexpected second-factor prompt");
+    }
+    expect(okResult.accessToken).toMatch(/^eyJ/);
+  });
+
   it("enableTotp verifies the code before enabling", async () => {
     const secret = generateTotpSecret();
     const prisma = makePrisma();
