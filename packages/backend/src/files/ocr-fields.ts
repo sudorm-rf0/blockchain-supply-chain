@@ -14,6 +14,14 @@ export interface KeyFields {
   contractNo?: KeyField;
   seller?: KeyField;
   buyer?: KeyField;
+  /** 报关单字段 */
+  preEntryNo?: KeyField;    // 预录入编号
+  customsNo?: KeyField;     // 海关编号
+  declarationDate?: KeyField; // 申报日期
+  transportMode?: KeyField; // 运输方式
+  consignee?: KeyField;     // 境内收货人
+  shipper?: KeyField;       // 境外发货人
+  currency?: KeyField;      // 币制
 }
 
 export interface ValidationItem {
@@ -102,8 +110,8 @@ export function extractKeyFields(raw: string): KeyFields {
   const buyer = text.match(/(?:购买方|购方|买方)[:：\s]*([\u4e00-\u9fffA-Za-z0-9（）()·]{2,40}?)(?:备注|电话|地址|开户|税号|$)/);
   if (buyer) fields.buyer = { value: buyer[1] };
 
-  // 金额：先数字，再大写
-  const numAmt = text.match(/(?:金额|价税合计|小写金额|合计)[:：\s]*[¥￥]?\s*([0-9][0-9,]*\.?\d{0,2})/);
+  // 金额：先数字，再大写（含报关单「成交总价/申报总价」）
+  const numAmt = text.match(/(?:金额|价税合计|小写金额|合计|成交总价|申报总价|总价)[:：\s]*[¥￥$]?\s*([0-9][0-9,]*\.?\d{0,2})/);
   const capAmt = text.match(/人民币?([零壹贰叁肆伍陆柒捌玖拾佰仟万亿圆元角分整]+)/);
   if (numAmt || capAmt) {
     fields.amount = {
@@ -111,6 +119,29 @@ export function extractKeyFields(raw: string): KeyFields {
       numeric: numAmt ? numAmt[1].replace(/,/g, "") : null,
     };
   }
+
+  // 报关单字段
+  const preEntry = text.match(/预录入编号?[:：\s]*([0-9A-Z]{10,25})/i);
+  if (preEntry) fields.preEntryNo = { value: preEntry[1] };
+
+  const customsNo = text.match(/海关编号?[:：,\s]*([0-9A-Z]{10,25})/i);
+  if (customsNo) fields.customsNo = { value: customsNo[1] };
+
+  const declDate = text.match(/申报日期[:：\s]*(\d{4})[年\-.](\d{1,2})[月\-.](\d{1,2})日?/);
+  if (declDate) fields.declarationDate = { value: `${declDate[1]}-${declDate[2].padStart(2, "0")}-${declDate[3].padStart(2, "0")}` };
+
+  const transport = text.match(/运输方式[:：\s]*\(?(\d{1,2})\)?/);
+  if (transport) fields.transportMode = { value: transport[1] };
+
+  const consignee = text.match(/境内收货人[:：\s]*\(?([A-Za-z0-9]{6,30})\)?/);
+  if (consignee) fields.consignee = { value: consignee[1] };
+
+  const shipper = text.match(/境外发货人[:：\s]*([^\n]{1,50})/);
+  if (shipper) fields.shipper = { value: shipper[1].trim() };
+
+  const currency = text.match(/币制[:：\s]*([A-Z]{3})/);
+  if (currency) fields.currency = { value: currency[1] };
+
   return fields;
 }
 
@@ -130,6 +161,23 @@ export function validateFields(fields: KeyFields): ValidationItem[] {
       name: "date_valid",
       passed: valid,
       detail: valid ? "开票日期格式有效" : "开票日期疑似无效",
+    });
+  }
+  if (fields.preEntryNo || fields.customsNo) {
+    const no = fields.preEntryNo?.value ?? fields.customsNo?.value ?? "";
+    out.push({
+      name: "customs_number_format",
+      passed: /^[0-9A-Z]{12,25}$/i.test(no),
+      detail: "报关单编号格式正常",
+    });
+  }
+  if (fields.declarationDate) {
+    const [y, m, d] = fields.declarationDate.value.split("-").map(Number);
+    const valid = y >= 2000 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31;
+    out.push({
+      name: "declaration_date_valid",
+      passed: valid,
+      detail: valid ? "申报日期格式有效" : "申报日期疑似无效",
     });
   }
   if (fields.amount) {

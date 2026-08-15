@@ -188,5 +188,12 @@ const zh_CN = {
   "journey.pda": "存证 PDA",
   "journey.txSignature": "交易签名",
   "journey.attestedAt": "存证时间",
-  "journey.notAttested": "未上链",};
+  "journey.notAttested": "未上链",  "files.preEntryNo": "预录入编号",
+  "files.customsNo": "海关编号",
+  "files.declarationDate": "申报日期",
+  "files.transportMode": "运输方式",
+  "files.consignee": "境内收货人",
+  "files.shipper": "境外发货人",
+  "files.currency": "币制",
+};
 export default zh_CN;

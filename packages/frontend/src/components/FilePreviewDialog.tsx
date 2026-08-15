@@ -265,6 +265,48 @@ export function FilePreviewDialog({
                         <span>{file.authResult.keyFields.buyer.value}</span>
                       </div>
                     )}
+                    {file.authResult.keyFields.preEntryNo?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.preEntryNo")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.preEntryNo.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.customsNo?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.customsNo")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.customsNo.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.declarationDate?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.declarationDate")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.declarationDate.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.transportMode?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.transportMode")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.transportMode.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.consignee?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.consignee")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.consignee.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.shipper?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.shipper")}：</span>
+                        <span className="truncate">{file.authResult.keyFields.shipper.value}</span>
+                      </div>
+                    )}
+                    {file.authResult.keyFields.currency?.value && (
+                      <div>
+                        <span className="text-muted-foreground">{t("files.currency")}：</span>
+                        <span className="font-mono">{file.authResult.keyFields.currency.value}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -66,6 +66,13 @@ export interface FileAuthResult {
     contractNo?: FileAuthKeyField;
     seller?: FileAuthKeyField;
     buyer?: FileAuthKeyField;
+    preEntryNo?: FileAuthKeyField;
+    customsNo?: FileAuthKeyField;
+    declarationDate?: FileAuthKeyField;
+    transportMode?: FileAuthKeyField;
+    consignee?: FileAuthKeyField;
+    shipper?: FileAuthKeyField;
+    currency?: FileAuthKeyField;
   };
   validations?: FileAuthCheck[];
 }

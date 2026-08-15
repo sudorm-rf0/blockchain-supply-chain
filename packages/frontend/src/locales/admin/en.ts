@@ -188,5 +188,12 @@ const en = {
   "journey.pda": "Attestation PDA",
   "journey.txSignature": "Tx Signature",
   "journey.attestedAt": "Attested At",
-  "journey.notAttested": "Not attested",};
+  "journey.notAttested": "Not attested",  "files.preEntryNo": "Pre-entry No.",
+  "files.customsNo": "Customs No.",
+  "files.declarationDate": "Declaration Date",
+  "files.transportMode": "Transport Mode",
+  "files.consignee": "Consignee",
+  "files.shipper": "Shipper",
+  "files.currency": "Currency",
+};
 export default en;

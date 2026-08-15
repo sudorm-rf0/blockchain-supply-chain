@@ -188,5 +188,12 @@ const zh_TW = {
   "journey.pda": "存證 PDA",
   "journey.txSignature": "交易簽名",
   "journey.attestedAt": "存證時間",
-  "journey.notAttested": "未上鏈",};
+  "journey.notAttested": "未上鏈",  "files.preEntryNo": "預錄入編號",
+  "files.customsNo": "海關編號",
+  "files.declarationDate": "申報日期",
+  "files.transportMode": "運輸方式",
+  "files.consignee": "境內收貨人",
+  "files.shipper": "境外發貨人",
+  "files.currency": "幣制",
+};
 export default zh_TW;
