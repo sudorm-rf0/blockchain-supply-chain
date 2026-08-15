@@ -4,11 +4,13 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import AdminFilesPage from "../page";
 import type { FileRecord, FilesResponse } from "@/lib/types";
 
-const { getFilesMock, reviewFileMock, batchReviewMock, toastSuccess, toastError, replaceMock } =
+const { getFilesMock, reviewFileMock, batchReviewMock, analyzeFileMock, getFileMock, toastSuccess, toastError, replaceMock } =
   vi.hoisted(() => ({
     getFilesMock: vi.fn(),
     reviewFileMock: vi.fn(),
     batchReviewMock: vi.fn(),
+    analyzeFileMock: vi.fn(),
+    getFileMock: vi.fn(),
     toastSuccess: vi.fn(),
     toastError: vi.fn(),
     replaceMock: vi.fn(),
@@ -22,6 +24,8 @@ vi.mock("@/lib/api", () => ({
   getFiles: (...args: unknown[]) => getFilesMock(...args),
   reviewFile: (...args: unknown[]) => reviewFileMock(...args),
   batchReviewFiles: (...args: unknown[]) => batchReviewMock(...args),
+  analyzeFile: (...args: unknown[]) => analyzeFileMock(...args),
+  getFile: (...args: unknown[]) => getFileMock(...args),
 }));
 
 vi.mock("@/components/FilePreviewDialog", () => ({
@@ -79,6 +83,8 @@ describe("AdminFilesPage", () => {
     getFilesMock.mockResolvedValue(makeFiles());
     reviewFileMock.mockResolvedValue({ ok: true });
     batchReviewMock.mockResolvedValue({ ok: true, updated: 2, skipped: 0 });
+    analyzeFileMock.mockResolvedValue({ ok: true });
+    getFileMock.mockResolvedValue(makeFiles().items[0]);
   });
 
   it("renders the file list with uploader names", async () => {
@@ -148,4 +154,17 @@ describe("AdminFilesPage", () => {
     });
   });
 
+  it("re-analyze refreshes the file record without crashing the list", async () => {
+    await renderPage();
+    await screen.findByText("invoice-v1.pdf");
+
+    fireEvent.click(screen.getAllByRole("button", { name: /重新分析/ })[0]);
+
+    await waitFor(() => {
+      expect(analyzeFileMock).toHaveBeenCalledWith("f1");
+      expect(getFileMock).toHaveBeenCalledWith("f1");
+    });
+    // 列表仍正常渲染 hash（此前会把分析结果误当 FileRecord 导致 undefined.slice 崩溃）
+    expect(screen.getByText("abc")).toBeTruthy();
+  });
 });

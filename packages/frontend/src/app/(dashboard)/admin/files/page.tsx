@@ -51,6 +51,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   analyzeFile,
   batchReviewFiles,
+  getFile,
   getFiles,
   reviewFile,
   type FileRecord,
@@ -213,7 +214,10 @@ export default function AdminFilesPage({
   const handleAnalyze = async (id: string) => {
     setAnalyzingId(id);
     try {
-      const updated = await analyzeFile(id);
+      // 后端 /analyze 返回分析结果（AnalysisResult），并非完整 FileRecord；
+      // 先触发分析，再拉取最新文件记录用于更新列表与提示。
+      await analyzeFile(id);
+      const updated = await getFile(id);
       toast.success(t("files.analyzeSuccess", { name: updated.filename }));
       setFiles((prev) => prev.map((f) => (f.id === id ? updated : f)));
     } catch (error) {
