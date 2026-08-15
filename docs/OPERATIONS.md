@@ -266,3 +266,10 @@ node scripts/scan-uploads.mjs <目录>     # 指定其他目录
 - uptime-kuma（127.0.0.1:3006）已初始化管理员并添加 HTTP 监控 `supplychain.de5.net/health`（间隔 60s）。
   - 管理员凭据：`/opt/deploy/kuma-admin.txt`（权限 600）。
   - ⚠️ 特性：kuma 心跳依赖活跃 WebSocket 连接（打开 dashboard 时持续记录）；断开后停止，7×24 探测请以 health-check.sh 为准。
+
+## 10. AI 回复风格约定（2026-08-16，防覆盖）
+
+- AI 助手（`assistant.service.ts` SYSTEM_PROMPT、`files-ai.service.ts` chat/summarize）的回复风格基准为**正式、专业、书面化**：
+  措辞严谨、符合金融行业文档风格，严禁口语化、口头语、网络用语及 emoji；步骤用「第一…第二…最后…」正式分步陈述。
+- 曾发生并行会话将 prompt 改回口语化导致线上回退（`deeee37` 被覆盖 → `f9aa4eb` 重新应用）。**改动这两处 prompt 时必须保持书面化基准**，部署后核对容器内
+  `dist/src/ai/assistant.service.js` 是否含「严禁口语化表达」，避免再次回退。
