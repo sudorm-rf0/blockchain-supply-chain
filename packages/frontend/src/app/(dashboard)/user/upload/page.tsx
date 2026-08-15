@@ -174,7 +174,9 @@ export default function UploadPage() {
           <div
             {...getRootProps()}
             className={`cursor-pointer rounded-md border-2 border-dashed p-8 text-center transition-colors sm:p-12 ${
-              isDragActive ? "border-primary bg-muted/40" : "border-muted"
+              isDragActive
+                ? "border-[#00E676] bg-[#00E676]/5"
+                : "border-[#00E676]/50 hover:border-[#00E676]"
             }`}
           >
             <input {...getInputProps()} />
