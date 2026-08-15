@@ -59,6 +59,9 @@ export default function UploadPage() {
   const [documentPda, setDocumentPda] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [attachedTradeId, setAttachedTradeId] = useState("");
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [lastUploadedName, setLastUploadedName] = useState<string | null>(null);
   const { connection, connected, publicKey, sendTransaction } =
     useWalletContext();
 
@@ -71,6 +74,9 @@ export default function UploadPage() {
       setTxSignature(null);
       setDocumentPda(null);
       setAttachedTradeId("");
+      setUploadStatus("idle");
+      setUploadError(null);
+      setLastUploadedName(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(
         accepted[0].type.startsWith("image/")
@@ -100,7 +106,8 @@ export default function UploadPage() {
         { tradeId, documentId, description, remark },
         ({ percent }) => setProgress(percent),
       );
-      toast.success(t("upload.toasts.uploadSuccess"));
+      setUploadStatus("success");
+      setLastUploadedName(file.name);
       setUploadedId(result.id);
       setHash(result.hash);
       setVersion(result.version ?? null);
@@ -116,7 +123,11 @@ export default function UploadPage() {
       setPreviewUrl(null);
       setProgress(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("upload.toasts.uploadFailed"));
+      const message =
+        error instanceof Error ? error.message : t("upload.toasts.uploadFailed");
+      setUploadStatus("error");
+      setUploadError(message);
+      setLastUploadedName(file.name);
     } finally {
       setUploading(false);
     }
@@ -173,14 +184,73 @@ export default function UploadPage() {
 
           <div
             {...getRootProps()}
-            className={`cursor-pointer rounded-md border-2 border-dashed p-8 text-center transition-colors sm:p-12 ${
+            className={`flex min-h-[190px] cursor-pointer flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed p-6 text-center transition-colors sm:p-10 ${
               isDragActive
                 ? "border-[#00E676] bg-[#00E676]/5"
-                : "border-[#00E676]/50 hover:border-[#00E676]"
+                : uploadStatus === "success"
+                  ? "border-[#00E676] bg-[#00E676]/5"
+                  : uploadStatus === "error"
+                    ? "border-red-500/60 bg-red-500/5"
+                    : "border-[#00E676]/50 hover:border-[#00E676]"
             }`}
           >
             <input {...getInputProps()} />
-            <p className="text-muted-foreground">{t("upload.dropzone")}</p>
+            {uploadStatus === "success" ? (
+              <div className="space-y-2">
+                <p className="font-mono text-base font-bold text-[#00E676]">
+                  ✓ {t("upload.inlineSuccess")}
+                </p>
+                {lastUploadedName && (
+                  <p className="text-sm font-bold text-foreground">
+                    {lastUploadedName}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {t("upload.successPreviewHint")}
+                </p>
+              </div>
+            ) : uploadStatus === "error" ? (
+              <div className="space-y-2">
+                <p className="font-mono text-base font-bold text-red-500">
+                  ✗ {t("upload.inlineFailed")}
+                </p>
+                {uploadError && (
+                  <p className="text-xs text-muted-foreground">{uploadError}</p>
+                )}
+                {lastUploadedName && (
+                  <p className="text-sm font-bold text-foreground">
+                    {lastUploadedName}
+                  </p>
+                )}
+              </div>
+            ) : file ? (
+              <div className="flex flex-col items-center gap-2">
+                {previewUrl && (
+                  <Image
+                    src={previewUrl}
+                    alt={t("upload.previewAlt")}
+                    width={64}
+                    height={64}
+                    unoptimized
+                    className="h-16 w-16 rounded-md object-cover"
+                  />
+                )}
+                <p className="text-sm font-bold text-foreground">{file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(file.size / 1024).toFixed(0)} KB
+                </p>
+                <p className="text-xs font-medium text-[#00E676]">
+                  {t("upload.selectedPreviewHint")}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-muted-foreground">{t("upload.dropzone")}</p>
+                <p className="text-xs text-muted-foreground/70">
+                  {t("upload.supportedTypes")}
+                </p>
+              </div>
+            )}
           </div>
 
           <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted/50 sm:w-auto">
@@ -198,27 +268,6 @@ export default function UploadPage() {
               }}
             />
           </label>
-
-          {file && (
-            <div className="flex items-center gap-3">
-              {previewUrl && (
-                <Image
-                  src={previewUrl}
-                  alt={t("upload.previewAlt")}
-                  width={64}
-                  height={64}
-                  unoptimized
-                  className="h-16 w-16 rounded-md object-cover"
-                />
-              )}
-              <p className="min-w-0 text-sm">
-                {t("upload.fileInfo", {
-                  name: file.name,
-                  size: (file.size / 1024).toFixed(0),
-                })}
-              </p>
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="tradeId">{t("upload.tradeIdLabel")}</Label>
@@ -310,9 +359,7 @@ export default function UploadPage() {
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground">
-            {t("upload.supportedTypes")}
-          </p>
+
         </CardContent>
       </Card>
     </div>

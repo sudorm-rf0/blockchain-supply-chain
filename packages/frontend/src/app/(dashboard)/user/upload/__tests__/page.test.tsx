@@ -84,7 +84,7 @@ describe("UploadPage", () => {
     expect(uploadMock).not.toHaveBeenCalled();
   });
 
-  it("uploads a selected file and shows success", async () => {
+  it("uploads a selected file and shows inline success in the dropzone", async () => {
     render(<UploadPage />);
     dropFile(makePngFile());
     fireEvent.click(screen.getByRole("button", { name: /上传文件/ }));
@@ -93,17 +93,22 @@ describe("UploadPage", () => {
       expect(uploadMock).toHaveBeenCalledTimes(1);
     });
     expect(uploadMock.mock.calls[0][0].name).toBe("invoice.png");
-    expect(toastSuccess).toHaveBeenCalledWith("上传成功");
+    // 成功提示显示在拖拽框内，而非弹窗/toast
+    expect(screen.getByText(/^✓\s*上传成功$/)).toBeTruthy();
+    expect(screen.getByText("invoice.png")).toBeTruthy();
+    expect(toastSuccess).not.toHaveBeenCalledWith("上传成功");
   });
 
-  it("shows an error toast when upload fails", async () => {
+  it("shows an inline error in the dropzone when upload fails", async () => {
     uploadMock.mockRejectedValue(new Error("network down"));
     render(<UploadPage />);
     dropFile(makePngFile());
     fireEvent.click(screen.getByRole("button", { name: /上传文件/ }));
 
     await waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith("network down");
+      expect(screen.getByText(/上传失败/)).toBeTruthy();
     });
+    expect(screen.getByText("network down")).toBeTruthy();
+    expect(toastError).not.toHaveBeenCalledWith("network down");
   });
 });
