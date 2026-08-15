@@ -23,6 +23,7 @@ function buildCsp(nonce: string): string {
   })();
   const connectSrcs = [
     "'self'",
+    "blob:", // pdf.js 读取 blob URL / 文件预览
     backendUrl,
     tradeUrl,
     poolUrl,
