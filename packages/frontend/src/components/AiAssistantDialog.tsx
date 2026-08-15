@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Bot, Loader2, Send } from "lucide-react";
+import { Bot, FileSearch, ListChecks, Loader2, MessageSquareText, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { aiChatFile, aiReviewFile, type AiChatMessage, type AiReviewReport, type FileRecord } from "@/lib/api";
+import {
+  aiChatFile,
+  aiExtractFile,
+  aiReviewFile,
+  aiSummarizeFile,
+  type AiChatMessage,
+  type AiReviewReport,
+  type FileRecord,
+} from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 interface AiAssistantDialogProps {
   file: FileRecord;
@@ -21,17 +30,42 @@ interface AiAssistantDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type View = "review" | "extract" | "summary" | "chat";
+
 const RISK_STYLE: Record<string, string> = {
   LOW: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
   MEDIUM: "bg-amber-500/10 text-amber-600 border-amber-500/30",
   HIGH: "bg-red-500/10 text-red-600 border-red-500/30",
 };
 
+const FIELD_LABELS: Record<string, string> = {
+  invoiceNumber: "files.ai.field.invoiceNumber",
+  contractNo: "files.ai.field.contractNo",
+  amount: "files.ai.field.amount",
+  date: "files.ai.field.date",
+  buyer: "files.ai.field.buyer",
+  seller: "files.ai.field.seller",
+  currency: "files.ai.field.currency",
+  preEntryNo: "files.ai.field.preEntryNo",
+  customsNo: "files.ai.field.customsNo",
+  consignee: "files.ai.field.consignee",
+  shipper: "files.ai.field.shipper",
+  transportMode: "files.ai.field.transportMode",
+  notes: "files.ai.field.notes",
+};
+
 export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialogProps) {
   const { t } = useTranslation();
+  const [view, setView] = useState<View>("review");
   const [report, setReport] = useState<AiReviewReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [extractData, setExtractData] = useState<Record<string, unknown> | null>(null);
+  const [extractLoading, setExtractLoading] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [summaryText, setSummaryText] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -39,8 +73,13 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
 
   useEffect(() => {
     if (!open) return;
+    setView("review");
     setReport(null);
     setReportError(null);
+    setExtractData(null);
+    setExtractError(null);
+    setSummaryText(null);
+    setSummaryError(null);
     setMessages([]);
     setInput("");
     setReportLoading(true);
@@ -55,6 +94,38 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  const loadExtract = async () => {
+    if (extractData || extractLoading) return;
+    setExtractLoading(true);
+    try {
+      const { fields } = await aiExtractFile(file.id);
+      setExtractData(fields);
+    } catch (error) {
+      setExtractError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setExtractLoading(false);
+    }
+  };
+
+  const loadSummary = async () => {
+    if (summaryText || summaryLoading) return;
+    setSummaryLoading(true);
+    try {
+      const { summary } = await aiSummarizeFile(file.id);
+      setSummaryText(summary);
+    } catch (error) {
+      setSummaryError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const onSelectView = (next: View) => {
+    setView(next);
+    if (next === "extract") void loadExtract();
+    if (next === "summary") void loadSummary();
+  };
 
   const handleSend = async () => {
     const message = input.trim();
@@ -77,6 +148,13 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
     }
   };
 
+  const tabs: Array<{ key: View; label: string; icon: typeof Bot }> = [
+    { key: "review", label: t("files.ai.tab.review"), icon: ListChecks },
+    { key: "extract", label: t("files.ai.tab.extract"), icon: FileSearch },
+    { key: "summary", label: t("files.ai.tab.summary"), icon: Sparkles },
+    { key: "chat", label: t("files.ai.tab.chat"), icon: MessageSquareText },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -90,11 +168,27 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex gap-1 rounded-md border border-border p-1">
+          {tabs.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelectView(key)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
+                view === key
+                  ? "bg-primary/10 text-[#00E676]"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {view === "review" && (
           <div className="rounded-md border p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("files.ai.reviewTitle")}
-            </p>
             {reportLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -138,9 +232,52 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
               </div>
             ) : null}
           </div>
+        )}
 
+        {view === "extract" && (
+          <div className="rounded-md border p-3">
+            {extractLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("files.ai.extracting")}
+              </div>
+            ) : extractError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">{extractError}</p>
+            ) : extractData ? (
+              <div className="space-y-2 text-sm">
+                {Object.entries(extractData)
+                  .filter(([, v]) => v !== null && v !== undefined && v !== "")
+                  .map(([k, v]) => (
+                    <div key={k} className="flex items-start justify-between gap-4 border-b border-border/50 py-1.5 last:border-0">
+                      <span className="shrink-0 text-muted-foreground">
+                        {t(FIELD_LABELS[k] ?? `files.ai.field.${k}`, { defaultValue: k })}
+                      </span>
+                      <span className="text-right text-foreground">{String(v)}</span>
+                    </div>
+                  ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {view === "summary" && (
+          <div className="rounded-md border p-3">
+            {summaryLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("files.ai.summarizing")}
+              </div>
+            ) : summaryError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">{summaryError}</p>
+            ) : summaryText ? (
+              <p className="whitespace-pre-line text-sm leading-6 text-foreground">{summaryText}</p>
+            ) : null}
+          </div>
+        )}
+
+        {view === "chat" && (
           <div className="rounded-md border">
-            <div ref={listRef} className="flex max-h-56 flex-col gap-2 overflow-y-auto p-3">
+            <div ref={listRef} className="flex max-h-72 flex-col gap-2 overflow-y-auto p-3">
               {messages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("files.ai.chatPlaceholder")}</p>
               ) : (
@@ -182,7 +319,7 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
               </Button>
             </div>
           </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );

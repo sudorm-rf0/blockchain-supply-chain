@@ -97,6 +97,20 @@ export class FilesController {
     return this.aiService.review(id, req.user!.sub, req.user!.role);
   }
 
+  /** AI 结构化关键信息提取（发票/合同/报关单等字段） */
+  @Post(":id/ai/extract")
+  @UseGuards(AuthGuard)
+  aiExtract(@Param("id") id: string, @Req() req: Request) {
+    return this.aiService.extract(id, req.user!.sub, req.user!.role);
+  }
+
+  /** AI 文档摘要 */
+  @Post(":id/ai/summarize")
+  @UseGuards(AuthGuard)
+  aiSummarize(@Param("id") id: string, @Req() req: Request) {
+    return this.aiService.summarize(id, req.user!.sub, req.user!.role);
+  }
+
   /** AI 审核助手：基于单据上下文对话问答 */
   @Post(":id/ai/chat")
   @UseGuards(AuthGuard)

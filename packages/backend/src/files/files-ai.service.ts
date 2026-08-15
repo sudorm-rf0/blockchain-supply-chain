@@ -161,6 +161,62 @@ export class FilesAiService {
     }
   }
 
+  /** AI 结构化关键信息提取：发票/合同/报关单等字段 → JSON */
+  async extract(fileId: string, userId: string, role: string) {
+    const file = await this.requireFile(fileId, userId, role);
+    const ocrText = await this.resolveOcrText(file);
+    const context = this.buildContext(file, ocrText);
+    const raw = await this.llm.complete([
+      {
+        role: "system",
+        content:
+          "你是供应链金融单据信息提取专家。基于单据内容文本输出一个 JSON 对象（不要输出 JSON 以外的任何内容），字段为：" +
+          '{"invoiceNumber":"发票号","contractNo":"合同号","amount":"金额（含币种）","date":"日期","buyer":"买方","seller":"卖方","currency":"币制","preEntryNo":"报关预录入编号","customsNo":"海关编号","consignee":"境内收货人","shipper":"境外发货人","transportMode":"运输方式","notes":"其他补充说明"}。' +
+          "识别不到的字段给 null；字段值用自然语言，不要使用列表、编号、加粗、Markdown 或 emoji。",
+      },
+      { role: "user", content: context },
+    ]);
+    const fields =
+      this.parseJsonObject<Record<string, unknown>>(raw) ?? { raw };
+    await this.audit.record({
+      actorId: userId,
+      action: "FILE_AI_EXTRACTED",
+      targetType: "FILE",
+      targetId: fileId,
+      metadata: { model: this.llm.modelName, fields: Object.keys(fields) },
+    });
+    return {
+      fields,
+      source: ocrText.startsWith("【自动提取 PDF 文本】") ? "pdftotext" : "ocr",
+    };
+  }
+
+  /** AI 文档摘要：3-5 句自然语言概括核心内容 */
+  async summarize(fileId: string, userId: string, role: string) {
+    const file = await this.requireFile(fileId, userId, role);
+    const ocrText = await this.resolveOcrText(file);
+    const context = this.buildContext(file, ocrText);
+    const summary = await this.llm.complete(
+      [
+        {
+          role: "system",
+          content:
+            "你是供应链金融单据摘要助手。请用 3-5 句自然语言概括这份单据的核心内容：单据类型、关键金额与日期、交易双方、主要风险提示。用自然口语，不要使用列表、编号、加粗、Markdown 或 emoji。",
+        },
+        { role: "user", content: context },
+      ],
+      800,
+    );
+    await this.audit.record({
+      actorId: userId,
+      action: "FILE_AI_SUMMARIZED",
+      targetType: "FILE",
+      targetId: fileId,
+      metadata: { model: this.llm.modelName },
+    });
+    return { summary };
+  }
+
   /** 生成 AI 审核报告（摘要 + 风险评估 + 建议） */
   async review(fileId: string, userId: string, role: string): Promise<AiReviewReport> {
     const file = await this.requireFile(fileId, userId, role);

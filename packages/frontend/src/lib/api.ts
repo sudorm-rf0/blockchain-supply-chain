@@ -34,6 +34,8 @@ export {
   buildDocumentAttest,
   confirmDocumentAttest,
   aiReviewFile,
+  aiExtractFile,
+  aiSummarizeFile,
   aiChatFile,
 } from "./files-api";
 export type {

@@ -38,12 +38,16 @@ export interface AnalysisResult {
   verdict: "LOW_RISK" | "MEDIUM_RISK" | "HIGH_RISK";
   checks: AnalysisCheck[];
   ocrText: string;
+  /** 文本来源：pdftotext（PDF 文本层）/ tesseract（图像 OCR）/ image-ocr / none */
+  ocrSource?: "pdftotext" | "tesseract" | "image-ocr" | "none";
   keyFields?: KeyFields;
   validations?: ValidationItem[];
 }
 
 const OCR_LANG = "chi_sim+eng";
 const MAX_OCR_PAGES = 12;
+/** PDF 文本层提取结果的最短有效长度（太短视为无文本层，回退 OCR） */
+const MIN_PDF_TEXT_CHARS = 30;
 
 @Injectable()
 export class FilesAnalysisService {
@@ -101,6 +105,15 @@ export class FilesAnalysisService {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  }
+
+  /** PDF 文本层提取（pdftotext）：快且准，适合数字生成型 PDF */
+  private async extractPdfText(pdfPath: string): Promise<string> {
+    const { stdout } = await execFileAsync("pdftotext", [pdfPath, "-"], {
+      timeout: 60_000,
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    return stdout.trim();
   }
 
   /** Error Level Analysis：二次重压缩差异率过高 → 疑似篡改 */
@@ -225,20 +238,35 @@ export class FilesAnalysisService {
       }
 
       let ocrText = "";
+      let ocrSource: AnalysisResult["ocrSource"] = "none";
       if (file.mimeType.startsWith("image/")) {
         checks.push(await this.elaCheck(tmp));
         checks.push(await this.exifCheck(tmp));
         try {
           ocrText = await this.ocrImage(tmp);
+          if (ocrText) ocrSource = "image-ocr";
         } catch (e) {
           this.logger.warn(`ocr failed: ${String(e)}`);
         }
       } else if (file.mimeType === "application/pdf") {
         checks.push(await this.pdfCheck(tmp));
+        // PDF 适配：优先提取文本层（pdftotext，快且准确）；无文本层（扫描件）再回退 tesseract OCR
         try {
-          ocrText = await this.ocrPdf(tmp);
+          const textLayer = await this.extractPdfText(tmp);
+          if (textLayer.length >= MIN_PDF_TEXT_CHARS) {
+            ocrText = textLayer;
+            ocrSource = "pdftotext";
+          }
         } catch (e) {
-          this.logger.warn(`pdf ocr failed: ${String(e)}`);
+          this.logger.warn(`pdf text layer extraction failed: ${String(e)}`);
+        }
+        if (!ocrText) {
+          try {
+            ocrText = await this.ocrPdf(tmp);
+            if (ocrText) ocrSource = "tesseract";
+          } catch (e) {
+            this.logger.warn(`pdf ocr failed: ${String(e)}`);
+          }
         }
       } else {
         checks.push({ name: "content", passed: true, detail: "非图片/PDF，跳过视觉与 OCR 检测" });
@@ -262,6 +290,7 @@ export class FilesAnalysisService {
         checks,
         keyFields,
         validations: validateFields(keyFields),
+        ocrSource,
       } as unknown as Prisma.InputJsonValue;
       await this.prisma.file.update({
         where: { id: fileId },
@@ -280,13 +309,14 @@ export class FilesAnalysisService {
         action: "FILE_ANALYZED",
         targetType: "FILE",
         targetId: fileId,
-        metadata: { score, verdict, ocrChars: ocrText.length },
+        metadata: { score, verdict, ocrChars: ocrText.length, ocrSource },
       });
       return {
         score,
         verdict,
         checks,
         ocrText,
+        ocrSource,
         keyFields,
         validations: validateFields(keyFields),
       };

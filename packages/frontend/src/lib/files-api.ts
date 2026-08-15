@@ -203,6 +203,26 @@ export async function aiReviewFile(fileId: string): Promise<AiReviewReport> {
   });
 }
 
+export async function aiExtractFile(
+  fileId: string,
+): Promise<{ fields: Record<string, unknown>; source: string }> {
+  return request(`${BACKEND_URL}/api/files/${fileId}/ai/extract`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+export async function aiSummarizeFile(
+  fileId: string,
+): Promise<{ summary: string }> {
+  return request(`${BACKEND_URL}/api/files/${fileId}/ai/summarize`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
 export async function aiChatFile(
   fileId: string,
   body: { message: string; history?: AiChatMessage[] },
