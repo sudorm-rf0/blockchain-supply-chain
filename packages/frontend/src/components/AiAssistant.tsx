@@ -337,6 +337,9 @@ export function AiAssistant() {
               </div>
             </div>
           )}
+          <div className="border-t px-4 py-2 text-center text-[11px] text-muted-foreground">
+            {t("ai.disclaimer")}
+          </div>
         </SheetContent>
       </Sheet>
     </>

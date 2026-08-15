@@ -10,6 +10,30 @@ export interface AiChatMessage {
 }
 
 /**
+ * 清理 AI 输出中的装饰符号（统一在所有 AI 回答上生效）：
+ * - 星号 *（含 ** 加粗）
+ * - 破折号/短横 — –（装饰用途，替换为空格）
+ * - 省略号 … / ... / 。。。
+ * - 表格竖线 | 与纯横线分隔行（|------|）
+ * - 行首 bullet（- •）
+ * 保留数字/代码内部的连字符（如日期 2025-08-03、单号 LLYW-2508007），避免破坏数据。
+ */
+export function sanitizeAiText(text: string): string {
+  return text
+    .replace(/\*/g, "")
+    .replace(/[—–]/g, " ")
+    .replace(/…/g, "")
+    .replace(/\.{3,}/g, "")
+    .replace(/。{3,}/g, "")
+    .replace(/\|/g, "")
+    .replace(/^\s*-{2,}\s*$/gm, "")
+    .replace(/^[-•]\s+/gm, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * OpenAI 兼容大模型调用（DeepSeek / OpenAI / 通义等）。
  *
  * 配置：
@@ -83,7 +107,8 @@ export class AiLlmService {
     if (!content) {
       throw new ServiceUnavailableException("AI 服务返回为空，请重试");
     }
-    return content;
+    // 统一清理星号/杠/省略号等装饰符号，确保所有 AI 回答都不出现这些字符
+    return sanitizeAiText(content);
   }
 
   get modelName(): string {

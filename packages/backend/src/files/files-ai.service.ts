@@ -172,7 +172,7 @@ export class FilesAiService {
         content:
           "你是供应链金融单据信息提取专家。基于单据内容文本输出一个 JSON 对象（不要输出 JSON 以外的任何内容），字段为：" +
           '{"invoiceNumber":"发票号","contractNo":"合同号","amount":"金额（含币种）","date":"日期","buyer":"买方","seller":"卖方","currency":"币制","preEntryNo":"报关预录入编号","customsNo":"海关编号","consignee":"境内收货人","shipper":"境外发货人","transportMode":"运输方式","notes":"其他补充说明"}。' +
-          "识别不到的字段给 null；字段值用自然语言，不要使用列表、编号、加粗、Markdown 或 emoji。",
+          "识别不到的字段给 null；字段值用自然语言，不要使用列表、编号、加粗、Markdown、表格或 emoji；禁止出现星号 *、杠（-、—、–）、省略号（…）、竖线 | 等符号。",
       },
       { role: "user", content: context },
     ]);
@@ -201,7 +201,7 @@ export class FilesAiService {
         {
           role: "system",
           content:
-            "你是供应链金融单据摘要助手。请用 3-5 句正式、书面的语言概括这份单据的核心内容：单据类型、关键金额与日期、交易双方、主要风险提示。避免口语化表达。",
+            "你是供应链金融单据摘要助手。请用 3-5 句自然语言概括这份单据的核心内容：单据类型、关键金额与日期、交易双方、主要风险提示。用自然口语，不要使用列表、编号、加粗、Markdown、表格或 emoji；禁止出现星号 *、杠（-、—、–）、省略号（…）、竖线 | 等符号。",
         },
         { role: "user", content: context },
       ],
@@ -228,7 +228,7 @@ export class FilesAiService {
         content:
           "你是供应链金融平台的单据审核专家。请基于单据内容文本、关键字段和本地检测结果，输出一个 JSON 对象（不要输出 JSON 以外的任何内容），字段为：" +
           '{"summary":"用自然语言概括单据内容","riskLevel":"LOW|MEDIUM|HIGH","riskAssessment":"用自然语言说明风险点","suggestions":["审核建议"],"concerns":["可疑或需人工复核点"]}。' +
-          "要求：所有文本字段都用自然、平实的语言，不要使用列表、编号、加粗、Markdown 或 emoji；即使内容需要多点说明，也用连贯的句子表达。",
+          "要求：所有文本字段都用自然、平实的语言，不要使用列表、编号、加粗、Markdown、表格或 emoji；禁止出现星号 *、杠（-、—、–）、省略号（…）、竖线 | 等符号；即使内容需要多点说明，也用连贯的句子表达。",
       },
       { role: "user", content: context },
     ]);
@@ -269,7 +269,7 @@ export class FilesAiService {
       {
         role: "system",
         content:
-          "你是供应链金融平台的单据审核 AI 助手。请基于下方单据内容回答用户问题；信息不足时如实说明，不要编造。用正式、专业的书面语气回答，与用户提问使用相同语言，避免口语化表达。\n\n" +
+          "你是供应链金融平台的单据审核 AI 助手。请基于下方单据内容回答用户问题；信息不足时如实说明，不要编造。用自然、口语化的语气回答，与用户提问使用相同语言，不要使用列表、编号、加粗、Markdown、表格或 emoji；禁止出现星号 *、杠（-、—、–）、省略号（…）、竖线 | 等符号。\n\n" +
           context,
       },
       ...history,

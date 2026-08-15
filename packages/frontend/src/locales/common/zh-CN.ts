@@ -8,6 +8,7 @@ const zh_CN = {
   status: "状态",
   all: "全部",
   loading: "加载中...",
+  "ai.disclaimer": "由 AI 生成，内容仅供参考，请仔细甄别",
   noData: "暂无数据",
   loadFailed: "加载失败",
   retry: "重试",

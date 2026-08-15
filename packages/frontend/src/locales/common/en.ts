@@ -8,6 +8,7 @@ const en = {
   status: "Status",
   all: "All",
   loading: "Loading...",
+  "ai.disclaimer": "AI-generated content. For reference only. Please verify carefully.",
   noData: "No data",
   loadFailed: "Failed to load",
   retry: "Retry",

@@ -8,6 +8,7 @@ const zh_TW = {
   status: "狀態",
   all: "全部",
   loading: "載入中...",
+  "ai.disclaimer": "由 AI 生成，內容僅供參考，請仔細甄別",
   noData: "暫無資料",
   loadFailed: "載入失敗",
   retry: "重試",
