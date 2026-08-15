@@ -10,6 +10,7 @@ export {
   fetchSession,
   logout,
   changePassword,
+  changeName,
   changeEmail,
   deleteAccount,
   setupTotp,

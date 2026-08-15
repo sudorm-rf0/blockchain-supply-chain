@@ -643,6 +643,42 @@ export class AuthService {
   }
 
   /** 修改绑定邮箱：需先通过发送到新邮箱的验证码核验新邮箱所有权 */
+
+  async changeName(
+    userId: string,
+    name: string,
+    emailCode: string,
+    turnstileToken?: string,
+  ): Promise<PublicUser> {
+    if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
+    const trimmed = name.trim();
+    if (trimmed.length < 2 || trimmed.length > 100) {
+      throw new BadRequestException("姓名需为 2-100 个字符");
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("用户不存在");
+    if (!user.email) {
+      throw new BadRequestException("该账号未绑定邮箱，无法使用邮箱验证");
+    }
+    // 敏感操作：修改名称前必须通过发送到当前邮箱的验证码
+    await this.emailVerification.verifyCode(user.email, emailCode);
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { name: trimmed },
+    });
+    await this.audit.record({
+      actorId: userId,
+      actorEmail: user.email,
+      action: "NAME_CHANGED",
+      targetType: "AUTH",
+      targetId: userId,
+      metadata: { from: user.name, to: trimmed },
+    });
+    return this.publicUser(updated);
+  }
+
   async changeEmail(
     userId: string,
     newEmail: string,

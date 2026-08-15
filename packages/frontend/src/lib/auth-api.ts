@@ -98,6 +98,18 @@ export async function register(input: {
   });
 }
 
+export async function changeName(
+  name: string,
+  emailCode: string,
+  turnstileToken?: string,
+): Promise<{ ok: boolean; user: AuthUser }> {
+  return request(`${BACKEND_URL}/api/auth/change-name`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name, emailCode, turnstileToken }),
+  });
+}
+
 /** 注册邮箱验证：输入 6 位验证码激活账号 */
 export async function verifyEmail(
   email: string,

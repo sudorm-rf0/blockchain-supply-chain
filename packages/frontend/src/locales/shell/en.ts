@@ -16,6 +16,7 @@ const en = {
   "sidebar.allFiles": "All Files",
   "shell.appName": "DFR Blockchain · Supply Chain",
   "shell.notSignedIn": "Not signed in",
+    "shell.securitySettings": "Security Settings",
   "shell.logout": "Sign out",
   "shell.logoutSuccess": "Signed out",
   "notFound.title": "Page not found",

@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Mail, Lock, KeyRound, Trash2 } from "lucide-react";
+import { Mail, Lock, KeyRound, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   changeEmail,
+  changeName,
   changePassword,
   deleteAccount,
   fetchSession,
@@ -53,6 +54,15 @@ export default function AccountPage() {
     };
   }, [router]);
 
+  // 名称修改（需邮箱验证码）
+  const [newName, setNewName] = useState("");
+  const [nameCode, setNameCode] = useState("");
+  const [nameCooldown, setNameCooldown] = useState(0);
+  const [nameSending, setNameSending] = useState(false);
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameTurnstile, setNameTurnstile] = useState("");
+  const [nameCaptchaKey, setNameCaptchaKey] = useState(0);
+
   // 邮箱修改
   const [newEmail, setNewEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
@@ -92,6 +102,57 @@ export default function AccountPage() {
     const timer = setInterval(() => setPwCooldown((c) => c - 1), 1000);
     return () => clearInterval(timer);
   }, [pwCooldown]);
+
+  useEffect(() => {
+    if (nameCooldown <= 0) return;
+    const timer = setInterval(() => setNameCooldown((c) => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, [nameCooldown]);
+
+  const handleSendNameCode = async () => {
+    setNameSending(true);
+    try {
+      const r = await sendEmailOtpCode();
+      setNameCooldown(r.cooldownSeconds ?? 60);
+      toast.success(t("account.emailSent"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("account.sendFailed"));
+    } finally {
+      setNameSending(false);
+    }
+  };
+
+  const handleChangeName = async () => {
+    const name = newName.trim();
+    if (name.length < 2 || name.length > 100) {
+      toast.error(t("account.nameRequired"));
+      return;
+    }
+    if (!/^\d{6}$/.test(nameCode)) {
+      toast.error(t("account.emailCodeRequired"));
+      return;
+    }
+    if (TURNSTILE_SITE_KEY && !nameTurnstile) {
+      toast.error(t("account.captchaRequired"));
+      return;
+    }
+    setNameBusy(true);
+    try {
+      const result = await changeName(name, nameCode, nameTurnstile || undefined);
+      setAuth(result.user);
+      toast.success(t("account.nameChanged"));
+      setNewName("");
+      setNameCode("");
+      setNameTurnstile("");
+      setNameCaptchaKey((k) => k + 1);
+    } catch (error) {
+      setNameTurnstile("");
+      setNameCaptchaKey((k) => k + 1);
+      toast.error(error instanceof Error ? error.message : t("account.nameChangeFailed"));
+    } finally {
+      setNameBusy(false);
+    }
+  };
 
   const handleSendEmailCode = async () => {
     const email = newEmail.trim();
@@ -232,6 +293,65 @@ export default function AccountPage() {
         <KeyRound className="h-5 w-5 text-[#00E676]" />
         <h1 className="font-mono text-xl font-bold">{t("account.title")}</h1>
       </div>
+
+      {/* 修改名称 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UserRound className="h-4 w-4 text-[#00E676]" />
+            {t("account.changeName")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>{t("account.currentName")}</Label>
+            <Input value={user.name ?? ""} readOnly disabled className="font-mono" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="newName">{t("account.newName")}</Label>
+            <Input
+              id="newName"
+              value={newName}
+              maxLength={100}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={t("account.newNamePlaceholder")}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="nameCode">{t("account.emailCode")}</Label>
+            <div className="flex gap-2">
+              <Input
+                id="nameCode"
+                inputMode="numeric"
+                maxLength={6}
+                value={nameCode}
+                onChange={(e) => setNameCode(e.target.value.replace(/\D/g, ""))}
+                placeholder={t("account.codePlaceholder")}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={nameSending || nameCooldown > 0}
+                onClick={() => void handleSendNameCode()}
+              >
+                {nameCooldown > 0
+                  ? `${nameCooldown}s`
+                  : nameSending
+                    ? t("account.sending")
+                    : t("account.sendCode")}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("account.nameCodeHint")}
+            </p>
+          </div>
+          <Turnstile key={nameCaptchaKey} action="sensitive" onVerify={setNameTurnstile} />
+          <Button className="w-full" disabled={nameBusy} onClick={() => void handleChangeName()}>
+            {nameBusy ? t("account.submitting") : t("account.confirmChangeName")}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* 修改邮箱 */}
       <Card>

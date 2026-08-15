@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, ShieldCheck, Upload, UserCog } from "lucide-react";
+import { Boxes, ClipboardCheck, Banknote, Files, LayoutDashboard, ReceiptText, ScrollText, ShieldCheck, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -28,10 +28,8 @@ export function Sidebar({ role }: SidebarProps) {
           { href: "/admin/audit", label: t("sidebar.auditLog"), icon: ScrollText },
           { href: "/admin/trades", label: t("sidebar.allOrders"), icon: ReceiptText },
           { href: "/admin/supply-chain", label: t("sidebar.supplyChain"), icon: Boxes },
-          { href: "/admin/security", label: t("sidebar.security"), icon: ShieldCheck },
           { href: "/admin/withdrawals", label: t("sidebar.withdrawals"), icon: Banknote },
           { href: "/admin/financing", label: t("sidebar.financingReview"), icon: Banknote },
-          { href: "/account", label: t("sidebar.accountInfo"), icon: UserCog },
           { href: "/orders", label: t("sidebar.myOrders"), icon: ReceiptText },
           {
             href: "/admin/files?status=ALL",
@@ -44,7 +42,6 @@ export function Sidebar({ role }: SidebarProps) {
           { href: "/user/files", label: t("sidebar.myFiles"), icon: Files },
           { href: "/orders", label: t("sidebar.myOrders"), icon: ReceiptText },
           { href: "/financing", label: t("sidebar.financing"), icon: Banknote },
-          { href: "/account", label: t("sidebar.accountInfo"), icon: UserCog },
         ];
 
   const isActive = (href: string) => {

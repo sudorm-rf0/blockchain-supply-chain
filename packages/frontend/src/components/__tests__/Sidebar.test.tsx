@@ -25,9 +25,11 @@ describe("Sidebar", () => {
     expect(screen.getByText("审计日志")).toBeTruthy();
     expect(screen.getByText("全部订单")).toBeTruthy();
     expect(screen.getByText("供应链管理")).toBeTruthy();
-    expect(screen.getByText("安全设置")).toBeTruthy();
     expect(screen.getByText("提款管理")).toBeTruthy();
     expect(screen.getByText("全部文件")).toBeTruthy();
+    // 安全设置与账号信息已移至头像下拉框，不再出现在侧边栏
+    expect(screen.queryByText("安全设置")).toBeNull();
+    expect(screen.queryByText("管理账号信息")).toBeNull();
   });
 
   it("renders user menu items for USER role", () => {
@@ -36,6 +38,8 @@ describe("Sidebar", () => {
     expect(screen.getByText("我的文件")).toBeTruthy();
     expect(screen.getByText("我的订单")).toBeTruthy();
     expect(screen.queryByText("审计日志")).toBeNull();
+    expect(screen.queryByText("管理账号信息")).toBeNull();
+    expect(screen.queryByText("安全设置")).toBeNull();
   });
 
   it("highlights the active route", () => {

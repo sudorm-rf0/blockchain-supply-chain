@@ -16,6 +16,7 @@ const zh_TW = {
   "sidebar.allFiles": "全部檔案",
   "shell.appName": "DFR 區塊鏈 · 供應鏈系統",
   "shell.notSignedIn": "未登入",
+    "shell.securitySettings": "安全設定",
   "shell.logout": "登出",
   "shell.logoutSuccess": "已登出",
   "notFound.title": "頁面不存在",

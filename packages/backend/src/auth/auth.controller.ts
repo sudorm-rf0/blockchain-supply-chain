@@ -19,6 +19,7 @@ import { AuthGuard } from "@supply-chain/common";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
+import { ChangeNameDto } from "./dto/change-name.dto";
 import { ChangeEmailDto } from "./dto/change-email.dto";
 import { DeleteAccountDto } from "./dto/delete-account.dto";
 import { BindWalletDto } from "./dto/bind-wallet.dto";
@@ -149,6 +150,19 @@ export class AuthController {
   @UseGuards(AuthGuard)
   me(@Req() req: Request) {
     return this.authService.getMe(req.user!.sub);
+  }
+
+  @Post("change-name")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard)
+  async changeName(@Body() body: ChangeNameDto, @Req() req: Request) {
+    const user = await this.authService.changeName(
+      req.user!.sub,
+      body.name,
+      body.emailCode,
+      body.turnstileToken,
+    );
+    return { ok: true, user };
   }
 
   @Post("change-password")
