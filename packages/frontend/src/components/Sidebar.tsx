@@ -50,8 +50,18 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
         ];
 
   const isActive = (href: string) => {
-    const base = href.split("?")[0];
-    return pathname === base || pathname.startsWith(`${base}/`);
+    const [base, query] = href.split("?");
+    const pathMatch = pathname === base || pathname.startsWith(`${base}/`);
+    if (!pathMatch) return false;
+    if (!query) return true;
+    // 带 query 的菜单项（如 /admin/files?status=…）需精确匹配 status，
+    // 避免「文件审核」与「全部文件」因 path 相同而同时高亮。
+    const want = new URLSearchParams(query).get("status");
+    const have =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("status")
+        : undefined;
+    return want === have;
   };
 
   return (

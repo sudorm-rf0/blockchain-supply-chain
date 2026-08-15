@@ -48,4 +48,24 @@ describe("Sidebar", () => {
     const activeLink = container.querySelector('a[href="/user/upload"]');
     expect(activeLink?.className).toContain("border-[#00E676]");
   });
+
+  it("highlights only 文件审核 (status=PENDING) when on PENDING view", () => {
+    pathnameMock.mockReturnValue("/admin/files");
+    window.history.replaceState({}, "", "/admin/files?status=PENDING");
+    const { container } = render(<Sidebar role="ADMIN" />);
+    const review = container.querySelector('a[href="/admin/files?status=PENDING"]');
+    const all = container.querySelector('a[href="/admin/files?status=ALL"]');
+    expect(review?.className).toContain("border-[#00E676]");
+    expect(all?.className).not.toContain("border-[#00E676]");
+  });
+
+  it("highlights only 全部文件 (status=ALL) when on ALL view", () => {
+    pathnameMock.mockReturnValue("/admin/files");
+    window.history.replaceState({}, "", "/admin/files?status=ALL");
+    const { container } = render(<Sidebar role="ADMIN" />);
+    const review = container.querySelector('a[href="/admin/files?status=PENDING"]');
+    const all = container.querySelector('a[href="/admin/files?status=ALL"]');
+    expect(review?.className).not.toContain("border-[#00E676]");
+    expect(all?.className).toContain("border-[#00E676]");
+  });
 });
