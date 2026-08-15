@@ -57,8 +57,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* 品牌左栏（桌面端显示）：Industrial 终端面板 */}
       <div className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-[#000] p-10 text-[#EDEDED] lg:flex">
-        {/* 发丝网格 */}
-        <div className="pointer-events-none absolute inset-0 opacity-50 [background-image:linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] [background-size:40px_40px]" />
+        {/* 发丝网格（缓慢呼吸） */}
+        <div className="animate-grid-pulse pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] [background-size:40px_40px]" />
         {/* 顶部：品牌 + 在线状态（CSS 方块，非 unicode 图标） */}
         <div className="relative z-10 flex items-center justify-between">
           <Link href="/login" className="inline-flex items-center gap-3">
@@ -68,7 +68,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <span className="flex items-center gap-1.5 font-mono text-xs text-[#00E676]">
-            <span className="h-1.5 w-1.5 animate-pulse-soft bg-[#00E676]" />
+            <span className="animate-glow-pulse h-1.5 w-1.5 bg-[#00E676]" />
             LIVE
           </span>
         </div>

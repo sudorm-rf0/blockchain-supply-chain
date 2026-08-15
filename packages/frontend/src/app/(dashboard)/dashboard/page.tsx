@@ -37,7 +37,7 @@ const AssetTrendChart = dynamic(
   () => import("@/components/AssetTrendChart").then((m) => m.AssetTrendChart),
   {
     ssr: false,
-    loading: () => <div className="h-80 w-full animate-pulse rounded-lg bg-muted" />,
+    loading: () => <div className="skeleton h-80 w-full rounded-lg" />,
   },
 );
 
@@ -45,7 +45,7 @@ const LiquidityUtilizationChart = dynamic(
   () => import("@/components/LiquidityUtilizationChart").then((m) => m.LiquidityUtilizationChart),
   {
     ssr: false,
-    loading: () => <div className="h-72 w-full animate-pulse rounded-lg bg-muted" />,
+    loading: () => <div className="skeleton h-72 w-full rounded-lg" />,
   },
 );
 
@@ -257,7 +257,7 @@ export default function DashboardPage() {
       {loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="h-28 animate-pulse rounded-lg border bg-muted" />
+            <div key={item} className="skeleton h-28 rounded-lg border" />
           ))}
         </div>
       )}
@@ -277,11 +277,14 @@ export default function DashboardPage() {
             {stats.map((stat, i) => (
               <Card
                 key={stat.label}
-                className={`animate-fade-in-up animate-delay-${i + 1}`}
+                className={`group relative animate-fade-in-up overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-[#00E676]/40 hover:shadow-[0_12px_28px_-16px_rgba(0,230,118,0.55)] animate-delay-${i + 1}`}
               >
+                <div className="sheen" aria-hidden="true" />
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardDescription>{stat.label}</CardDescription>
-                  <stat.icon className={`h-4 w-4 ${stat.accent}`} />
+                  <stat.icon
+                    className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${stat.accent}`}
+                  />
                 </CardHeader>
                 <CardContent>
                   <p className={`text-2xl font-semibold ${stat.accent}`}>
@@ -303,31 +306,31 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.feeApy")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     {(Number(overview.feeApyBps) / 100).toFixed(2)}%
                   </p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.overdueFeeApy")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     {(Number(overview.overdueFeeApyBps) / 100).toFixed(2)}%
                   </p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.firstLossReserve")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     ${formatUsdc(overview.firstLossReserve)}
                   </p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.escrowFunded")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     ${formatUsdc(overview.escrowFunded)}
                   </p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.shareSplit")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     {(Number(overview.lpShareBps) / 100).toFixed(0)}% /{" "}
@@ -335,13 +338,13 @@ export default function DashboardPage() {
                     {(Number(overview.rebateShareBps) / 100).toFixed(0)}%
                   </p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.redemptionPrice")}</p>
                   <p className="mt-1 text-xl font-semibold">
                     ${formatUsdc(overview.redemptionPrice)}
                   </p>
                 </div>
-                <div className="rounded-md border p-3 sm:col-span-2">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03] sm:col-span-2">
                   <p className="text-xs text-muted-foreground">{t("dashboard.pendingAdmin")}</p>
                   <p className="mt-1 break-all font-mono text-xs">
                     {overview.pendingAdmin ?? t("dashboard.noPendingAdmin")}
@@ -374,7 +377,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="mb-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.idleLiquidity")}</p>
                   <p className="mt-1 text-xl font-semibold text-[#00E676]">
                     $
@@ -383,7 +386,7 @@ export default function DashboardPage() {
                     )}
                   </p>
                 </div>
-                <div className="rounded-md border p-3">
+                <div className="rounded-md border p-3 transition-colors duration-200 hover:border-[#00E676]/30 hover:bg-primary/[0.03]">
                   <p className="text-xs text-muted-foreground">{t("dashboard.currentUtilization")}</p>
                   <p className="mt-1 text-xl font-semibold text-amber-600 dark:text-amber-300">
                     {((overview.utilizationBps / 10_000) * 100).toFixed(1)}%
@@ -395,7 +398,7 @@ export default function DashboardPage() {
           </Card>
 
           <section className="grid gap-4 sm:grid-cols-3">
-            <Card>
+            <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/40 hover:shadow-[0_10px_24px_-16px_rgba(0,230,118,0.5)]">
               <CardHeader>
                 <CardDescription>{t("dashboard.activeDeals")}</CardDescription>
               </CardHeader>
@@ -403,7 +406,7 @@ export default function DashboardPage() {
                 <p className="text-xl font-semibold">{overview.activeDeals}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/40 hover:shadow-[0_10px_24px_-16px_rgba(0,230,118,0.5)]">
               <CardHeader>
                 <CardDescription>{t("dashboard.settledDeals")}</CardDescription>
               </CardHeader>
@@ -413,7 +416,7 @@ export default function DashboardPage() {
                 </p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/40 hover:shadow-[0_10px_24px_-16px_rgba(0,230,118,0.5)]">
               <CardHeader>
                 <CardDescription>{t("dashboard.defaultedDeals")}</CardDescription>
               </CardHeader>
@@ -442,7 +445,7 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-md border border-border bg-background p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/60 hover:bg-primary/5 hover:shadow-[0_4px_16px_-8px_rgba(0,230,118,0.4)]"
+      className="group sheen relative flex items-center gap-3 overflow-hidden rounded-md border border-border bg-background p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/60 hover:bg-primary/5 hover:shadow-[0_4px_16px_-8px_rgba(0,230,118,0.4)]"
     >
       <Icon className="h-4 w-4 shrink-0 text-[#00E676] transition-transform duration-200 group-hover:scale-110" />
       <span className="truncate text-sm">{label}</span>

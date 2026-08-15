@@ -72,6 +72,30 @@
   .cursor-blink {
     animation: blink 1s steps(1) infinite;
   }
+  /* 文字选中：信号绿底（终端风格） */
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  /* 滚动条：细窄、融入背景，悬停时信号绿（Firefox + WebKit） */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border: 2px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(156 100% 45% / 0.55);
+  }
 }
 
 /* ===== 动效系统（克制、柔和，遵循 Industrial 风格）===== */
@@ -81,6 +105,34 @@
   .animate-scale-in { animation: dfrScaleIn 0.3s ease-out both; }
   .animate-pulse-soft { animation: dfrPulseSoft 2.4s ease-in-out infinite; }
   .animate-scan { animation: dfrScan 6s linear infinite; }
+  /* 信号灯辉光：LIVE 指示点 / 链上状态灯 */
+  .animate-glow-pulse { animation: dfrGlowPulse 2.6s ease-in-out infinite; }
+  /* 背景网格缓慢「呼吸」（登录左栏） */
+  .animate-grid-pulse { animation: dfrGridPulse 9s ease-in-out infinite; }
+  /* 顶部信号线：渐变沿水平方向循环移动 */
+  .animate-gradient-x {
+    background-size: 200% 100%;
+    animation: dfrGradientX 4.5s linear infinite;
+  }
+  /* 加载骨架屏：灰底 + 扫描光条 */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--muted));
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--muted-foreground) / 0.09),
+      transparent
+    );
+    animation: dfrShimmer 1.6s linear infinite;
+  }
   .animate-delay-1 { animation-delay: 60ms; }
   .animate-delay-2 { animation-delay: 120ms; }
   .animate-delay-3 { animation-delay: 180ms; }
@@ -106,6 +158,65 @@
 @keyframes dfrScan {
   0% { transform: translateY(-100%); }
   100% { transform: translateY(100%); }
+}
+@keyframes dfrGlowPulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 hsl(156 100% 45% / 0.45);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 10px 2px hsl(156 100% 45% / 0.35);
+  }
+}
+@keyframes dfrGridPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.75; }
+}
+@keyframes dfrGradientX {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes dfrShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 卡片/快捷入口 hover 时的一次性「扫描扫过」光效（配合 group） */
+@layer components {
+  .sheen {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .sheen::after {
+    content: "";
+    position: absolute;
+    top: -20%;
+    bottom: -20%;
+    left: -160%;
+    width: 55%;
+    transform: skewX(-18deg);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(156 100% 45% / 0.1),
+      transparent
+    );
+    opacity: 0;
+    pointer-events: none;
+  }
+  .group:hover .sheen::after,
+  .sheen.group:hover::after {
+    opacity: 1;
+    animation: dfrSheen 0.75s ease-out forwards;
+  }
+}
+@keyframes dfrSheen {
+  0% { left: -160%; opacity: 0; }
+  15% { opacity: 1; }
+  100% { left: 150%; opacity: 0; }
 }
 
 /* 系统开启「减弱动态」时关闭动画/过渡 */

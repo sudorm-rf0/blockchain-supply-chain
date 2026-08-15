@@ -74,10 +74,10 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
           href="/dashboard"
           onClick={onNavigate}
           className={cn(
-            "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-colors",
+            "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-all duration-200",
             pathname === "/dashboard"
-              ? "border-[#00E676] bg-primary/10 text-[#00E676]"
-              : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+              ? "border-[#00E676] bg-primary/10 text-[#00E676] shadow-[inset_0_0_16px_-8px_rgba(0,230,118,0.5)]"
+              : "border-transparent text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground",
           )}
         >
           <LayoutDashboard className="h-4 w-4" />
@@ -92,10 +92,10 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-colors",
+                "flex items-center gap-2 border-l-2 px-3 py-2 font-mono text-[13px] transition-all duration-200",
                 active
-                  ? "border-[#00E676] bg-primary/10 text-[#00E676]"
-                  : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "border-[#00E676] bg-primary/10 text-[#00E676] shadow-[inset_0_0_16px_-8px_rgba(0,230,118,0.5)]"
+                  : "border-transparent text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground",
               )}
             >
               <Icon className="h-4 w-4" />

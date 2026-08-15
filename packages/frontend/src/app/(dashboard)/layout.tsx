@@ -119,7 +119,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
+        <header className="relative flex h-16 items-center justify-between border-b bg-background px-4 sm:px-6">
+          {/* 底部 1px 信号线：绿色渐变沿水平方向缓慢循环 */}
+          <div
+            aria-hidden="true"
+            className="animate-gradient-x pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00E676]/40 to-transparent"
+          />
           {/* 移动端：左侧固定汉堡按钮占位，将品牌图标右移避开遮挡（md 以上按钮隐藏，恢复原位） */}
           <div className="flex items-center gap-2 pl-11 md:pl-0">
             <LogoMark className="h-7 w-7" />

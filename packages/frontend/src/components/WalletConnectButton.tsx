@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { Wallet } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function WalletConnectButton() {
@@ -39,7 +39,11 @@ export function WalletConnectButton() {
 
   return (
     <Button type="button" disabled={connecting} onClick={() => setVisible(true)}>
-      <Wallet className="h-4 w-4" />
+      {connecting ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Wallet className="h-4 w-4" />
+      )}
       {connecting ? t("wallet.connecting") : t("wallet.connect")}
     </Button>
   );

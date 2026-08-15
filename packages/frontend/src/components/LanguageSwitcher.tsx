@@ -23,9 +23,9 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           type="button"
           onClick={() => setLocale(l as SupportedLocale)}
           className={cn(
-            "px-2 py-1.5 transition-colors",
+            "px-2 py-1.5 transition-all duration-200",
             locale === l
-              ? "bg-primary/15 text-[#00E676]"
+              ? "bg-primary/15 text-[#00E676] shadow-[inset_0_0_8px_-4px_rgba(0,230,118,0.6)]"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
