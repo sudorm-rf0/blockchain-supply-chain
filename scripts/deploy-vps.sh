@@ -67,6 +67,12 @@ fi
 
 echo "==> [2/5] 启动服务"
 $COMPOSE up -d
+# 后端容器重建后 IP 会变化，nginx 缓存的 upstream IP 会过期导致 502；
+# 重启 nginx 让其重新解析上游（见 docs/VPS-INVENTORY.md 部署故障记录）。
+if [[ "$REHEARSAL" != "1" ]]; then
+  echo "   重启 nginx（刷新上游解析）"
+  $COMPOSE restart nginx >/dev/null 2>&1 || true
+fi
 
 cleanup() {
   if [[ "$REHEARSAL" == "1" ]]; then
