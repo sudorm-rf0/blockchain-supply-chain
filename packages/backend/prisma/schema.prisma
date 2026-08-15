@@ -207,6 +207,7 @@ model File {
   authScore        Int?
   authResult       Json?
   analyzedAt       DateTime?
+  translations     Json?
   uploaderId       String?
   uploader         User?      @relation(fields: [uploaderId], references: [id])
   financingRequests FinancingRequest[]

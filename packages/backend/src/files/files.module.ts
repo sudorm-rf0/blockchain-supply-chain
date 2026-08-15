@@ -9,10 +9,11 @@ import { StorageModule } from "../storage/storage.module";
 import { AuthModule } from "../auth/auth.module";
 import { ScanService } from "../security/scan.service";
 import { FilesAnalysisService } from "./files-analysis.service";
+import { FilesTranslationService } from "./files-translation.service";
 
 @Module({
   controllers: [FilesController, AttestationController],
   imports: [StorageModule, AuditModule, AuthModule],
-  providers: [FilesService, AttestationService, FilesAnalysisService, PrismaService, ScanService],
+  providers: [FilesService, AttestationService, FilesAnalysisService, FilesTranslationService, PrismaService, ScanService],
 })
 export class FilesModule {}

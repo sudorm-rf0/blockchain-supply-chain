@@ -83,6 +83,29 @@ export async function getFiles(params: {
   return request(`${BACKEND_URL}/api/files?${query.toString()}`);
 }
 
+export async function translateFile(
+  id: string,
+  targetLang: string,
+): Promise<{ targetLang: string; text: string; status: string }> {
+  return request(`${BACKEND_URL}/api/files/${id}/translate`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ targetLang }),
+  });
+}
+
+export async function verifyTranslation(
+  id: string,
+  lang: string,
+  action: "approve" | "reject",
+): Promise<{ targetLang: string; status: string }> {
+  return request(`${BACKEND_URL}/api/files/${id}/translation/${lang}/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+}
+
 export async function analyzeFile(id: string): Promise<FileRecord> {
   return request(`${BACKEND_URL}/api/files/${id}/analyze`, { method: "POST" });
 }

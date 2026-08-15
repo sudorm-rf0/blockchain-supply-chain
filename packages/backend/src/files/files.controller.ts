@@ -25,6 +25,7 @@ import { AuthGuard } from "@supply-chain/common";
 import { AdminGuard } from "@supply-chain/common";
 import { FilesService } from "./files.service";
 import { FilesAnalysisService } from "./files-analysis.service";
+import { FilesTranslationService } from "./files-translation.service";
 import { decodeFilename } from "./filename";
 import { ReviewFileDto } from "./dto/review-file.dto";
 import { BatchReviewDto } from "./dto/batch-review.dto";
@@ -51,6 +52,7 @@ export class FilesController {
   constructor(
     private readonly filesService: FilesService,
     private readonly analysisService: FilesAnalysisService,
+    private readonly translationService: FilesTranslationService,
   ) {}
 
   @Post()
@@ -83,6 +85,33 @@ export class FilesController {
   analyze(@Param("id") id: string, @Req() req: Request) {
     // 审计深测：analyze 必须校验归属，防止任意登录用户对他人文件触发 OCR/内容分析（信息泄露+资源滥用）
     return this.analysisService.analyze(id, req.user!.sub, req.user!.role);
+  }
+
+  /** 翻译文档（基于 OCR 文本），targetLang: en | zh-CN | zh-TW */
+  @Post(":id/translate")
+  @UseGuards(AuthGuard)
+  translate(@Param("id") id: string, @Body() body: { targetLang: string }, @Req() req: Request) {
+    const lang = (body.targetLang as "en" | "zh-CN" | "zh-TW") ?? "en";
+    if (!["en", "zh-CN", "zh-TW"].includes(lang)) {
+      throw new BadRequestException("不支持的目标语言");
+    }
+    return this.translationService.translate(id, lang, req.user!.sub);
+  }
+
+  /** 管理员验证翻译：action approve | reject */
+  @Post(":id/translation/:lang/verify")
+  @UseGuards(AuthGuard, AdminGuard)
+  verifyTranslation(
+    @Param("id") id: string,
+    @Param("lang") lang: string,
+    @Body() body: { action: "approve" | "reject" },
+    @Req() req: Request,
+  ) {
+    if (!["en", "zh-CN", "zh-TW"].includes(lang)) {
+      throw new BadRequestException("不支持的语言");
+    }
+    const action = body.action === "reject" ? "reject" : "approve";
+    return this.translationService.verify(id, lang as "en" | "zh-CN" | "zh-TW", action, req.user!.sub);
   }
 
   @Get()

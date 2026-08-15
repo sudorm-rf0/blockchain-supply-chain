@@ -21,11 +21,14 @@ import {
   fetchFileBlob,
   fetchFileVersions,
   getFile,
+  translateFile,
+  verifyTranslation,
   type FileRecord,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { regionLabel } from "@/lib/region";
-import { ShieldCheck, ScanText, FileText, Route, QrCode, Fingerprint } from "lucide-react";
+import { useUserStore } from "@/stores/user-store";
+import { ShieldCheck, ScanText, FileText, Route, QrCode, Fingerprint, Languages } from "lucide-react";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -64,6 +67,11 @@ export function FilePreviewDialog({
     a: FileRecord;
     b: FileRecord;
   } | null>(null);
+  const role = useUserStore((state) => state.user?.role);
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+  const [translateLang, setTranslateLang] = useState("en");
+  const [translating, setTranslating] = useState(false);
+  const [verifyBusy, setVerifyBusy] = useState(false);
 
   useEffect(() => {
     if (!open || !fileId) return;
@@ -124,6 +132,34 @@ export function FilePreviewDialog({
     a.download = `${file.filename.replace(/\.[^.]+$/, "")}-attestation.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleTranslate = async () => {
+    if (!file) return;
+    setTranslating(true);
+    try {
+      await translateFile(file.id, translateLang);
+      setFile(await getFile(file.id));
+      toast.success(t("translate.done"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("translate.failed"));
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const handleVerifyTranslation = async (action: "approve" | "reject") => {
+    if (!file) return;
+    setVerifyBusy(true);
+    try {
+      await verifyTranslation(file.id, translateLang, action);
+      setFile(await getFile(file.id));
+      toast.success(action === "approve" ? t("translate.approved") : t("translate.rejected"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("translate.failed"));
+    } finally {
+      setVerifyBusy(false);
+    }
   };
 
   const isImage = file?.mimeType.startsWith("image/") ?? false;
@@ -311,6 +347,82 @@ export function FilePreviewDialog({
                   </div>
                 </div>
               )}
+
+            <div className="rounded-md border">
+              <div className="flex items-center gap-2 border-b p-3">
+                <Languages className="h-4 w-4 text-[#00E676]" />
+                <p className="font-mono text-sm font-semibold">{t("translate.title")}</p>
+                {file.translations?.[translateLang] && (
+                  <span
+                    className={`ml-auto rounded px-2 py-0.5 font-mono text-xs ${
+                      file.translations[translateLang].status === "APPROVED"
+                        ? "border border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]"
+                        : file.translations[translateLang].status === "REJECTED"
+                          ? "border border-red-500/40 bg-red-500/10 text-red-500"
+                          : "border border-amber-500/40 bg-amber-500/10 text-amber-500"
+                    }`}
+                  >
+                    {t(`translate.status.${file.translations[translateLang].status}`)}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-3 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{t("translate.target")}：</span>
+                  {(["en", "zh-CN", "zh-TW"] as const).map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setTranslateLang(l)}
+                      className={`px-2 py-1 font-mono text-xs border ${
+                        translateLang === l
+                          ? "border-[#00E676]/50 bg-primary/10 text-[#00E676]"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {l === "en" ? "English" : l === "zh-CN" ? "简体中文" : "繁體中文"}
+                    </button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={translating}
+                    onClick={() => void handleTranslate()}
+                  >
+                    {translating ? t("translate.translating") : t("translate.button")}
+                  </Button>
+                </div>
+                {file.translations?.[translateLang]?.text ? (
+                  <div className="space-y-2">
+                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded border bg-muted/30 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+                      {file.translations[translateLang].text}
+                    </pre>
+                    {isAdmin && file.translations[translateLang].status === "PENDING" && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{t("translate.verifyTitle")}</span>
+                        <Button
+                          size="sm"
+                          disabled={verifyBusy}
+                          onClick={() => void handleVerifyTranslation("approve")}
+                        >
+                          {t("translate.approve")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={verifyBusy}
+                          onClick={() => void handleVerifyTranslation("reject")}
+                        >
+                          {t("translate.reject")}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t("translate.empty")}</p>
+                )}
+              </div>
+            </div>
 
             <div className="rounded-md border">
               <div className="flex items-center gap-2 border-b p-3">

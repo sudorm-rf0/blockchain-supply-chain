@@ -489,6 +489,7 @@ export class FilesService {
     authScore: number | null;
     authResult: Prisma.JsonValue | null;
     analyzedAt: Date | null;
+    translations: Prisma.JsonValue | null;
     createdAt: Date;
     uploader?: { name: string | null } | null;
   }) {
@@ -517,6 +518,7 @@ export class FilesService {
       authScore: file.authScore,
       authResult: file.authResult,
       analyzedAt: file.analyzedAt?.toISOString() ?? null,
+      translations: file.translations,
       uploaderName: file.uploader?.name ?? null,
       createdAt: file.createdAt.toISOString(),
     };

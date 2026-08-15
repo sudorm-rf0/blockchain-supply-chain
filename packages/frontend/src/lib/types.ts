@@ -40,6 +40,16 @@ export interface FileRecord {
   authScore?: number | null;
   authResult?: FileAuthResult | null;
   analyzedAt?: string | null;
+  translations?: Record<
+    string,
+    {
+      text: string;
+      createdAt: string;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      verifiedBy?: string | null;
+      verifiedAt?: string | null;
+    }
+  > | null;
   uploaderName?: string | null;
   createdAt: string;
 }
