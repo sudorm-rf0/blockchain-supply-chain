@@ -567,6 +567,62 @@ pub mod trade_finance {
         Ok(())
     }
 
+    /// 取消 PENDING 订单并退回买方 30% 首付（审计 H-7 修复）：
+    /// 仅 PENDING 状态可取消；首付从订单托管原路退回买方；
+    /// 订单置为 CANCELLED（终态），随后可 close_deal 退还租金。
+    pub fn cancel_deal(ctx: Context<CancelDeal>, trade_id: u64) -> Result<()> {
+        ctx.accounts.pool_state.ensure_not_paused()?;
+        require!(
+            ctx.accounts.deal.id == trade_id,
+            TradeFinanceError::TradeNotFound
+        );
+        require!(
+            ctx.accounts.deal.status == deal_status::PENDING,
+            TradeFinanceError::DealNotCancellable
+        );
+
+        let refund = ctx.accounts.deal.down_payment;
+        let trade_id_bytes = trade_id.to_le_bytes();
+        let deal_bump = [ctx.bumps.deal];
+        let deal_signer: &[&[u8]] = &[
+            b"trade_finance",
+            b"deal",
+            ctx.accounts.deal.buyer.as_ref(),
+            &trade_id_bytes,
+            &deal_bump,
+        ];
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.deal_token_account.to_account_info(),
+                    to: ctx.accounts.buyer_token_account.to_account_info(),
+                    authority: ctx.accounts.deal.to_account_info(),
+                },
+            )
+            .with_signer(&[deal_signer]),
+            refund,
+        )?;
+
+        // 首付曾计入 total_assets（见 create_deal），取消时同步扣减。
+        let pool = &mut ctx.accounts.pool_state;
+        pool.total_assets = pool
+            .total_assets
+            .checked_sub(refund)
+            .ok_or(TradeFinanceError::MathOverflow)?;
+
+        let deal = &mut ctx.accounts.deal;
+        deal.set_status(deal_status::CANCELLED)?;
+
+        emit!(DealCancelledEvent {
+            trade_id,
+            buyer: deal.buyer,
+            refund,
+        });
+        msg!("deal {} cancelled, refund {} to buyer", trade_id, refund);
+        Ok(())
+    }
+
     /// LP 存入稳定币：按 80%/20% 计入风险准备金与保险基金，
     /// 并在同一指令内按当期 NAV 链上铸造 LP 份额（审计 C-01）。
     pub fn deposit_pool(ctx: Context<DepositPool>, amount: u64) -> Result<()> {
@@ -1492,7 +1548,7 @@ pub mod trade_finance {
         require!(
             matches!(
                 deal.status,
-                deal_status::SETTLED | deal_status::DEFAULTED
+                deal_status::SETTLED | deal_status::DEFAULTED | deal_status::CANCELLED
             ),
             TradeFinanceError::InvalidStateTransition
         );
@@ -2590,6 +2646,52 @@ pub struct DefaultDeal<'info> {
     pub lp_mint: Account<'info, Mint>,
 
 }
+
+#[derive(Accounts)]
+#[instruction(trade_id: u64)]
+pub struct CancelDeal<'info> {
+    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    pub pool_state: Account<'info, PoolState>,
+
+    /// 买方：取消自己的 PENDING 订单并收回首付（审计 H-7）。
+    #[account(mut)]
+    pub buyer: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [
+            b"trade_finance",
+            b"deal" as &[u8],
+            buyer.key().as_ref(),
+            trade_id.to_le_bytes().as_ref()
+        ],
+        bump,
+        constraint = deal.buyer == buyer.key() @ TradeFinanceError::Unauthorized
+    )]
+    pub deal: Account<'info, TradeDeal>,
+
+    /// 订单托管账户：首付由此退回买方。
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = deal
+    )]
+    pub deal_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = buyer
+    )]
+    pub buyer_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        constraint = pool_state.usdc_mint == usdc_mint.key() @ TradeFinanceError::WrongTokenMint
+    )]
+    pub usdc_mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
+}
+
 
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]

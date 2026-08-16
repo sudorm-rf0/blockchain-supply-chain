@@ -384,6 +384,117 @@ describe("trade-finance full lifecycle", () => {
     console.log("Deal status:", dealState.status);
   });
 
+  it("Cancels a PENDING deal and refunds the down payment (H-7)", async () => {
+    const tradeId = new anchor.BN(9001);
+    const amount = new anchor.BN(USDC(1_000));
+    const tenorDays = new anchor.BN(30);
+    const deal = dealPda(buyer.publicKey, tradeId);
+    const dealTokenAccount = await createAta(deal, true);
+
+    await program.methods
+      .createDeal(tradeId, seller.publicKey, amount, tenorDays)
+      .accounts({
+        poolState: poolStatePda,
+        buyer: buyer.publicKey,
+        deal,
+        buyerTokenAccount: buyerAta,
+        dealTokenAccount,
+        usdcMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
+      })
+      .signers([buyer])
+      .rpc();
+
+    const buyerBefore = await getAccount(connection, buyerAta);
+    const escrowBefore = await getAccount(connection, dealTokenAccount);
+    assert.equal(escrowBefore.amount, BigInt(USDC(300)));
+
+    await program.methods
+      .cancelDeal(tradeId)
+      .accounts({
+        poolState: poolStatePda,
+        buyer: buyer.publicKey,
+        deal,
+        dealTokenAccount,
+        buyerTokenAccount: buyerAta,
+        usdcMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([buyer])
+      .rpc();
+
+    const escrowAfter = await getAccount(connection, dealTokenAccount);
+    const buyerAfter = await getAccount(connection, buyerAta);
+    assert.equal(escrowAfter.amount, 0n, "取消后托管余额应为 0");
+    assert.equal(
+      buyerAfter.amount - buyerBefore.amount,
+      BigInt(USDC(300)),
+      "首付应退回买方",
+    );
+    const dealState = await program.account.tradeDeal.fetch(deal);
+    assert.equal(dealState.status, 8, "状态应为 CANCELLED(8)");
+  });
+
+  it("Rejects cancelling a deal that is not PENDING (H-7)", async () => {
+    const tradeId = new anchor.BN(9002);
+    const amount = new anchor.BN(USDC(1_000));
+    const tenorDays = new anchor.BN(30);
+    const deal = dealPda(buyer.publicKey, tradeId);
+    const dealTokenAccount = await createAta(deal, true);
+
+    await program.methods
+      .createDeal(tradeId, seller.publicKey, amount, tenorDays)
+      .accounts({
+        poolState: poolStatePda,
+        buyer: buyer.publicKey,
+        deal,
+        buyerTokenAccount: buyerAta,
+        dealTokenAccount,
+        usdcMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
+      })
+      .signers([buyer])
+      .rpc();
+    await program.methods
+      .fundDeal(tradeId)
+      .accounts({
+        poolState: poolStatePda,
+        admin: admin.publicKey,
+        buyer: buyer.publicKey,
+        deal,
+        poolAuthority: poolAuthorityPda,
+        poolTokenAccount,
+        dealTokenAccount,
+        usdcMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([admin])
+      .rpc();
+
+    await assert.rejects(
+      program.methods
+        .cancelDeal(tradeId)
+        .accounts({
+          poolState: poolStatePda,
+          buyer: buyer.publicKey,
+          deal,
+          dealTokenAccount,
+          buyerTokenAccount: buyerAta,
+          usdcMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([buyer])
+        .rpc(),
+      /Deal must be Pending before cancellation/,
+    );
+  });
+
   it("Attests trade documents on chain", async () => {
     const tradeId = new anchor.BN(1);
     const fileHash = Buffer.from(

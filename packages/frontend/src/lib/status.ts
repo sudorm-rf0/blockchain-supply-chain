@@ -7,6 +7,7 @@ export const TRADE_STATUS_STYLE: Record<string, string> = {
   REPAYING: "bg-orange-200 text-orange-800",
   SETTLED: "bg-green-200 text-green-800",
   DEFAULTED: "bg-red-200 text-red-800",
+  CANCELLED: "bg-gray-200 text-gray-700",
 };
 
 export const WITHDRAW_STATUS_STYLE: Record<string, string> = {
@@ -50,6 +51,7 @@ export const TRADE_LIFECYCLE = [
   "DELIVERED",
   "REPAYING",
   "SETTLED",
+  "CANCELLED",
 ];
 
 // ---- 中文状态显示映射 ----
@@ -62,6 +64,7 @@ export const TRADE_STATUS_LABEL: Record<string, string> = {
   REPAYING: "还款中",
   SETTLED: "已结清",
   DEFAULTED: "已违约",
+  CANCELLED: "已取消",
 };
 
 export const WITHDRAW_STATUS_LABEL: Record<string, string> = {

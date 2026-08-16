@@ -9,6 +9,12 @@ pub struct DealCreatedEvent {
     pub amount: u64,
 }
 #[event]
+pub struct DealCancelledEvent {
+    pub trade_id: u64,
+    pub buyer: Pubkey,
+    pub refund: u64,
+}
+#[event]
 pub struct DepositEvent {
     pub depositor: Pubkey,
     pub amount: u64,

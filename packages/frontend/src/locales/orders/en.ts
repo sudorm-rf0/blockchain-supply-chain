@@ -10,6 +10,7 @@ const en = {
   "orders.status.REPAYING": "Repaying",
   "orders.status.SETTLED": "Settled",
   "orders.status.DEFAULTED": "Defaulted",
+  "orders.status.CANCELLED": "Cancelled",
   "orders.loading": "Loading...",
   "orders.empty": "No orders",
   "orders.columns.id": "Order ID",

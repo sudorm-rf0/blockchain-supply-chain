@@ -64,6 +64,8 @@ pub mod deal_status {
     pub const REPAYING: u8 = 5;
     pub const SETTLED: u8 = 6;
     pub const DEFAULTED: u8 = 7;
+    /// 审计 H-7：PENDING 订单被取消（首付已退回买方）。
+    pub const CANCELLED: u8 = 8;
 }
 
 /// 单笔贸易融资订单。
@@ -112,11 +114,13 @@ impl TradeDeal {
 
     /// 状态机校验：非法状态码返回 InvalidStatus，Settled 后不可再变更。
     pub fn set_status(&mut self, status: u8) -> Result<()> {
-        if !matches!(status, deal_status::PENDING..=deal_status::DEFAULTED) {
+        if !matches!(status, deal_status::PENDING..=deal_status::CANCELLED) {
             return Err(TradeFinanceError::InvalidStatus.into());
         }
-        if matches!(self.status, deal_status::SETTLED | deal_status::DEFAULTED)
-            && status != self.status
+        if matches!(
+            self.status,
+            deal_status::SETTLED | deal_status::DEFAULTED | deal_status::CANCELLED
+        ) && status != self.status
         {
             return Err(TradeFinanceError::InvalidStateTransition.into());
         }
@@ -423,6 +427,30 @@ mod tests {
         };
         assert!(deal.set_status(deal_status::FUNDED).is_err());
         assert!(deal.set_status(deal_status::DEFAULTED).is_err());
+    }
+
+    #[test]
+    fn deal_set_status_accepts_pending_to_cancelled_and_locks_terminal() {
+        // 审计 H-7：PENDING 订单可取消；CANCELLED 为终态，不可再变更。
+        let mut deal = TradeDeal {
+            id: 1,
+            buyer: Pubkey::default(),
+            seller: Pubkey::default(),
+            amount: 1_000_000,
+            down_payment: 300_000,
+            pool_portion: 700_000,
+            tenor: 86_400,
+            status: deal_status::PENDING,
+            created_at: 1_000,
+            repaid_at: 0,
+        };
+        deal.set_status(deal_status::CANCELLED).unwrap();
+        assert_eq!(deal.status, deal_status::CANCELLED);
+        // 终态锁定：不能再从 CANCELLED 回退/跳转。
+        assert!(deal.set_status(deal_status::PENDING).is_err());
+        assert!(deal.set_status(deal_status::FUNDED).is_err());
+        // 未知状态码仍被拒绝。
+        assert!(deal.set_status(99).is_err());
     }
 
     #[test]

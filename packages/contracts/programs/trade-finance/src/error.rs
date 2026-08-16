@@ -204,4 +204,8 @@ pub enum TradeFinanceError {
     /// 审计 H-1：多签轮换锁定期尚未结束。
     #[msg("Multisig rotation lock period has not elapsed")]
     MultisigLockNotElapsed,
+
+    /// 审计 H-7：只有 PENDING 状态的订单可以取消并退款。
+    #[msg("Deal must be Pending before cancellation")]
+    DealNotCancellable,
 }

@@ -27,6 +27,7 @@ export const DEAL_STATUS_BY_CODE: Record<number, string> = {
   5: "REPAYING",
   6: "SETTLED",
   7: "DEFAULTED",
+  8: "CANCELLED",
 };
 
 export function parseTradeDealBuffer(

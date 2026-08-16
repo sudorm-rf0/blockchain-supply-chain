@@ -10,6 +10,7 @@ const zh_CN = {
   "orders.status.REPAYING": "还款中",
   "orders.status.SETTLED": "已结清",
   "orders.status.DEFAULTED": "已违约",
+  "orders.status.CANCELLED": "已取消",
   "orders.loading": "加载中...",
   "orders.empty": "暂无订单",
   "orders.columns.id": "订单 ID",

@@ -10,6 +10,7 @@ const zh_TW = {
   "orders.status.REPAYING": "還款中",
   "orders.status.SETTLED": "已結清",
   "orders.status.DEFAULTED": "已違約",
+  "orders.status.CANCELLED": "已取消",
   "orders.loading": "載入中...",
   "orders.empty": "暫無訂單",
   "orders.columns.id": "訂單 ID",

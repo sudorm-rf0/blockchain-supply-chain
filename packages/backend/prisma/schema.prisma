@@ -17,6 +17,7 @@ enum DealStatus {
   REPAYING
   SETTLED
   DEFAULTED
+  CANCELLED
 }
 
 model User {

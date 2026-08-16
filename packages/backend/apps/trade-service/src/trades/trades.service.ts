@@ -149,6 +149,7 @@ const CHAIN_STATUS_TO_DEAL: Record<number, DealStatus> = {
   5: "REPAYING",
   6: "SETTLED",
   7: "DEFAULTED",
+  8: "CANCELLED",
 };
 
 async function fetchOnChainDealStatus(
