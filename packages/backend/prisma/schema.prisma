@@ -291,6 +291,10 @@ model FinancingRequest {
   reviewedBy   User?    @relation("FinancingReviewer", fields: [reviewedById], references: [id])
   reviewedAt   DateTime?
   repaidAt     DateTime?
+  /// 审计 H-4：放款（平台→申请人）链上 USDC 转账签名，未校验链上证据不得置为 APPROVED。
+  disbursedTxSignature String?
+  /// 审计 H-4：还款（申请人→平台）链上 USDC 转账签名，未校验链上证据不得置为 REPAID。
+  repaidTxSignature String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

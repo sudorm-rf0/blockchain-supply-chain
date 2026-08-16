@@ -35,7 +35,16 @@ export default function AdminFinancingPage() {
   const handleReview = async (id: string, action: "approve" | "reject") => {
     setBusyId(id);
     try {
-      await reviewFinancing(id, action);
+      // 审计 H-4：放款必须提供平台钱包→申请人的链上 USDC 转账签名。
+      let txSignature: string | undefined;
+      if (action === "approve") {
+        txSignature = window.prompt(t("financing.approveTxPrompt") || "请输入放款链上转账交易签名（平台钱包 USDC 转账给申请人）") ?? undefined;
+        if (!txSignature || !/^[1-9A-HJ-NP-Za-km-z]{87,88}$/.test(txSignature)) {
+          toast.error(t("financing.txSignatureInvalid") || "交易签名格式不正确");
+          return;
+        }
+      }
+      await reviewFinancing(id, action, txSignature);
       toast.success(
         action === "approve" ? t("financing.approved") : t("financing.rejected"),
       );

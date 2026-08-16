@@ -99,8 +99,14 @@ export default function FinancingPage() {
 
   const handleRepay = async (id: string) => {
     if (!window.confirm(t("financing.repayConfirm"))) return;
+    // 审计 H-4：需提供链上还款转账签名（申请人 USDC → 平台钱包），后端校验后才标记已还清。
+    const txSignature = window.prompt(t("financing.repayTxPrompt") || "请输入还款链上转账交易签名（USDC 转账到平台钱包）");
+    if (!txSignature || !/^[1-9A-HJ-NP-Za-km-z]{87,88}$/.test(txSignature)) {
+      toast.error(t("financing.txSignatureInvalid") || "交易签名格式不正确");
+      return;
+    }
     try {
-      await repayFinancing(id);
+      await repayFinancing(id, txSignature);
       toast.success(t("financing.repaid"));
       await load();
     } catch (error) {

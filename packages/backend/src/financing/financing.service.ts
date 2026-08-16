@@ -5,9 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { TurnstileService } from "../auth/turnstile.service";
+import { verifyUsdcTransfer } from "./solana-verify";
+import { ApproveFinancingDto } from "./dto/approve-financing.dto";
+import { RepayFinancingDto } from "./dto/repay-financing.dto";
 
 const DEFAULT_DISCOUNT_RATE = 800; // 8%
 
@@ -18,6 +22,29 @@ export class FinancingService {
     private readonly audit: AuditService,
     private readonly turnstile: TurnstileService,
   ) {}
+
+  // ---- 审计 H-4：链上证据校验基础设施 ----
+  private getConnection(): Connection {
+    const url = process.env.SOLANA_RPC_URL;
+    if (!url) throw new BadRequestException("SOLANA_RPC_URL 未配置，无法校验链上转账");
+    return new Connection(url, {
+      commitment: "confirmed",
+      fetch: (fetchUrl, options) =>
+        fetch(fetchUrl, { ...options, signal: AbortSignal.timeout(30_000) }),
+    });
+  }
+
+  private getUsdcMint(): PublicKey {
+    const m = process.env.FINANCING_USDC_MINT || process.env.USDC_MINT;
+    if (!m) throw new BadRequestException("USDC mint 未配置，无法校验链上转账");
+    return new PublicKey(m);
+  }
+
+  private getPlatformWallet(): PublicKey {
+    const w = process.env.FINANCING_PLATFORM_WALLET;
+    if (!w) throw new BadRequestException("FINANCING_PLATFORM_WALLET 未配置，无法校验链上转账");
+    return new PublicKey(w);
+  }
 
   async apply(
     userId: string,
@@ -100,13 +127,29 @@ export class FinancingService {
     return { items: items.map((r) => this.publicRequest(r)) };
   }
 
-  async approve(id: string, adminId: string) {
-    const req = await this.prisma.financingRequest.findUnique({ where: { id } });
+  async approve(id: string, adminId: string, dto: ApproveFinancingDto) {
+    const req = await this.prisma.financingRequest.findUnique({
+      where: { id },
+      include: { applicant: { select: { wallet: true } } },
+    });
     if (!req) throw new NotFoundException("融资申请不存在");
     if (req.status !== "PENDING") throw new BadRequestException("仅待审核的申请可操作");
+    if (!req.applicant?.wallet) throw new BadRequestException("申请人未绑定钱包，无法校验放款");
+    // 审计 H-4：放款必须存在平台→申请人的链上 USDC 转账证据，否则账实不符。
+    await verifyUsdcTransfer(
+      this.getConnection(),
+      dto.txSignature,
+      this.getUsdcMint(),
+      { from: this.getPlatformWallet(), to: new PublicKey(req.applicant.wallet), minAmount: req.amount },
+    );
     const updated = await this.prisma.financingRequest.update({
       where: { id },
-      data: { status: "APPROVED", reviewedById: adminId, reviewedAt: new Date() },
+      data: {
+        status: "APPROVED",
+        reviewedById: adminId,
+        reviewedAt: new Date(),
+        disbursedTxSignature: dto.txSignature,
+      },
       include: { invoice: { select: { filename: true, hash: true } } },
     });
     await this.audit.record({
@@ -137,14 +180,25 @@ export class FinancingService {
     return this.publicRequest(updated);
   }
 
-  async repay(id: string, userId: string) {
-    const req = await this.prisma.financingRequest.findUnique({ where: { id } });
+  async repay(id: string, userId: string, dto: RepayFinancingDto) {
+    const req = await this.prisma.financingRequest.findUnique({
+      where: { id },
+      include: { applicant: { select: { wallet: true } } },
+    });
     if (!req) throw new NotFoundException("融资申请不存在");
     if (req.applicantId !== userId) throw new ForbiddenException("仅申请人可操作");
     if (req.status !== "APPROVED") throw new BadRequestException("仅已批准的融资可还款");
+    if (!req.applicant?.wallet) throw new BadRequestException("未绑定钱包，无法校验还款");
+    // 审计 H-4：还款必须存在申请人→平台的链上 USDC 转账证据，杜绝零成本标记还清。
+    await verifyUsdcTransfer(
+      this.getConnection(),
+      dto.txSignature,
+      this.getUsdcMint(),
+      { from: new PublicKey(req.applicant.wallet), to: this.getPlatformWallet(), minAmount: req.amount },
+    );
     const updated = await this.prisma.financingRequest.update({
       where: { id },
-      data: { status: "REPAID", repaidAt: new Date() },
+      data: { status: "REPAID", repaidAt: new Date(), repaidTxSignature: dto.txSignature },
       include: { invoice: { select: { filename: true, hash: true } } },
     });
     await this.audit.record({

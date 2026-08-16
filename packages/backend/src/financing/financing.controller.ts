@@ -12,6 +12,8 @@ import type { Request } from "express";
 import { AuthGuard, AdminGuard } from "@supply-chain/common";
 import { FinancingService } from "./financing.service";
 import { ApplyFinancingDto } from "./dto/apply-financing.dto";
+import { ApproveFinancingDto } from "./dto/approve-financing.dto";
+import { RepayFinancingDto } from "./dto/repay-financing.dto";
 
 @Controller("api/financing")
 export class FinancingController {
@@ -38,8 +40,8 @@ export class FinancingController {
 
   @Post(":id/approve")
   @UseGuards(AuthGuard, AdminGuard)
-  approve(@Param("id") id: string, @Req() req: Request) {
-    return this.financing.approve(id, req.user!.sub);
+  approve(@Param("id") id: string, @Body() body: ApproveFinancingDto, @Req() req: Request) {
+    return this.financing.approve(id, req.user!.sub, body);
   }
 
   @Post(":id/reject")
@@ -50,7 +52,7 @@ export class FinancingController {
 
   @Post(":id/repay")
   @UseGuards(AuthGuard)
-  repay(@Param("id") id: string, @Req() req: Request) {
-    return this.financing.repay(id, req.user!.sub);
+  repay(@Param("id") id: string, @Body() body: RepayFinancingDto, @Req() req: Request) {
+    return this.financing.repay(id, req.user!.sub, body);
   }
 }

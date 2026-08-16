@@ -44,10 +44,18 @@ export async function fetchAdminFinancing(): Promise<{ items: FinancingRecord[] 
 export async function reviewFinancing(
   id: string,
   action: "approve" | "reject",
+  txSignature?: string,
 ): Promise<FinancingRecord> {
-  return request(`${BACKEND_URL}/api/financing/${id}/${action}`, { method: "POST" });
+  return request(`${BACKEND_URL}/api/financing/${id}/${action}`, {
+    method: "POST",
+    body: JSON.stringify(action === "approve" ? { txSignature } : {}),
+  });
 }
 
-export async function repayFinancing(id: string): Promise<FinancingRecord> {
-  return request(`${BACKEND_URL}/api/financing/${id}/repay`, { method: "POST" });
+/** 审计 H-4：还款必须携带链上 USDC 转账签名（申请人→平台），否则后端拒绝。 */
+export async function repayFinancing(id: string, txSignature: string): Promise<FinancingRecord> {
+  return request(`${BACKEND_URL}/api/financing/${id}/repay`, {
+    method: "POST",
+    body: JSON.stringify({ txSignature }),
+  });
 }
