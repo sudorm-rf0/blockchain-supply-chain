@@ -120,5 +120,6 @@ const en = {
   "panels.notifications.bcFailed": "Publish failed, please retry",
   "panels.notifications.bcTitleRequired": "Title is required",
   "panels.notifications.cancel": "Cancel",
+  "panels.notifications.viewAll": "View all",
 };
 export default en;

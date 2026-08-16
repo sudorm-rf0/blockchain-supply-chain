@@ -120,5 +120,6 @@ const zh_TW = {
   "panels.notifications.bcFailed": "發布失敗，請重試",
   "panels.notifications.bcTitleRequired": "請輸入通知標題",
   "panels.notifications.cancel": "取消",
+  "panels.notifications.viewAll": "查看全部",
 };
 export default zh_TW;

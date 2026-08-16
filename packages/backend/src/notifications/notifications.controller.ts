@@ -53,6 +53,11 @@ export class NotificationsController {
     return this.notifications.list(req!.user!.sub, Number(page) || 1, Number(limit) || 20);
   }
 
+  @Get("banner")
+  banner(@Req() req?: Request) {
+    return this.notifications.banner(req!.user!.sub);
+  }
+
   @Get("unread-count")
   unreadCount(@Req() req?: Request) {
     return this.notifications.unreadCount(req!.user!.sub);

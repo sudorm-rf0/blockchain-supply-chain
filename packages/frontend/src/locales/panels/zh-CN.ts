@@ -120,5 +120,6 @@ const zh_CN = {
   "panels.notifications.bcFailed": "发布失败，请重试",
   "panels.notifications.bcTitleRequired": "请输入通知标题",
   "panels.notifications.cancel": "取消",
+  "panels.notifications.viewAll": "查看全部",
 };
 export default zh_CN;

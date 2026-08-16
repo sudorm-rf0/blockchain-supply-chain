@@ -48,3 +48,15 @@ export async function createBroadcastNotification(input: {
     body: JSON.stringify(input),
   });
 }
+
+export interface BannerNotification {
+  id: string;
+  title: string;
+  body: string | null;
+  createdAt: string;
+  creatorName: string | null;
+}
+
+export async function fetchNotificationBanner(): Promise<{ notification: BannerNotification | null }> {
+  return request(`${BACKEND_URL}/api/notifications/banner`);
+}

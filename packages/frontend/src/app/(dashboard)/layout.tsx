@@ -30,6 +30,7 @@ import { fetchSession, logout as logoutApi } from "@/lib/api";
 import { useUserStore } from "@/stores/user-store";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
+import { NotificationBanner } from "@/components/NotificationBanner";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { LOCALE_NAMES, type SupportedLocale } from "@/locales";
 import { SUPPORTED_LOCALES } from "@/lib/i18n";
@@ -207,6 +208,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </DropdownMenu>
           </div>
         </header>
+        <NotificationBanner />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
       <AiAssistant />

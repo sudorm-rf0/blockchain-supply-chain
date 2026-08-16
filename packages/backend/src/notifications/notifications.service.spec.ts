@@ -6,6 +6,7 @@ function makePrisma() {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       count: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -108,6 +109,39 @@ describe("NotificationsService", () => {
       where: { id: "d1", userId: "u1", readAt: null },
       data: { readAt: expect.any(Date) },
     });
+  });
+
+  it("returns latest unread broadcast for banner", async () => {
+    const prisma = makePrisma() as {
+      notification: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; count: jest.Mock; updateMany: jest.Mock; findFirst: jest.Mock };
+      notificationRead: { upsert: jest.Mock; createMany: jest.Mock };
+    };
+    prisma.notification.findFirst.mockResolvedValue({
+      id: "b1",
+      title: "维护通知",
+      body: "今晚维护",
+      createdAt: new Date(),
+      creator: { name: "Admin", email: "admin@x" },
+    });
+    const svc = new NotificationsService(prisma as never);
+    const out = await svc.banner("u1");
+    expect(out.notification).not.toBeNull();
+    expect(out.notification!.title).toBe("维护通知");
+    expect(out.notification!.creatorName).toBe("Admin");
+    expect(prisma.notification.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { broadcast: true, reads: { none: { userId: "u1" } } } }),
+    );
+  });
+
+  it("returns null banner when no unread broadcast", async () => {
+    const prisma = makePrisma() as {
+      notification: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; count: jest.Mock; updateMany: jest.Mock; findFirst: jest.Mock };
+      notificationRead: { upsert: jest.Mock; createMany: jest.Mock };
+    };
+    prisma.notification.findFirst.mockResolvedValue(null);
+    const svc = new NotificationsService(prisma as never);
+    const out = await svc.banner("u1");
+    expect(out).toEqual({ notification: null });
   });
 
   it("marks all read including broadcasts", async () => {

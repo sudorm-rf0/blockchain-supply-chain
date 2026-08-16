@@ -134,6 +134,7 @@ export {
   markNotificationRead,
   markAllNotificationsRead,
   createBroadcastNotification,
+  fetchNotificationBanner,
 } from "./notifications-api";
 export type { NotificationRecord, NotificationsResponse } from "./notifications-api";
 export {

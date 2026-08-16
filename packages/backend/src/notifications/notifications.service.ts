@@ -93,6 +93,27 @@ export class NotificationsService {
     };
   }
 
+  /** 返回最新未读的全站广播通知（用于横幅展示） */
+  async banner(userId: string) {
+    const n = await this.prisma.notification.findFirst({
+      where: { broadcast: true, reads: { none: { userId } } },
+      orderBy: { createdAt: "desc" },
+      include: {
+        creator: { select: { name: true, email: true } },
+      },
+    });
+    if (!n) return { notification: null };
+    return {
+      notification: {
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        createdAt: n.createdAt.toISOString(),
+        creatorName: n.creator?.name ?? null,
+      },
+    };
+  }
+
   async unreadCount(userId: string) {
     const [direct, broadcasts] = await Promise.all([
       this.prisma.notification.count({ where: { userId, readAt: null } }),

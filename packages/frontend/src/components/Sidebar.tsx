@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BarChart3, Bell, Boxes, ClipboardCheck, Banknote, Files, KeyRound, LayoutDashboard, ReceiptText, ScrollText, Settings2, ShieldCheck, Ticket, Upload, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchUnreadCount } from "@/lib/notifications-api";
 import { useTranslation } from "react-i18next";
 
 interface SidebarProps {
@@ -62,6 +64,25 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
           { href: "/financing", label: t("sidebar.financing"), icon: Banknote },
         ];
 
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const n = await fetchUnreadCount();
+        if (!cancelled) setUnread(n);
+      } catch {
+        /* ignore */
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
   const isActive = (href: string) => {
     const [base, query] = href.split("?");
     const pathMatch = pathname === base || pathname.startsWith(`${base}/`);
@@ -110,6 +131,11 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
             >
               <Icon className="h-4 w-4" />
               {item.label}
+              {item.href === "/notifications" && unread > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#00E676] px-1.5 font-mono text-[11px] font-bold text-black">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </Link>
           );
         })}
