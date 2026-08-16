@@ -55,8 +55,8 @@
 
 @layer base {
   html {
-    /* 全站基础字号 16.5px（默认 16px），全站统一 */
-    font-size: 16.5px;
+    /* 全站基础字号 16px（浏览器默认） */
+    font-size: 16px;
   }
   * {
     @apply border-border;
