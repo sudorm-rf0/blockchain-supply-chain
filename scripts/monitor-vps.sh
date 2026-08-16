@@ -63,7 +63,7 @@ else
 所有 supply-chain 容器均健康。"
 fi
 
-# 4) fail2ban 新封禁（30 分钟窗口增量，冷却去重）
+# 4) fail2ban 新封禁（仅记录本地日志，不发送邮件告警）
 F2B_LOG=/var/log/fail2ban.log
 F2B_STATE="$ALERT_STATE_DIR/f2b-last-line"
 if [ -f "$F2B_LOG" ]; then
@@ -72,11 +72,7 @@ if [ -f "$F2B_LOG" ]; then
   new_bans=$(tail -n +$((last + 1)) "$F2B_LOG" 2>/dev/null | grep -c "Ban ")
   if [ "${new_bans:-0}" -gt 0 ]; then
     ips=$(tail -n +$((last + 1)) "$F2B_LOG" | grep "Ban " | grep -oE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" | sort -u | tr "\n" " ")
-    alert vps-fail2ban "[安全告警] fail2ban 新增封禁 ${new_bans} 个 IP" "${DATE}
-新增封禁 IP：${ips}
-详情见 /var/log/fail2ban.log"
-  else
-    alert_reset vps-fail2ban
+    echo "${DATE} [fail2ban] 新增封禁 ${new_bans} 个 IP：${ips}（仅记录，不发送邮件告警）"
   fi
   echo "$total" > "$F2B_STATE"
 fi
