@@ -68,6 +68,11 @@ def load_env():
                 continue
             k, _, v = line.partition("=")
             cfg[k.strip()] = v.strip()
+    # 环境变量可覆盖（便于临时演练）
+    for k in ("AI_API_KEY", "AI_BASE_URL", "AI_MODEL", "AI_AGENT_ENABLED",
+              "AI_AUTO_RESTART", "AI_DRY_RUN", "AI_COOLDOWN", "AI_TIMEOUT"):
+        if os.environ.get(k):
+            cfg[k] = os.environ[k].strip()
     return cfg
 
 
@@ -300,7 +305,9 @@ def main():
     log(report)
 
     if fixes or needs_human:
-        if needs_human:
+        if cfg.get("AI_DRY_RUN") == "1":
+            log("[dry-run] 跳过通知发送")
+        elif needs_human:
             notify("[AI 自愈] 需人工介入", report)
         else:
             notify("[AI 自愈] 已自动处理", report)

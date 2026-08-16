@@ -50,3 +50,10 @@ AI_TIMEOUT=45
 - 确定性自愈：fail2ban 失活→重启；CF 收紧规则缺失→重建（已实测）
 - LLM 诊断路径：OpenAI 兼容接口，严格 JSON 解析 + 动作白名单（已修复误判 bug：`Total failed` 子串误触发）
 - 配置模板：`deploy/vps/ai.env.example`
+
+## 当前状态（2026-08-17）
+
+- 已配置 DeepSeek API Key 并启用 LLM 诊断（`AI_AGENT_ENABLED=1`）
+- `AI_AUTO_RESTART=0`：AI 只做诊断+建议，重启容器等动作需人工确认
+- Key 仅存于 VPS `/etc/supply-chain-ai.env`（chmod 600），**不进入仓库**
+- 已实测：LLM 诊断能交叉核对告警与真实数据（如告警称磁盘 92% 而实际 27% 时正确指出不一致）
