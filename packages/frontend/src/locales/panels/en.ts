@@ -107,5 +107,18 @@ const en = {
   "panels.sidebar.governance": "Governance",
   "panels.sidebar.integrations": "API Integrations",
   "panels.security.current": "Current device",
+  "panels.notifications.broadcast": "Broadcast",
+  "panels.notifications.bcBadge": "Broadcast",
+  "panels.notifications.bcBy": "Published by",
+  "panels.notifications.bcTitle": "Title",
+  "panels.notifications.bcTitlePlaceholder": "Notification title",
+  "panels.notifications.bcBody": "Message",
+  "panels.notifications.bcBodyPlaceholder": "Enter notification content",
+  "panels.notifications.bcHint": "Will be visible to all users and recorded",
+  "panels.notifications.bcSend": "Publish",
+  "panels.notifications.bcSent": "Published",
+  "panels.notifications.bcFailed": "Publish failed, please retry",
+  "panels.notifications.bcTitleRequired": "Title is required",
+  "panels.notifications.cancel": "Cancel",
 };
 export default en;

@@ -107,5 +107,18 @@ const zh_TW = {
   "panels.sidebar.governance": "鏈上治理",
   "panels.sidebar.integrations": "API 整合",
   "panels.security.current": "目前裝置",
+  "panels.notifications.broadcast": "發布全站通知",
+  "panels.notifications.bcBadge": "全站",
+  "panels.notifications.bcBy": "發布者",
+  "panels.notifications.bcTitle": "標題",
+  "panels.notifications.bcTitlePlaceholder": "通知標題",
+  "panels.notifications.bcBody": "內文",
+  "panels.notifications.bcBodyPlaceholder": "輸入通知內容",
+  "panels.notifications.bcHint": "發布後將發送給所有用戶並留存記錄",
+  "panels.notifications.bcSend": "發布",
+  "panels.notifications.bcSent": "已發布",
+  "panels.notifications.bcFailed": "發布失敗，請重試",
+  "panels.notifications.bcTitleRequired": "請輸入通知標題",
+  "panels.notifications.cancel": "取消",
 };
 export default zh_TW;

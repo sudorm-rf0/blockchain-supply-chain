@@ -133,6 +133,7 @@ export {
   fetchUnreadCount,
   markNotificationRead,
   markAllNotificationsRead,
+  createBroadcastNotification,
 } from "./notifications-api";
 export type { NotificationRecord, NotificationsResponse } from "./notifications-api";
 export {

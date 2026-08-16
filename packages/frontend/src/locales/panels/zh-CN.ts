@@ -107,5 +107,18 @@ const zh_CN = {
   "panels.sidebar.governance": "链上治理",
   "panels.sidebar.integrations": "API 集成",
   "panels.security.current": "当前设备",
+  "panels.notifications.broadcast": "发布全站通知",
+  "panels.notifications.bcBadge": "全站",
+  "panels.notifications.bcBy": "发布者",
+  "panels.notifications.bcTitle": "标题",
+  "panels.notifications.bcTitlePlaceholder": "通知标题",
+  "panels.notifications.bcBody": "正文",
+  "panels.notifications.bcBodyPlaceholder": "输入通知内容",
+  "panels.notifications.bcHint": "发布后将发送给所有用户并留存记录",
+  "panels.notifications.bcSend": "发布",
+  "panels.notifications.bcSent": "已发布",
+  "panels.notifications.bcFailed": "发布失败，请重试",
+  "panels.notifications.bcTitleRequired": "请输入通知标题",
+  "panels.notifications.cancel": "取消",
 };
 export default zh_CN;

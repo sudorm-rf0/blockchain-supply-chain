@@ -9,6 +9,9 @@ export interface NotificationRecord {
   metadata: Record<string, unknown> | null;
   readAt: string | null;
   createdAt: string;
+  broadcast?: boolean;
+  creatorName?: string | null;
+  creatorEmail?: string | null;
 }
 
 export interface NotificationsResponse {
@@ -33,4 +36,15 @@ export async function markNotificationRead(id: string): Promise<{ ok: boolean }>
 
 export async function markAllNotificationsRead(): Promise<{ ok: boolean }> {
   return request(`${BACKEND_URL}/api/notifications/read-all`, { method: "POST" });
+}
+
+/** 发布全站通知（管理员/超管） */
+export async function createBroadcastNotification(input: {
+  title: string;
+  body?: string;
+}): Promise<{ id: string; title: string; body: string | null }> {
+  return request(`${BACKEND_URL}/api/notifications/broadcast`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

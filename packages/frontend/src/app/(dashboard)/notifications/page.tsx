@@ -2,11 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BellRing, CheckCheck, Inbox } from "lucide-react";
+import { BellRing, CheckCheck, Inbox, Megaphone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/lib/format";
+import { useUserStore } from "@/stores/user-store";
+import { createBroadcastNotification } from "@/lib/api";
+import { toast } from "sonner";
 import {
   fetchNotifications,
   markNotificationRead,
@@ -23,9 +36,15 @@ const TYPE_BADGE: Record<string, string> = {
 
 export default function NotificationsPage() {
   const { t } = useTranslation();
+  const user = useUserStore((s) => s.user);
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const [items, setItems] = useState<NotificationRecord[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [bcTitle, setBcTitle] = useState("");
+  const [bcBody, setBcBody] = useState("");
+  const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -49,6 +68,26 @@ export default function NotificationsPage() {
     setUnread((u) => Math.max(0, u - 1));
   };
 
+  const handleBroadcast = async () => {
+    if (!bcTitle.trim()) {
+      toast.error(t("panels.notifications.bcTitleRequired"));
+      return;
+    }
+    setSending(true);
+    try {
+      await createBroadcastNotification({ title: bcTitle.trim(), body: bcBody.trim() || undefined });
+      toast.success(t("panels.notifications.bcSent"));
+      setBroadcastOpen(false);
+      setBcTitle("");
+      setBcBody("");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("panels.notifications.bcFailed"));
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleAllRead = async () => {
     await markAllNotificationsRead().catch(() => undefined);
     setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
@@ -65,10 +104,18 @@ export default function NotificationsPage() {
             <Badge className="ml-2 bg-[#00E676] text-black">{unread}</Badge>
           )}
         </h1>
-        <Button variant="outline" size="sm" onClick={() => void handleAllRead()} disabled={unread === 0}>
-          <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
-          {t("panels.notifications.markAllRead")}
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button size="sm" onClick={() => setBroadcastOpen(true)}>
+              <Megaphone className="mr-1.5 h-3.5 w-3.5" />
+              {t("panels.notifications.broadcast")}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => void handleAllRead()} disabled={unread === 0}>
+            <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
+            {t("panels.notifications.markAllRead")}
+          </Button>
+        </div>
       </header>
 
       {loading ? (
@@ -99,9 +146,17 @@ export default function NotificationsPage() {
                     <Badge variant="outline" className={TYPE_BADGE[n.type] ?? TYPE_BADGE.SYSTEM}>
                       {t(`panels.notifications.types.${n.type}`) ?? n.type}
                     </Badge>
+                    {n.broadcast && (
+                      <Badge className="bg-[#00E676]/15 text-[#00E676]">{t("panels.notifications.bcBadge")}</Badge>
+                    )}
                     <span className="text-sm font-medium">{n.title}</span>
                     {!n.readAt && <span className="h-1.5 w-1.5 rounded-full bg-[#00E676]" />}
                   </div>
+                  {n.broadcast && n.creatorName && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {t("panels.notifications.bcBy")}: {n.creatorName}
+                    </p>
+                  )}
                   {n.body && <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>}
                 </div>
                 <time className="shrink-0 font-mono text-xs text-muted-foreground">
@@ -112,6 +167,53 @@ export default function NotificationsPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Megaphone className="h-4 w-4 text-[#00E676]" />
+              {t("panels.notifications.broadcast")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="bc-title" className="text-xs text-muted-foreground">
+                {t("panels.notifications.bcTitle")}
+              </Label>
+              <Input
+                id="bc-title"
+                value={bcTitle}
+                maxLength={200}
+                onChange={(e) => setBcTitle(e.target.value)}
+                placeholder={t("panels.notifications.bcTitlePlaceholder")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bc-body" className="text-xs text-muted-foreground">
+                {t("panels.notifications.bcBody")}
+              </Label>
+              <Textarea
+                id="bc-body"
+                value={bcBody}
+                rows={5}
+                maxLength={2000}
+                onChange={(e) => setBcBody(e.target.value)}
+                placeholder={t("panels.notifications.bcBodyPlaceholder")}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{t("panels.notifications.bcHint")}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBroadcastOpen(false)}>
+              {t("panels.integrations.cancel") ?? "取消"}
+            </Button>
+            <Button onClick={() => void handleBroadcast()} disabled={sending || !bcTitle.trim()}>
+              {sending ? t("panels.reports.loading") : t("panels.notifications.bcSend")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

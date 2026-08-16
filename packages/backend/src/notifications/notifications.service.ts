@@ -9,11 +9,17 @@ export interface CreateNotificationInput {
   metadata?: unknown;
 }
 
+export interface BroadcastNotificationInput {
+  creatorId: string;
+  title: string;
+  body?: string;
+}
+
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 创建通知（供业务模块在审核/状态变更时调用） */
+  /** 创建定向通知（供业务模块在审核/状态变更时调用） */
   async create(input: CreateNotificationInput) {
     return this.prisma.notification.create({
       data: {
@@ -26,20 +32,60 @@ export class NotificationsService {
     });
   }
 
+  /** 发布全站通知（userId=null + broadcast=true + creatorId 留痕） */
+  async broadcast(input: BroadcastNotificationInput) {
+    const title = (input.title ?? "").trim();
+    if (!title || title.length > 200) {
+      throw new NotFoundException("通知标题不能为空且不超过 200 字符");
+    }
+    const body = (input.body ?? "").trim();
+    return this.prisma.notification.create({
+      data: {
+        userId: null,
+        type: "BROADCAST",
+        title,
+        body: body || null,
+        broadcast: true,
+        creatorId: input.creatorId,
+      },
+    });
+  }
+
+  /** 列表：本人定向通知 + 全站广播通知（附带本人已读状态） */
   async list(userId: string, page = 1, limit = 20) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(50, Math.max(1, limit));
+    const where = {
+      OR: [{ userId }, { broadcast: true }],
+    };
     const [items, total] = await Promise.all([
       this.prisma.notification.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: "desc" },
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
+        include: {
+          creator: { select: { name: true, email: true } },
+          reads: { where: { userId }, select: { readAt: true } },
+        },
       }),
-      this.prisma.notification.count({ where: { userId } }),
+      this.prisma.notification.count({ where }),
     ]);
     return {
-      items,
+      items: items.map((n) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        broadcast: n.broadcast,
+        metadata: n.metadata,
+        createdAt: n.createdAt.toISOString(),
+        readAt: n.broadcast
+          ? (n.reads[0]?.readAt?.toISOString() ?? null)
+          : n.readAt?.toISOString() ?? null,
+        creatorName: n.creator?.name ?? null,
+        creatorEmail: n.creator?.email ?? null,
+      })),
       total,
       page: safePage,
       limit: safeLimit,
@@ -48,17 +94,37 @@ export class NotificationsService {
   }
 
   async unreadCount(userId: string) {
-    return this.prisma.notification.count({ where: { userId, readAt: null } });
+    const [direct, broadcasts] = await Promise.all([
+      this.prisma.notification.count({ where: { userId, readAt: null } }),
+      this.prisma.notification.count({
+        where: { broadcast: true, reads: { none: { userId } } },
+      }),
+    ]);
+    return direct + broadcasts;
   }
 
   async markRead(userId: string, id: string) {
-    const res = await this.prisma.notification.updateMany({
+    const notification = await this.prisma.notification.findUnique({
+      where: { id },
+      select: { broadcast: true, userId: true },
+    });
+    if (!notification) throw new NotFoundException("通知不存在");
+    if (notification.broadcast) {
+      // 全站通知：按用户写入已读记录
+      await this.prisma.notificationRead.upsert({
+        where: { notificationId_userId: { notificationId: id, userId } },
+        update: {},
+        create: { notificationId: id, userId },
+      });
+      return { ok: true };
+    }
+    if (notification.userId !== userId) {
+      throw new NotFoundException("通知不存在或已读");
+    }
+    await this.prisma.notification.updateMany({
       where: { id, userId, readAt: null },
       data: { readAt: new Date() },
     });
-    if (res.count === 0) {
-      throw new NotFoundException("通知不存在或已读");
-    }
     return { ok: true };
   }
 
@@ -67,6 +133,18 @@ export class NotificationsService {
       where: { userId, readAt: null },
       data: { readAt: new Date() },
     });
+    // 全站通知：批量写入已读记录（不存在才创建）
+    const unreadBroadcasts = await this.prisma.notification.findMany({
+      where: { broadcast: true, reads: { none: { userId } } },
+      select: { id: true },
+      take: 200,
+    });
+    if (unreadBroadcasts.length > 0) {
+      await this.prisma.notificationRead.createMany({
+        data: unreadBroadcasts.map((n) => ({ notificationId: n.id, userId })),
+        skipDuplicates: true,
+      });
+    }
     return { ok: true };
   }
 }

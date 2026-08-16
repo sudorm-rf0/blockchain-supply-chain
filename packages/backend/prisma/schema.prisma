@@ -53,6 +53,8 @@ model User {
   reviewedFinancingRequests FinancingRequest[]  @relation("FinancingReviewer")
   refreshTokens RefreshToken[]
   notifications Notification[]
+  notificationReads NotificationRead[]
+  createdNotifications Notification[] @relation("NotificationCreator")
   apiKeys       ApiKey[]
   webhooks      Webhook[]
 }
@@ -299,20 +301,43 @@ model FinancingRequest {
 
 model Notification {
   id        String   @id @default(cuid())
-  userId    String
-  /// 通知类型：FILE_REVIEWED / TRADE_STATUS / WITHDRAWAL_STATUS / SYSTEM
+  /// 定向通知的用户；全站通知（broadcast=true）为 null
+  userId    String?
+  /// 通知类型：FILE_REVIEWED / TRADE_STATUS / WITHDRAWAL_STATUS / SYSTEM / BROADCAST
   type      String
   title     String
   body      String?
   metadata  Json?
+  /// 全站通知标志：true 时对所有用户可见
+  broadcast Boolean  @default(false)
+  /// 全站通知发布者（留痕）
+  creatorId String?
   readAt    DateTime?
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator User? @relation("NotificationCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  reads NotificationRead[]
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+  @@index([broadcast, createdAt])
   @@map("notifications")
+}
+
+/// 全站通知的按用户已读记录
+model NotificationRead {
+  id             String   @id @default(cuid())
+  notificationId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
+  @@map("notification_reads")
 }
 
 model ApiKey {

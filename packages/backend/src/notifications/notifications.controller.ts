@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
@@ -7,14 +8,41 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { AuthGuard } from "@supply-chain/common";
+import { AdminGuard, AuthGuard } from "@supply-chain/common";
 import type { Request } from "express";
 import { NotificationsService } from "./notifications.service";
+import { AuditService } from "../audit/audit.service";
 
 @UseGuards(AuthGuard)
 @Controller("api/notifications")
 export class NotificationsController {
-  constructor(private readonly notifications: NotificationsService) {}
+  constructor(
+    private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
+  ) {}
+
+  /** 发布全站通知（管理员/超管），留存审计记录 */
+  @Post("broadcast")
+  @UseGuards(AuthGuard, AdminGuard)
+  async broadcast(
+    @Body() body: { title?: string; body?: string },
+    @Req() req?: Request,
+  ) {
+    const n = await this.notifications.broadcast({
+      creatorId: req!.user!.sub,
+      title: body?.title ?? "",
+      body: body?.body,
+    });
+    await this.audit.record({
+      actorId: req!.user!.sub,
+      actorEmail: req!.user!.email,
+      action: "NOTIFICATION_BROADCAST",
+      targetType: "NOTIFICATION",
+      targetId: n.id,
+      metadata: { title: n.title, broadcast: true },
+    });
+    return n;
+  }
 
   @Get()
   list(
