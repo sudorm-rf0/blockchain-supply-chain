@@ -55,8 +55,8 @@
 
 @layer base {
   html {
-    /* 全站基础字号 17px（默认 16px），所有 rem 文字等比放大约 6%，提升可读性 */
-    font-size: 17px;
+    /* 全站基础字号 16.5px（默认 16px）；左侧任务栏单独 17.5px（Sidebar.tsx） */
+    font-size: 16.5px;
   }
   * {
     @apply border-border;
