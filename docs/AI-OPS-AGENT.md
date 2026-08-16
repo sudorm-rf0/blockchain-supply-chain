@@ -57,3 +57,10 @@ AI_TIMEOUT=45
 - `AI_AUTO_RESTART=0`：AI 只做诊断+建议，重启容器等动作需人工确认
 - Key 仅存于 VPS `/etc/supply-chain-ai.env`（chmod 600），**不进入仓库**
 - 已实测：LLM 诊断能交叉核对告警与真实数据（如告警称磁盘 92% 而实际 27% 时正确指出不一致）
+
+## 处置策略（重要）：只在"严重且必要"的问题上动手
+
+- 自动处置门槛 `AI_ACT_SEVERITY=critical`：
+  - **会动手**：站点/核心服务不可用（/health 失败、backend/frontend/nginx 容器 unhealthy）、磁盘 >=90%、安全防线失效（fail2ban 挂、CF 收紧规则缺失）
+  - **只诊断不操作**：内存偏低、证书快到期、一般告警等 warning/info 问题——AI 只记录诊断，不执行修复、不发额外邮件（原告警邮件照发）
+- 即使达到 critical，需要重启容器时仍受 `AI_AUTO_RESTART=0` 约束：只发"需人工介入"通知，由人确认。
