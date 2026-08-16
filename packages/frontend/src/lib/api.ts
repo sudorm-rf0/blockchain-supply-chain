@@ -47,8 +47,10 @@ export type {
   AiReviewReport,
   AiChatMessage,
 } from "./files-api";
-export { submitFeedback } from "./feedback-api";
-export { aiChat, fetchAiHistory, fetchAiSession, deleteAiHistory } from "./ai-api";
+export { submitFeedback, fetchFeedbackList, processFeedback } from "./feedback-api";
+export type { FeedbackItem } from "./feedback-api";
+export { aiChat, fetchAiHistory, fetchAiSession, deleteAiHistory, fetchAiStats } from "./ai-api";
+export type { AiStats } from "./ai-api";
 export type {
   AiChatMessage as AiAssistantMessage,
   AiSessionMeta,

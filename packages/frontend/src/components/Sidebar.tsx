@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BarChart3, Bell, Boxes, ClipboardCheck, Banknote, Files, KeyRound, LayoutDashboard, ReceiptText, ScrollText, Settings2, ShieldCheck, Ticket, Upload, Wrench } from "lucide-react";
+import { BarChart3, Bell, Bot, Boxes, ClipboardCheck, Banknote, Files, KeyRound, LayoutDashboard, MessageSquareText, ReceiptText, ScrollText, Settings2, ShieldCheck, Ticket, Upload, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchUnreadCount } from "@/lib/notifications-api";
 import { useTranslation } from "react-i18next";
@@ -48,6 +48,8 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
           { href: "/admin/supply-chain", label: t("sidebar.supplyChain"), icon: Boxes },
           { href: "/admin/withdrawals", label: t("sidebar.withdrawals"), icon: Banknote },
           { href: "/admin/financing", label: t("sidebar.financingReview"), icon: Banknote },
+          { href: "/admin/feedback", label: t("sidebar.feedbackAdmin"), icon: MessageSquareText },
+          { href: "/admin/ai-stats", label: t("sidebar.aiStats"), icon: Bot },
           { href: "/admin/reports", label: t("panels.sidebar.reports"), icon: BarChart3 },
           { href: "/admin/integrations", label: t("panels.sidebar.integrations"), icon: KeyRound },
           { href: "/orders", label: t("sidebar.myOrders"), icon: ReceiptText },

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { RedisService } from "@supply-chain/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AttestationController } from "./attestation.controller";
 import { AttestationService } from "./attestation.service";
@@ -17,6 +18,6 @@ import { NotificationsModule } from "../notifications/notifications.module";
 @Module({
   controllers: [FilesController, AttestationController],
   imports: [StorageModule, AuditModule, AuthModule, AiModule, NotificationsModule],
-  providers: [FilesService, AttestationService, FilesAnalysisService, FilesTranslationService, FilesAiService, PrismaService, ScanService],
+  providers: [FilesService, AttestationService, FilesAnalysisService, FilesTranslationService, FilesAiService, PrismaService, ScanService, RedisService],
 })
 export class FilesModule {}

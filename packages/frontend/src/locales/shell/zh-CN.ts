@@ -16,6 +16,8 @@ const zh_CN = {
   "sidebar.uploadFile": "上传文件",
   "sidebar.myFiles": "我的文件",
   "sidebar.allFiles": "全部文件",
+  "sidebar.feedbackAdmin": "意见反馈",
+  "sidebar.aiStats": "AI 用量",
   "shell.appName": "DFR 区块链 · 供应链系统",
   "shell.notSignedIn": "未登录",
     "shell.securitySettings": "安全设置",

@@ -16,6 +16,9 @@ import { PoolSnapshotPayload } from "./payloads";
 // + pending_multisig_vault_index(1) = 485。
 // 与 state.rs PoolState::space() 逐字段一致。
 export const POOL_STATE_ACCOUNT_SIZE = 485;
+/** 旧版合约 PoolState 布局（初始版）：disc(8)+admin(32)+5×u64+platform_wallet(32)+nav(8)=120。
+ * 链上已存在的旧池账户仍为 120 字节；解析器需兼容（前缀偏移一致，扩展字段取默认值）。 */
+export const LEGACY_POOL_STATE_ACCOUNT_SIZE = 120;
 
 const DISCRIMINATOR_SIZE = 8;
 const PUBKEY_SIZE = 32;
@@ -61,9 +64,10 @@ export function parsePoolStateBuffer(
   poolAddress: string,
   capturedAt = new Date(),
 ): PoolSnapshotPayload {
-  if (data.length < POOL_STATE_ACCOUNT_SIZE) {
+  if (data.length < LEGACY_POOL_STATE_ACCOUNT_SIZE) {
     throw new Error(`invalid PoolState buffer length: ${data.length}`);
   }
+  const legacy = data.length < POOL_STATE_ACCOUNT_SIZE;
 
   const totalAssets = data.readBigUInt64LE(OFFSET_TOTAL_ASSETS);
   const activeCapital = data.readBigUInt64LE(OFFSET_ACTIVE_CAPITAL);
@@ -73,44 +77,53 @@ export function parsePoolStateBuffer(
   const nav = data.readBigUInt64LE(OFFSET_NAV);
   const utilizationBps =
     totalAssets > 0n ? Number((activeCapital * 10_000n) / totalAssets) : 0;
-  const paused = data.readUInt8(OFFSET_PAUSED) === 1;
-  const escrowFunded = data.readBigUInt64LE(OFFSET_ESCROW_FUNDED);
-  const redemptionPrice = data.readBigUInt64LE(OFFSET_REDEMPTION_PRICE);
-  const redeemWindowEpoch = data.readBigInt64LE(OFFSET_REDEEM_WINDOW_EPOCH);
-  const redeemWindowUsed = data.readBigUInt64LE(OFFSET_REDEEM_WINDOW_USED);
-  const pendingAdmin = new PublicKey(
-    data.subarray(OFFSET_PENDING_ADMIN, OFFSET_PENDING_ADMIN + PUBKEY_SIZE),
-  ).toBase58();
-  const pendingAdminProposedAt = data.readBigInt64LE(
-    OFFSET_PENDING_ADMIN_PROPOSED_AT,
-  );
-  const feeApyBps = data.readBigUInt64LE(OFFSET_FEE_APY_BPS);
-  const lpShareBps = data.readBigUInt64LE(OFFSET_LP_SHARE_BPS);
-  const platformShareBps = data.readBigUInt64LE(OFFSET_PLATFORM_SHARE_BPS);
-  const rebateShareBps = data.readBigUInt64LE(OFFSET_REBATE_SHARE_BPS);
-  const firstLossReserve = data.readBigUInt64LE(OFFSET_FIRST_LOSS_RESERVE);
-  const minInsuranceAbs = data.readBigUInt64LE(OFFSET_MIN_INSURANCE_ABS);
-  const overdueFeeApyBps = data.readBigUInt64LE(OFFSET_OVERDUE_FEE_APY_BPS);
-  const pendingAdminDelaySecs = data.readBigInt64LE(OFFSET_PENDING_ADMIN_DELAY_SECS);
-  const multisigTag = data.readUInt8(OFFSET_MULTISIG_TAG);
-  const multisig = multisigTag === 1
-    ? new PublicKey(
-        data.subarray(OFFSET_MULTISIG_VALUE, OFFSET_MULTISIG_VALUE + PUBKEY_SIZE),
-      ).toBase58()
-    : null;
-  const pendingMultisig = new PublicKey(
-    data.subarray(OFFSET_PENDING_MULTISIG, OFFSET_PENDING_MULTISIG + PUBKEY_SIZE),
-  ).toBase58();
-  const pendingMultisigProposedAt = data.readBigInt64LE(
-    OFFSET_PENDING_MULTISIG_PROPOSED_AT,
-  );
-  const pendingMultisigDelaySecs = data.readBigInt64LE(
-    OFFSET_PENDING_MULTISIG_DELAY_SECS,
-  );
-  const multisigVaultIndex = data.readUInt8(OFFSET_MULTISIG_VAULT_INDEX);
-  const pendingMultisigVaultIndex = data.readUInt8(
-    OFFSET_PENDING_MULTISIG_VAULT_INDEX,
-  );
+
+  // 扩展字段仅在新布局（>=485 字节）中存在；旧布局统一取默认值，避免越界读取。
+  const paused = legacy ? false : data.readUInt8(OFFSET_PAUSED) === 1;
+  const escrowFunded = legacy ? 0n : data.readBigUInt64LE(OFFSET_ESCROW_FUNDED);
+  const redemptionPrice = legacy ? 0n : data.readBigUInt64LE(OFFSET_REDEMPTION_PRICE);
+  const redeemWindowEpoch = legacy ? 0n : data.readBigInt64LE(OFFSET_REDEEM_WINDOW_EPOCH);
+  const redeemWindowUsed = legacy ? 0n : data.readBigUInt64LE(OFFSET_REDEEM_WINDOW_USED);
+  const pendingAdmin = legacy
+    ? "11111111111111111111111111111111"
+    : new PublicKey(
+        data.subarray(OFFSET_PENDING_ADMIN, OFFSET_PENDING_ADMIN + PUBKEY_SIZE),
+      ).toBase58();
+  const pendingAdminProposedAt = legacy
+    ? 0n
+    : data.readBigInt64LE(OFFSET_PENDING_ADMIN_PROPOSED_AT);
+  const feeApyBps = legacy ? 0n : data.readBigUInt64LE(OFFSET_FEE_APY_BPS);
+  const lpShareBps = legacy ? 0n : data.readBigUInt64LE(OFFSET_LP_SHARE_BPS);
+  const platformShareBps = legacy ? 0n : data.readBigUInt64LE(OFFSET_PLATFORM_SHARE_BPS);
+  const rebateShareBps = legacy ? 0n : data.readBigUInt64LE(OFFSET_REBATE_SHARE_BPS);
+  const firstLossReserve = legacy ? 0n : data.readBigUInt64LE(OFFSET_FIRST_LOSS_RESERVE);
+  const minInsuranceAbs = legacy ? 0n : data.readBigUInt64LE(OFFSET_MIN_INSURANCE_ABS);
+  const overdueFeeApyBps = legacy ? 0n : data.readBigUInt64LE(OFFSET_OVERDUE_FEE_APY_BPS);
+  const pendingAdminDelaySecs = legacy
+    ? 0n
+    : data.readBigInt64LE(OFFSET_PENDING_ADMIN_DELAY_SECS);
+  const multisigTag = legacy ? 0 : data.readUInt8(OFFSET_MULTISIG_TAG);
+  const multisig =
+    multisigTag === 1
+      ? new PublicKey(
+          data.subarray(OFFSET_MULTISIG_VALUE, OFFSET_MULTISIG_VALUE + PUBKEY_SIZE),
+        ).toBase58()
+      : null;
+  const multisigVaultIndex = legacy ? 0 : data.readUInt8(OFFSET_MULTISIG_VAULT_INDEX);
+  const pendingMultisig = legacy
+    ? "11111111111111111111111111111111"
+    : new PublicKey(
+        data.subarray(OFFSET_PENDING_MULTISIG, OFFSET_PENDING_MULTISIG + PUBKEY_SIZE),
+      ).toBase58();
+  const pendingMultisigProposedAt = legacy
+    ? 0n
+    : data.readBigInt64LE(OFFSET_PENDING_MULTISIG_PROPOSED_AT);
+  const pendingMultisigDelaySecs = legacy
+    ? 0n
+    : data.readBigInt64LE(OFFSET_PENDING_MULTISIG_DELAY_SECS);
+  const pendingMultisigVaultIndex = legacy
+    ? 0
+    : data.readUInt8(OFFSET_PENDING_MULTISIG_VAULT_INDEX);
 
   return {
     poolAddress,

@@ -16,6 +16,8 @@ const en = {
   "sidebar.uploadFile": "Upload File",
   "sidebar.myFiles": "My Files",
   "sidebar.allFiles": "All Files",
+  "sidebar.feedbackAdmin": "Feedback",
+  "sidebar.aiStats": "AI Usage",
   "shell.appName": "DFR Blockchain · Supply Chain",
   "shell.notSignedIn": "Not signed in",
     "shell.securitySettings": "Security Settings",

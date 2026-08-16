@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { Job, Worker } from "bullmq";
+import { Job, Queue, Worker } from "bullmq";
 import { Prisma, type DealStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { INDEXER_ENV } from "../config/env";
@@ -54,6 +54,22 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
         concurrency: 5,
       },
     );
+
+    // 启动自愈：把历史 failed 任务重新入队（配合兼容旧 PoolState 布局的解析器，
+    // 之前因 120 字节旧布局解析失败而永久卡死的任务会重新执行并成功）
+    void (async () => {
+      const queue = new Queue(INDEXER_ENV.syncQueueName, {
+        connection: createBullConnection(INDEXER_ENV.redisUrl),
+      });
+      try {
+        await queue.retryJobs({ state: "failed", count: 500 });
+        this.logger.log("failed sync jobs retried on startup");
+      } catch (error) {
+        this.logger.warn(`retry failed jobs on startup: ${String(error)}`);
+      } finally {
+        await queue.close().catch(() => undefined);
+      }
+    })();
 
     this.worker.on("failed", (job, error) => {
       this.logger.error(`job ${job?.id} failed: ${error.message}`);

@@ -1,4 +1,4 @@
-import { BadRequestException, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException } from "@nestjs/common";
 import { Resend } from "resend";
 import { RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
@@ -28,6 +28,41 @@ function makeRedis() {
   };
 }
 
+function makePrisma() {
+  return {
+    feedback: {
+      create: jest.fn(async ({ data }) => ({
+        id: "fb-1",
+        ...data,
+        createdAt: new Date(),
+        processedAt: null,
+      })),
+      findMany: jest.fn(async () => [
+        {
+          id: "fb-1",
+          userId: "user-1",
+          userEmail: "u@example.com",
+          contact: null,
+          content: "建议",
+          status: "NEW",
+          processedAt: null,
+          createdAt: new Date(),
+        },
+      ]),
+      findUnique: jest.fn(async () => ({
+        id: "fb-1",
+        status: "NEW",
+        processedAt: null,
+      })),
+      update: jest.fn(async ({ data }) => ({
+        id: "fb-1",
+        status: data.status,
+        processedAt: data.processedAt ?? null,
+      })),
+    },
+  };
+}
+
 function makeService(env: Record<string, string> = {}) {
   process.env.RESEND_API_KEY = env.RESEND_API_KEY ?? "re_test_1234567890";
   process.env.RESEND_FROM =
@@ -37,11 +72,13 @@ function makeService(env: Record<string, string> = {}) {
   ResendMock.mockImplementation(() => ({ emails: { send } }));
   const redis = makeRedis();
   const audit = { record: jest.fn(async () => undefined) };
+  const prisma = makePrisma();
   const service = new FeedbackService(
+    prisma as never,
     redis as unknown as RedisService,
     audit as unknown as AuditService,
   );
-  return { service, redis, audit, send };
+  return { service, prisma, redis, audit, send };
 }
 
 describe("FeedbackService", () => {
@@ -52,13 +89,23 @@ describe("FeedbackService", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it("sends feedback email to the configured recipient", async () => {
-    const { service, send, audit } = makeService();
+  it("persists feedback and sends email to the configured recipient", async () => {
+    const { service, send, audit, prisma } = makeService();
     const result = await service.submit("user-1", "u@example.com", {
       content: "建议增加 AI 审核",
       contact: "wechat:foo",
     });
     expect(result).toEqual({ ok: true });
+    // 已落库
+    expect(prisma.feedback.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user-1",
+        userEmail: "u@example.com",
+        contact: "wechat:foo",
+        content: "建议增加 AI 审核",
+        status: "NEW",
+      }),
+    });
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         from: "SupplyChain <noreply@example.com>",
@@ -72,6 +119,17 @@ describe("FeedbackService", () => {
     );
   });
 
+  it("saves feedback even when email is not configured", async () => {
+    const { service, send, prisma } = makeService({
+      RESEND_API_KEY: "",
+      FEEDBACK_TO_EMAIL: "",
+    });
+    const result = await service.submit("user-1", null, { content: "hello" });
+    expect(result).toEqual({ ok: true });
+    expect(prisma.feedback.create).toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("rate-limits repeated submissions within 60s", async () => {
     const { service, redis } = makeService();
     redis.store.set("feedback:cooldown:user-1", String(Math.floor(Date.now() / 1000) + 30));
@@ -80,10 +138,14 @@ describe("FeedbackService", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it("fails closed in production when email is not configured", async () => {
-    const { service } = makeService({ RESEND_API_KEY: "", FEEDBACK_TO_EMAIL: "" });
-    await expect(
-      service.submit("user-1", null, { content: "hello" }),
-    ).rejects.toThrow(ServiceUnavailableException);
+  it("admin lists feedback and marks it processed", async () => {
+    const { service, prisma } = makeService();
+    const items = await service.list("NEW");
+    expect(items).toHaveLength(1);
+    expect(items[0].content).toBe("建议");
+
+    const result = await service.markProcessed("fb-1");
+    expect(result.status).toBe("PROCESSED");
+    expect(prisma.feedback.update).toHaveBeenCalled();
   });
 });

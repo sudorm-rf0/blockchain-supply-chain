@@ -1,6 +1,10 @@
 import { Keypair } from "@solana/web3.js";
 import { parseTradeDealBuffer, TRADE_DEAL_ACCOUNT_SIZE } from "./trade-deal.parser";
-import { parsePoolStateBuffer, POOL_STATE_ACCOUNT_SIZE } from "./pool-state.parser";
+import {
+  parsePoolStateBuffer,
+  POOL_STATE_ACCOUNT_SIZE,
+  LEGACY_POOL_STATE_ACCOUNT_SIZE,
+} from "./pool-state.parser";
 
 /**
  * buffer 布局锚定测试。
@@ -181,9 +185,26 @@ describe("chain account layout anchor", () => {
     ).toThrow(/invalid TradeDeal buffer length/);
   });
 
-  it("rejects a PoolState buffer shorter than the anchored size", () => {
+  it("rejects a PoolState buffer shorter than the legacy size", () => {
     expect(() =>
-      parsePoolStateBuffer(Buffer.alloc(POOL_STATE_ACCOUNT_SIZE - 1), "pool"),
+      parsePoolStateBuffer(Buffer.alloc(LEGACY_POOL_STATE_ACCOUNT_SIZE - 1), "pool"),
     ).toThrow(/invalid PoolState buffer length/);
+  });
+
+  it("parses a legacy 120-byte PoolState buffer with extended defaults", () => {
+    const admin = Keypair.generate().publicKey;
+    const buf = Buffer.alloc(LEGACY_POOL_STATE_ACCOUNT_SIZE);
+    admin.toBuffer().copy(buf, 8); // admin
+    buf.writeBigUInt64LE(1_000_000n, 40); // total_assets
+    buf.writeBigUInt64LE(500_000n, 48); // active_capital
+    buf.writeBigUInt64LE(900_000n, 112); // nav
+    const payload = parsePoolStateBuffer(buf, "pool-pda");
+    expect(payload.totalAssets).toBe("1000000");
+    expect(payload.activeCapital).toBe("500000");
+    expect(payload.utilizationBps).toBe(5000);
+    // 扩展字段默认值（旧布局不存在）
+    expect(payload.paused).toBe(false);
+    expect(payload.escrowFunded).toBe("0");
+    expect(payload.multisig).toBeNull();
   });
 });

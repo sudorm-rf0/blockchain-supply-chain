@@ -62,6 +62,18 @@ function makeFile(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeRedis() {
+  const store = new Map<string, string>();
+  return {
+    incr: jest.fn(async (key: string) => {
+      const next = Number(store.get(key) ?? 0) + 1;
+      store.set(key, String(next));
+      return next;
+    }),
+    expire: jest.fn(async () => undefined),
+  };
+}
+
 function makeService(
   prisma: ReturnType<typeof makePrisma>,
   llm: ReturnType<typeof makeLlm>,
@@ -73,6 +85,7 @@ function makeService(
     audit as never,
     llm as unknown as AiLlmService,
     storage as never,
+    makeRedis() as never,
   );
   return { service, audit };
 }

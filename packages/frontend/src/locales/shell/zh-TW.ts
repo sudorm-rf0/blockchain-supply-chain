@@ -16,6 +16,8 @@ const zh_TW = {
   "sidebar.uploadFile": "上傳檔案",
   "sidebar.myFiles": "我的檔案",
   "sidebar.allFiles": "全部檔案",
+  "sidebar.feedbackAdmin": "意見回饋",
+  "sidebar.aiStats": "AI 用量",
   "shell.appName": "DFR 區塊鏈 · 供應鏈系統",
   "shell.notSignedIn": "未登入",
     "shell.securitySettings": "安全設定",

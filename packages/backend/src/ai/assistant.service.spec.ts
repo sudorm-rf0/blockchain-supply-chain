@@ -16,6 +16,11 @@ function makeRedis() {
       store.delete(key);
     }),
     expire: jest.fn(async () => undefined),
+    incr: jest.fn(async (key: string) => {
+      const next = Number(store.get(key) ?? 0) + 1;
+      store.set(key, String(next));
+      return next;
+    }),
   };
 }
 

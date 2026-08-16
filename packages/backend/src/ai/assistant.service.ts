@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { RedisService } from "@supply-chain/common";
 import { AiLlmService, type AiChatMessage } from "./ai-llm.service";
@@ -115,7 +120,25 @@ export class AssistantService {
     await this.redis.setEx(this.indexKey(userId), HISTORY_TTL_SECONDS, JSON.stringify(metas));
   }
 
+  /** AI 每用户每日配额（AI_DAILY_QUOTA，默认 100 次/天） */
+  private async consumeQuota(userId: string): Promise<void> {
+    const limit = Number(process.env.AI_DAILY_QUOTA ?? 100);
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const key = `ai:quota:${userId}:${day}`;
+    const used = await this.redis.incr(key);
+    if (used === 1) {
+      await this.redis.expire(key, 86400);
+    }
+    if (used > limit) {
+      throw new HttpException(
+        `今日 AI 使用次数已达上限（${limit} 次）`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
   async chat(userId: string, dto: AiChatDto) {
+    await this.consumeQuota(userId);
     let session: StoredSession;
     if (dto.sessionId) {
       const existing = await this.readSession(userId, dto.sessionId);

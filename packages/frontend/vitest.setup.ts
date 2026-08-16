@@ -5,6 +5,9 @@ import i18n from "@/lib/i18n";
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = () => {};
+}
 if (!Element.prototype.hasPointerCapture) {
   Element.prototype.hasPointerCapture = () => false;
 }

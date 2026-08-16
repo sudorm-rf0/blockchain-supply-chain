@@ -378,3 +378,18 @@ model Webhook {
   @@index([userId])
   @@map("webhooks")
 }
+
+model Feedback {
+  id          String    @id @default(cuid())
+  userId      String?
+  userEmail   String?
+  contact     String?
+  content     String
+  status      String    @default("NEW")
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("feedbacks")
+}

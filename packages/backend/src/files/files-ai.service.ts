@@ -1,5 +1,7 @@
 import {
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   Logger,
@@ -19,6 +21,7 @@ import { join } from "node:path";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { AiLlmService, type AiChatMessage } from "../ai/ai-llm.service";
+import { RedisService } from "@supply-chain/common";
 import type { StorageService } from "../storage/storage.service";
 import type { AiChatDto } from "./dto/ai-chat.dto";
 
@@ -60,7 +63,25 @@ export class FilesAiService {
     private readonly audit: AuditService,
     private readonly llm: AiLlmService,
     @Inject("STORAGE_SERVICE") private readonly storage: StorageService,
+    private readonly redis: RedisService,
   ) {}
+
+  /** AI 每用户每日配额（AI_DAILY_QUOTA，默认 100 次/天） */
+  private async consumeQuota(userId: string): Promise<void> {
+    const limit = Number(process.env.AI_DAILY_QUOTA ?? 100);
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const key = `ai:quota:${userId}:${day}`;
+    const used = await this.redis.incr(key);
+    if (used === 1) {
+      await this.redis.expire(key, 86400);
+    }
+    if (used > limit) {
+      throw new HttpException(
+        `今日 AI 使用次数已达上限（${limit} 次）`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
 
   private async requireFile(fileId: string, userId: string, role: string): Promise<FileForAi> {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
@@ -163,6 +184,7 @@ export class FilesAiService {
 
   /** AI 结构化关键信息提取：发票/合同/报关单等字段 → JSON */
   async extract(fileId: string, userId: string, role: string) {
+    await this.consumeQuota(userId);
     const file = await this.requireFile(fileId, userId, role);
     const ocrText = await this.resolveOcrText(file);
     const context = this.buildContext(file, ocrText);
@@ -193,6 +215,7 @@ export class FilesAiService {
 
   /** AI 文档摘要：3-5 句自然语言概括核心内容 */
   async summarize(fileId: string, userId: string, role: string) {
+    await this.consumeQuota(userId);
     const file = await this.requireFile(fileId, userId, role);
     const ocrText = await this.resolveOcrText(file);
     const context = this.buildContext(file, ocrText);
@@ -219,6 +242,7 @@ export class FilesAiService {
 
   /** 生成 AI 审核报告（摘要 + 风险评估 + 建议） */
   async review(fileId: string, userId: string, role: string): Promise<AiReviewReport> {
+    await this.consumeQuota(userId);
     const file = await this.requireFile(fileId, userId, role);
     const ocrText = await this.resolveOcrText(file);
     const context = this.buildContext(file, ocrText);
@@ -255,6 +279,7 @@ export class FilesAiService {
 
   /** AI 助手对话：基于单据内容自然问答 */
   async chat(fileId: string, userId: string, role: string, dto: AiChatDto) {
+    await this.consumeQuota(userId);
     const file = await this.requireFile(fileId, userId, role);
     const ocrText = await this.resolveOcrText(file);
     const context = this.buildContext(file, ocrText);

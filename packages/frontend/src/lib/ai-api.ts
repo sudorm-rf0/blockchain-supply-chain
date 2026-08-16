@@ -49,3 +49,23 @@ export async function deleteAiHistory(sessionId?: string): Promise<{ ok: boolean
     : `${BACKEND_URL}/api/ai/history`;
   return request(url, { method: "DELETE" });
 }
+
+export interface AiStats {
+  total30d: number;
+  last24h: number;
+  last7d: number;
+  byAction: Record<string, number>;
+  byModel: Record<string, number>;
+  byDay: Array<{ date: string; count: number }>;
+  recent: Array<{
+    actorEmail: string | null;
+    action: string;
+    model: string;
+    question: string;
+    createdAt: string;
+  }>;
+}
+
+export async function fetchAiStats(): Promise<AiStats> {
+  return request(`${BACKEND_URL}/api/admin/ai-stats`, { cache: "no-store" });
+}
