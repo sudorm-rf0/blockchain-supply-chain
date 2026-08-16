@@ -46,6 +46,13 @@ export interface AnalysisResult {
 
 const OCR_LANG = "chi_sim+eng";
 const MAX_OCR_PAGES = 12;
+/** OCR 图像预处理：灰度 + 对比度归一化 + 轻去噪 + 锐化，降低识别噪声 */
+const OCR_PREPROCESS = true;
+/** PDF 转图分辨率：300dpi 小字识别明显优于 200dpi */
+const OCR_PDF_DPI = 300;
+/** 行尾噪声符号（OCR 常见误识，如 tesseract 输出的孤立 + | - = ~ / \\ _） */
+const OCR_NOISE_TRAIL = /[+|=\-~/\\_]{1,}\s*$/;
+const OCR_NOISE_ONLY_LINE = /^[+|=\-~/\\_\s.,:;'"]{0,4}$/;
 /** PDF 文本层提取结果的最短有效长度（太短视为无文本层，回退 OCR） */
 const MIN_PDF_TEXT_CHARS = 30;
 
@@ -73,13 +80,76 @@ export class FilesAnalysisService {
     return hash.digest("hex");
   }
 
+  /**
+   * OCR 文本后处理：清除行尾噪声符号、纯符号行、压缩空白，
+   * 并修正常见全角/半角混淆，减少乱码进入下游。
+   */
+  private cleanOcrText(text: string): string {
+    if (!text) return text;
+    const lines = text
+      .split("\n")
+      .map((line) => {
+        let l = line.replace(OCR_NOISE_TRAIL, "").trim();
+        if (OCR_NOISE_ONLY_LINE.test(l)) return "";
+        // 常见 OCR 混淆：全角数字/字母 → 半角（中文单据常见）
+        l = l
+          .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+          .replace(/[Ａ-Ｚａ-ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+        return l;
+      })
+      .filter((l) => l !== "");
+    return lines.join("\n").trim();
+  }
+
+  /** 图像预处理：灰度 + 对比度归一化 + 中值去噪 + 锐化（sharp） */
+  private async preprocessImage(imagePath: string): Promise<string> {
+    if (!OCR_PREPROCESS) return imagePath;
+    try {
+      const { default: sharp } = await import("sharp");
+      const out = join(tmpdir(), `dfr-ocr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`);
+      await sharp(imagePath)
+        .greyscale()
+        .normalize()
+        .median(1)
+        .sharpen()
+        .png()
+        .toFile(out);
+      return out;
+    } catch (error) {
+      this.logger.warn(`ocr preprocess failed, use original: ${String(error)}`);
+      return imagePath;
+    }
+  }
+
   private async runTesseract(imagePath: string): Promise<string> {
-    const { stdout } = await execFileAsync(
-      "tesseract",
-      [imagePath, "stdout", "-l", OCR_LANG, "--psm", "6"],
-      { timeout: 60_000, maxBuffer: 10 * 1024 * 1024 },
-    );
-    return stdout.trim();
+    const preprocessed = await this.preprocessImage(imagePath);
+    try {
+      const { stdout } = await execFileAsync(
+        "tesseract",
+        [
+          preprocessed,
+          "stdout",
+          "-l",
+          OCR_LANG,
+          "--psm",
+          "3",
+          "--oem",
+          "1",
+          "-c",
+          "preserve_interword_spaces=1",
+        ],
+        { timeout: 90_000, maxBuffer: 10 * 1024 * 1024 },
+      );
+      return this.cleanOcrText(stdout);
+    } finally {
+      if (preprocessed !== imagePath) {
+        try {
+          rmSync(preprocessed, { force: true });
+        } catch {
+          /* ignore */
+        }
+      }
+    }
   }
 
   private async ocrImage(imagePath: string): Promise<string> {
@@ -89,7 +159,7 @@ export class FilesAnalysisService {
   private async ocrPdf(pdfPath: string): Promise<string> {
     const dir = mkdtempSync(join(tmpdir(), "dfr-pdf-"));
     try {
-      await execFileAsync("pdftoppm", ["-png", "-r", "200", pdfPath, join(dir, "p")], {
+      await execFileAsync("pdftoppm", ["-png", "-r", String(OCR_PDF_DPI), pdfPath, join(dir, "p")], {
         timeout: 120_000,
       });
       const files = readdirSync(dir)
