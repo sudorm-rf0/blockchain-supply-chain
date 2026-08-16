@@ -1,0 +1,113 @@
+﻿ip,country,region,org,isp,asn,分类,依据
+101.126.157.138,China,Beijing,China Internet Network Information Center,"Beijing Volcano Engine Technology Co., Ltd.","AS137718 Beijing Volcano Engine Technology Co., Ltd.",机房,volcano
+101.47.159.50,Singapore,North West,,BYTEPLUS,AS150436 Byteplus Pte. Ltd.,机房,byteplus
+103.189.208.13,Vietnam,Da Nang City,TEDEV,Tedev Technological Development Company Limited,AS149111 TEDEV TECHNOLOGICAL DEVELOPMENT COMPANY LIMITED,其他,
+103.229.125.106,Hong Kong,Wong Tai Sin District,Hosted in Cloudie Limited,Dingke human resource co.LTD,AS55933 Cloudie Limited,机房,hosted
+103.26.136.173,Bangladesh,Dhaka Division,Grameen Communications,Grameen Communications,AS58946 GRAMEEN COMMUNICATIONS,家宽,grameen communications
+103.43.191.43,Hong Kong,Kwai Tsing District,Zhongya PTE LTD,West263 International Limited,AS139021 West263 International Limited,机房,west263
+103.75.183.177,Vietnam,Ho Chi Minh City (HCMC),,BQT,AS151858 INTERDIGI JOINT STOCK COMPANY,机房,interdigi
+104.243.42.167,United States,New Jersey,samuel godbillot,ReliableSite.Net LLC,AS23470 ReliableSite.Net LLC,机房,reliablesite
+110.34.30.120,Nepal,Bagmati Province,,Subisu Cablenet,"AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal",家宽,subisu cablenet
+110.34.30.121,Nepal,Bagmati Province,,Subisu Cablenet,"AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal",家宽,subisu cablenet
+110.34.30.122,Nepal,Bagmati Province,,Subisu Cablenet,"AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal",家宽,subisu cablenet
+110.34.30.123,Nepal,Bagmati Province,,Subisu Cablenet,"AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal",家宽,subisu cablenet
+112.124.1.210,China,Zhejiang,"Aliyun Computing Co., LTD",Hangzhou Alibaba Advertising Co,"AS37963 Hangzhou Alibaba Advertising Co.,Ltd.",机房,alibaba
+115.68.177.11,South Korea,Gyeonggi-do,SMILESERV,SMILESERV,AS38700 SMILESERV,机房,smileserv
+116.1.149.196,China,Guangxi,Chinanet GX,Chinanet,AS4134 CHINANET BACKBONE,家宽,chinanet
+116.110.213.86,Vietnam,Da Nang,VIETTEL,Viettel Group,AS24086 Viettel Corporation,家宽,viettel
+116.110.223.202,Vietnam,Da Nang,VIETTEL,Viettel Group,AS24086 Viettel Corporation,家宽,viettel
+116.99.173.68,Vietnam,Hanoi,VIETTEL,Viettel Group,AS24086 Viettel Corporation,家宽,viettel
+120.48.54.170,China,Beijing,"Beijing Baidu Netcom Science and Technology Co., Ltd.",Baidu,"AS38365 Beijing Baidu Netcom Science and Technology Co., Ltd.",机房,baidu
+121.184.144.232,South Korea,Daejeon,Korea Telecom,Korea Telecom,AS4766 Korea Telecom,家宽,korea telecom
+121.28.170.66,China,Hebei,,CNC Group CHINA169 Hebei Province Network,AS4837 CHINA UNICOM China169 Backbone,家宽,china169
+136.248.242.166,Chile,Santiago Metropolitan,Oracle Cloud Infrastructure (sa-santiago-1),Oracle Corporation,AS31898 Oracle Corporation,机房,cloud
+138.124.77.177,Russia,Kemerovo Oblast,Global Internet Solutions LLC,Global Internet Solutions LLC,AS207713 GLOBAL INTERNET SOLUTIONS LLC,机房,global internet solutions
+14.103.118.121,China,Beijing,China Internet Network Information Center,"Beijing Volcano Engine Technology Co., Ltd.","AS137718 Beijing Volcano Engine Technology Co., Ltd.",机房,volcano
+14.18.122.98,China,Guangdong,Chinanet GD,China Telecom,AS135089 China Telecom,家宽,chinanet
+14.225.217.138,Vietnam,Hanoi,VNPT,Vietnam Posts and Telecommunications Group,AS135905 VIETNAM POSTS AND TELECOMMUNICATIONS GROUP,家宽,vnpt
+155.4.244.179,Sweden,Skåne County,,Bahnhof AB,AS8473 Bahnhof AB,家宽,bahnhof
+157.245.213.135,United States,New Jersey,"DigitalOcean, LLC","DigitalOcean, LLC","AS14061 DigitalOcean, LLC",机房,digitalocean
+158.174.211.17,Sweden,Kalmar,General Private,Bahnhof AB,AS8473 Bahnhof AB,家宽,bahnhof
+160.251.169.213,Japan,Tokyo,"GMO Internet Group, Inc.","GMO Internet, Inc","AS58791 GMO Internet, Inc.",机房,gmo
+160.251.215.51,Japan,Tokyo,"GMO Internet Group, Inc.","GMO Internet, Inc","AS58791 GMO Internet, Inc.",机房,gmo
+161.118.212.147,Singapore,South East,Oracle Corporation,Oracle Corporation,AS31898 Oracle Corporation,机房,oracle
+161.49.89.39,Philippines,Metro Manila,Converge ICT Solution Inc,Converge ICT Solution Inc,AS17639 Converge ICT Solutions Inc.,家宽,converge
+164.92.109.155,United States,California,"DigitalOcean, LLC","DigitalOcean, LLC","AS14061 DigitalOcean, LLC",机房,digitalocean
+165.154.236.104,Singapore,North West,Scloud Pte Ltd,Scloud Pte Ltd,AS142002 Scloud Pte Ltd,机房,cloud
+165.232.191.199,India,Karnataka,"DigitalOcean, LLC","DigitalOcean, LLC","AS14061 DigitalOcean, LLC",机房,digitalocean
+167.71.123.76,United States,California,"DigitalOcean, LLC","DigitalOcean, LLC","AS14061 DigitalOcean, LLC",机房,digitalocean
+168.167.228.123,Botswana,Gaborone,,Botswana Telecommunications Corporation,AS14988 Botswana Telecommunications Corporation,家宽,telecom
+171.231.188.249,Vietnam,Da Nang,VIETEL,Viettel Corporation,AS7552 Viettel Group,家宽,viettel
+171.231.189.174,Vietnam,Da Nang,VIETEL,Viettel Corporation,AS7552 Viettel Group,家宽,viettel
+171.243.149.137,Vietnam,Da Nang,VIETEL,Viettel Corporation,AS7552 Viettel Group,家宽,viettel
+171.243.150.14,Vietnam,Da Nang,VIETEL,Viettel Corporation,AS7552 Viettel Group,家宽,viettel
+172.174.17.234,United States,Virginia,Microsoft Azure Cloud (eastus),Microsoft,AS8075 Microsoft Corporation,机房,cloud
+172.190.100.10,United States,Virginia,Microsoft Azure Cloud (eastus),Microsoft,AS8075 Microsoft Corporation,机房,cloud
+175.6.109.238,China,Guangdong,Chinanet HN,"No.293, Wanbao Avenue",AS63835 CT HuNan Changsha IDC,机房,idc
+176.31.21.38,Spain,Madrid,OVH Hispano,OVH SAS,AS16276 OVH SAS,机房,ovh
+176.53.159.197,Turkey,Istanbul,BearShield Technologies S.R.O,Zorntech Web Solutions,AS154383 ZORNTECH WEB SOLUTIONS,机房,zorntech
+176.53.159.198,Turkey,Istanbul,BearShield Technologies S.R.O,Zorntech Web Solutions,AS154383 ZORNTECH WEB SOLUTIONS,机房,zorntech
+180.76.61.232,China,Beijing,"Beijing Baidu Netcom Science and Technology Co., Ltd.","Beijing Baidu Netcom Science and Technology Co., Ltd.","AS38365 Beijing Baidu Netcom Science and Technology Co., Ltd.",机房,baidu
+182.43.76.120,China,Shandong,Chinanet SD,Cloud Computing Corporation,AS58519 Cloud Computing Corporation,机房,cloud
+183.6.64.180,China,Guangdong,Chinanet GD,Chinanet,AS4134 CHINANET BACKBONE,家宽,chinanet
+185.113.139.51,Latvia,Rīga,Baykov Ilya Sergeevich,Baykov Ilya Sergeevich,AS41745 Baykov Ilya Sergeevich,机房,baykov
+185.114.206.4,United States,Nevada,Wifiber IKE,H4Y Technologies LLC,AS397373 H4Y Technologies LLC,机房,h4y
+185.74.59.5,Isle of Man,Douglas,Wi-Manx Limited,Wi-Manx Ltd,AS42455 ELITE GROUP.IM LIMITED,其他,
+185.80.128.227,Lithuania,Vilnius,Vpsnet COM,UAB ESNET,AS61053 UAB ESNET,机房,vps
+189.194.140.170,Mexico,Puebla,"Mega Cable, S.A. de C.V","Mega Cable, S.A. de C.V.","AS13999 Mega Cable, S.A. de C.V.",家宽,cable
+189.204.230.91,Mexico,México,"Operbes, S.A. de C.V","Operbes, S.A. de C.V.","AS18734 Operbes, S.A. de C.V.",其他,
+189.219.16.249,Mexico,Nuevo León,"Television Internacional, S.A. de C.V","Television Internacional, S.A. de C.V.","AS265594 Television Internacional, S.A. de C.V.",其他,
+190.108.77.176,Colombia,Valle del Cauca Department,Celsia Internet,Celsia Colombia S.a. E.S.P.,AS270035 CELSIA INTERNET S.A.S.,机房,colo
+190.129.122.12,Bolivia,Cochabamba,Empresa Nacional De Telecomunicaciones Sociedad Anonima,Entel S.A. - EntelNet,AS6568 EMPRESA NACIONAL DE TELECOMUNICACIONES SOCIEDAD ANONIMA,家宽,telecom
+190.5.200.98,Colombia,Cauca Department,Emtel S.a. E.S.P,Emtel S.a. E.S.P.,AS27650 EMTEL S.A. E.S.P.,其他,
+193.163.187.107,Albania,Durrës County,MyTv-Alb SH.P.K,MyTv-Alb SH.P.K.,AS211356 MyTv-Alb SH.P.K.,其他,
+195.178.110.232,Andorra,Andorra la Vella,Techoff SRV Limited,Techoff SRV Limited,AS48090 TECHOFF SRV LIMITED,机房,techoff
+196.196.150.100,Spain,Valencia,Fiber Grid,Orion Network Limited,AS58065 Orion Network Limited,机房,orion network
+196.196.150.124,Spain,Valencia,Fiber Grid,Orion Network Limited,AS58065 Orion Network Limited,机房,orion network
+197.153.57.103,Morocco,Tanger-Tetouan-Al Hoceima,,MEDITELECOM,AS36925 MEDITELECOM,家宽,telecom
+197.225.146.23,Mauritius,Plaines Wilhems District,,telecomplus,AS23889 Mauritius Telecom Ltd,家宽,telecom
+201.184.50.251,Colombia,Bogota D.C.,,EPM Telecomunicaciones S.A. E.S.P.,AS13489 UNE EPM TELECOMUNICACIONES S.A.,家宽,telecom
+211.178.247.182,South Korea,Gyeonggi-do,SK Broadband Co Ltd,SK Broadband Co Ltd,AS9318 SK Broadband Co Ltd,家宽,broadband
+222.98.122.37,South Korea,Gyeonggi-do,Korea Telecom,Korea Telecom,AS4766 Korea Telecom,家宽,korea telecom
+27.79.41.176,Vietnam,Da Nang,VIETEL,Viettel Corporation,AS7552 Viettel Group,家宽,viettel
+31.77.227.120,France,Île-de-France,RocketCloud,Banatsync SRL,AS198364 BANATSYNC SRL,机房,cloud
+34.58.124.191,United States,Iowa,Google Cloud (us-central1),Google LLC,AS396982 Google LLC,机房,cloud
+35.237.94.18,United States,South Carolina,Google Cloud (us-east1),Google LLC,AS396982 Google LLC,机房,cloud
+36.230.11.199,Taiwan,Taipei City,Chunghwa Telecom Co. Ltd.,"Chunghwa Telecom Co., Ltd.",AS3462 Data Communication Business Group,家宽,telecom
+38.207.136.155,Japan,Tokyo,Nearoute Limited,Cogent Communications,AS51847 Nearoute Limited,机房,cogent
+39.170.37.133,China,Zhejiang,China Mobile,China Mobile Communications Corporation,AS56041 China Mobile communications corporation,家宽,china mobile
+45.117.177.47,Vietnam,Ho Chi Minh City (HCMC),Branch of Nhan Hoa Software Company,NHANHOA,AS131353 NhanHoa Software company,机房,nhanhoa
+45.142.193.164,United Kingdom,England,Limited Network LTD,ValorNode - Internet Solutions,AS213388 IIC RAIL LIMITED,机房,valornode
+45.148.10.141,The Netherlands,North Holland,Techoff SRV Limited,Techoff SRV Limited,AS48090 TECHOFF SRV LIMITED,机房,techoff
+45.148.10.157,The Netherlands,North Holland,Techoff SRV Limited,Techoff SRV Limited,AS48090 TECHOFF SRV LIMITED,机房,techoff
+45.148.10.183,The Netherlands,North Holland,Techoff SRV Limited,Techoff SRV Limited,AS48090 TECHOFF SRV LIMITED,机房,techoff
+45.15.227.120,Moldova,Chișinău Municipality,Primanet SRL,Primanet SRL,AS207164 PRIMANET SRL,其他,
+45.153.34.41,The Netherlands,North Holland,TechTies Inc,TechTies Inc.,AS197170 TechTies Inc.,机房,techtie
+45.156.87.234,The Netherlands,North Holland,TechTies Inc,TechTies Inc.,AS197170 TechTies Inc.,机房,techtie
+45.195.221.26,Russia,Moscow,Ucloud Information Technology HK Limited,Ucloud Information Technology HK Limited,AS135377 UCLOUD INFORMATION TECHNOLOGY (HK) LIMITED,机房,cloud
+46.24.47.94,Spain,Madrid,SVL Sistemas Seguridad SL,Vodafone Espana S.A.U.,AS12430 VODAFONE ESPANA S.A.U.,家宽,vodafone
+46.6.127.33,Spain,Catalonia,XFERA Moviles S.A,XFERA Moviles S.A,AS15704 XTRA TELECOM S.A.,家宽,telecom
+5.188.16.97,Estonia,Ida-Virumaa,Hosting Services,P.A.G.M. OU,AS198068 P.A.G.M. OU,机房,hosting
+5.3.154.197,Russia,Tatarstan Republic,"JSC ""ER-Telecom Holding"" Kazan' Branch","JSC ""ER-Telecom Holding""",AS41668 JSC ER-Telecom Holding,家宽,telecom
+51.75.161.33,United Kingdom,England,OVH Ltd,OVH SAS,AS16276 OVH SAS,机房,ovh
+52.237.80.79,Singapore,Central Singapore,Microsoft Azure Cloud (southeastasia),Microsoft Corporation,AS8075 Microsoft Corporation,机房,cloud
+59.38.131.149,China,Guangdong,Chinanet GD,Chinanet,AS4134 CHINANET BACKBONE,家宽,chinanet
+61.92.58.210,Hong Kong,Kwai Tsing District,Hong Kong Broadband Network Ltd,Hong Kong Broadband Network Limited,AS9269 Hong Kong Broadband Network Ltd.,家宽,broadband
+64.225.72.42,The Netherlands,North Holland,"DigitalOcean, LLC","DigitalOcean, LLC","AS14061 DigitalOcean, LLC",机房,digitalocean
+68.183.234.46,Singapore,South West,"DigitalOcean, LLC","DigitalOcean, LLC","AS14061 DigitalOcean, LLC",机房,digitalocean
+68.183.244.58,India,Karnataka,"DigitalOcean, LLC","DigitalOcean, LLC","AS14061 DigitalOcean, LLC",机房,digitalocean
+74.94.234.151,United States,Michigan,Corp PRK Rochester HIL,Comcast Cable Communications,"AS7922 Comcast Cable Communications, LLC",家宽,cable
+77.239.124.241,The Netherlands,North Holland,RocketCloud,Banatsync SRL,AS198364 BANATSYNC SRL,机房,cloud
+78.109.200.147,Iran,Tehran,Afranet,Afranet,AS25184 Afranet,家宽,afranet
+78.47.223.134,Germany,Bavaria,Hetzner Online GmbH,Hetzner Online GmbH,AS24940 Hetzner Online GmbH,机房,hetzner
+81.192.46.49,Morocco,Casablanca-Settat,Office National des Postes et Telecommunications ONPT (Maroc Telecom) / IAM,ONPT,AS6713 Office National des Postes et Telecommunications ONPT (Maroc Telecom) / IAM,家宽,telecom
+91.232.247.229,Czechia,Central Bohemia,ELDATA prazska s.r.o,ELDATA prazska s.r.o.,AS34911 ELDATA prazska s.r.o.,其他,
+91.92.42.10,The Netherlands,North Holland,TechTies Inc,TechTies Inc.,AS197170 TechTies Inc.,机房,techtie
+91.92.47.6,The Netherlands,North Holland,TechTies Inc,TechTies Inc.,AS197170 TechTies Inc.,机房,techtie
+91.92.47.96,The Netherlands,North Holland,TechTies Inc,TechTies Inc.,AS197170 TechTies Inc.,机房,techtie
+92.118.39.49,United States,Texas,Pptechnology Limited,Unmanaged LTD,AS47890 UNMANAGED LTD,机房,unmanaged
+92.118.39.71,United States,Texas,Pptechnology Limited,Unmanaged LTD,AS47890 UNMANAGED LTD,机房,unmanaged
+92.118.39.77,United States,Texas,Pptechnology Limited,Unmanaged LTD,AS47890 UNMANAGED LTD,机房,unmanaged
+92.218.122.20,Germany,Baden-Wurttemberg,ARCOR-IP,Vodafone GmbH,AS3209 Vodafone GmbH,家宽,vodafone
+94.156.177.153,Netherlands,Provincie Flevoland,Baykov Ilya Sergeevich,Baykov Ilya Sergeevich,AS41745 Baykov Ilya Sergeevich,机房,baykov
+94.182.136.209,Iran,Tehran,Shtl NET DED,Fanavaran Mehr Vatan Tehran Server Group LLC,AS213807 Fanavaran Mehr Vatan Tehran Server Group LLC,机房,server

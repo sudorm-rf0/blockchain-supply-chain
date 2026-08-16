@@ -1,0 +1,44 @@
+# fail2ban 封禁 IP 中判定为「家宽」的清单（共 41 个，数据截至 2026-08-16）
+# 说明：按 ISP/ORG/ASN 名称启发式判定；含部分移动宽带；家宽≠100% 准确，仅供分析参考
+# 格式: IP | 国家 | 地区 | ISP/ORG | ASN
+103.26.136.173 | Bangladesh | Dhaka Division | Grameen Communications | AS58946 GRAMEEN COMMUNICATIONS
+110.34.30.120 | Nepal | Bagmati Province | Subisu Cablenet | AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal
+110.34.30.121 | Nepal | Bagmati Province | Subisu Cablenet | AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal
+110.34.30.122 | Nepal | Bagmati Province | Subisu Cablenet | AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal
+110.34.30.123 | Nepal | Bagmati Province | Subisu Cablenet | AS4007 Subisu Cablenet (Pvt) Ltd, Baluwatar, Kathmandu, Nepal
+116.1.149.196 | China | Guangxi | Chinanet | AS4134 CHINANET BACKBONE
+116.110.213.86 | Vietnam | Da Nang | Viettel Group | AS24086 Viettel Corporation
+116.110.223.202 | Vietnam | Da Nang | Viettel Group | AS24086 Viettel Corporation
+116.99.173.68 | Vietnam | Hanoi | Viettel Group | AS24086 Viettel Corporation
+121.184.144.232 | South Korea | Daejeon | Korea Telecom | AS4766 Korea Telecom
+121.28.170.66 | China | Hebei | CNC Group CHINA169 Hebei Province Network | AS4837 CHINA UNICOM China169 Backbone
+14.18.122.98 | China | Guangdong | China Telecom | AS135089 China Telecom
+14.225.217.138 | Vietnam | Hanoi | Vietnam Posts and Telecommunications Group | AS135905 VIETNAM POSTS AND TELECOMMUNICATIONS GROUP
+155.4.244.179 | Sweden | Skåne County | Bahnhof AB | AS8473 Bahnhof AB
+158.174.211.17 | Sweden | Kalmar | Bahnhof AB | AS8473 Bahnhof AB
+161.49.89.39 | Philippines | Metro Manila | Converge ICT Solution Inc | AS17639 Converge ICT Solutions Inc.
+168.167.228.123 | Botswana | Gaborone | Botswana Telecommunications Corporation | AS14988 Botswana Telecommunications Corporation
+171.231.188.249 | Vietnam | Da Nang | Viettel Corporation | AS7552 Viettel Group
+171.231.189.174 | Vietnam | Da Nang | Viettel Corporation | AS7552 Viettel Group
+171.243.149.137 | Vietnam | Da Nang | Viettel Corporation | AS7552 Viettel Group
+171.243.150.14 | Vietnam | Da Nang | Viettel Corporation | AS7552 Viettel Group
+183.6.64.180 | China | Guangdong | Chinanet | AS4134 CHINANET BACKBONE
+189.194.140.170 | Mexico | Puebla | Mega Cable, S.A. de C.V. | AS13999 Mega Cable, S.A. de C.V.
+190.129.122.12 | Bolivia | Cochabamba | Entel S.A. - EntelNet | AS6568 EMPRESA NACIONAL DE TELECOMUNICACIONES SOCIEDAD ANONIMA
+197.153.57.103 | Morocco | Tanger-Tetouan-Al Hoceima | MEDITELECOM | AS36925 MEDITELECOM
+197.225.146.23 | Mauritius | Plaines Wilhems District | telecomplus | AS23889 Mauritius Telecom Ltd
+201.184.50.251 | Colombia | Bogota D.C. | EPM Telecomunicaciones S.A. E.S.P. | AS13489 UNE EPM TELECOMUNICACIONES S.A.
+211.178.247.182 | South Korea | Gyeonggi-do | SK Broadband Co Ltd | AS9318 SK Broadband Co Ltd
+222.98.122.37 | South Korea | Gyeonggi-do | Korea Telecom | AS4766 Korea Telecom
+27.79.41.176 | Vietnam | Da Nang | Viettel Corporation | AS7552 Viettel Group
+36.230.11.199 | Taiwan | Taipei City | Chunghwa Telecom Co., Ltd. | AS3462 Data Communication Business Group
+39.170.37.133 | China | Zhejiang | China Mobile Communications Corporation | AS56041 China Mobile communications corporation
+46.24.47.94 | Spain | Madrid | Vodafone Espana S.A.U. | AS12430 VODAFONE ESPANA S.A.U.
+46.6.127.33 | Spain | Catalonia | XFERA Moviles S.A | AS15704 XTRA TELECOM S.A.
+5.3.154.197 | Russia | Tatarstan Republic | JSC "ER-Telecom Holding" | AS41668 JSC ER-Telecom Holding
+59.38.131.149 | China | Guangdong | Chinanet | AS4134 CHINANET BACKBONE
+61.92.58.210 | Hong Kong | Kwai Tsing District | Hong Kong Broadband Network Limited | AS9269 Hong Kong Broadband Network Ltd.
+74.94.234.151 | United States | Michigan | Comcast Cable Communications | AS7922 Comcast Cable Communications, LLC
+78.109.200.147 | Iran | Tehran | Afranet | AS25184 Afranet
+81.192.46.49 | Morocco | Casablanca-Settat | ONPT | AS6713 Office National des Postes et Telecommunications ONPT (Maroc Telecom) / IAM
+92.218.122.20 | Germany | Baden-Wurttemberg | Vodafone GmbH | AS3209 Vodafone GmbH
