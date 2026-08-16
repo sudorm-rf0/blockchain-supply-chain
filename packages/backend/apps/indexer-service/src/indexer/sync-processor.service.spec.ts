@@ -2,7 +2,7 @@ import { SyncProcessorService } from "./sync-processor.service";
 import type { DealSyncPayload } from "./payloads";
 
 function makePrisma(overrides: Record<string, unknown> = {}) {
-  return {
+  const prisma: any = {
     poolSnapshot: {
       upsert: jest.fn(async ({ create }) => ({ ...create })),
     },
@@ -23,6 +23,9 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   };
+  // 服务现在通过 prisma.$transaction 在 Serializable 事务内读-改-写（审计中危-7）。
+  prisma.$transaction = jest.fn(async (fn: (tx: any) => unknown) => fn(prisma));
+  return prisma;
 }
 
 function makeRisk() {

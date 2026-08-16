@@ -196,37 +196,44 @@ export class FilesService {
 
     try {
       const documentGroupId = fields.documentId?.trim() || null;
-      let version = 1;
-      if (documentGroupId) {
-        const latest = await this.prisma.file.findFirst({
-          where: { documentGroupId, uploaderId },
-          orderBy: { version: "desc" },
-          select: { version: true },
-        });
-        version = (latest?.version ?? 0) + 1;
-        await this.prisma.file.updateMany({
-          where: { documentGroupId, uploaderId, supersededAt: null },
-          data: { supersededAt: new Date() },
-        });
-      }
-      const created = await this.prisma.file.create({
-        data: {
-          filename: decodeFilename(file.originalname),
-          size: persisted.size,
-          mimeType: ALLOWED_EXTENSIONS[extension],
-          path: persisted.storageKey,
-          hash: fileHash,
-          tradeId: fields.tradeId ?? null,
-          documentGroupId,
-          version,
-          supersededAt: null,
-          description: fields.description ?? null,
-          remark: fields.remark ?? null,
-          region: region ?? null,
-          uploaderId,
+      // 审计中危-8：文件版本自增改为 Serializable 事务，消除并发上传同组文档时
+      // 读-改-写竞态导致的版本重复/超车。
+      const created = await this.prisma.$transaction(
+        async (tx) => {
+          let version = 1;
+          if (documentGroupId) {
+            const latest = await tx.file.findFirst({
+              where: { documentGroupId, uploaderId },
+              orderBy: { version: "desc" },
+              select: { version: true },
+            });
+            version = (latest?.version ?? 0) + 1;
+            await tx.file.updateMany({
+              where: { documentGroupId, uploaderId, supersededAt: null },
+              data: { supersededAt: new Date() },
+            });
+          }
+          return tx.file.create({
+            data: {
+              filename: decodeFilename(file.originalname),
+              size: persisted.size,
+              mimeType: ALLOWED_EXTENSIONS[extension],
+              path: persisted.storageKey,
+              hash: fileHash,
+              tradeId: fields.tradeId ?? null,
+              documentGroupId,
+              version,
+              supersededAt: null,
+              description: fields.description ?? null,
+              remark: fields.remark ?? null,
+              region: region ?? null,
+              uploaderId,
+            },
+            include: { uploader: { select: { name: true } } },
+          });
         },
-        include: { uploader: { select: { name: true } } },
-      });
+        { isolationLevel: "Serializable" },
+      );
       await this.redis.incr("files:list:version").catch(() => undefined);
       const used = await this.redis.incr(quotaKey);
       if (used === 1) {

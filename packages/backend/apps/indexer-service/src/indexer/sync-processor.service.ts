@@ -82,24 +82,10 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
 
   private async handleDealSync(payload: DealSyncPayload): Promise<void> {
     const dealId = String(payload.tradeId);
-    const previous = await this.prisma.tradeDeal.findUnique({
-      where: { dealId },
-      select: { status: true, defaultWebhookSentAt: true },
-    });
-
     const status = (DEAL_STATUS_BY_CODE[payload.status] ??
       "PENDING") as DealStatus;
+    const incomingRank = LIFECYCLE_ORDER[status] ?? -1;
 
-    if (previous) {
-      const incomingRank = LIFECYCLE_ORDER[status] ?? -1;
-      const existingRank = LIFECYCLE_ORDER[previous.status] ?? -1;
-      if (incomingRank < existingRank) {
-        this.logger.warn(
-          `skipping deal ${payload.tradeId} sync: incoming status ${status} is behind existing ${previous.status}`,
-        );
-        return;
-      }
-    }
     const buyer = await this.upsertUser(payload.buyerWallet);
     const seller = await this.upsertUser(payload.sellerWallet);
 
@@ -125,16 +111,40 @@ export class SyncProcessorService implements OnModuleInit, OnModuleDestroy {
       rawData: payload as unknown as Prisma.InputJsonValue,
     };
 
-    const deal = await this.prisma.tradeDeal.upsert({
-      where: { dealId: data.dealId },
-      create: data,
-      update: {
-        status: data.status,
-        ...(data.repaidAt ? { repaidAt: data.repaidAt } : {}),
-        ...(payload.txSignature ? { txSignature: payload.txSignature } : {}),
-        ...(payload.logisticsHash ? { logisticsHash: payload.logisticsHash } : {}),
+    // 审计中危-7：状态"读-改-写"放入 Serializable 事务，杜绝并发同步时
+    // skip-behind 判断与 upsert 之间的竞态（DB 状态回退/跳级）。
+    const { deal, previous, skipped } = await this.prisma.$transaction(
+      async (tx) => {
+        const prev = await tx.tradeDeal.findUnique({
+          where: { dealId },
+          select: { status: true, defaultWebhookSentAt: true },
+        });
+        if (prev) {
+          const existingRank = LIFECYCLE_ORDER[prev.status] ?? -1;
+          if (incomingRank < existingRank) {
+            this.logger.warn(
+              `skipping deal ${payload.tradeId} sync: incoming status ${status} is behind existing ${prev.status}`,
+            );
+            return { deal: null as never, previous: prev, skipped: true };
+          }
+        }
+        const d = await tx.tradeDeal.upsert({
+          where: { dealId: data.dealId },
+          create: data,
+          update: {
+            status: data.status,
+            ...(data.repaidAt ? { repaidAt: data.repaidAt } : {}),
+            ...(payload.txSignature ? { txSignature: payload.txSignature } : {}),
+            ...(payload.logisticsHash ? { logisticsHash: payload.logisticsHash } : {}),
+          },
+        });
+        return { deal: d, previous: prev, skipped: false };
       },
-    });
+      { isolationLevel: "Serializable" },
+    );
+    if (skipped) {
+      return; // 已在事务内跳过（状态落后）
+    }
 
     if (
       status === "DEFAULTED" &&
