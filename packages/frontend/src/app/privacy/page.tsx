@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 
-const SECTIONS = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"];
+const SECTIONS = Array.from({ length: 14 }, (_, i) => `s${i + 1}`);
 
 export default function PrivacyPage() {
   const { t } = useTranslation();
