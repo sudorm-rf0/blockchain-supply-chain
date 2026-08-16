@@ -26,6 +26,20 @@ describe("FilesTranslationService", () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it("rejects translating another user's file (IDOR)", async () => {
+    prisma.file.findUnique.mockResolvedValue({
+      id: "f1",
+      uploaderId: "owner-1",
+      ocrText: "这是测试文本。",
+      translations: null,
+    });
+    const svc = new FilesTranslationService(prisma as never, audit as never, llm as never);
+    await expect(svc.translate("f1", "en", "attacker-1")).rejects.toThrow(
+      "无权翻译此文件",
+    );
+    expect(llm.complete).not.toHaveBeenCalled();
+  });
+
   it("uses AI to clean OCR garbled text and translate", async () => {
     llm.complete.mockResolvedValue("The goods were shipped on 2025-08-03.");
     prisma.file.findUnique.mockResolvedValue({
@@ -35,7 +49,7 @@ describe("FilesTranslationService", () => {
     });
     prisma.file.update.mockResolvedValue({});
     const svc = new FilesTranslationService(prisma as never, audit as never, llm as never);
-    const out = await svc.translate("f1", "en", "user-1");
+    const out = await svc.translate("f1", "en", "user-1", "ADMIN");
     expect(out.targetLang).toBe("en");
     // 校验 LLM prompt 包含 OCR 乱码清洗要求
     const systemPrompt = llm.complete.mock.calls[0][0][0].content as string;
@@ -49,7 +63,7 @@ describe("FilesTranslationService", () => {
   it("rejects when file has no OCR text", async () => {
     prisma.file.findUnique.mockResolvedValue({ id: "f1", ocrText: null, translations: null });
     const svc = new FilesTranslationService(prisma as never, audit as never, llm as never);
-    await expect(svc.translate("f1", "en", "u")).rejects.toThrow("未识别出文字");
+    await expect(svc.translate("f1", "en", "u", "ADMIN")).rejects.toThrow("未识别出文字");
     expect(llm.complete).not.toHaveBeenCalled();
   });
 
@@ -69,7 +83,7 @@ describe("FilesTranslationService", () => {
       }),
     }) as never;
     const svc = new FilesTranslationService(prisma as never, audit as never, llm as never);
-    const out = await svc.translate("f1", "en", "u");
+    const out = await svc.translate("f1", "en", "u", "ADMIN");
     expect(out.text).toContain("test text");
   });
 

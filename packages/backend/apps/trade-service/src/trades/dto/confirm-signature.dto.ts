@@ -1,5 +1,5 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsBoolean, IsOptional, IsString } from "class-validator";
 
 export class ConfirmSignatureDto {
   @ApiProperty({
@@ -8,4 +8,11 @@ export class ConfirmSignatureDto {
   })
   @IsString()
   txSignature!: string;
+
+  @ApiPropertyOptional({
+    description: "二次确认标记（前端历史版本会附带 confirm:true，后端接受避免 400）",
+  })
+  @IsOptional()
+  @IsBoolean()
+  confirm?: boolean;
 }

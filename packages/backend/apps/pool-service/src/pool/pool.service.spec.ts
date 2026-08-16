@@ -121,39 +121,35 @@ describe("PoolService", () => {
     expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
   });
 
-  it("releases the redis lock after an admin executes a withdrawal", async () => {
+  it("requires an on-chain payout signature to execute a withdrawal", async () => {
     const prisma = makePrisma({
       withdrawRequest: {
         findUnique: jest.fn(async () => ({
           id: "wr-1",
           lpAddress: "lpWallet",
           status: "READY",
+          amount: "100",
         })),
         updateMany: jest.fn(async () => ({ count: 1 })),
-        findUniqueOrThrow: jest.fn(async () => ({
-          id: "wr-1",
-          status: "EXECUTED",
-          lpAddress: "lpWallet",
-        })),
-        update: jest.fn(async ({ data }) => ({
-          id: "wr-1",
-          status: data.status,
-        })),
       },
     });
-    const redis = makeRedis();
     const service = new PoolService(
       prisma as never,
-      redis as never,
+      makeRedis() as never,
       makeAudit() as never,
     );
-    const result = await service.executeWithdrawal(
-      "wr-1",
-      { confirm: true },
-      "admin-1",
-    );
-    expect(result.status).toBe("EXECUTED");
-    expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
+    // 未提供链上出金签名 -> 拒绝执行
+    await expect(
+      service.executeWithdrawal("wr-1", { confirm: true }, "admin-1"),
+    ).rejects.toThrow("链上出金交易签名");
+    // 签名格式非法 -> 拒绝执行
+    await expect(
+      service.executeWithdrawal(
+        "wr-1",
+        { confirm: true, txSignature: "not-a-signature" },
+        "admin-1",
+      ),
+    ).rejects.toThrow("链上出金交易签名");
   });
 
   it("rejects LP redeem amounts outside the u64 range", async () => {
@@ -329,13 +325,9 @@ describe("PoolService", () => {
       redis as never,
       makeAudit() as never,
     );
-    const result = await service.executeWithdrawal(
-      "wr-1",
-      { confirm: true },
-      "super-1",
-    );
-    expect(result.status).toBe("EXECUTED");
-    expect(redis.del).toHaveBeenCalledWith("lp:withdraw:lpWallet");
+    await expect(
+      service.executeWithdrawal("wr-1", { confirm: true }, "super-1"),
+    ).rejects.toThrow("链上出金交易签名");
   });
 
   it("requires an explicit confirmation to execute a withdrawal", async () => {
@@ -362,9 +354,10 @@ describe("PoolService", () => {
     await expect(
       service.executeWithdrawal("wr-1", {}, "admin-1"),
     ).rejects.toThrow(BadRequestException);
+    // 已确认但未提供链上出金签名 -> 拒绝
     await expect(
       service.executeWithdrawal("wr-1", { confirm: true }, "admin-1"),
-    ).resolves.toMatchObject({ status: "EXECUTED" });
+    ).rejects.toThrow("链上出金交易签名");
   });
 
   it("rejects withdrawal when the wallet does not match the user", async () => {
@@ -475,7 +468,7 @@ describe("PoolService", () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it("records an audit entry when executing a confirmed withdrawal", async () => {
+  it("does not record WITHDRAW_EXECUTED when payout signature is missing", async () => {
     const prisma = makePrisma({
       withdrawRequest: {
         findUnique: jest.fn(async () => ({
@@ -483,12 +476,6 @@ describe("PoolService", () => {
           status: "READY",
         })),
         updateMany: jest.fn(async () => ({ count: 1 })),
-        findUniqueOrThrow: jest.fn(async () => ({
-          id: "wr-1",
-          status: "EXECUTED",
-          lpAddress: "lpWallet",
-        })),
-        update: jest.fn(async ({ data }) => ({ ...data, id: "wr-1" })),
       },
     });
     const audit = makeAudit();
@@ -497,14 +484,12 @@ describe("PoolService", () => {
       makeRedis() as never,
       audit as never,
     );
-    await service.executeWithdrawal("wr-1", { confirm: true }, "admin-1");
-    expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "WITHDRAW_EXECUTED",
-        targetType: "WITHDRAW",
-        targetId: "wr-1",
-      }),
-    );
+    await expect(
+      service.executeWithdrawal("wr-1", { confirm: true }, "admin-1"),
+    ).rejects.toThrow("链上出金交易签名");
+    // 签名校验在审计之前：未通过链上验证时绝不记录已执行
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(prisma.withdrawRequest.updateMany).not.toHaveBeenCalled();
   });
 
   it("serves an empty overview without throwing", async () => {

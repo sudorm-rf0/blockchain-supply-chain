@@ -59,6 +59,7 @@ const en = {
   "withdrawals.status.executed": "Executed",
   "withdrawals.statusToast": "Withdrawal status: {{status}}",
   "withdrawals.executeFailed": "Execution failed",
+  "withdrawals.txSignaturePrompt": "First complete the USDC payout on-chain with the platform wallet, then paste that transaction signature (txSignature):",
   "withdrawals.execute": "Execute",
   "supplyChain.loadFailed": "Failed to load",
   "supplyChain.connectWallet": "Please connect your wallet first",

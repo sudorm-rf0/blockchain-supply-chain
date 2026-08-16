@@ -47,7 +47,6 @@ export class PublicVerifyController {
     return {
       ok: true,
       file: {
-        id: file.id,
         filename: file.filename,
         hash: file.hash,
         status: file.status,
@@ -135,8 +134,8 @@ export class PublicVerifyController {
         ok: true,
         asset: {
           type: "FILE",
-          id: file.id,
           name: file.filename,
+          hash: file.hash.slice(0, 16),
           status: file.status,
           uploaderName: file.uploader?.name ?? null,
         },

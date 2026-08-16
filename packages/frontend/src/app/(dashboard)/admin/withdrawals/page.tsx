@@ -51,9 +51,12 @@ export default function AdminWithdrawalsPage() {
   }, [load]);
 
   const onExecute = async (id: string) => {
+    // H-5：执行提款必须提供链上出金交易签名（管理员先在链上完成 USDC 转账）
+    const sig = window.prompt(t("withdrawals.txSignaturePrompt"));
+    if (!sig || !sig.trim()) return;
     setBusyId(id);
     try {
-      const result = await executeWithdrawal(id);
+      const result = await executeWithdrawal(id, sig.trim());
       toast.success(
         t("withdrawals.statusToast", {
           status: statusLabel(result.status),

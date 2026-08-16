@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import compression from "compression";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -13,7 +14,9 @@ import { INDEXER_ENV } from "./config/env";
 async function bootstrap(): Promise<void> {
   assertStartupEnv(validateStartupEnv({ required: ["DATABASE_URL"], secrets: ["WEBHOOK_SECRET"], redisRequired: true, rpcRequired: true }));
   initSentry("indexer-service");
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // H-3：nginx 反代后还原真实客户端 IP（登录防暴破/限流依赖 req.ip）
+  app.set("trust proxy", true);
   app.use(compression());
   app.use(helmet());
   app.use(cookieParser());

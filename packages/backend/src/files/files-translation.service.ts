@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -133,9 +134,18 @@ export class FilesTranslationService {
     return parts.join("\n");
   }
 
-  async translate(fileId: string, targetLang: TranslateLang, actorId: string) {
+  async translate(
+    fileId: string,
+    targetLang: TranslateLang,
+    actorId: string,
+    role?: string,
+  ) {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) throw new NotFoundException("文件不存在");
+    // H-2 修复：翻译接口归属校验，防止任意登录用户读取/篡改他人单据 OCR 内容
+    if (role !== "ADMIN" && role !== "SUPER_ADMIN" && file.uploaderId !== actorId) {
+      throw new ForbiddenException("无权翻译此文件");
+    }
     if (!file.ocrText) {
       throw new BadRequestException("该文档未识别出文字内容，无法翻译（请先完成 OCR 分析）");
     }

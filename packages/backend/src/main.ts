@@ -15,6 +15,8 @@ async function bootstrap() {
   assertStartupEnv(validateStartupEnv({ required: ["DATABASE_URL"], secrets: ["JWT_SECRET"], redisRequired: true, rpcRequired: true }));
   initSentry("backend");
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // H-3：nginx 反代后还原真实客户端 IP（登录防暴破/限流依赖 req.ip）
+  app.set("trust proxy", true);
   app.use(compression());
   app.use(helmet());
   app.use(cookieParser());

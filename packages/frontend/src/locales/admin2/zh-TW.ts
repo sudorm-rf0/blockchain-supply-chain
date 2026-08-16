@@ -59,6 +59,7 @@ const zh_TW = {
   "withdrawals.status.executed": "已執行",
   "withdrawals.statusToast": "提款狀態：{{status}}",
   "withdrawals.executeFailed": "執行失敗",
+  "withdrawals.txSignaturePrompt": "請先在鏈上用平台錢包完成 USDC 出金轉帳，然後貼上該筆交易簽名（txSignature）：",
   "withdrawals.execute": "執行",
   "supplyChain.loadFailed": "載入失敗",
   "supplyChain.connectWallet": "請先連接錢包",

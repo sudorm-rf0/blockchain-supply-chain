@@ -138,7 +138,7 @@ export class FilesController {
     if (!["en", "zh-CN", "zh-TW"].includes(lang)) {
       throw new BadRequestException("不支持的目标语言");
     }
-    return this.translationService.translate(id, lang, req.user!.sub);
+    return this.translationService.translate(id, lang, req.user!.sub, req.user!.role);
   }
 
   /** 管理员验证翻译：action approve | reject */

@@ -300,6 +300,15 @@ export class PoolService {
     if (request.status !== "READY") {
       throw new BadRequestException("仅 READY 状态的提款可执行");
     }
+    // H-5 修复：执行提款必须提供链上出金交易签名并验证，防止「DB 标记已出金而链上未发生」
+    if (!body.txSignature || !/^[1-9A-HJ-NP-Za-km-z]{80,100}$/.test(body.txSignature)) {
+      throw new BadRequestException("请提供链上出金交易签名（txSignature）");
+    }
+    await this.verifyWithdrawalTx(
+      body.txSignature,
+      request.lpAddress,
+      BigInt(request.amount.toString()),
+    );
     const result = await this.prisma.withdrawRequest.updateMany({
       where: { id, status: "READY" },
       data: { status: "EXECUTED" },
@@ -321,6 +330,76 @@ export class PoolService {
       metadata: { txSignature: body.txSignature ?? null },
     });
     return { ok: true, id: updated.id, status: updated.status };
+  }
+
+  /**
+   * H-5：验证提款出金交易在链上真实发生。
+   * 要求交易已确认且包含一笔向提款请求收款地址（lpAddress）的 USDC 转账，
+   * 金额与请求金额一致（支持 SPL Transfer 与 TransferChecked 指令）。
+   */
+  private async verifyWithdrawalTx(
+    txSignature: string,
+    lpAddress: string,
+    amountUsdc: bigint,
+  ): Promise<void> {
+    let tx;
+    try {
+      tx = await getConnection().getTransaction(txSignature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+    } catch {
+      throw new BadRequestException("交易签名无效或尚未上链");
+    }
+    if (!tx || tx.meta?.err) {
+      throw new BadRequestException("交易未在链上确认或执行失败");
+    }
+    const message = tx.transaction.message as {
+      accountKeys?: PublicKey[];
+      staticAccountKeys?: PublicKey[];
+      compiledInstructions: Array<{
+        programIdIndex: number;
+        accountKeyIndexes: number[];
+        data: Uint8Array;
+      }>;
+    };
+    const accountKeys = message.accountKeys ?? message.staticAccountKeys ?? [];
+    const tokenProgram = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+    const destAta = deriveUsdcAta(new PublicKey(lpAddress)).toBase58();
+    const usdcMint = new PublicKey(POOL_ENV.usdcMint).toBase58();
+
+    for (const ix of message.compiledInstructions) {
+      const programId = accountKeys[ix.programIdIndex]?.toBase58();
+      if (programId !== tokenProgram) continue;
+      // SPL Transfer: tag=3, data=[3, amount(8)]；TransferChecked: tag=12, data=[12, amount(8), decimals(1)]
+      const tag = ix.data[0];
+      let amount = 0n;
+      let destIdx = -1;
+      if (tag === 3 && ix.data.length === 9) {
+        amount = Buffer.from(ix.data.subarray(1, 9)).readBigUInt64LE(0);
+        destIdx = ix.accountKeyIndexes[1]; // [source, dest, owner]
+      } else if (tag === 12 && ix.data.length >= 10) {
+        amount = Buffer.from(ix.data.subarray(1, 9)).readBigUInt64LE(0);
+        destIdx = ix.accountKeyIndexes[2]; // [source, mint, dest, owner]
+      } else {
+        continue;
+      }
+      if (amount !== amountUsdc) continue;
+      if (destIdx < 0 || destIdx >= accountKeys.length) continue;
+      const dest = accountKeys[destIdx]?.toBase58();
+      if (dest === destAta) {
+        // 金额与收款方匹配，且（若为 TransferChecked）校验 mint
+        if (tag === 12) {
+          const mintIdx = ix.accountKeyIndexes[1];
+          const mint = accountKeys[mintIdx]?.toBase58();
+          if (mint !== usdcMint) continue;
+        }
+        return; // 验证通过
+      }
+    }
+    throw new BadRequestException(
+      "链上交易未包含向该提款地址的 USDC 出金转账，拒绝执行",
+    );
   }
 
   async buildRedeemLp(
