@@ -15,6 +15,21 @@ function groupThousands(value: bigint): string {
   return sign + parts.join(",");
 }
 
+/**
+ * 审计中危-3：金额输入解析为 uUSDC（微单位）字符串，全程 BigInt，
+ * 杜绝 IEEE-754 浮点放大 1e6 的精度丢失与 .xx5 边界舍入错误。
+ * 支持整数或最多 6 位小数（如 "123.45"、"0.000001"）；非法/非正返回 null。
+ */
+export function parseUsdcInput(input: string): string | null {
+  const s = input.trim().replace(/,/g, "");
+  if (!/^\d+(\.\d{1,6})?$/.test(s)) return null;
+  const [intPart, fracPart = ""] = s.split(".");
+  const padded = (fracPart + "000000").slice(0, 6);
+  const micro = BigInt(intPart) * 1_000_000n + BigInt(padded);
+  if (micro <= 0n) return null;
+  return micro.toString();
+}
+
 export function formatUsdc(raw: string | number | bigint): string {
   let n: bigint;
   try {

@@ -51,7 +51,6 @@ export const TRADE_LIFECYCLE = [
   "DELIVERED",
   "REPAYING",
   "SETTLED",
-  "CANCELLED",
 ];
 
 // ---- 中文状态显示映射 ----

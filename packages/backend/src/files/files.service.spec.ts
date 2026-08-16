@@ -43,7 +43,6 @@ function makePrisma() {
       })),
     },
   };
-}
   prisma.$transaction = jest.fn(async (fn: (tx: any) => unknown) => fn(prisma));
   return prisma;
 }

@@ -141,6 +141,11 @@ export default function AdminFilesPage({
     void load();
   }, [load]);
 
+  // 审计中危-8：翻页/切换状态筛选时清空已选，防止对不可见文件执行批量操作。
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, status]);
+
   const approve = async (id: string) => {
     setBusy(true);
     try {

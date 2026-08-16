@@ -17,7 +17,7 @@ import {
 } from "@/lib/api";
 import { getFiles, type FileRecord } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
-import { formatUsdc } from "@/lib/http";
+import { formatUsdc, parseUsdcInput } from "@/lib/http";
 import Turnstile from "@/components/Turnstile";
 import { TURNSTILE_SITE_KEY } from "@/lib/env";
 
@@ -155,7 +155,7 @@ export default function FinancingPage() {
                   const ocrAmt =
                     f.authResult?.keyFields?.amount?.numeric;
                   if (ocrAmt) {
-                    const usdc = Math.round(Number(ocrAmt) * 1e6).toString();
+                    const usdc = parseUsdcInput(String(ocrAmt)) ?? "0";
                     setInvoiceAmount(usdc);
                   } else {
                     setInvoiceAmount("");
@@ -179,7 +179,7 @@ export default function FinancingPage() {
             <div className="space-y-2">
               <Label>{t("financing.invoiceAmountUsdc")}</Label>
               <Input
-                value={invoiceAmount ? (Number(invoiceAmount) / 1e6).toFixed(2) : ""}
+                value={invoiceAmount ? formatUsdc(invoiceAmount) : ""}
                 disabled
                 placeholder="0.00"
               />
@@ -191,7 +191,7 @@ export default function FinancingPage() {
                 placeholder="0.00"
                 onChange={(e) => {
                   const v = e.target.value.replace(/[^\d.]/g, "");
-                  setAmount(v ? Math.round(Number(v) * 1e6).toString() : "");
+                  setAmount(v ? (parseUsdcInput(v) ?? "") : "");
                 }}
               />
             </div>

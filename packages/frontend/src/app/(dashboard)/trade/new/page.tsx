@@ -8,6 +8,7 @@ import { Transaction } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { useUserStore } from "@/stores/user-store";
+import { parseUsdcInput } from "@/lib/http";
 import { TransactionStatusToast } from "@/components/TransactionStatusToast";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,8 +78,9 @@ export default function NewTradePage() {
       return;
     }
 
-    const numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    // 审计中危-3：金额用字符串/BigInt 解析为 uUSDC，避免浮点精度问题。
+    const amountRaw = parseUsdcInput(amount);
+    if (amountRaw === null) {
       setError(t("trade.errors.invalidAmount"));
       return;
     }
@@ -93,12 +95,11 @@ export default function NewTradePage() {
 
     setSubmitting(true);
     try {
-      const amountRaw = BigInt(Math.round(numericAmount * 1_000_000));
       const response = await createTrade(
         {
           buyerWallet: publicKey.toBase58(),
           sellerWallet: sellerWallet.trim() || publicKey.toBase58(),
-          amount: amountRaw.toString(10),
+          amount: amountRaw,
           tenor: tenorDays,
           name: orderName.trim() || null,
           remark: remark.trim() || null,
@@ -113,7 +114,7 @@ export default function NewTradePage() {
       await confirmTrade(response.tradeId, {
         buyerWallet: publicKey.toBase58(),
         sellerWallet: sellerWallet.trim() || publicKey.toBase58(),
-        amount: amountRaw.toString(10),
+        amount: amountRaw,
         tenor: tenorDays,
         txSignature,
         name: orderName.trim() || null,

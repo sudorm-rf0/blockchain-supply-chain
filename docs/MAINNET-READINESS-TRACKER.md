@@ -11,10 +11,10 @@
 | H-1 | 订单确认端点 400 | ✅ 已修 | ConfirmSignatureDto 增加可选 `confirm`；契约测试覆盖 |
 | H-2 | 翻译 IDOR | ✅ 已修 | translate 归属校验 + 公开接口不披露 file.id |
 | H-3 | trust proxy | ✅ 已修 | nginx 全 API 透传 XFF + 4 服务 trust proxy；实测 clientIp 已真实化 |
-| H-4 | 融资放款/还款零链上验证 | 🟡 需业务设计 | 需确定平台收款地址/资金流；不能零成本标记还清（前端已加二次确认，链上验证待设计） |
+| H-4 | 融资放款/还款零链上验证 | ✅ 已修（需配置） | 后端强制链上 USDC 转账证据校验（放款平台→申请人、还款申请人→平台），无证据拒绝置状态；需在 VPS 配置 `FINANCING_PLATFORM_WALLET`；含单测 |
 | H-5 | 提款零验证 | ✅ 已修 | executeWithdrawal 强制链上出金签名验证（USDC 转账指令匹配）；前端填写出金 txSignature |
 | H-6 | 生产默认口令 | ✅ 已修 | seed 拒绝默认/纯字母数字口令；模板删默认口令 |
-| H-7 | 合约无 PENDING 取消/退款 | 🔴 未修 | 合约层需新增指令 + 外部审计 + 多签；买方 30% 首付长期锁定风险 |
+| H-7 | 合约无 PENDING 取消/退款 | ✅ 代码已修（待外部审计+多签部署） | 合约新增 `cancel_deal`（PENDING 取消+首付退款）+ CANCELLED 终态全链路（indexer/后端/前端/迁移）+ 测试；**上线前仍需外部审计并多签部署** |
 
 ## 二、中危（审计报告三）
 
@@ -22,20 +22,20 @@
 |----|------|------|
 | 换绑邮箱只验新邮箱 | ✅ 已修 | 新旧邮箱双验证码校验 |
 | FileCompareDialog iframe XSS | ✅ 已修 | sandbox="allow-scripts" |
-| 金额浮点精度 | 🟡 待处理 | 涉及 trade/new/dashboard/financing，需十进制化改造（资金路径谨慎） |
+| 金额浮点精度 | ✅ 已修 | trade/new 与 financing 改用 BigInt 字符串解析（parseUsdcInput），杜绝浮点放大 1e6 精度丢失 |
 | 上传相机绕过校验 | ✅ 已修 | onDrop maxSize 兜底 |
 | 敏感操作无二次确认 | ✅ 已修 | 角色变更/融资还款加确认；提款需签名 |
-| 登出不彻底 | 🟡 待处理 | 全局会话架构改造 |
+| 登出不彻底 | ✅ 已修 | 登出清空 store + 断开钱包 + localStorage 广播多标签同步 |
 | Sidebar SSR 水合 | ✅ 已修 | 用 useSearchParams 替代 window |
-| 批量审核跨页残留 | 🟡 待处理 | admin/files（并行活跃文件） |
+| 批量审核跨页残留 | ✅ 已修 | 翻页/切换筛选时清空已选，防对不可见文件批量操作 |
 | 登录失败锁定 DoS | ⚠️ 缓解 | trust proxy 后按真实 IP，仍需监控 |
 | devCode 单防线 | ✅ 已具 | 生产 fail-closed |
 | Turnstile 未配置静默跳过 | ⚠️ 缓解 | 生产已配置 |
 | CSV 公式注入 | ✅ 已修 | escape 加单引号前缀 |
-| 监控 label 基数 | 🟡 待处理 | 运维项 |
+| 监控 label 基数 | ✅ 已修 | 路径 label 归一化（UUID/cuid/base58 段→:id），防 Prometheus 内存膨胀 |
 | 公开核验过度披露 | ✅ 已修 | 不披露 id |
-| 索引器 sync 竞态 | 🟡 待处理 | 并发读-改-写 |
-| 文件版本自增竞态 | 🟡 待处理 | files 并行活跃 |
+| 索引器 sync 竞态 | ✅ 已修 | 状态读-改-写放入 Serializable 事务，杜绝状态回退/跳级 |
+| 文件版本自增竞态 | ✅ 已修 | 版本 findFirst+supersede+create 包入 Serializable 事务 |
 | LP_MINT 默认=USDC | ⚠️ 已缓解 | 生产已区分；**主网 LP mint 需决策** |
 | createTrade 重复订单竞态 | ⚠️ 缓解 | 已有幂等键 + Conflict；彻底需事务锁 |
 

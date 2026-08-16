@@ -31,7 +31,7 @@ import { useUserStore } from "@/stores/user-store";
 import { useLanguage } from "@/components/LanguageProvider";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { NotificationBanner } from "@/components/NotificationBanner";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LOCALE_NAMES, type SupportedLocale } from "@/locales";
 import { SUPPORTED_LOCALES } from "@/lib/i18n";
 
@@ -42,6 +42,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { locale, setLocale } = useLanguage();
   const { t } = useTranslation();
+  const { disconnect } = useWallet();
 
   useEffect(() => {
     let active = true;
@@ -110,10 +111,34 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         : "border-muted bg-muted text-muted-foreground";
 
   const handleLogout = async () => {
-    await logoutApi();
+    try {
+      await logoutApi();
+    } catch {
+      // 即使后端登出失败也继续本地清理，避免会话残留。
+    }
+    // 审计中危-6：登出必须彻底 —— 清空内存态 store、断开钱包、广播给其他标签页。
+    useUserStore.getState().logout();
+    await disconnect().catch(() => undefined);
+    try {
+      localStorage.setItem("auth:logout:ts", String(Date.now()));
+    } catch {
+      // 隐私模式等场景忽略
+    }
     toast.success(t("shell.logoutSuccess"));
     router.push("/login");
   };
+
+  // 多标签页登出同步：任一标签登出后，其余标签立即清空会话，防止旧数据可见。
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "auth:logout:ts") {
+        useUserStore.getState().logout();
+        router.replace("/login");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [router]);
 
   return (
     <div className="flex h-screen overflow-hidden">
