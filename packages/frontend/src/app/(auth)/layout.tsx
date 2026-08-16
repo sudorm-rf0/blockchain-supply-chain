@@ -54,9 +54,9 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   ];
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
       {/* 品牌左栏（桌面端显示）：Industrial 终端面板 */}
-      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-[#000] p-10 text-[#EDEDED] lg:flex">
+      <div className="relative hidden min-w-0 flex-col justify-between overflow-hidden border-r border-border bg-[#000] p-10 text-[#EDEDED] lg:flex">
         {/* 发丝网格（缓慢呼吸） */}
         <div className="animate-grid-pulse pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,#ffffff10_1px,transparent_1px),linear-gradient(to_bottom,#ffffff10_1px,transparent_1px)] [background-size:40px_40px]" />
         {/* 顶部：品牌 + 在线状态（CSS 方块，非 unicode 图标） */}
@@ -121,7 +121,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* 表单右栏 */}
-      <div className="relative flex items-center justify-center bg-background p-6 pt-16 sm:p-6">
+      <div className="relative flex min-w-0 items-center justify-center bg-background p-4 pt-16 sm:p-6">
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-6 sm:top-6">
           <LanguageSwitcher />
           <ThemeToggle />

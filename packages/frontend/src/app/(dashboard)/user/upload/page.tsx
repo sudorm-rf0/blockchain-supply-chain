@@ -223,7 +223,7 @@ export default function UploadPage() {
           <CardTitle>{t("upload.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <p className="text-sm text-muted-foreground">
               {t("upload.attestHint")}
             </p>
