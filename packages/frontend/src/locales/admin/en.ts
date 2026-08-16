@@ -64,6 +64,7 @@ const en = {
   "accounts.createSuccess": "Account created",
   "accounts.createFailed": "Failed to create account",
   "accounts.roleUpdateSuccess": "Account role updated",
+  "accounts.roleChangeConfirm": "Change this user's role to the selected type? This is a sensitive action that takes effect immediately.",
   "accounts.roleUpdateFailed": "Update failed",
   "accounts.detailLoadFailed": "Failed to load account details",
   "accounts.addAdmin": "Add Admin",

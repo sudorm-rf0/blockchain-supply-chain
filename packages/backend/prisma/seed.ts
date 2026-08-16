@@ -15,9 +15,16 @@ async function seedAccount(
   },
 ): Promise<void> {
   const { email, password, name, role, isProduction } = opts;
-  if (isProduction && (!password || password.length < 12)) {
+  const DEFAULT_PASSWORDS = ["Admin123!", "SuperAdmin123!", "admin123", "password", "12345678"];
+  if (
+    isProduction &&
+    (!password ||
+      password.length < 12 ||
+      DEFAULT_PASSWORDS.includes(password) ||
+      /^[A-Za-z0-9]{12,}$/.test(password))
+  ) {
     console.error(
-      `Refusing to seed ${role} with a weak/default password in production. Set a strong secret.`,
+      `Refusing to seed ${role} with a weak/default password in production. Set a strong secret (min 12 chars, mix of letters/digits/symbols).`,
     );
     process.exit(1);
   }

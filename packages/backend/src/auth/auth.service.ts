@@ -811,6 +811,7 @@ export class AuthService {
     emailCode: string,
     turnstileToken?: string,
     totpCode?: string,
+    currentEmailCode?: string,
   ): Promise<PublicUser> {
     if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
@@ -821,6 +822,12 @@ export class AuthService {
     if (!user.email || user.email.toLowerCase() === normalized) {
       throw new BadRequestException("新邮箱不能与当前邮箱相同");
     }
+    // 账号劫持防护（审计⑥）：改绑邮箱必须同时通过「当前邮箱」验证码，
+    // 防止会话被窃取后仅凭新邮箱验证码静默改绑并接管账号。
+    if (!currentEmailCode || !/^\d{6}$/.test(currentEmailCode)) {
+      throw new BadRequestException("请输入发送到当前邮箱的验证码");
+    }
+    await this.emailVerification.verifyCode(user.email, currentEmailCode);
     const existing = await this.prisma.user.findUnique({
       where: { email: normalized },
       select: { id: true },

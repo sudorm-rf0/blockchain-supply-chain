@@ -64,6 +64,7 @@ const zh_CN = {
   "accounts.createSuccess": "账号已创建",
   "accounts.createFailed": "创建失败",
   "accounts.roleUpdateSuccess": "账户类型已更新",
+  "accounts.roleChangeConfirm": "确定将该用户账户类型变更为所选角色？此操作敏感且会立即生效。",
   "accounts.roleUpdateFailed": "更新失败",
   "accounts.detailLoadFailed": "加载详情失败",
   "accounts.addAdmin": "添加管理员",

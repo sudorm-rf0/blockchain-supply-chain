@@ -64,6 +64,7 @@ const zh_TW = {
   "accounts.createSuccess": "帳號已建立",
   "accounts.createFailed": "建立失敗",
   "accounts.roleUpdateSuccess": "帳戶類型已更新",
+  "accounts.roleChangeConfirm": "確定將該用戶帳戶類型變更為所選角色？此操作敏感且會立即生效。",
   "accounts.roleUpdateFailed": "更新失敗",
   "accounts.detailLoadFailed": "載入詳情失敗",
   "accounts.addAdmin": "新增管理員",

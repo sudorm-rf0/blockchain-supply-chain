@@ -185,11 +185,18 @@ export async function changeEmail(
   emailCode: string,
   turnstileToken?: string,
   totpCode?: string,
+  currentEmailCode?: string,
 ): Promise<{ ok: boolean; user: AuthUser }> {
   return request(`${BACKEND_URL}/api/auth/change-email`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ newEmail, emailCode, turnstileToken, totpCode }),
+    body: JSON.stringify({
+      newEmail,
+      emailCode,
+      turnstileToken,
+      totpCode,
+      currentEmailCode,
+    }),
   });
 }
 

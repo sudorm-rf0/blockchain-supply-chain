@@ -92,9 +92,12 @@ export default function AccountPage() {
   // 邮箱修改（开启两步验证后还需 TOTP 验证码）
   const [newEmail, setNewEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
+  const [currentEmailCode, setCurrentEmailCode] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [emailCooldown, setEmailCooldown] = useState(0);
+  const [currentEmailCooldown, setCurrentEmailCooldown] = useState(0);
   const [emailSending, setEmailSending] = useState(false);
+  const [currentEmailSending, setCurrentEmailSending] = useState(false);
   const [emailBusy, setEmailBusy] = useState(false);
 
   // 密码修改
@@ -130,6 +133,12 @@ export default function AccountPage() {
     const timer = setInterval(() => setEmailCooldown((c) => c - 1), 1000);
     return () => clearInterval(timer);
   }, [emailCooldown]);
+
+  useEffect(() => {
+    if (currentEmailCooldown <= 0) return;
+    const timer = setInterval(() => setCurrentEmailCooldown((c) => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, [currentEmailCooldown]);
 
   useEffect(() => {
     if (pwCooldown <= 0) return;
@@ -214,10 +223,32 @@ export default function AccountPage() {
     }
   };
 
+  const handleSendCurrentEmailCode = async () => {
+    if (!user?.email) {
+      toast.error(t("account.emailRequired"));
+      return;
+    }
+    setCurrentEmailSending(true);
+    try {
+      const r = await sendEmailCode(user.email);
+      setCurrentEmailCooldown(r.cooldownSeconds ?? 60);
+      toast.success(t("account.currentEmailSent"));
+      if (shouldShowSpamHint()) setSpamOpen(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("account.sendFailed"));
+    } finally {
+      setCurrentEmailSending(false);
+    }
+  };
+
   const handleChangeEmail = async () => {
     const email = newEmail.trim();
     if (!email || !/^\d{6}$/.test(emailCode)) {
       toast.error(t("account.emailCodeRequired"));
+      return;
+    }
+    if (!/^\d{6}$/.test(currentEmailCode)) {
+      toast.error(t("account.currentEmailCodeRequired"));
       return;
     }
     if (totpEnabled && !/^\d{6}$/.test(totpCode)) {
@@ -235,11 +266,13 @@ export default function AccountPage() {
         emailCode,
         emailTurnstile || undefined,
         totpEnabled ? totpCode : undefined,
+        currentEmailCode,
       );
       setAuth(result.user);
       toast.success(t("account.emailChanged"));
       setNewEmail("");
       setEmailCode("");
+      setCurrentEmailCode("");
       setEmailTurnstile("");
       setEmailCaptchaKey((k) => k + 1);
     } catch (error) {
@@ -439,6 +472,18 @@ export default function AccountPage() {
               onChange={setTotpCode}
             />
           )}
+          <SensitiveCodeField
+            id="currentEmailCode"
+            totpEnabled={false}
+            value={currentEmailCode}
+            onChange={setCurrentEmailCode}
+            onSend={() => void handleSendCurrentEmailCode()}
+            sending={currentEmailSending}
+            cooldown={currentEmailCooldown}
+            emailHint={t("account.currentEmailCodeHint", {
+              email: user.email ?? "",
+            })}
+          />
           <SensitiveCodeField
             id="emailCode"
             totpEnabled={false}

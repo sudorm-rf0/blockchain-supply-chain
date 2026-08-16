@@ -43,7 +43,7 @@ function PreviewPane({ file, url }: { file: FileRecord; url: string | null }) {
         {isImage && url ? (
           <Image src={url} alt={file.filename} fill unoptimized className="object-contain" />
         ) : isPdf && url ? (
-          <iframe src={url} title={file.filename} className="h-full w-full" />
+          <iframe src={url} title={file.filename} className="h-full w-full" sandbox="allow-scripts" />
         ) : (
           <p className="text-sm text-muted-foreground">{t("files.compareUnavailable")}</p>
         )}

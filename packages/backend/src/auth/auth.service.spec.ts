@@ -770,7 +770,49 @@ describe("AuthService", () => {
     expect(result.user.emailOtpEnabled).toBe(true);
   });
 
+  it("changeEmail requires both current and new email codes (anti-hijack)", async () => {
+    const prisma = makePrisma();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      emailVerification as never,
+      makeSettings() as never,
+    );
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: "u1",
+      email: "old@example.com",
+      name: "A",
+      role: "USER",
+      totpEnabled: false,
+    });
+    // 缺少当前邮箱验证码 -> 拒绝
+    await expect(
+      service.changeEmail("u1", "new@example.com", "123456"),
+    ).rejects.toThrow("当前邮箱");
+    // 提供当前邮箱验证码 -> 双校验都执行
+    await service.changeEmail(
+      "u1",
+      "new@example.com",
+      "123456",
+      undefined,
+      undefined,
+      "654321",
+    );
+    expect(emailVerification.verifyCode).toHaveBeenCalledWith(
+      "old@example.com",
+      "654321",
+    );
+    expect(emailVerification.verifyCode).toHaveBeenCalledWith(
+      "new@example.com",
+      "123456",
+    );
+  });
+
   it("changePassword requires and verifies an email code", async () => {
+
     const prisma = makePrisma();
     const emailVerification = makeEmailVerification();
     const service = new AuthService(

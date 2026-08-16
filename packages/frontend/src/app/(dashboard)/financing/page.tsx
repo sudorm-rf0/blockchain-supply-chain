@@ -98,6 +98,7 @@ export default function FinancingPage() {
   };
 
   const handleRepay = async (id: string) => {
+    if (!window.confirm(t("financing.repayConfirm"))) return;
     try {
       await repayFinancing(id);
       toast.success(t("financing.repaid"));

@@ -10,6 +10,11 @@ export class ChangeEmailDto {
   @Matches(/^\d{6}$/, { message: "邮箱验证码为 6 位数字" })
   emailCode!: string;
 
+  /** 发送到当前邮箱的验证码（6 位数字）——账号劫持防护：改绑邮箱需新旧邮箱双确认 */
+  @IsString()
+  @Matches(/^\d{6}$/, { message: "当前邮箱验证码为 6 位数字" })
+  currentEmailCode!: string;
+
   /** 两步验证码（开启 TOTP 后必填，6 位数字） */
   @IsOptional()
   @IsString()

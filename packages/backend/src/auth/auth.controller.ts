@@ -242,6 +242,7 @@ export class AuthController {
       body.emailCode,
       body.turnstileToken,
       body.totpCode,
+      body.currentEmailCode,
     );
     return { ok: true, user };
   }

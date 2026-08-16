@@ -122,7 +122,11 @@ export class AuditService {
     const batchSize = 2_000;
     const prisma = this.prisma;
     const escape = (value: unknown): string => {
-      const text = value === null || value === undefined ? "" : String(value);
+      let text = value === null || value === undefined ? "" : String(value);
+      // CSV 注入防护（审计中危）：以 = + - @ 开头的单元格前加单引号，避免公式执行
+      if (/^[=+\-@]/.test(text)) {
+        text = `'${text}`;
+      }
       return `"${text.replace(/"/g, '""')}"`;
     };
     const header = ["id", "createdAt", "actorId", "actorEmail", "action", "targetType", "targetId", "metadata"];

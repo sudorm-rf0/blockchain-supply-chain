@@ -81,6 +81,12 @@ export default function UploadPage() {
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted.length === 0) return;
+    // 相机入口绕过 dropzone 的 accept/maxSize 校验，这里统一兜底
+    const overSize = accepted.find((f) => f.size > MAX_SIZE);
+    if (overSize) {
+      toast.error(t("upload.toasts.tooLarge"));
+      return;
+    }
     const next: UploadItem[] = accepted.map((f) => ({
       localId: nextLocalId(),
       file: f,

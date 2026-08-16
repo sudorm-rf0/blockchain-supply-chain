@@ -130,6 +130,7 @@ export default function AccountsPage() {
   };
 
   const handleRoleChange = async (id: string, role: AccountRole) => {
+    if (!window.confirm(t("accounts.roleChangeConfirm"))) return;
     try {
       await changeAccountRole(id, role);
       toast.success(t("accounts.roleUpdateSuccess"));
