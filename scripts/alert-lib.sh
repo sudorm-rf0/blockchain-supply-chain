@@ -22,6 +22,11 @@ alert() { # key subject body
   if python3 "$ALERT_BIN" "$subject" "$body"; then
     echo "$now" > "$state"
   fi
+  # AI 运维自愈代理（后台非阻塞；未配置密钥时静默跳过）
+  if [ -x /opt/supply-chain/scripts/ai-agent.py ] && [ -f /etc/supply-chain-ai.env ]; then
+    printf '%s' "$body" | python3 /opt/supply-chain/scripts/ai-agent.py "$key" "$subject" \
+      >> /var/log/supply-chain-ai-agent.log 2>&1 &
+  fi
 }
 
 alert_recover() { # key subject body —— 恢复后发一次通知并清冷却
