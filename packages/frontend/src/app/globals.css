@@ -55,8 +55,8 @@
 
 @layer base {
   html {
-    /* 全站基础字号 18px（默认 16px），所有 rem 文字等比放大 12.5%，提升可读性 */
-    font-size: 18px;
+    /* 全站基础字号 17px（默认 16px），所有 rem 文字等比放大约 6%，提升可读性 */
+    font-size: 17px;
   }
   * {
     @apply border-border;
