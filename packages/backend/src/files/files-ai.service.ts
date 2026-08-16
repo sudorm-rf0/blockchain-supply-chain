@@ -24,6 +24,7 @@ import { AiLlmService, type AiChatMessage } from "../ai/ai-llm.service";
 import { RedisService } from "@supply-chain/common";
 import type { StorageService } from "../storage/storage.service";
 import type { AiChatDto } from "./dto/ai-chat.dto";
+import type { AiCompareDto } from "./dto/ai-compare.dto";
 
 /** AI 能力开关由环境变量控制：AI_API_KEY 未配置时返回 503（fail-closed）。 */
 const MAX_CONTEXT_CHARS = 12000;
@@ -238,6 +239,46 @@ export class FilesAiService {
       metadata: { model: this.llm.modelName },
     });
     return { summary };
+  }
+
+  /** AI 单据比对：发票/装箱单/报关单等两份单据一致性校验 */
+  async compare(fileId: string, userId: string, role: string, dto: AiCompareDto) {
+    await this.consumeQuota(userId);
+    const fileA = await this.requireFile(fileId, userId, role);
+    const fileB = await this.requireFile(dto.compareFileId, userId, role);
+    const textA = await this.resolveOcrText(fileA);
+    const textB = await this.resolveOcrText(fileB);
+    const context = `单据 A（${fileA.filename}）：\n${this.buildContext(fileA, textA)}\n\n单据 B（${fileB.filename}）：\n${this.buildContext(fileB, textB)}`;
+    const raw = await this.llm.complete([
+      {
+        role: "system",
+        content:
+          "你是供应链金融单据比对专家。比较两份单据（如发票与装箱单/报关单）的品名、数量、重量、金额、买卖双方、日期等字段是否一致。输出一个 JSON 对象（不要输出 JSON 以外的任何内容），结构为：" +
+          '{"consistent":true或false,"summary":"总体结论","differences":[{"field":"字段","a":"单据A值","b":"单据B值","note":"说明"}],"suggestions":["建议"]}。' +
+          "识别不到的字段填 null。字段值用自然语言，不要使用列表、编号、加粗、Markdown、表格或 emoji；禁止出现星号 *、杠（-、—、–）、省略号（…）、竖线 | 等符号。",
+      },
+      { role: "user", content: context },
+    ]);
+    const parsed = this.parseJsonObject<{
+      consistent?: boolean;
+      summary?: string;
+      differences?: Array<{ field: string; a: string | null; b: string | null; note: string }>;
+      suggestions?: string[];
+    }>(raw);
+    const result = {
+      consistent: parsed?.consistent === true,
+      summary: parsed?.summary ?? raw,
+      differences: Array.isArray(parsed?.differences) ? parsed.differences : [],
+      suggestions: Array.isArray(parsed?.suggestions) ? parsed.suggestions : [],
+    };
+    await this.audit.record({
+      actorId: userId,
+      action: "FILE_AI_COMPARED",
+      targetType: "FILE",
+      targetId: fileId,
+      metadata: { model: this.llm.modelName, compareFileId: dto.compareFileId, consistent: result.consistent },
+    });
+    return result;
   }
 
   /** 生成 AI 审核报告（摘要 + 风险评估 + 建议） */

@@ -223,6 +223,24 @@ export async function aiSummarizeFile(
   });
 }
 
+export interface AiCompareResult {
+  consistent: boolean;
+  summary: string;
+  differences: Array<{ field: string; a: string | null; b: string | null; note: string }>;
+  suggestions: string[];
+}
+
+export async function aiCompareFile(
+  fileId: string,
+  compareFileId: string,
+): Promise<AiCompareResult> {
+  return request(`${BACKEND_URL}/api/files/${fileId}/ai/compare`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ compareFileId }),
+  });
+}
+
 export async function aiChatFile(
   fileId: string,
   body: { message: string; history?: AiChatMessage[] },

@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -22,6 +23,14 @@ export class AdminFeedbackController {
   @ApiOperation({ summary: "意见反馈列表（管理员）" })
   list(@Query("status") status?: string) {
     return this.feedbackService.list(status);
+  }
+
+  @Get("export")
+  @Header("Content-Type", "text/csv; charset=utf-8")
+  @Header("Content-Disposition", 'attachment; filename="feedback.csv"')
+  @ApiOperation({ summary: "导出意见反馈 CSV（管理员）" })
+  exportCsv() {
+    return this.feedbackService.exportCsv();
   }
 
   @Post(":id/process")

@@ -49,11 +49,13 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  aiReviewFile,
   analyzeFile,
   batchReviewFiles,
   getFile,
   getFiles,
   reviewFile,
+  type AiReviewReport,
   type FileRecord,
 } from "@/lib/api";
 import { AiAssistantDialog } from "@/components/AiAssistantDialog";
@@ -63,6 +65,12 @@ import { regionLabel } from "@/lib/region";
 import { fileStatusClass } from "@/lib/status";
 
 const LIMIT = 10;
+
+const RISK_STYLE: Record<string, string> = {
+  LOW: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+  MEDIUM: "bg-amber-500/10 text-amber-600 border-amber-500/30",
+  HIGH: "bg-red-500/10 text-red-600 border-red-500/30",
+};
 
 export default function AdminFilesPage({
   searchParams,
@@ -98,6 +106,16 @@ export default function AdminFilesPage({
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchReason, setBatchReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [batchAiOpen, setBatchAiOpen] = useState(false);
+  const [batchAiRunning, setBatchAiRunning] = useState(false);
+  const [batchAiResults, setBatchAiResults] = useState<
+    Array<{
+      filename: string;
+      riskLevel: string;
+      summary: string;
+      error?: string;
+    }>
+  >([]);
 
   // 跟随 URL 的 status 参数：点击侧边栏「文件审核/全部文件」时，列表内容与高亮同步切换。
   useEffect(() => {
@@ -195,6 +213,43 @@ export default function AdminFilesPage({
     }
   };
 
+  const runBatchAi = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBatchAiRunning(true);
+    setBatchAiResults([]);
+    setBatchAiOpen(true);
+    try {
+      const results: Array<{
+        filename: string;
+        riskLevel: string;
+        summary: string;
+        error?: string;
+      }> = [];
+      for (const id of ids) {
+        const file = files.find((f) => f.id === id);
+        try {
+          const report: AiReviewReport = await aiReviewFile(id);
+          results.push({
+            filename: file?.filename ?? id,
+            riskLevel: report.riskLevel,
+            summary: report.summary,
+          });
+        } catch (error) {
+          results.push({
+            filename: file?.filename ?? id,
+            riskLevel: "ERROR",
+            summary: "",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      setBatchAiResults(results);
+    } finally {
+      setBatchAiRunning(false);
+    }
+  };
+
   const reject = async () => {
     if (!rejectId) return;
     setBusy(true);
@@ -251,6 +306,15 @@ export default function AdminFilesPage({
                 onClick={() => setBatchRejectOpen(true)}
               >
                 {t("files.batchReject")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy || batchAiRunning}
+                onClick={() => void runBatchAi()}
+              >
+                <Bot className="mr-1.5 h-3.5 w-3.5" />
+                {batchAiRunning ? t("files.batchAiRunning") : t("files.batchAi")}
               </Button>
             </>
           )}
@@ -422,6 +486,38 @@ export default function AdminFilesPage({
         onOpenChange={(open) => !open && setPreviewId(null)}
         fileId={previewId}
       />
+
+      <Dialog open={batchAiOpen} onOpenChange={setBatchAiOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("files.batchAiTitle", { n: selectedIds.size })}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {batchAiRunning && batchAiResults.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t("files.batchAiRunning")}</p>
+            )}
+            {batchAiResults.map((r, i) => (
+              <div key={i} className="rounded-md border p-2.5 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-medium">{r.filename}</span>
+                  {r.error ? (
+                    <span className="shrink-0 text-xs text-red-600">{r.error}</span>
+                  ) : (
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${
+                        RISK_STYLE[r.riskLevel] ?? ""
+                      }`}
+                    >
+                      {t(`files.ai.risk.${r.riskLevel}`, { defaultValue: r.riskLevel })}
+                    </span>
+                  )}
+                </div>
+                {r.summary && <p className="mt-1 text-muted-foreground">{r.summary}</p>}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {aiFile && (
         <AiAssistantDialog

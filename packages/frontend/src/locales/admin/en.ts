@@ -281,5 +281,16 @@ const en = {
   "settings.notifications.withdrawalStatus": "Withdrawal status",
   "settings.notifications.system": "System messages",
   "settings.notificationsHint": "Notification toggles take effect with the notification center",
+  "files.ai.tab.compare": "Compare",
+  "files.ai.comparePlaceholder": "Select another document to compare",
+  "files.ai.compareButton": "Compare",
+  "files.ai.comparing": "Comparing two documents...",
+  "files.ai.compareConsistent": "Consistent",
+  "files.ai.compareInconsistent": "Differences found",
+  "files.ai.differences": "Differences",
+  "files.ai.suggestions": "Suggestions",
+  "files.batchAi": "AI Batch Review",
+  "files.batchAiRunning": "Running AI batch review...",
+  "files.batchAiTitle": "AI batch review results ({{n}})",
 };
 export default en;

@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Languages, LogOut, Menu, ShieldCheck, User as UserIcon, UserCog } from "lucide-react";
 import { toast } from "sonner";
@@ -210,6 +211,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </header>
         <NotificationBanner />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+        <footer className="flex items-center justify-center gap-4 py-2 text-xs text-muted-foreground">
+          <Link href="/terms" className="underline-offset-4 hover:underline">
+            {t("legal.termsLink")}
+          </Link>
+          <Link href="/privacy" className="underline-offset-4 hover:underline">
+            {t("legal.privacyLink")}
+          </Link>
+        </footer>
       </div>
       <AiAssistant />
     </div>

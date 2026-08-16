@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, RefreshCw } from "lucide-react";
+import { CheckCircle2, Download, RefreshCw } from "lucide-react";
+import { BACKEND_URL } from "@/lib/env";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,12 @@ export default function AdminFeedbackPage() {
               <SelectItem value="PROCESSED">{t("feedbackAdmin.statusProcessed")}</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`${BACKEND_URL}/api/admin/feedback/export`}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {t("feedbackAdmin.exportCsv")}
+            </a>
+          </Button>
           <Button variant="outline" size="sm" onClick={() => void load()}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             {t("feedbackAdmin.refresh")}

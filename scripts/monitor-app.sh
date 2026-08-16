@@ -102,6 +102,15 @@ else
   alert_reset app-repay-due
 fi
 
+# 3.9) ClamAV 容器健康（病毒扫描依赖；unhealthy/停止时告警）
+clam_st=$(docker inspect --format '{{.State.Health.Status}}' supply-chain-clamav 2>/dev/null || echo "missing")
+if [ "$clam_st" = "healthy" ]; then
+  alert_reset app-clamav
+else
+  alert app-clamav "[系统告警] ClamAV 异常" "${DATE}
+supply-chain-clamav 状态：${clam_st}，请检查容器日志（病毒扫描将降级跳过）。"
+fi
+
 # 3) 每日备份产物检查（backup 容器每天 02:00 写入 /backups）
 backups="/backups"
 if [ -d "$backups" ]; then

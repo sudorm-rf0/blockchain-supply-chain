@@ -281,5 +281,16 @@ const zh_TW = {
   "settings.notifications.withdrawalStatus": "提款狀態通知",
   "settings.notifications.system": "系統訊息通知",
   "settings.notificationsHint": "通知開關將隨通知中心功能生效",
+  "files.ai.tab.compare": "比對",
+  "files.ai.comparePlaceholder": "選擇待比對的另一份單據",
+  "files.ai.compareButton": "開始比對",
+  "files.ai.comparing": "正在比對兩份單據...",
+  "files.ai.compareConsistent": "一致",
+  "files.ai.compareInconsistent": "存在差異",
+  "files.ai.differences": "差異項",
+  "files.ai.suggestions": "建議",
+  "files.batchAi": "AI 批次審核",
+  "files.batchAiRunning": "AI 批次審核中，請稍候...",
+  "files.batchAiTitle": "AI 批次審核結果（{{n}} 份）",
 };
 export default zh_TW;

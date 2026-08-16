@@ -152,6 +152,7 @@ const zh_TW = {
   "feedbackAdmin.noContact": "未填寫",
   "feedbackAdmin.markProcessed": "標記已處理",
   "feedbackAdmin.processed": "已標記為處理",
+  "feedbackAdmin.exportCsv": "匯出 CSV",
   "aiStats.title": "AI 用量統計",
   "aiStats.loadFailed": "載入統計失敗",
   "aiStats.loading": "載入中...",

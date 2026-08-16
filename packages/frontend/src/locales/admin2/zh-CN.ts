@@ -152,6 +152,7 @@ const zh_CN = {
   "feedbackAdmin.noContact": "未填写",
   "feedbackAdmin.markProcessed": "标记已处理",
   "feedbackAdmin.processed": "已标记为处理",
+  "feedbackAdmin.exportCsv": "导出 CSV",
   "aiStats.title": "AI 用量统计",
   "aiStats.loadFailed": "加载统计失败",
   "aiStats.loading": "加载中...",

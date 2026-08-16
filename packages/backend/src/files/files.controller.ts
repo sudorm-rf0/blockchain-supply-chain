@@ -32,6 +32,7 @@ import { ReviewFileDto } from "./dto/review-file.dto";
 import { BatchReviewDto } from "./dto/batch-review.dto";
 import { UploadFileDto } from "./dto/upload-file.dto";
 import { AiChatDto } from "./dto/ai-chat.dto";
+import { AiCompareDto } from "./dto/ai-compare.dto";
 import type { FileStatus } from "@prisma/client";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -95,6 +96,17 @@ export class FilesController {
   @UseGuards(AuthGuard)
   aiReview(@Param("id") id: string, @Req() req: Request) {
     return this.aiService.review(id, req.user!.sub, req.user!.role);
+  }
+
+  /** AI 单据比对：与另一份单据做一致性校验 */
+  @Post(":id/ai/compare")
+  @UseGuards(AuthGuard)
+  aiCompare(
+    @Param("id") id: string,
+    @Body() body: AiCompareDto,
+    @Req() req: Request,
+  ) {
+    return this.aiService.compare(id, req.user!.sub, req.user!.role, body);
   }
 
   /** AI 结构化关键信息提取（发票/合同/报关单等字段） */

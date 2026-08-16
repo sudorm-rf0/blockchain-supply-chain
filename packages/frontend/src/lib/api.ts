@@ -39,6 +39,7 @@ export {
   aiReviewFile,
   aiExtractFile,
   aiSummarizeFile,
+  aiCompareFile,
   aiChatFile,
 } from "./files-api";
 export type {
@@ -46,6 +47,7 @@ export type {
   FilesResponse,
   AiReviewReport,
   AiChatMessage,
+  AiCompareResult,
 } from "./files-api";
 export { submitFeedback, fetchFeedbackList, processFeedback } from "./feedback-api";
 export type { FeedbackItem } from "./feedback-api";

@@ -255,6 +255,14 @@ export default function LoginPage() {
         </CardContent>
     </Card>
       <SpamWarningDialog open={spamOpen} onOpenChange={setSpamOpen} />
+      <footer className="flex items-center justify-center gap-4 pb-4 text-xs text-muted-foreground">
+        <Link href="/terms" className="underline-offset-4 hover:underline">
+          {t("legal.termsLink")}
+        </Link>
+        <Link href="/privacy" className="underline-offset-4 hover:underline">
+          {t("legal.privacyLink")}
+        </Link>
+      </footer>
     </>
   );
 }

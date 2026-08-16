@@ -281,5 +281,16 @@ const zh_CN = {
   "settings.notifications.withdrawalStatus": "提款状态通知",
   "settings.notifications.system": "系统消息通知",
   "settings.notificationsHint": "通知开关将随通知中心功能生效",
+  "files.ai.tab.compare": "比对",
+  "files.ai.comparePlaceholder": "选择待比对的另一份单据",
+  "files.ai.compareButton": "开始比对",
+  "files.ai.comparing": "正在比对两份单据...",
+  "files.ai.compareConsistent": "一致",
+  "files.ai.compareInconsistent": "存在差异",
+  "files.ai.differences": "差异项",
+  "files.ai.suggestions": "建议",
+  "files.batchAi": "AI 批量审核",
+  "files.batchAiRunning": "AI 批量审核中，请稍候...",
+  "files.batchAiTitle": "AI 批量审核结果（{{n}} 份）",
 };
 export default zh_CN;

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Bot, FileSearch, ListChecks, Loader2, MessageSquareText, Send, Sparkles } from "lucide-react";
+import { Bot, FileSearch, ListChecks, Loader2, MessageSquareText, Scale, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +14,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   aiChatFile,
+  aiCompareFile,
   aiExtractFile,
   aiReviewFile,
   aiSummarizeFile,
+  getFiles,
   type AiChatMessage,
+  type AiCompareResult,
   type AiReviewReport,
   type FileRecord,
 } from "@/lib/api";
@@ -30,7 +40,7 @@ interface AiAssistantDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type View = "review" | "extract" | "summary" | "chat";
+type View = "review" | "extract" | "summary" | "compare" | "chat";
 
 const RISK_STYLE: Record<string, string> = {
   LOW: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
@@ -66,6 +76,11 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
   const [summaryText, setSummaryText] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [compareFiles, setCompareFiles] = useState<FileRecord[]>([]);
+  const [compareFileId, setCompareFileId] = useState("");
+  const [compareResult, setCompareResult] = useState<AiCompareResult | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -80,6 +95,10 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
     setExtractError(null);
     setSummaryText(null);
     setSummaryError(null);
+    setCompareFiles([]);
+    setCompareFileId("");
+    setCompareResult(null);
+    setCompareError(null);
     setMessages([]);
     setInput("");
     setReportLoading(true);
@@ -121,10 +140,35 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
     }
   };
 
+  const loadCompareFiles = async () => {
+    if (compareFiles.length > 0) return;
+    try {
+      const data = await getFiles({ page: 1, limit: 200 });
+      setCompareFiles(data.items.filter((f) => f.id !== file.id));
+    } catch {
+      // 列表加载失败不阻塞
+    }
+  };
+
+  const runCompare = async () => {
+    if (!compareFileId || compareLoading) return;
+    setCompareLoading(true);
+    setCompareError(null);
+    try {
+      const result = await aiCompareFile(file.id, compareFileId);
+      setCompareResult(result);
+    } catch (error) {
+      setCompareError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
   const onSelectView = (next: View) => {
     setView(next);
     if (next === "extract") void loadExtract();
     if (next === "summary") void loadSummary();
+    if (next === "compare") void loadCompareFiles();
   };
 
   const handleSend = async () => {
@@ -152,6 +196,7 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
     { key: "review", label: t("files.ai.tab.review"), icon: ListChecks },
     { key: "extract", label: t("files.ai.tab.extract"), icon: FileSearch },
     { key: "summary", label: t("files.ai.tab.summary"), icon: Sparkles },
+    { key: "compare", label: t("files.ai.tab.compare"), icon: Scale },
     { key: "chat", label: t("files.ai.tab.chat"), icon: MessageSquareText },
   ];
 
@@ -272,6 +317,97 @@ export function AiAssistantDialog({ file, open, onOpenChange }: AiAssistantDialo
             ) : summaryText ? (
               <p className="whitespace-pre-line text-sm leading-6 text-foreground">{summaryText}</p>
             ) : null}
+          </div>
+        )}
+
+        {view === "compare" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Select
+                value={compareFileId}
+                onValueChange={setCompareFileId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("files.ai.comparePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {compareFiles.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.filename}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                disabled={!compareFileId || compareLoading}
+                onClick={() => void runCompare()}
+              >
+                {compareLoading ? (
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Scale className="mr-1 h-3.5 w-3.5" />
+                )}
+                {t("files.ai.compareButton")}
+              </Button>
+            </div>
+
+            {compareLoading && (
+              <p className="text-sm text-muted-foreground">{t("files.ai.comparing")}</p>
+            )}
+            {compareError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{compareError}</p>
+            )}
+            {compareResult && !compareLoading && (
+              <div className="rounded-md border p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+                      compareResult.consistent
+                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                        : "bg-red-500/10 text-red-600 border-red-500/30"
+                    }`}
+                  >
+                    {compareResult.consistent
+                      ? t("files.ai.compareConsistent")
+                      : t("files.ai.compareInconsistent")}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground">{compareResult.summary}</p>
+                {compareResult.differences.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {t("files.ai.differences")}
+                    </p>
+                    {compareResult.differences.map((d, i) => (
+                      <div
+                        key={i}
+                        className="rounded border border-red-500/20 bg-red-50 p-2 text-xs dark:bg-red-950/20"
+                      >
+                        <p className="font-medium text-red-700 dark:text-red-300">
+                          {d.field}: {d.a ?? "-"} vs {d.b ?? "-"}
+                        </p>
+                        {d.note && (
+                          <p className="mt-0.5 text-muted-foreground">{d.note}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {compareResult.suggestions.length > 0 && (
+                  <div className="mt-2 space-y-0.5">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {t("files.ai.suggestions")}
+                    </p>
+                    {compareResult.suggestions.map((sugg, i) => (
+                      <p key={i} className="text-xs text-muted-foreground">
+                        {sugg}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

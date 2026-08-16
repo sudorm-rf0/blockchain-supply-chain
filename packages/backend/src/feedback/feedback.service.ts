@@ -145,6 +145,23 @@ export class FeedbackService {
     }));
   }
 
+  /** 管理端：导出 CSV */
+  async exportCsv(): Promise<string> {
+    const rows = await this.prisma.feedback.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+    });
+    const esc = (v: string | null | undefined) =>
+      `"${(v ?? "").replace(/"/g, '""')}"`;
+    const header = ["id", "userEmail", "contact", "status", "content", "createdAt"].join(",");
+    const lines = rows.map((r) =>
+      [r.id, r.userEmail, r.contact, r.status, r.content, r.createdAt.toISOString()]
+        .map(esc)
+        .join(","),
+    );
+    return [header, ...lines].join("\n");
+  }
+
   /** 管理端：标记反馈已处理 */
   async markProcessed(id: string) {
     const existing = await this.prisma.feedback.findUnique({ where: { id } });

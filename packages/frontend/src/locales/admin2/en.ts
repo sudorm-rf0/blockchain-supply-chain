@@ -152,6 +152,7 @@ const en = {
   "feedbackAdmin.noContact": "Not provided",
   "feedbackAdmin.markProcessed": "Mark processed",
   "feedbackAdmin.processed": "Marked as processed",
+  "feedbackAdmin.exportCsv": "Export CSV",
   "aiStats.title": "AI Usage Stats",
   "aiStats.loadFailed": "Failed to load stats",
   "aiStats.loading": "Loading...",
