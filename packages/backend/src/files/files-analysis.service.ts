@@ -324,7 +324,8 @@ export class FilesAnalysisService {
         try {
           const textLayer = await this.extractPdfText(tmp);
           if (textLayer.length >= MIN_PDF_TEXT_CHARS) {
-            ocrText = textLayer;
+            // pdftotext 输出同样做噪声清洗（行尾符号/全角转半角等）
+            ocrText = this.cleanOcrText(textLayer);
             ocrSource = "pdftotext";
           }
         } catch (e) {
