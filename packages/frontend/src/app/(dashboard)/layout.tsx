@@ -143,11 +143,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             className="animate-gradient-x pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#00E676]/40 to-transparent"
           />
           {/* 移动端：左侧固定汉堡按钮占位，将品牌图标右移避开遮挡（md 以上按钮隐藏，恢复原位） */}
-          <div className="flex items-center gap-2 pl-11 md:pl-0">
-            <LogoMark className="h-7 w-7" />
-            <span className="font-mono font-semibold tracking-wide">{t("shell.appName")}</span>
+          <div className="flex min-w-0 items-center gap-2 pl-11 md:pl-0">
+            <LogoMark className="h-7 w-7 shrink-0" />
+            {/* 小屏自动隐藏品牌文字，避免与汉堡按钮/右侧控件重叠或受遮挡 */}
+            <span className="hidden truncate font-mono font-semibold tracking-wide sm:inline">
+              {t("shell.appName")}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <NetworkBadge />
             <WalletConnectButton />
             <ThemeToggle />
