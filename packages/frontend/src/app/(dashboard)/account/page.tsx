@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Mail, Lock, KeyRound, MessageSquareText, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -577,6 +578,16 @@ export default function AccountPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* 隐私条款 / 隐私政策（简洁小链接） */}
+      <footer className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        <Link href="/terms" className="underline-offset-4 hover:underline">
+          {t("legal.termsLink")}
+        </Link>
+        <Link href="/privacy" className="underline-offset-4 hover:underline">
+          {t("legal.privacyLink")}
+        </Link>
+      </footer>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
