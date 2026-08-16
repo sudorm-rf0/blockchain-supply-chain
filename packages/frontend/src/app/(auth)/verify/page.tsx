@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
-import { ExternalLink, Loader2, Route, ShieldCheck, ShieldX, FileSearch } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, Route, ShieldCheck, ShieldX, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ function classify(input: string): { param: string; value: string } {
 
 export default function VerifyPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const params = useSearchParams();
   const hash = params.get("h") ?? "";
   const [query, setQuery] = useState(hash);
@@ -84,7 +85,14 @@ export default function VerifyPage() {
         : t("files.statusPending");
 
   return (
-    <Card className="w-full">
+    <>
+      <div className="w-full">
+        <Button variant="outline" size="sm" onClick={() => router.back()}>
+          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+          {t("back")}
+        </Button>
+      </div>
+      <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-center">
           <FileSearch className="h-5 w-5 text-[#00E676]" />
@@ -203,6 +211,7 @@ export default function VerifyPage() {
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </>
   );
 }

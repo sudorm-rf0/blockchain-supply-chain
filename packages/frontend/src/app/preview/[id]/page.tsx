@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
-import { Download, ExternalLink, FileWarning } from "lucide-react";
+import { ArrowLeft, Download, ExternalLink, FileWarning } from "lucide-react";
 import { getFile, fetchFileBlob, type FileRecord } from "@/lib/api";
 import dynamic from "next/dynamic";
 const PdfPreview = dynamic(() => import("@/components/PdfPreview").then((m) => m.PdfPreview), {
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 export default function PreviewPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation();
+  const router = useRouter();
   const [file, setFile] = useState<FileRecord | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +53,17 @@ export default function PreviewPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
-        <div className="min-w-0">
-          <p className="truncate font-mono text-sm">{file?.filename ?? t("preview.title")}</p>
-          <p className="text-xs text-muted-foreground">
-            {file ? `${(file.size / 1024).toFixed(0)} KB · ${file.hash.slice(0, 16)}…` : ""}
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+            {t("back")}
+          </Button>
+          <div className="min-w-0">
+            <p className="truncate font-mono text-sm">{file?.filename ?? t("preview.title")}</p>
+            <p className="text-xs text-muted-foreground">
+              {file ? `${(file.size / 1024).toFixed(0)} KB · ${file.hash.slice(0, 16)}…` : ""}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {blobUrl && (
