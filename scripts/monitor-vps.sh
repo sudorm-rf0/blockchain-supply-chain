@@ -95,4 +95,11 @@ for dom in supplychain.de5.net; do
     fi
   fi
 done
+
+# 6) 源站收紧规则自愈：若 DOCKER-USER 缺少 80/443 DROP（如 docker 重启后规则丢失），自动重建
+if ! iptables -C DOCKER-USER -i ens18 -p tcp --dport 443 -j DROP 2>/dev/null; then
+  echo "${DATE} [cf-harden] DOCKER-USER 收紧规则缺失，自动重建" >> /var/log/supply-chain-monitor.log
+  /usr/local/bin/supply-chain-cf-harden.sh >> /var/log/supply-chain-monitor.log 2>&1 \
+    || echo "${DATE} [cf-harden] 重建失败，请人工检查 DOCKER-USER" >> /var/log/supply-chain-monitor.log
+fi
 exit 0

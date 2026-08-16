@@ -90,3 +90,18 @@ ufw disable
 - 8080/tcp：usd-usdt-escrow-frontend 公网开放（ufw allow 8080）——若它也走 Cloudflare，建议同样收口
 - 44300/tcp（xray reality）、32592/udp（wireguard）、49189/tcp（wg-onetime-phone）：主动使用的代理端口，仍暴露源站 IP；可用固定对端 IP 白名单或 cloudflared access tcp 隐藏（需用户提供对端 IP / 选择方案）
 - nginx 103-39-79-7.sslip.io 虚拟主机：直连源站 IP 的 443 已被 DOCKER-USER 拒绝（非 CF 来源），但该域名仍会解析到源站；如需彻底移除可删该 server 块
+
+## 七、附加安全优化（2026-08-17 同批次完成）
+
+| 项 | 内容 |
+|---|---|
+| fail2ban | sshd bantime 1h → 24h（SSH 仅密钥登录，无正常用户会被误伤）；配置备份 /root/fail2ban-jail.local.bak.* |
+| 日志轮转 | 新增 /etc/logrotate.d/supply-chain：/var/log/supply-chain-*.log 每日轮转、保留 14 天、压缩 |
+| Docker 清理 | docker builder prune -af 释放构建缓存 38.75GB；磁盘使用率 75% → 27%（56G → 21G） |
+| 监控自愈 | monitor-vps.sh 第 6 节：每 5 分钟检测 DOCKER-USER 443 DROP 规则，缺失时自动重建（防 docker 重启后规则丢失） |
+| 未动的项 | 8080（escrow 直连前端，非 Cloudflare）、44300/32592/49189（主动使用的代理端口）、8545（仅 172.16/12 内网段）——均保持现状以免影响正常使用 |
+
+### 验证补充（2026-08-17）
+- 经 tcpdump 实测：公网来源（120.229.163.11）直连 103.39.79.7:443 的 SYN 被静默丢弃（无 SYN-ACK）——源站收紧对公网真实生效
+- 经 Cloudflare 访问 /health 200 正常；SSH 正常
+- 8080 本机验证 200（防火墙未对其设限）；外网端到端验证受本机代理干扰，未能独立复核，见遗留项
