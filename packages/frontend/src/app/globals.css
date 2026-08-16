@@ -55,7 +55,7 @@
 
 @layer base {
   html {
-    /* 全站基础字号 16.5px（默认 16px）；左侧任务栏单独 17.5px（Sidebar.tsx） */
+    /* 全站基础字号 16.5px（默认 16px），全站统一 */
     font-size: 16.5px;
   }
   * {
