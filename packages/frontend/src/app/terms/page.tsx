@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 
-const SECTIONS = Array.from({ length: 17 }, (_, i) => `s${i + 1}`);
+const SECTIONS = Array.from({ length: 25 }, (_, i) => `s${i + 1}`);
 
 export default function TermsPage() {
   const { t } = useTranslation();
