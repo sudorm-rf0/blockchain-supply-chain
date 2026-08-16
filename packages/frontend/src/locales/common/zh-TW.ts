@@ -9,7 +9,6 @@ const zh_TW = {
   all: "全部",
   loading: "載入中...",
   "ai.disclaimer": "由 AI 生成，內容僅供參考，請仔細甄別",
-  "legal.notice": "本政策/條款為框架版本，佔位資訊已按目前部署填入，最終以營運方正式發布為準。",
   "legal.viewTerms": "查看服務條款",
   "legal.viewPrivacy": "查看隱私政策",
   "legal.termsLink": "服務條款",

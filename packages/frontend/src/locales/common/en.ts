@@ -9,7 +9,6 @@ const en = {
   all: "All",
   loading: "Loading...",
   "ai.disclaimer": "AI-generated content. For reference only. Please verify carefully.",
-  "legal.notice": "This policy/terms is a framework version with placeholders filled per current deployment; the final version shall be published by the operator.",
   "legal.viewTerms": "View Terms of Service",
   "legal.viewPrivacy": "View Privacy Policy",
   "legal.termsLink": "Terms",

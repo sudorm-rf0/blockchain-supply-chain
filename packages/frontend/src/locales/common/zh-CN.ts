@@ -9,7 +9,6 @@ const zh_CN = {
   all: "全部",
   loading: "加载中...",
   "ai.disclaimer": "由 AI 生成，内容仅供参考，请仔细甄别",
-  "legal.notice": "本政策/条款为框架版本，占位信息已按当前部署填充，最终以运营方正式发布为准。",
   "legal.viewTerms": "查看服务条款",
   "legal.viewPrivacy": "查看隐私政策",
   "legal.termsLink": "服务条款",
