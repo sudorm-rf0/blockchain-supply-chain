@@ -15,7 +15,7 @@ const PNG_BYTES = Buffer.from(
 );
 
 function makePrisma() {
-  return {
+  const prisma: any = {
     file: {
       create: jest.fn(async ({ data }) => ({
         id: "f1",
@@ -43,6 +43,9 @@ function makePrisma() {
       })),
     },
   };
+}
+  prisma.$transaction = jest.fn(async (fn: (tx: any) => unknown) => fn(prisma));
+  return prisma;
 }
 
 function makeStorage() {
