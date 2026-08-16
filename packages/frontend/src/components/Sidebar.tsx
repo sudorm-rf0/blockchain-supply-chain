@@ -100,7 +100,7 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
       <div className="border-b border-border px-5 py-4 font-mono text-[16.5px] font-semibold tracking-widest text-foreground">
         DFR SUPPLY CHAIN
       </div>
-      <nav className="flex-1 space-y-px p-2">
+      <nav className="flex-1 space-y-px overflow-y-auto p-2">
         <Link
           href="/dashboard"
           onClick={onNavigate}

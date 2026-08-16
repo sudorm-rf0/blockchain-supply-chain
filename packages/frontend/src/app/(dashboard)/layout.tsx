@@ -117,7 +117,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <div className="hidden md:block">
+      <div className="hidden h-full md:block">
         <Suspense fallback={null}>
           <Sidebar role={role} onNavigate={() => setMobileOpen(false)} />
         </Suspense>
