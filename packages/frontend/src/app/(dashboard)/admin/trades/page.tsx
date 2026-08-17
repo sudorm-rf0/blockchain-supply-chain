@@ -65,7 +65,37 @@ export default function AdminTradesPage() {
       ) : trades.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("trades.empty")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
+        <>
+        <div className="space-y-3 md:hidden">
+          {trades.map((trade) => (
+            <div key={trade.id} className="rounded-md border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {trade.name || trade.tradeId}
+                  </p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {trade.tradeId}
+                  </p>
+                </div>
+                <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
+                  {statusLabel(trade.status)}
+                </Badge>
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                <dt className="text-muted-foreground">{t("trades.colAmount")}</dt>
+                <dd className="font-medium">{formatUsdc(trade.amount)} USDC</dd>
+                <dt className="text-muted-foreground">{t("trades.colBuyer")}</dt>
+                <dd className="font-mono">{trade.buyerWallet.slice(0, 12)}...</dd>
+                <dt className="text-muted-foreground">{t("trades.colSeller")}</dt>
+                <dd className="font-mono">{trade.sellerWallet.slice(0, 12)}...</dd>
+                <dt className="text-muted-foreground">{t("trades.colCreatedAt")}</dt>
+                <dd>{formatDateTime(trade.createdAt)}</dd>
+              </dl>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto rounded-md border md:block">
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
@@ -105,6 +135,7 @@ export default function AdminTradesPage() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
     </div>
   );

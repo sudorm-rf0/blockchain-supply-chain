@@ -203,7 +203,86 @@ export default function OrdersPage() {
       ) : trades.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("orders.empty")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
+        <>
+        <div className="space-y-3 md:hidden">
+          {trades.map((trade) => {
+            const canFund = isAdmin && trade.status === "PENDING";
+            const canAdvance =
+              isAdmin && NEXT_TRADE_STATUS[trade.status] !== undefined;
+            const canRepay =
+              user?.role === "USER" &&
+              trade.status === "REPAYING" &&
+              user?.wallet === trade.buyerWallet;
+            const canDefault = isAdmin && CAN_DEFAULT_TRADE.has(trade.status);
+            const canRelease = isAdmin && trade.status === "DELIVERED";
+            return (
+              <div key={trade.id} className="rounded-md border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {trade.name || trade.tradeId}
+                    </p>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {trade.tradeId}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <Badge className={TRADE_STATUS_STYLE[trade.status] ?? ""}>
+                      {tradeStatusLabel(trade.status)}
+                    </Badge>
+                    <RepaymentCountdown
+                      tickMs={30_000}
+                      createdAt={trade.createdAt}
+                      tenorSeconds={trade.tenor}
+                      status={trade.status}
+                    />
+                  </div>
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-muted-foreground">{t("orders.columns.amount")}</dt>
+                  <dd className="font-medium">{formatUsdc(trade.amount)} USDC</dd>
+                  <dt className="text-muted-foreground">{t("orders.columns.tenor")}</dt>
+                  <dd>{t("orders.days", { count: Math.round(trade.tenor / 86400) })}</dd>
+                  <dt className="text-muted-foreground">{t("orders.columns.createdAt")}</dt>
+                  <dd>{formatDateTime(trade.createdAt)}</dd>
+                </dl>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={`/orders/${trade.tradeId}`}>
+                      {t("orders.action.details")}
+                    </Link>
+                  </Button>
+                  {canFund && (
+                    <Button size="sm" disabled={busyId === trade.tradeId} onClick={() => onFund(trade)}>
+                      {t("orders.action.fund")}
+                    </Button>
+                  )}
+                  {canAdvance && NEXT_TRADE_STATUS[trade.status] && (
+                    <Button size="sm" variant="outline" disabled={busyId === trade.tradeId} onClick={() => onAdvance(trade)}>
+                      {advanceLabel(trade.status)}
+                    </Button>
+                  )}
+                  {canRepay && (
+                    <Button size="sm" disabled={busyId === trade.tradeId} onClick={() => onRepay(trade)}>
+                      {t("orders.action.repay")}
+                    </Button>
+                  )}
+                  {canDefault && (
+                    <Button size="sm" variant="destructive" disabled={busyId === trade.tradeId} onClick={() => onDefault(trade)}>
+                      {t("orders.action.default")}
+                    </Button>
+                  )}
+                  {canRelease && (
+                    <Button size="sm" disabled={busyId === trade.tradeId} onClick={() => onRelease(trade)}>
+                      {t("orders.action.releaseFunds")}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto rounded-md border md:block">
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
@@ -328,6 +407,7 @@ export default function OrdersPage() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
     </div>
   );

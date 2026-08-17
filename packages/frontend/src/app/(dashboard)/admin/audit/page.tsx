@@ -210,7 +210,29 @@ export default function AuditLogsPage() {
       ) : logs.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("audit.empty")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
+        <>
+        <div className="space-y-3 md:hidden">
+          {logs.map((log) => (
+            <div key={log.id} className="rounded-md border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-mono text-xs text-muted-foreground">
+                  {formatDateTime(log.createdAt)}
+                </p>
+                <Badge variant="secondary">{actionLabel(log.action)}</Badge>
+              </div>
+              <p className="mt-1 truncate text-sm">
+                {log.actorEmail ?? log.actorId ?? "-"}
+              </p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {log.targetType}:{log.targetId.slice(0, 12)}
+              </p>
+              <p className="mt-1 truncate font-mono text-xs">
+                {log.metadata ? JSON.stringify(log.metadata) : "-"}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto rounded-md border md:block">
           <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow>
@@ -244,6 +266,7 @@ export default function AuditLogsPage() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
 
       <div className="flex items-center justify-between">
