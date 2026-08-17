@@ -83,3 +83,20 @@
 | Anchor 集成测试 | 🔴 原始 devnet keypair 不可恢复，需决策：找回 keypair 或程序 ID 迁移 |
 
 **结论**：不依赖外部输入的自动化准备项已全部执行并验证；剩余均为需你提供输入（主网钱包/多签/LP/业务参数/Cloudflare Token）或基建修复（CI runner 网络）。
+
+
+## 八、全链路 e2e 实测结论（2026-08-17，关键证据）
+
+**执行**：按 CI 同款流程本地隔离跑 `scripts/ci-e2e.sh`（本地 validator + 全新合约部署 + backend/trade/pool/indexer + 完整冒烟），并用"程序 ID 指向 keypair 地址"尝试绕开 keypair 失配。
+
+**结果**：在 `init-localnet` 首次链上调用即失败：
+```
+AnchorError: DeclaredProgramIdMismatch (4100)
+The declared program id does not match the actual program id
+```
+- 原因：合约 `declare_id!` 为 `9c8eND94…`/`Dcxixk89…`，Anchor 运行时**强制**调用方使用的程序地址必须等于声明 ID；而 `target/deploy/*-keypair.json` 的地址（随机生成）≠ 声明 ID（原始 devnet keypair 已丢失）。
+- 结论：**在恢复原始 keypair（或做程序 ID 迁移）之前，任何合约链上调用/Anchor 集成测试/全链路 e2e 都无法运行**。这是"确保能上线"在合约侧的最硬技术阻塞，且无法用环境变量绕开。
+
+**待决策（二选一）**：
+1. 找回原始 devnet 程序 keypair（`9c8eND94…`/`Dcxixk89…` 对应私钥）——恢复后可立即跑通全部测试；
+2. 程序 ID 迁移：重新生成 keypair + 更新 `declare_id!`/Anchor.toml/后端 env/文档——需重签审计结论（DFR 审计的是旧 ID 快照），属治理决策。
