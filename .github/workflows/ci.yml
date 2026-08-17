@@ -527,6 +527,18 @@ jobs:
       - name: Add Solana CLI to PATH
         run: echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
 
+      - name: Restore devnet program keypairs (match declare_id)
+        # 与 contracts job 一致：CI 全新 checkout 无 keypair，导致程序部署地址与
+        # declare_id! 不符（DeclaredProgramIdMismatch / Attempt to load a program that does not exist）。
+        working-directory: packages/contracts
+        run: |
+          mkdir -p target/deploy
+          echo "${{ secrets.CONTRACTS_TRADE_KEYPAIR }}" | base64 -d > target/deploy/trade_finance-keypair.json
+          echo "${{ secrets.CONTRACTS_SUPPLY_KEYPAIR }}" | base64 -d > target/deploy/supply_chain-keypair.json
+          chmod 600 target/deploy/*-keypair.json
+          test "$(solana address -k target/deploy/trade_finance-keypair.json)" = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
+          test "$(solana address -k target/deploy/supply_chain-keypair.json)" = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+
       - name: Run End-to-End Smoke
         run: bash scripts/ci-e2e.sh
 
@@ -646,6 +658,18 @@ jobs:
           curl -sf "http://localhost:${CI_BACKEND_PORT}/health" >/dev/null
           curl -sf "http://localhost:${CI_TRADE_PORT}/health" >/dev/null
           curl -sf "http://localhost:${CI_POOL_PORT}/health" >/dev/null
+
+      - name: Restore devnet program keypairs (match declare_id)
+        # 与 contracts job 一致：CI 全新 checkout 无 keypair，导致程序部署地址与
+        # declare_id! 不符（DeclaredProgramIdMismatch / Attempt to load a program that does not exist）。
+        working-directory: packages/contracts
+        run: |
+          mkdir -p target/deploy
+          echo "${{ secrets.CONTRACTS_TRADE_KEYPAIR }}" | base64 -d > target/deploy/trade_finance-keypair.json
+          echo "${{ secrets.CONTRACTS_SUPPLY_KEYPAIR }}" | base64 -d > target/deploy/supply_chain-keypair.json
+          chmod 600 target/deploy/*-keypair.json
+          test "$(solana address -k target/deploy/trade_finance-keypair.json)" = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
+          test "$(solana address -k target/deploy/supply_chain-keypair.json)" = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
 
       - name: Seed UI e2e trade
         working-directory: packages/backend
