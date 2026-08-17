@@ -100,3 +100,31 @@ The declared program id does not match the actual program id
 **待决策（二选一）**：
 1. 找回原始 devnet 程序 keypair（`9c8eND94…`/`Dcxixk89…` 对应私钥）——恢复后可立即跑通全部测试；
 2. 程序 ID 迁移：重新生成 keypair + 更新 `declare_id!`/Anchor.toml/后端 env/文档——需重签审计结论（DFR 审计的是旧 ID 快照），属治理决策。
+
+## 九、主网上线——已就绪/只剩 3 项输入（2026-08-17 更新）
+
+**已就绪（用真实主网 RPC 实测）**：
+- 主网 RPC：`https://mainnet.helius-rpc.com/?api-key=e9997065-…` ✅ 可用（getHealth/getVersion 200）
+- 主网程序 keypair：trade `5vLATpP…` / supply `D6yRznX…`（已存在 target/deploy/mainnet/）✅ precheck PASS
+- 主网 USDC：`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` ✅ PASS
+- 池状态：主网不存在（全新部署）✅ PASS
+- 主网部署钱包：已生成 `E9XtgfgqG5WpAxmGSCJsMwy7PRBCpnxgsLyScc8NhMkn`（keypair 在 target/deploy/mainnet/deploy-wallet.json，gitignored）
+
+**剩余 3 项（需你提供/执行）**：
+1. **给部署钱包注资** ≥2 SOL：向 `E9XtgfgqG5WpAxmGSCJsMwy7PRBCpnxgsLyScc8NhMkn` 转主网 SOL
+2. **创建 Squads 3/5 多签**，提供 MULTISIG_ADMIN（成员：运营2+风控+财务+独立方）
+3. **平台钱包地址**（FINANCING_PLATFORM_WALLET，融资收款/放款）
+
+**注资后一键上线命令（按序）**：
+```bash
+# 1) 主网部署 + 设 UA 为多签（需 MULTISIG_ADMIN）
+SOLANA_RPC_URL=... DEPLOY_WALLET=E9Xtgfgq... \
+TRADE_FINANCE_PROGRAM_ID=5vLATpP... SUPPLY_CHAIN_PROGRAM_ID=D6yRznX... \
+USDC_MINT=EPjFWdd... LP_MINT=<init后> \
+MULTISIG_ADMIN=<PDA> UPGRADE_AUTHORITY_PLAN=cold-wallet INITIAL_ADMIN_DELAY=172800 \
+bash scripts/deploy-mainnet.sh --yes
+# 2) 初始化池（创建 LP）+ 供应链注册中心
+bash scripts/init-mainnet.sh --yes --skip-deposit   # 先不注资，小额起步
+# 3) 切 VPS 到主网
+cp deploy/vps/.env.app.mainnet deploy/vps/.env.app && bash scripts/deploy-vps.sh
+```
