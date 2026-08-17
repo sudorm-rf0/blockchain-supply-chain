@@ -61,6 +61,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     setMobileOpen(false);
   }, [pathname]);
 
+  // 多标签页登出同步：任一标签登出后，其余标签立即清空会话，防止旧数据可见。
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "auth:logout:ts") {
+        useUserStore.getState().logout();
+        router.replace("/login");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [router]);
+
   useEffect(() => {
     if (!hydrated) return;
     if (!user) {
@@ -127,18 +139,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     toast.success(t("shell.logoutSuccess"));
     router.push("/login");
   };
-
-  // 多标签页登出同步：任一标签登出后，其余标签立即清空会话，防止旧数据可见。
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "auth:logout:ts") {
-        useUserStore.getState().logout();
-        router.replace("/login");
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [router]);
 
   return (
     <div className="flex h-screen overflow-hidden">
