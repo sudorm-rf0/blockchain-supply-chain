@@ -68,6 +68,10 @@ export default function LoginPage() {
       const result = await sendEmailCode(emailValue);
       setEmailOtpCooldown(result.cooldownSeconds ?? 60);
       toast.success(t("login.toast.emailCodeSent"));
+      // 开发模式（未配置邮件服务）返回 devCode，须 toast 展示，否则本地/e2e 拿不到验证码
+      if (result.devCode) {
+        toast.info(t("login.toast.devCode", { code: result.devCode }));
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("login.error.sendCodeFailed"));
     } finally {

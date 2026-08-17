@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3100";
 const BACKEND = process.env.BACKEND_URL ?? "http://localhost:3001";
+
 const TRADE = process.env.TRADE_URL ?? "http://localhost:3004";
 
 const TINY_PNG = Buffer.from(
@@ -38,25 +39,80 @@ async function readDevCode(page: Page): Promise<string> {
   return m[1];
 }
 
+/** 生成邀请码：超管登录（兼容 H-6 强制改密）→ /api/admin/invite-codes/generate */
+async function generateInviteCode(): Promise<string> {
+  const superEmail = process.env.SUPER_ADMIN_EMAIL ?? "root@supply-chain.io";
+  const candidates = [
+    process.env.SUPER_ADMIN_PASSWORD,
+    "SuperAdmin123!",
+    "AdminChanged!1",
+  ].filter(Boolean);
+  let token = "";
+  for (const password of candidates) {
+    const res = await fetch(`${BACKEND}/api/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: superEmail, password }),
+    });
+    if (!res.ok) continue;
+    const login = (await res.json()) as { accessToken: string; mustChangePassword?: boolean };
+    if (login.mustChangePassword) {
+      await fetch(`${BACKEND}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${login.accessToken}` },
+        body: JSON.stringify({ currentPassword: password, newPassword: "AdminChanged!1" }),
+      });
+      const re = await fetch(`${BACKEND}/api/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: superEmail, password: "AdminChanged!1" }),
+      });
+      if (!re.ok) continue;
+      token = ((await re.json()) as { accessToken: string }).accessToken;
+    } else {
+      token = login.accessToken;
+    }
+    if (token) break;
+  }
+  if (!token) throw new Error("super admin login failed for invite code");
+  const inv = await fetch(`${BACKEND}/api/admin/invite-codes/generate`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify({ count: 1 }),
+  });
+  if (!inv.ok) throw new Error(`invite code generation failed: ${inv.status}`);
+  const { codes } = (await inv.json()) as { codes: string[] };
+  if (!codes?.[0]) throw new Error("no invite code returned");
+  return codes[0];
+}
+
 async function registerUser(page: Page): Promise<string> {
   const email = `ui-${Date.now()}@example.com`;
+  const inviteCode = await generateInviteCode();
+  await page.goto(`${BASE}/`);
+  await page.evaluate(() => localStorage.setItem("dfr-locale", "zh-CN"));
   await page.goto(`${BASE}/register`);
   await page.fill("#name", "UI User");
   await page.fill("#email", email);
-  await page.fill("#password", "secret123");
-  await page.fill("#confirmPassword", "secret123");
+  await page.fill("#password", "Secret123!");
+  await page.fill("#confirmPassword", "Secret123!");
+  await page.fill("#inviteCode", inviteCode);
   await page.click('button[type="submit"]');
 
-  // 注册后强制邮箱验证：读 dev 验证码 toast，填码激活
+  // 注册后强制邮箱验证：dev 验证码 toast 只显示数秒且随后跳转，须在跳转前立即捕获
+  const regCodeEl = page.getByText(/开发模式验证码：\d{6}/).first();
+  await expect(regCodeEl).toBeVisible({ timeout: 15_000 });
+  const regText = (await regCodeEl.textContent()) ?? "";
+  const regCode = regText.match(/(\d{6})/)?.[1];
+  if (!regCode) throw new Error(`devCode not found in: ${regText}`);
   await page.waitForURL("**/verify-email?*", { timeout: 15_000 });
-  const regCode = await readDevCode(page);
   await page.fill("#code", regCode);
   await page.click('button[type="submit"]');
   await page.waitForURL("**/login", { timeout: 15_000 });
 
   // 登录（强制邮箱验证码）：注册已触发 60s 发送冷却，等按钮恢复后手动发码
   await page.fill("#email", email);
-  await page.fill("#password", "secret123");
+  await page.fill("#password", "Secret123!");
   await page.click('button[type="submit"]');
   await expect(page.locator("#email-otp")).toBeVisible({ timeout: 15_000 });
   await page.waitForFunction(
