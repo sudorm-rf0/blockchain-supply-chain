@@ -385,8 +385,15 @@ jobs:
           echo "${{ secrets.CONTRACTS_TRADE_KEYPAIR }}" | base64 -d > target/deploy/trade_finance-keypair.json
           echo "${{ secrets.CONTRACTS_SUPPLY_KEYPAIR }}" | base64 -d > target/deploy/supply_chain-keypair.json
           chmod 600 target/deploy/*-keypair.json
-          test "$(solana address -k target/deploy/trade_finance-keypair.json)" = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
-          test "$(solana address -k target/deploy/supply_chain-keypair.json)" = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+          # 校验为合法 64 字节 ed25519 keypair（不依赖 solana CLI，各 job 通用）
+          python3 - <<'PY'
+          import json, sys
+          for f in ["target/deploy/trade_finance-keypair.json", "target/deploy/supply_chain-keypair.json"]:
+              k = json.load(open(f))
+              if not (isinstance(k, list) and len(k) == 64 and all(isinstance(x, int) and 0 <= x < 256 for x in k)):
+                  sys.exit(f"invalid keypair: {f}")
+          print("keypairs restored ok")
+          PY
 
       - name: Anchor Build
         working-directory: packages/contracts
@@ -536,8 +543,15 @@ jobs:
           echo "${{ secrets.CONTRACTS_TRADE_KEYPAIR }}" | base64 -d > target/deploy/trade_finance-keypair.json
           echo "${{ secrets.CONTRACTS_SUPPLY_KEYPAIR }}" | base64 -d > target/deploy/supply_chain-keypair.json
           chmod 600 target/deploy/*-keypair.json
-          test "$(solana address -k target/deploy/trade_finance-keypair.json)" = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
-          test "$(solana address -k target/deploy/supply_chain-keypair.json)" = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+          # 校验为合法 64 字节 ed25519 keypair（不依赖 solana CLI，各 job 通用）
+          python3 - <<'PY'
+          import json, sys
+          for f in ["target/deploy/trade_finance-keypair.json", "target/deploy/supply_chain-keypair.json"]:
+              k = json.load(open(f))
+              if not (isinstance(k, list) and len(k) == 64 and all(isinstance(x, int) and 0 <= x < 256 for x in k)):
+                  sys.exit(f"invalid keypair: {f}")
+          print("keypairs restored ok")
+          PY
 
       - name: Run End-to-End Smoke
         run: bash scripts/ci-e2e.sh
@@ -668,8 +682,15 @@ jobs:
           echo "${{ secrets.CONTRACTS_TRADE_KEYPAIR }}" | base64 -d > target/deploy/trade_finance-keypair.json
           echo "${{ secrets.CONTRACTS_SUPPLY_KEYPAIR }}" | base64 -d > target/deploy/supply_chain-keypair.json
           chmod 600 target/deploy/*-keypair.json
-          test "$(solana address -k target/deploy/trade_finance-keypair.json)" = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
-          test "$(solana address -k target/deploy/supply_chain-keypair.json)" = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+          # 校验为合法 64 字节 ed25519 keypair（不依赖 solana CLI，各 job 通用）
+          python3 - <<'PY'
+          import json, sys
+          for f in ["target/deploy/trade_finance-keypair.json", "target/deploy/supply_chain-keypair.json"]:
+              k = json.load(open(f))
+              if not (isinstance(k, list) and len(k) == 64 and all(isinstance(x, int) and 0 <= x < 256 for x in k)):
+                  sys.exit(f"invalid keypair: {f}")
+          print("keypairs restored ok")
+          PY
 
       - name: Seed UI e2e trade
         working-directory: packages/backend

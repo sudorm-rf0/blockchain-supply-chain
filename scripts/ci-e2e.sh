@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 前置依赖：workflow 'Start isolated Postgres and Redis' step 会用 Docker healthcheck 启动隔离的 Postgres(15432)/Redis(16379) 容器并等待 healthy。
-# 前置依赖2：CI 需先恢复 devnet 程序 keypair（GitHub Secrets CONTRACTS_TRADE_KEYPAIR/CONTRACTS_SUPPLY_KEYPAIR
+# 前置依赖2：CI 需先恢复 devnet 程序 keypair（GitHub Secrets CONTRACTS_TRADE_KEYPAIR/CONTRACTS_SUPPLY_KEYPAIR，见 ci.yml 各 Restore 步骤）
 # 解码到 packages/contracts/target/deploy/，否则程序部署地址与 declare_id! 不符，init-localnet 会报
 # 'Attempt to load a program that does not exist' / DeclaredProgramIdMismatch）。本地直接跑时确保 keypair 存在。
 set -euo pipefail
