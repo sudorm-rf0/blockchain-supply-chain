@@ -128,3 +128,21 @@ bash scripts/init-mainnet.sh --yes --skip-deposit   # 先不注资，小额起�
 # 3) 切 VPS 到主网
 cp deploy/vps/.env.app.mainnet deploy/vps/.env.app && bash scripts/deploy-vps.sh
 ```
+
+---
+
+## 十、合约测试闭环恢复（2026-08-18 更新）
+
+**关键进展：devnet 程序 keypair 已从 VPS 找回，此前「最硬技术阻塞」解除。**
+
+| 项 | 结果 |
+|---|---|
+| keypair 恢复 | VPS `/opt/supply-chain/packages/contracts/target/deploy/*-keypair.json`（2026-08-14 生成）即为原始 keypair：trade `9c8eND94…` / supply `Dcxixk89…`，与 `declare_id!` 完全匹配，已恢复至本地 |
+| Anchor 集成测试 | **84/84 全绿**（修复 H-7 拒绝用例的 admin 未定义 + FUNDED 状态污染导致的 4 个失败） |
+| Rust 单测 | trade 16/16 + supply 9/9 全绿 |
+| 可复现构建 | 已通过（两次构建 .so 哈希一致） |
+| 结论 | §五「CI/Anchor 环境不可信」与 §八「DeclaredProgramIdMismatch 阻塞」已解除；CI contracts job 可重新信任（需将 devnet keypair 以 GitHub Secret 提供给 CI，见下） |
+
+**下一步（可执行）**：
+1. 将两个 devnet keypair 以 GitHub Actions Secret 注入 CI（`anchor build`/`pnpm test` 前写入 `target/deploy/`），使 `contracts` job 在 CI 上恢复绿线；
+2. 主网上线流程回到 §四执行顺序，剩余硬输入不变（注资/多签/LP/平台钱包/外部审计/KYC/Cloudflare Token）。

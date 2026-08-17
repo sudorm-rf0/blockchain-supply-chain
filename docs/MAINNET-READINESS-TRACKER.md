@@ -1,6 +1,7 @@
 # 主网就绪追踪表（Mainnet Readiness Tracker）
 
-> 更新：2026-08-16。基于 `docs/AUDIT-FULLCHAIN-20260815.md` 全部发现 + 修复进展。
+> 更新：2026-08-18。基于 `docs/AUDIT-FULLCHAIN-20260815.md` 全部发现 + 修复进展。
+> 2026-08-18：devnet 程序 keypair 已从 VPS 恢复，Anchor 集成测试 84/84 + Rust 单测全绿，§五 Anchor/CI 阻塞解除（详见 GO-LIVE-PREP §十）。
 > 用途：随时查看「上主网真钱交易」还差什么、每项状态。
 
 ## 一、P0 / 高严重度
@@ -45,6 +46,7 @@
 |------|------|------|
 | 前端 API 层覆盖率 0% | ✅ 已修 | 新增 trades/auth/files/pool/admin-api 契约测试（38 用例） |
 | e2e 仅 5 用例 | 🟡 待补充 | 需覆盖资金核心旅程 |
+| Anchor 集成测试 | ✅ 已恢复 | devnet keypair 已从 VPS 找回（2026-08-18），修复 H-7 用例后 **84/84 全绿**；Rust 单测 16+9 全绿 |
 | 后端 branch 阈值 | 🟢 持续 | 270 用例全过 |
 
 ## 四、上主网剩余硬性事项（按序）
