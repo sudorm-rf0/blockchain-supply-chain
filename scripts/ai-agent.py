@@ -16,7 +16,7 @@
   4) 严重才做确定性自愈（fail2ban/CF 规则）
   5) 有 Key 则 LLM 诊断（返回 severity + 枚举动作）
   6) 最终严重度达标才执行白名单动作；否则只记录
-  7) 有修复或需人工 → alert-mail.py 通知；全程写 /var/log/supply-chain-ai-agent.log
+  7) 需人工介入 → alert-mail.py 通知；自动处理完成 → 仅写日志（AI_EMAIL_AUTO_FIX=1 才发邮件）；全程写 /var/log/supply-chain-ai-agent.log
 
 配置：/etc/supply-chain-ai.env
   AI_API_KEY=          # LLM Key（留空则只做确定性判断）
@@ -27,6 +27,7 @@
   AI_ACT_SEVERITY=     # 自动动手的最低严重度：info|warning|critical，默认 critical
   AI_DRY_RUN=          # 1 只记录不执行不发通知
   AI_COOLDOWN=         # 同 key 最小间隔秒，默认 1800
+  AI_EMAIL_AUTO_FIX=   # 1=自动处理完成也发邮件；默认 0=仅记录日志
   AI_TIMEOUT=          # LLM 超时秒，默认 45
 """
 import json
@@ -333,9 +334,13 @@ def main():
         if cfg.get("AI_DRY_RUN") == "1":
             log("[dry-run] 跳过通知发送")
         elif needs_human:
+            # 需人工介入：影响生产运营，必须邮件
             notify("[AI 自愈] 需人工介入", report)
-        else:
+        elif cfg.get("AI_EMAIL_AUTO_FIX") == "1":
             notify("[AI 自愈] 已自动处理", report)
+        else:
+            # 已自动处理完成，不影响生产运营：仅写日志，不发送邮件
+            log("[AI 自愈] 已自动处理（仅日志，不发送邮件）")
     return 0
 
 

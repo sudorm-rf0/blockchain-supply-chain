@@ -37,14 +37,13 @@ failed: ${prev} -> ${failed}，请查看 indexer 日志。"
   fi
   echo "$failed" > "$last_file"
   if [ -z "$last_snap" ]; then
-    # 池快照缺失（devnet 旧账户布局导致的已知状态），每天最多提示一次
+    # 池快照缺失（devnet 旧账户布局导致的已知状态）：业务提示类，不生产运营影响，
+    # 按邮件分级策略仅写本地日志（每天最多一次）。
     SNAP_STATE="$ALERT_STATE_DIR/indexer-snap-daily"
     now_s=$(date +%s)
     last_send=$(cat "$SNAP_STATE" 2>/dev/null || echo 0)
     if [ $((now_s - last_send)) -gt 86400 ]; then
-      python3 "$ALERT_BIN" "[提示] indexer 资金池快照缺失" "${DATE}
-lastPoolSnapshotAt 为空（devnet 上旧版 PoolState 账户布局所致），
-需通过应用重新初始化资金池后才会同步。"
+      echo "${DATE} [提示-仅日志] indexer 资金池快照缺失（lastPoolSnapshotAt 为空，devnet 旧布局已知状态）" >> /var/log/supply-chain-alert.log
       echo "$now_s" > "$SNAP_STATE"
     fi
   else
