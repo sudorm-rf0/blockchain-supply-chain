@@ -298,8 +298,21 @@ export default function AccountPage() {
     }
   };
 
+  const pwPolicy = [
+    { key: "length", label: t("register.policy.length"), ok: newPassword.length >= 8 },
+    { key: "lower", label: t("register.policy.lower"), ok: /[a-z]/.test(newPassword) },
+    { key: "upper", label: t("register.policy.upper"), ok: /[A-Z]/.test(newPassword) },
+    { key: "digit", label: t("register.policy.digit"), ok: /\d/.test(newPassword) },
+    { key: "symbol", label: t("register.policy.symbol"), ok: /[^A-Za-z0-9]/.test(newPassword) },
+  ];
+  const pwOkCount = pwPolicy.filter((item) => item.ok).length;
+  const pwStrength = newPassword.length === 0 ? 0 : Math.round((pwOkCount / pwPolicy.length) * 100);
+  const pwStrengthClass =
+    pwStrength >= 100 ? "bg-green-500" : pwStrength >= 60 ? "bg-amber-500" : "bg-red-500";
+  const pwValid = pwOkCount === pwPolicy.length;
+
   const handleChangePassword = async () => {
-    if (newPassword.length < 8) {
+    if (!pwValid) {
       toast.error(t("account.newPasswordTooShort"));
       return;
     }
@@ -529,6 +542,27 @@ export default function AccountPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
+            {newPassword.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${pwStrengthClass}`}
+                    style={{ width: `${pwStrength}%` }}
+                  />
+                </div>
+                <ul className="space-y-0.5 text-xs">
+                  {pwPolicy.map((item) => (
+                    <li
+                      key={item.key}
+                      className={item.ok ? "text-green-600" : "text-muted-foreground"}
+                    >
+                      {item.ok ? "✓ " : "○ "}
+                      {item.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">{t("account.confirmPassword")}</Label>
@@ -552,7 +586,11 @@ export default function AccountPage() {
             />
           )}
           <Turnstile key={pwCaptchaKey} action="sensitive" onVerify={setPwTurnstile} />
-          <Button className="w-full" disabled={pwBusy} onClick={() => void handleChangePassword()}>
+          <Button
+            className="w-full"
+            disabled={pwBusy || !pwValid}
+            onClick={() => void handleChangePassword()}
+          >
             {pwBusy ? t("account.submitting") : t("account.confirmChangePassword")}
           </Button>
         </CardContent>

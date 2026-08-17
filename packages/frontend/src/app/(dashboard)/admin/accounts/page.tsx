@@ -85,6 +85,18 @@ export default function AccountsPage() {
     role: "ADMIN" as "ADMIN" | "SUPER_ADMIN",
   });
 
+  const addPasswordPolicy = [
+    { key: "length", label: t("register.policy.length"), ok: form.password.length >= 8 },
+    { key: "lower", label: t("register.policy.lower"), ok: /[a-z]/.test(form.password) },
+    { key: "upper", label: t("register.policy.upper"), ok: /[A-Z]/.test(form.password) },
+    { key: "digit", label: t("register.policy.digit"), ok: /\d/.test(form.password) },
+    { key: "symbol", label: t("register.policy.symbol"), ok: /[^A-Za-z0-9]/.test(form.password) },
+  ];
+  const addPwOk = addPasswordPolicy.filter((item) => item.ok).length;
+  const addPwStrength = form.password.length === 0 ? 0 : Math.round((addPwOk / addPasswordPolicy.length) * 100);
+  const addPwClass = addPwStrength >= 100 ? "bg-green-500" : addPwStrength >= 60 ? "bg-amber-500" : "bg-red-500";
+  const addPwValid = addPwOk === addPasswordPolicy.length;
+
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getAccount>> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -111,7 +123,7 @@ export default function AccountsPage() {
   }, [load]);
 
   const handleAdd = async () => {
-    if (!form.name || !form.email || form.password.length < 8) {
+    if (!form.name || !form.email || !addPwValid) {
       toast.error(t("accounts.formInvalid"));
       return;
     }
@@ -336,6 +348,27 @@ export default function AccountsPage() {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="******"
               />
+              {form.password.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${addPwClass}`}
+                      style={{ width: `${addPwStrength}%` }}
+                    />
+                  </div>
+                  <ul className="space-y-0.5 text-xs">
+                    {addPasswordPolicy.map((item) => (
+                      <li
+                        key={item.key}
+                        className={item.ok ? "text-green-600" : "text-muted-foreground"}
+                      >
+                        {item.ok ? "✓ " : "○ "}
+                        {item.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t("accounts.role")}</Label>
@@ -359,7 +392,7 @@ export default function AccountsPage() {
             <Button variant="outline" onClick={() => setShowAdd(false)}>
               {t("accounts.cancel")}
             </Button>
-            <Button onClick={handleAdd} disabled={adding}>
+            <Button onClick={handleAdd} disabled={adding || !addPwValid}>
               {adding ? t("accounts.creating") : t("accounts.createAccount")}
             </Button>
           </DialogFooter>

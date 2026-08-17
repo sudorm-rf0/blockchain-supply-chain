@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { randomBytes, scryptSync } from "node:crypto";
+import { passwordPolicyError } from "../auth/auth.service";
 import type { Request } from "express";
 import { AuthGuard, SuperAdminGuard } from "@supply-chain/common";
 import { PrismaService } from "../prisma/prisma.service";
@@ -134,6 +135,10 @@ export class AccountsController {
   /** 添加管理员/超级管理员账号（可直接登录，密码由超级管理员设定）。 */
   @Post()
   async create(@Body() body: CreateAccountDto, @Req() req: Request) {
+    const policyErr = passwordPolicyError(body.password);
+    if (policyErr) {
+      throw new BadRequestException(policyErr);
+    }
     const existing = await this.prisma.user.findUnique({
       where: { email: body.email.toLowerCase() },
     });

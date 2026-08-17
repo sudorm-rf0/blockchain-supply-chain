@@ -9,6 +9,10 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(8)
   @MaxLength(128)
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}$/,
+    { message: "密码需≥8 位且包含大写字母、小写字母、数字和特殊符号" },
+  )
   newPassword!: string;
 
   /** 敏感操作邮箱验证码（6 位数字）；引导/运营账号（emailOtpEnabled=false）可省略 */
