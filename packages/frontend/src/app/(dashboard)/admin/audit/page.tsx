@@ -269,9 +269,9 @@ export default function AuditLogsPage() {
         </>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{t("audit.total", { total })}</p>
-        <div className="space-x-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             disabled={page <= 1}

@@ -340,7 +340,7 @@ export default function OrdersPage() {
                       {formatDateTime(trade.createdAt)}
                     </TableCell>
                     <TableCell>
-                      <div className="space-x-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button variant="outline" size="sm" asChild>
                           <Link href={`/orders/${trade.tradeId}`}>
                             {t("orders.action.details")}

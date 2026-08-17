@@ -53,7 +53,7 @@ export default function AdminTradesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold">{t("trades.title")}</h1>
         <Button variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />

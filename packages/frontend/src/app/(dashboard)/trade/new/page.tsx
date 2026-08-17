@@ -136,7 +136,7 @@ export default function NewTradePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <header className="flex items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold text-primary">DFR SUPPLY CHAIN</p>
           <h1 className="mt-2 text-2xl font-bold text-foreground">

@@ -66,7 +66,7 @@ function TraceBody() {
   return (
     <div className="min-h-screen bg-[#070808] px-4 py-8 text-[#EDEDED]">
       <div className="mx-auto w-full max-w-3xl">
-        <header className="mb-8 flex items-center justify-between">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <Link href="/verify" className="inline-flex items-center gap-3">
             <LogoMark className="h-8 w-8" />
             <span className="font-mono text-sm tracking-widest">DFR SUPPLY CHAIN</span>

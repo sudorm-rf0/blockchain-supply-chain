@@ -128,7 +128,7 @@ export default function FinancingPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Banknote className="h-5 w-5 text-[#00E676]" />
           <h1 className="font-mono text-xl font-bold">{t("financing.title")}</h1>

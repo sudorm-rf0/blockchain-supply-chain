@@ -289,7 +289,7 @@ export default function AdminFilesPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold">{t("files.title")}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {selectedIds.size > 0 && (
@@ -399,7 +399,7 @@ export default function AdminFilesPage({
                 <TableCell>
                   {formatDateTime(file.createdAt)}
                 </TableCell>
-                <TableCell className="space-x-2">
+                <TableCell className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -468,7 +468,7 @@ export default function AdminFilesPage({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{t("files.totalCount", { n: total })}</p>
-        <div className="space-x-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             disabled={page <= 1}

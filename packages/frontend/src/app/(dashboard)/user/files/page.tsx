@@ -181,7 +181,7 @@ export default function UserFilesPage() {
                         {file.hash.slice(0, 8)}
                       </TableCell>
                       <TableCell>{formatDateTime(file.createdAt)}</TableCell>
-                      <TableCell className="space-x-2">
+                      <TableCell className="flex flex-wrap gap-2">
                         {file.documentGroupId && (
                           <Button variant="outline" size="sm" asChild>
                             <Link
@@ -241,7 +241,7 @@ export default function UserFilesPage() {
         <p className="text-sm text-muted-foreground">
           {t("files.total", { count: total })}
         </p>
-        <div className="space-x-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             disabled={page <= 1}
