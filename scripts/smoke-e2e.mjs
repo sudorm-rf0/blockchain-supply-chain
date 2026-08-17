@@ -65,6 +65,42 @@ async function api(base, path, token, method = "GET", body) {
   return res.json();
 }
 
+// 管理员登录（兼容 H-6 强制改密：候选密码依次尝试，首次登录须改密时自动改密后重登）。
+async function loginAdminOnce() {
+  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@supply-chain.io";
+  const candidates = [
+    process.env.ADMIN_PASSWORD,
+    "Admin123!",
+    "AdminChanged!1",
+    "E2eAdmin2!",
+  ].filter(Boolean);
+  for (const password of candidates) {
+    try {
+      const login = await api(BASE, "/api/auth/login", null, "POST", {
+        email: adminEmail,
+        password,
+      });
+      if (!login.accessToken) continue;
+      if (login.mustChangePassword) {
+        await api(BASE, "/api/auth/change-password", login.accessToken, "POST", {
+          currentPassword: password,
+          newPassword: "AdminChanged!1",
+        });
+        const re = await api(BASE, "/api/auth/login", null, "POST", {
+          email: adminEmail,
+          password: "AdminChanged!1",
+        });
+        if (!re.accessToken) continue;
+        return { token: re.accessToken, password: "AdminChanged!1" };
+      }
+      return { token: login.accessToken, password };
+    } catch {
+      // 尝试下一个候选密码。
+    }
+  }
+  throw new Error(`admin login failed for ${adminEmail}`);
+}
+
 async function signSend(transactionB64, signer) {
   const tx = Transaction.from(Buffer.from(transactionB64, "base64"));
   tx.partialSign(signer);
@@ -82,16 +118,12 @@ await fund(wallet.publicKey);
 await new Promise((r) => setTimeout(r, 1200));
 
 const email = `smoke-${Date.now()}@example.com`;
-// 邀请码制度：注册前用管理员生成一个邀请码
-const adminLogin = await api(BASE, "/api/auth/login", null, "POST", {
-  email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
-  password: process.env.ADMIN_PASSWORD ?? "Admin123!",
-});
-if (!adminLogin.accessToken) throw new Error("admin login failed for invite code generation");
+// 邀请码制度：注册前用管理员生成一个邀请码（兼容 H-6 强制改密）
+const adminSession = await loginAdminOnce();
 const inviteRes = await api(
   BASE,
   "/api/admin/invite-codes/generate",
-  adminLogin.accessToken,
+  adminSession.token,
   "POST",
   { count: 1 },
 );
