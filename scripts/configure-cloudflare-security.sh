@@ -44,7 +44,7 @@ for spec in "security_level:high" "browser_check:on" "ssl:full" "tls_1_3:on" "au
   name="${spec%%:*}"; value="${spec##*:}"
   cur="$(cf GET "/zones/$ZONE/settings/$name" | python3 -c "import json,sys; print(json.load(sys.stdin).get('result',{}).get('value',''))" 2>/dev/null || true)"
   if [[ "$cur" == "$value" ]]; then
-    ok "$name = $value（已生效）"
+    ok "$name = ${value}（已生效）"
   else
     res="$(cf PUT "/zones/$ZONE/settings/$name" "{\"value\":\"$value\"}")"
     if echo "$res" | python3 -c "import json,sys; raise SystemExit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
