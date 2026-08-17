@@ -65,8 +65,13 @@ RUN sed -i "s#https://dl-cdn.alpinelinux.org#${ALPINE_MIRROR}#g" /etc/apk/reposi
     && apk update \
     && apk add --no-cache libc6-compat openssl \
        tesseract-ocr poppler-utils \
-    && wget -q -O /usr/share/tessdata/chi_sim.traineddata \
-       https://github.com/tesseract-ocr/tessdata/raw/main/chi_sim.traineddata
+    && (wget -q -O /usr/share/tessdata/chi_sim.traineddata \
+          https://github.com/tesseract-ocr/tessdata/raw/main/chi_sim.traineddata \
+        || wget -q -O /usr/share/tessdata/chi_sim.traineddata \
+          https://raw.gitmirror.com/tesseract-ocr/tessdata/main/chi_sim.traineddata \
+        || wget -q -O /usr/share/tessdata/chi_sim.traineddata \
+          https://gitee.com/mirrors/tessdata/raw/main/chi_sim.traineddata) \
+    && test -s /usr/share/tessdata/chi_sim.traineddata
 ENV NODE_ENV=production PORT=3001 NODE_OPTIONS=--dns-result-order=ipv4first
 
 COPY --from=builder /app/backend-out ./
