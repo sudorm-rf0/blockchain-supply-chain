@@ -21,3 +21,9 @@ members = ["programs/supply-chain", "programs/trade-finance"]
 
 [scripts]
 test = "bash scripts/test-anchor.sh"
+
+# ---- CI 说明 ----
+# CI（.github/workflows/ci.yml contracts job）会从 GitHub Secrets
+# （CONTRACTS_TRADE_KEYPAIR / CONTRACTS_SUPPLY_KEYPAIR）恢复本机缺失的
+# devnet/localnet 程序 keypair，使地址与 declare_id! 一致，避免
+# DeclaredProgramIdMismatch(4100)。主网 keypair 不在此列，保持离线冷存储。
