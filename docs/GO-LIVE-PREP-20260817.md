@@ -68,3 +68,18 @@
 1. 隐藏超管账号（ops.hidden@…）为隐形特权账号，密码务必离线保管；审计日志仍记录其操作 ID。
 2. 主网 Program keypair 若泄露 = 合约可被升级接管；务必离线冷存储（或部署后 freeze UA）。
 3. 未解决 CI/Anchor 环境问题前，不建议执行主网部署（缺乏可复现验证闭环）。
+
+
+## 七、补充执行记录（2026-08-17 第二轮）
+
+| 项 | 结果 |
+|---|---|
+| 备份恢复演练 | ✅ 最新 dump 恢复到临时库成功，数据一致（16 用户/28 文件/406 审计），演练后清理 |
+| 可复现构建 | ✅ `reproducible-build.sh --verify-twice`：两次构建 .so 哈希一致（trade `dd213977…` / supply `f9c5128b…`），deterministic=yes |
+| 线上冒烟 | ✅ /health、/health/ready、/api/indexer/status、/api/public/verify、/api/meta/locale 全部 200 |
+| 配置完整性 | ✅ VPS .env 无 CHANGE_ME 占位；必需变量齐全（仅 `FINANCING_PLATFORM_WALLET` 待填） |
+| CI docker job | 🟡 tessdata 下载已加回退并生效（该步骤已过）；现失败在 npm 镜像 ECONNRESET —— 自托管 runner 代理网络问题（基建），需修复 runner 网络 |
+| CI frontend-e2e | 🟡 自托管 runner 邮箱验证流程超时（环境类，需 runner 侧修复） |
+| Anchor 集成测试 | 🔴 原始 devnet keypair 不可恢复，需决策：找回 keypair 或程序 ID 迁移 |
+
+**结论**：不依赖外部输入的自动化准备项已全部执行并验证；剩余均为需你提供输入（主网钱包/多签/LP/业务参数/Cloudflare Token）或基建修复（CI runner 网络）。
