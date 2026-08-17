@@ -65,40 +65,37 @@ async function api(base, path, token, method = "GET", body) {
   return res.json();
 }
 
-// 管理员登录（兼容 H-6 强制改密：候选密码依次尝试，首次登录须改密时自动改密后重登）。
-async function loginAdminOnce() {
-  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@supply-chain.io";
-  const candidates = [
-    process.env.ADMIN_PASSWORD,
-    "Admin123!",
-    "AdminChanged!1",
-    "E2eAdmin2!",
-  ].filter(Boolean);
-  for (const password of candidates) {
-    try {
-      const login = await api(BASE, "/api/auth/login", null, "POST", {
-        email: adminEmail,
-        password,
-      });
-      if (!login.accessToken) continue;
-      if (login.mustChangePassword) {
-        await api(BASE, "/api/auth/change-password", login.accessToken, "POST", {
-          currentPassword: password,
-          newPassword: "AdminChanged!1",
+// 账号登录（兼容 H-6 强制改密：候选密码依次尝试，首次登录须改密时自动改密后重登）。
+// accounts: [{ email, candidates[] }] 依次尝试。邀请码生成需要超管（root@），
+// 管理员（admin@）作为后备。
+async function loginAccountOnce(accounts) {
+  for (const { email, candidates } of accounts) {
+    for (const password of candidates) {
+      try {
+        const login = await api(BASE, "/api/auth/login", null, "POST", {
+          email,
+          password,
         });
-        const re = await api(BASE, "/api/auth/login", null, "POST", {
-          email: adminEmail,
-          password: "AdminChanged!1",
-        });
-        if (!re.accessToken) continue;
-        return { token: re.accessToken, password: "AdminChanged!1" };
+        if (!login.accessToken) continue;
+        if (login.mustChangePassword) {
+          await api(BASE, "/api/auth/change-password", login.accessToken, "POST", {
+            currentPassword: password,
+            newPassword: "AdminChanged!1",
+          });
+          const re = await api(BASE, "/api/auth/login", null, "POST", {
+            email,
+            password: "AdminChanged!1",
+          });
+          if (!re.accessToken) continue;
+          return { token: re.accessToken, password: "AdminChanged!1" };
+        }
+        return { token: login.accessToken, password };
+      } catch {
+        // 尝试下一个候选密码。
       }
-      return { token: login.accessToken, password };
-    } catch {
-      // 尝试下一个候选密码。
     }
   }
-  throw new Error(`admin login failed for ${adminEmail}`);
+  throw new Error("account login failed");
 }
 
 async function signSend(transactionB64, signer) {
@@ -119,7 +116,25 @@ await new Promise((r) => setTimeout(r, 1200));
 
 const email = `smoke-${Date.now()}@example.com`;
 // 邀请码制度：注册前用管理员生成一个邀请码（兼容 H-6 强制改密）
-const adminSession = await loginAdminOnce();
+const adminSession = await loginAccountOnce([
+  {
+    email: process.env.SUPER_ADMIN_EMAIL ?? "root@supply-chain.io",
+    candidates: [
+      process.env.SUPER_ADMIN_PASSWORD,
+      "SuperAdmin123!",
+      "AdminChanged!1",
+    ].filter(Boolean),
+  },
+  {
+    email: process.env.ADMIN_EMAIL ?? "admin@supply-chain.io",
+    candidates: [
+      process.env.ADMIN_PASSWORD,
+      "Admin123!",
+      "AdminChanged!1",
+      "E2eAdmin2!",
+    ].filter(Boolean),
+  },
+]);
 const inviteRes = await api(
   BASE,
   "/api/admin/invite-codes/generate",
@@ -132,11 +147,60 @@ if (!inviteCode) throw new Error("failed to generate invite code");
 const reg = await api(BASE, "/api/auth/register", null, "POST", {
   name: "Smoke",
   email,
-  password: "secret123",
+  password: "Secret123!",
   wallet: wallet.publicKey.toBase58(),
   inviteCode,
 });
 results.register = true;
+
+// 注册后不直接登录（防垃圾注册）：需先用邮箱验证码激活账号。
+// dev 模式（未配置 RESEND_API_KEY）下验证码由注册响应返回（devCode）。
+if (reg.requiresEmailVerification) {
+  if (!reg.devCode) {
+    throw new Error("register requires email verification but no devCode returned (need RESEND_API_KEY unset)");
+  }
+  await api(BASE, "/api/auth/verify-email", null, "POST", {
+    email,
+    code: reg.devCode,
+  });
+  // 真实注册账号强制邮箱验证码登录：先 login 拿 requiresEmailOtp + devCode（dev 模式），
+  // 再带 emailOtpCode 登录。
+  let regLogin = await api(BASE, "/api/auth/login", null, "POST", {
+    email,
+    password: "Secret123!",
+  });
+  if (regLogin.requiresEmailOtp) {
+    // 注册刚发过验证码，登录的邮箱 OTP 受 60s 冷却影响不返回 devCode；
+    // 等待冷却结束再登录（登录内部会重新发码并返回 devCode，dev 模式）。
+    let otpCode = regLogin.devCode;
+    if (!otpCode) {
+      console.log("  [smoke] login email OTP 处于 60s 冷却，等待 65s 后重试…");
+      await new Promise((r) => setTimeout(r, 65_000));
+      regLogin = await api(BASE, "/api/auth/login", null, "POST", {
+        email,
+        password: "Secret123!",
+      });
+      otpCode = regLogin.devCode;
+    }
+    if (!otpCode) {
+      throw new Error("login requires email OTP but no devCode returned (after cooldown)");
+    }
+    regLogin = await api(BASE, "/api/auth/login", null, "POST", {
+      email,
+      password: "Secret123!",
+      emailOtpCode: otpCode,
+    });
+  }
+  if (!regLogin.accessToken) throw new Error("user login after verify-email failed");
+  reg.accessToken = regLogin.accessToken;
+
+  // 建单仅限管理员/超管，且 buyerWallet 必须=登录用户绑定钱包 → 把管理员钱包绑到超管账号，
+  // 订单买方即管理员钱包（种子账号 emailOtpEnabled=false，绑钱包免邮箱码）。
+  await api(BASE, "/api/auth/wallet", adminSession.token, "PATCH", {
+    wallet: admin.publicKey.toBase58(),
+    emailCode: "000000", // 引导账号（emailOtpEnabled=false）跳过邮箱码实际校验
+  });
+}
 
 // 生成不同像素的合法 1x1 RGBA PNG：后端会用 sharp 重编码（去 EXIF/旋转），
 // 尾部追加的垃圾字节会被丢弃，因此必须让"图像内容"本身随每次运行变化，
@@ -188,9 +252,9 @@ if (USDC_MINT) {
     await getOrCreateAssociatedTokenAccount(conn, wallet, usdc, wallet.publicKey)
   ).address;
   await mintTo(conn, admin, usdc, buyerAta, admin.publicKey, 100_000_000);
-  const pre = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
-    buyerWallet: wallet.publicKey.toBase58(),
-    sellerWallet: seller.publicKey.toBase58(),
+  const pre = await api(TRADE, "/api/trades", adminSession.token, "POST", {
+    buyerWallet: admin.publicKey.toBase58(),
+    sellerWallet: wallet.publicKey.toBase58(),
     // 金额区别于主线贸易流程，避免命中重复订单检测（返回空 transaction）。
     amount: "30000000",
     tenor: "30",
@@ -198,14 +262,14 @@ if (USDC_MINT) {
   await api(
     TRADE,
     `/api/trades/${pre.tradeId}/confirm`,
-    reg.accessToken,
+    adminSession.token,
     "POST",
     {
-      buyerWallet: wallet.publicKey.toBase58(),
-      sellerWallet: seller.publicKey.toBase58(),
+      buyerWallet: admin.publicKey.toBase58(),
+      sellerWallet: wallet.publicKey.toBase58(),
       amount: "30000000",
       tenor: "30",
-      txSignature: await signSend(pre.transaction, wallet),
+      txSignature: await signSend(pre.transaction, admin),
     },
   );
   attestTradeId = pre.tradeId;
@@ -240,66 +304,36 @@ const confirmed = await api(
 results.attest = confirmed.ok === true;
 
 if (USDC_MINT) {
-  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@supply-chain.io";
-  const candidates = [
-    process.env.ADMIN_PASSWORD,
-    "Admin123!",
-    "AdminChanged!1",
-    "E2eAdmin2!",
-  ].filter(Boolean);
-  let adminLogin;
-  let adminPassword = process.env.ADMIN_PASSWORD ?? "Admin123!";
-  for (const password of candidates) {
-    try {
-      adminLogin = await api(BASE, "/api/auth/login", null, "POST", {
-        email: adminEmail,
-        password,
-      });
-      adminPassword = password;
-      break;
-    } catch {
-      // 尝试下一个候选密码。
-    }
-  }
-  if (!adminLogin) {
-    throw new Error(`admin login failed for ${adminEmail}`);
-  }
-  let adminToken = adminLogin.accessToken;
-  if (adminLogin.mustChangePassword) {
-    await api(BASE, "/api/auth/change-password", adminToken, "POST", {
-      currentPassword: adminPassword,
-      newPassword: "AdminChanged!1",
-    });
-    adminPassword = "AdminChanged!1";
-    const adminReLogin = await api(BASE, "/api/auth/login", null, "POST", {
-      email: adminEmail,
-      password: adminPassword,
-    });
-    adminToken = adminReLogin.accessToken;
-  }
+  // 订单买方=管理员钱包（超管已绑定），所有链上买家操作（确认/还款）用 admin 签名。
+  const adminToken = adminSession.token;
   const usdc = new PublicKey(USDC_MINT);
   const buyerAta = (
     await getOrCreateAssociatedTokenAccount(conn, wallet, usdc, wallet.publicKey)
   ).address;
   await mintTo(conn, admin, usdc, buyerAta, admin.publicKey, 100_000_000);
+  // 还款需买方（管理员钱包）有 USDC
+  const adminUsdcAta = (
+    await getOrCreateAssociatedTokenAccount(conn, admin, usdc, admin.publicKey)
+  ).address;
+  await mintTo(conn, admin, usdc, adminUsdcAta, admin.publicKey, 100_000_000);
 
-  const created = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
-    buyerWallet: wallet.publicKey.toBase58(),
-    sellerWallet: seller.publicKey.toBase58(),
+  const created = await api(TRADE, "/api/trades", adminSession.token, "POST", {
+    buyerWallet: admin.publicKey.toBase58(),
+    sellerWallet: wallet.publicKey.toBase58(),
     amount: "50000000",
     tenor: "30",
   });
   await api(
     TRADE,
     `/api/trades/${created.tradeId}/confirm`,
-    reg.accessToken,
+    adminSession.token,
     "POST",
     {
-      buyerWallet: wallet.publicKey.toBase58(),
-      sellerWallet: seller.publicKey.toBase58(),
+      buyerWallet: admin.publicKey.toBase58(),
+      sellerWallet: wallet.publicKey.toBase58(),
       amount: "50000000",
       tenor: "30",
-      txSignature: await signSend(created.transaction, wallet),
+      txSignature: await signSend(created.transaction, admin),
     },
   );
   const funded = await api(
@@ -350,34 +384,34 @@ if (USDC_MINT) {
     "POST",
     { txSignature: await signSend(released.transaction, admin) },
   );
-  const repay = await api(TRADE, `/api/trades/${created.tradeId}/repay`, reg.accessToken, "POST");
+  const repay = await api(TRADE, `/api/trades/${created.tradeId}/repay`, adminSession.token, "POST");
   const repayRes = await api(
     TRADE,
     `/api/trades/${created.tradeId}/repay/confirm`,
-    reg.accessToken,
+    adminSession.token,
     "POST",
-    { txSignature: await signSend(repay.transaction, wallet) },
+    { txSignature: await signSend(repay.transaction, admin) },
   );
   results.tradeLifecycle = repayRes.status === "SETTLED";
 
   // 违约场景：第二笔订单，拨款后违约，验证 DEFAULTED（托管整笔回池）
-  const defCreated = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
-    buyerWallet: wallet.publicKey.toBase58(),
-    sellerWallet: seller.publicKey.toBase58(),
+  const defCreated = await api(TRADE, "/api/trades", adminSession.token, "POST", {
+    buyerWallet: admin.publicKey.toBase58(),
+    sellerWallet: wallet.publicKey.toBase58(),
     amount: "10000000",
     tenor: "30",
   });
   await api(
     TRADE,
     `/api/trades/${defCreated.tradeId}/confirm`,
-    reg.accessToken,
+    adminSession.token,
     "POST",
     {
-      buyerWallet: wallet.publicKey.toBase58(),
-      sellerWallet: seller.publicKey.toBase58(),
+      buyerWallet: admin.publicKey.toBase58(),
+      sellerWallet: wallet.publicKey.toBase58(),
       amount: "10000000",
       tenor: "30",
-      txSignature: await signSend(defCreated.transaction, wallet),
+      txSignature: await signSend(defCreated.transaction, admin),
     },
   );
   const defFunded = await api(
@@ -413,23 +447,23 @@ if (USDC_MINT) {
   // D2 还款期违约保护：第三笔订单，拨款→放行（REPAYING）→账期未到即违约必须被拒绝
   // （补齐端到端冒烟清单 D2 的负向路径：DealNotExpired 安全门；正向路径需账期到期，
   // 由 Anchor 集成测试覆盖到期判定，本地/CI 无法真实等待 30 天账期）。
-  const d2 = await api(TRADE, "/api/trades", reg.accessToken, "POST", {
-    buyerWallet: wallet.publicKey.toBase58(),
-    sellerWallet: seller.publicKey.toBase58(),
+  const d2 = await api(TRADE, "/api/trades", adminSession.token, "POST", {
+    buyerWallet: admin.publicKey.toBase58(),
+    sellerWallet: wallet.publicKey.toBase58(),
     amount: "8000000",
     tenor: "30",
   });
   await api(
     TRADE,
     `/api/trades/${d2.tradeId}/confirm`,
-    reg.accessToken,
+    adminSession.token,
     "POST",
     {
-      buyerWallet: wallet.publicKey.toBase58(),
-      sellerWallet: seller.publicKey.toBase58(),
+      buyerWallet: admin.publicKey.toBase58(),
+      sellerWallet: wallet.publicKey.toBase58(),
       amount: "8000000",
       tenor: "30",
-      txSignature: await signSend(d2.transaction, wallet),
+      txSignature: await signSend(d2.transaction, admin),
     },
   );
   const d2Funded = await api(
