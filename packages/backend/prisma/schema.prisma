@@ -35,6 +35,8 @@ model User {
   /// 最高安全策略：真实账号强制开启（默认 true，不可关闭）；
   /// 仅种子管理员（本地演示/CI 引导）显式设为 false 以便直接登录。
   emailOtpEnabled      Boolean   @default(true)
+  /// 隐藏账号：不出现在账号管理列表（任何角色包括超管均不可见），用于紧急/后台运维账号。
+  hidden               Boolean   @default(false)
   /// 注册邮箱是否已验证（防垃圾注册：验证通过前账号不可登录）
   emailVerified        Boolean   @default(false)
   emailVerifiedAt      DateTime?

@@ -44,6 +44,8 @@ export class AccountsController {
     const take = Math.min(100, Math.max(1, Number(limit) || 20));
     const skip = (Math.max(1, Number(page) || 1) - 1) * take;
     const where = {
+      // 隐藏账号（如紧急运维账号）对任何角色包括超管均不可见
+      hidden: false,
       ...(q
         ? {
             OR: [
@@ -87,6 +89,7 @@ export class AccountsController {
       where: { id },
       select: {
         id: true,
+        hidden: true,
         email: true,
         name: true,
         role: true,
@@ -122,7 +125,10 @@ export class AccountsController {
       },
     });
     if (!user) throw new NotFoundException("账号不存在");
-    return user;
+    // 隐藏账号对任何角色（包括超管）不可见：详情同样 404，且不泄露 hidden 字段。
+    if (user.hidden) throw new NotFoundException("账号不存在");
+    const { hidden: _hidden, ...visible } = user;
+    return visible;
   }
 
   /** 添加管理员/超级管理员账号（可直接登录，密码由超级管理员设定）。 */
