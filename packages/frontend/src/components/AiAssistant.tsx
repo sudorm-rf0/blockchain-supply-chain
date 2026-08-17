@@ -11,12 +11,14 @@ import {
   Send,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -164,9 +166,9 @@ export function AiAssistant() {
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="flex w-full max-w-sm flex-col gap-0 p-0 sm:max-w-sm">
+        <SheetContent side="right" hideClose className="flex w-full max-w-sm flex-col gap-0 p-0 sm:max-w-sm">
           <SheetHeader className="border-b px-4 py-3">
-            <SheetTitle className="flex items-center justify-between gap-2 pr-11 text-base">
+            <SheetTitle className="flex items-center justify-between gap-2 text-base">
               <span className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#00E676]" />
                 {t("shell.aiAssistant.title")}
@@ -190,6 +192,17 @@ export function AiAssistant() {
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
+                <SheetClose asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title={t("close")}
+                    aria-label={t("close")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </SheetClose>
               </span>
             </SheetTitle>
             <SheetDescription>{t("shell.aiAssistant.desc")}</SheetDescription>
