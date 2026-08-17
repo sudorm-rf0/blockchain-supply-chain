@@ -374,6 +374,20 @@ jobs:
       - name: Add Solana CLI to PATH
         run: echo "$HOME/.local/share/solana/active_release/bin" >> "$GITHUB_PATH"
 
+      - name: Restore devnet program keypairs (match declare_id)
+        # CI 无本地 keypair 时 anchor build 会生成随机 keypair，地址与 declare_id! 不符，
+        # 导致所有链上调用 DeclaredProgramIdMismatch(4100)。从 GitHub Secrets 恢复原始 keypair。
+        # 注意：这是 devnet/localnet 程序密钥（9c8eND94…/Dcxixk89…），非主网密钥。
+        # 始终执行并在 keypair 缺失/不匹配时快速失败（避免进入 Anchor 测试阶段才暴露）。
+        working-directory: packages/contracts
+        run: |
+          mkdir -p target/deploy
+          echo "${{ secrets.CONTRACTS_TRADE_KEYPAIR }}" | base64 -d > target/deploy/trade_finance-keypair.json
+          echo "${{ secrets.CONTRACTS_SUPPLY_KEYPAIR }}" | base64 -d > target/deploy/supply_chain-keypair.json
+          chmod 600 target/deploy/*-keypair.json
+          test "$(solana address -k target/deploy/trade_finance-keypair.json)" = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
+          test "$(solana address -k target/deploy/supply_chain-keypair.json)" = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
+
       - name: Anchor Build
         working-directory: packages/contracts
         run: anchor build
