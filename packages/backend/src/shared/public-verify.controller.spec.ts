@@ -46,9 +46,10 @@ describe("PublicVerifyController", () => {
       const out = await controller.verify("a".repeat(64));
       expect(out.ok).toBe(true);
       expect(out.file!.filename).toBe("发票.pdf");
-      expect(out.file!.uploaderName).toBe("Alice");
-      expect(out.file!.solscanUrl).toMatch(/^https:\/\/solscan\.io\/tx\//);
+      // 隐私修复：公开接口不得披露上传者姓名/对象。
+      expect("uploaderName" in out.file!).toBe(false);
       expect("uploader" in out.file!).toBe(false);
+      expect(out.file!.solscanUrl).toMatch(/^https:\/\/solscan\.io\/tx\//);
     });
 
     it("rejects invalid hash", async () => {

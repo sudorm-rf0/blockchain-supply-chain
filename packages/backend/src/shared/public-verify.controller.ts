@@ -26,7 +26,6 @@ const FILE_SELECT = {
   attestedAt: true,
   txSignature: true,
   documentPda: true,
-  uploader: { select: { name: true } },
 } as const;
 
 @SkipThrottle()
@@ -57,7 +56,6 @@ export class PublicVerifyController {
         txSignature: file.txSignature,
         documentPda: file.documentPda,
         solscanUrl: file.txSignature ? solscanTxUrl(file.txSignature) : null,
-        uploaderName: file.uploader?.name ?? null,
       },
     };
   }
@@ -137,7 +135,6 @@ export class PublicVerifyController {
           name: file.filename,
           hash: file.hash.slice(0, 16),
           status: file.status,
-          uploaderName: file.uploader?.name ?? null,
         },
         events: events.sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
       };
