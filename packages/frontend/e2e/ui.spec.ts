@@ -231,3 +231,105 @@ test("admin can enable TOTP and must enter a code on next login", async ({
     }
   }
 });
+
+// ---- 补充用例辅助函数（2026-08-18）----
+
+async function adminLogin(page: Page): Promise<void> {
+  // 管理员 UI 登录：与现有 admin 用例一致，不要求邮箱验证码；首次强制改密时自动改密。
+  const { email } = await seedAdmin();
+  const candidates = ["Admin123!", "E2eAdmin2!"];
+  for (const password of candidates) {
+    await page.goto(`${BASE}/login`);
+    await page.fill("#email", email);
+    await page.fill("#password", password);
+    await page.click('button[type="submit"]');
+    try {
+      await page.waitForURL(/\/change-password|\/admin\/files/, { timeout: 10_000 });
+    } catch {
+      continue;
+    }
+    if (page.url().includes("change-password")) {
+      await page.fill("#currentPassword", password);
+      await page.fill("#newPassword", "E2eAdmin2!");
+      await page.fill("#confirmPassword", "E2eAdmin2!");
+      await page.click('button[type="submit"]');
+      await page.waitForURL("**/admin/files", { timeout: 15_000 });
+    }
+    return;
+  }
+  throw new Error("admin UI login failed");
+}
+
+function adminFileRow(page: Page, uploaderEmail: string) {
+  return page.getByRole("row").filter({ hasText: uploaderEmail }).first();
+}
+
+
+
+test("admin review loop: reject v1, user resubmits v2, approve, status syncs", async ({
+  browser,
+}) => {
+  // 使用两个独立浏览器上下文，避免管理员/用户会话互相干扰
+  const userCtx = await browser.newContext();
+  const adminCtx = await browser.newContext();
+  const user = await userCtx.newPage();
+  const admin = await adminCtx.newPage();
+  try {
+    const email = await registerUser(user);
+    const docId = `review-${Date.now()}`;
+
+    // 用户上传 v1
+    await uploadPng(user, "invoice-v1.png", TINY_PNG, docId);
+
+    // 管理员登录 → 待审核列表 → 驳回 v1
+    await adminLogin(admin);
+    await admin.goto(`${BASE}/admin/files?status=PENDING`);
+    await adminFileRow(admin, email).getByRole("button", { name: "驳回" }).click();
+    await admin.getByRole("dialog").locator("textarea").fill("e2e: 请补充抬头信息");
+    await admin.getByRole("button", { name: "确认驳回" }).click();
+    await expect(admin.getByText("已驳回")).toBeVisible({ timeout: 15_000 });
+
+    // 用户端（仍在登录态）看到 v1 已驳回
+    await user.goto(`${BASE}/user/files`);
+    await expect(user.getByText("已驳回").first()).toBeVisible({ timeout: 15_000 });
+
+    // 用户用同一单据编号重传 v2（自动生成新版本）
+    await uploadPng(user, "invoice-v2.png", TINY_PNG_V2, docId);
+    await user.goto(`${BASE}/user/files`);
+    await expect(user.getByText("v2", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+    // 管理员通过 v2（v1 已驳回，PENDING 列表只含 v2）
+    await admin.goto(`${BASE}/admin/files?status=PENDING`);
+    await adminFileRow(admin, email).getByRole("button", { name: "通过" }).click();
+    await admin.getByRole("button", { name: "确认通过" }).click();
+    await expect(admin.getByText("审核通过")).toBeVisible({ timeout: 15_000 });
+
+    // 用户端最终看到已通过
+    await user.goto(`${BASE}/user/files`);
+    await expect(user.getByText("已通过").first()).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await userCtx.close();
+    await adminCtx.close();
+  }
+});
+
+test("public verification by document id and on-chain trace timeline", async ({
+  page,
+}) => {
+  const docId = `verify-${Date.now()}`;
+  await registerUser(page);
+  await uploadPng(page, "verify.png", TINY_PNG, docId);
+
+  // 溯源：我的文件 → 链上溯源（公开只读页）
+  await page.goto(`${BASE}/user/files`);
+  await page.getByRole("link", { name: "链上溯源" }).first().click();
+  await page.waitForURL("**/trace/**", { timeout: 15_000 });
+  await expect(page.getByText(/溯源/).first()).toBeVisible({ timeout: 15_000 });
+
+  // 公开核验：/verify 按单据编号查询
+  await page.goto(`${BASE}/verify`);
+  await page.getByPlaceholder("文件哈希 / 文件 ID / 交易签名").fill(docId);
+  await page.getByRole("button", { name: "核验" }).click();
+  await expect(page.getByText("核验通过")).toBeVisible({ timeout: 15_000 });
+});
+
