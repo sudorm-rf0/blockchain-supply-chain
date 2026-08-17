@@ -469,8 +469,10 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group sheen relative flex items-center gap-3 overflow-hidden rounded-md border border-border bg-background p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/60 hover:bg-primary/5 hover:shadow-[0_4px_16px_-8px_rgba(0,230,118,0.4)]"
+      className="group relative flex items-center gap-3 overflow-hidden rounded-md border border-border bg-background p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#00E676]/60 hover:bg-primary/5 hover:shadow-[0_4px_16px_-8px_rgba(0,230,118,0.4)]"
     >
+      {/* sheen 必须是内层装饰元素：.sheen 含 pointer-events:none + position:absolute，加在 Link 上会导致按钮无法点击 */}
+      <span className="sheen" aria-hidden="true" />
       <Icon className="h-4 w-4 shrink-0 text-[#00E676] transition-transform duration-200 group-hover:scale-110" />
       <span className="truncate text-sm">{label}</span>
     </Link>
