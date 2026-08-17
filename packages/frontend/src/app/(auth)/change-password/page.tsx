@@ -30,8 +30,18 @@ export default function ChangePasswordPage() {
       z
         .object({
           currentPassword: z.string().min(6, t("changePassword.validation.currentPassword")),
-          newPassword: z.string().min(8, t("changePassword.validation.newPassword")),
-          confirmPassword: z.string().min(8, t("changePassword.validation.confirmPassword")),
+          newPassword: z
+            .string()
+            .regex(
+              /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/,
+              t("register.validation.passwordPolicy"),
+            ),
+          confirmPassword: z
+            .string()
+            .regex(
+              /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/,
+              t("register.validation.passwordPolicy"),
+            ),
           emailCode: requiresCode
             ? z.string().regex(/^\d{6}$/, t("changePassword.validation.emailCode"))
             : z.string().optional(),
@@ -52,6 +62,7 @@ export default function ChangePasswordPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ChangePasswordForm>({
     resolver: zodResolver(schema),
@@ -62,6 +73,21 @@ export default function ChangePasswordPage() {
       emailCode: "",
     },
   });
+
+  const newPasswordValue = watch("newPassword") ?? "";
+  const pwPolicy = [
+    { key: "length", label: t("register.policy.length"), ok: newPasswordValue.length >= 8 },
+    { key: "lower", label: t("register.policy.lower"), ok: /[a-z]/.test(newPasswordValue) },
+    { key: "upper", label: t("register.policy.upper"), ok: /[A-Z]/.test(newPasswordValue) },
+    { key: "digit", label: t("register.policy.digit"), ok: /\d/.test(newPasswordValue) },
+    { key: "symbol", label: t("register.policy.symbol"), ok: /[^A-Za-z0-9]/.test(newPasswordValue) },
+  ];
+  const pwOkCount = pwPolicy.filter((item) => item.ok).length;
+  const pwStrength = newPasswordValue.length === 0 ? 0 : Math.round((pwOkCount / pwPolicy.length) * 100);
+  const pwStrengthClass =
+    pwStrength >= 100 ? "bg-green-500" : pwStrength >= 60 ? "bg-amber-500" : "bg-red-500";
+  const pwValid = pwOkCount === pwPolicy.length;
+
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -161,6 +187,27 @@ export default function ChangePasswordPage() {
                 type="password"
                 {...register("newPassword")}
               />
+              {newPasswordValue.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${pwStrengthClass}`}
+                      style={{ width: `${pwStrength}%` }}
+                    />
+                  </div>
+                  <ul className="space-y-0.5 text-xs">
+                    {pwPolicy.map((item) => (
+                      <li
+                        key={item.key}
+                        className={item.ok ? "text-green-600" : "text-muted-foreground"}
+                      >
+                        {item.ok ? "✓ " : "○ "}
+                        {item.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {errors.newPassword && (
                 <p className="text-sm text-destructive">
                   {errors.newPassword.message}
@@ -218,7 +265,7 @@ export default function ChangePasswordPage() {
             </div>
             )}
             <Turnstile key={captchaKey} action="sensitive" onVerify={setTurnstileToken} />
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" className="w-full" disabled={isSubmitting || !pwValid}>
               {isSubmitting ? t("changePassword.submitting") : t("changePassword.submit")}
             </Button>
           </form>

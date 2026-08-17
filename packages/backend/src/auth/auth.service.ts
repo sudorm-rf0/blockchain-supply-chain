@@ -36,6 +36,19 @@ const scryptAsync = promisify(scrypt) as (
   keylen: number,
 ) => Promise<Buffer>;
 
+/**
+ * 密码强度政策：≥8 位且必须同时包含 大写字母 / 小写字母 / 数字 / 特殊符号。
+ * 返回错误文案；通过返回 null。
+ */
+export function passwordPolicyError(password: string): string | null {
+  if (!password || password.length < 8) return "密码至少 8 位";
+  if (!/[a-z]/.test(password)) return "密码需包含小写字母";
+  if (!/[A-Z]/.test(password)) return "密码需包含大写字母";
+  if (!/\d/.test(password)) return "密码需包含数字";
+  if (!/[^A-Za-z0-9]/.test(password)) return "密码需包含特殊符号（如 !@#$%^&*）";
+  return null;
+}
+
 async function hashPassword(password: string, salt: string): Promise<Buffer> {
   return scryptAsync(password, salt, 64);
 }
@@ -207,8 +220,9 @@ export class AuthService {
     if (!body.name || !body.email || !body.password) {
       throw new BadRequestException("缺少注册字段");
     }
-    if (body.password.length < 6) {
-      throw new BadRequestException("密码至少 6 位");
+    const policyErr = passwordPolicyError(body.password);
+    if (policyErr) {
+      throw new BadRequestException(policyErr);
     }
     if (!body.inviteCode || !/^[A-Za-z0-9]{6}$/.test(body.inviteCode)) {
       throw new BadRequestException("邀请码为 6 位数字或字母");
@@ -641,8 +655,9 @@ export class AuthService {
     if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
-    if (!newPassword || newPassword.length < 8) {
-      throw new BadRequestException("新密码至少 8 位");
+    const policyErr = passwordPolicyError(newPassword);
+    if (policyErr) {
+      throw new BadRequestException(`新密码${policyErr.replace("密码", "")}`);
     }
     if (newPassword === currentPassword) {
       throw new BadRequestException("新密码不能与当前密码相同");

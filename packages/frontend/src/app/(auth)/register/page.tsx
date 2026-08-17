@@ -29,8 +29,18 @@ export default function RegisterPage() {
         .object({
           name: z.string().min(1, t("register.validation.name")),
           email: z.string().email(t("register.validation.email")),
-          password: z.string().min(6, t("register.validation.passwordMin")),
-          confirmPassword: z.string().min(6, t("register.validation.passwordMin")),
+          password: z
+            .string()
+            .regex(
+              /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/,
+              t("register.validation.passwordPolicy"),
+            ),
+          confirmPassword: z
+            .string()
+            .regex(
+              /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/,
+              t("register.validation.passwordPolicy"),
+            ),
           wallet: z
             .string()
             .regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, t("register.validation.wallet"))
@@ -50,6 +60,7 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(schema),
@@ -61,6 +72,20 @@ export default function RegisterPage() {
       inviteCode: "",
     },
   });
+
+  const passwordValue = watch("password") ?? "";
+  const policy = [
+    { key: "length", label: t("register.policy.length"), ok: passwordValue.length >= 8 },
+    { key: "lower", label: t("register.policy.lower"), ok: /[a-z]/.test(passwordValue) },
+    { key: "upper", label: t("register.policy.upper"), ok: /[A-Z]/.test(passwordValue) },
+    { key: "digit", label: t("register.policy.digit"), ok: /\d/.test(passwordValue) },
+    { key: "symbol", label: t("register.policy.symbol"), ok: /[^A-Za-z0-9]/.test(passwordValue) },
+  ];
+  const satisfiedCount = policy.filter((item) => item.ok).length;
+  const strength = passwordValue.length === 0 ? 0 : Math.round((satisfiedCount / policy.length) * 100);
+  const strengthClass =
+    strength >= 100 ? "bg-green-500" : strength >= 60 ? "bg-amber-500" : "bg-red-500";
+  const passwordValid = satisfiedCount === policy.length;
 
   const onSubmit = async (values: RegisterForm) => {
     try {
@@ -122,6 +147,27 @@ export default function RegisterPage() {
             <div className="space-y-2">
               <Label htmlFor="password">{t("register.password")}</Label>
               <Input id="password" type="password" {...register("password")} />
+              {passwordValue.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${strengthClass}`}
+                      style={{ width: `${strength}%` }}
+                    />
+                  </div>
+                  <ul className="space-y-0.5 text-xs">
+                    {policy.map((item) => (
+                      <li
+                        key={item.key}
+                        className={item.ok ? "text-green-600" : "text-muted-foreground"}
+                      >
+                        {item.ok ? "✓ " : "○ "}
+                        {item.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
@@ -164,7 +210,9 @@ export default function RegisterPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
+              disabled={
+                isSubmitting || !passwordValid || (!!TURNSTILE_SITE_KEY && !turnstileToken)
+              }
             >
               {isSubmitting ? t("register.submitting") : t("register.submit")}
             </Button>

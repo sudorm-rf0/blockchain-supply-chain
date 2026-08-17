@@ -160,7 +160,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
         name: "A",
         email: "a@example.com",
-        password: "secret123",
+        password: "Str0ng#Pass9",
         wallet: "not-a-wallet",
       }),
     ).rejects.toThrow(BadRequestException);
@@ -181,7 +181,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "dup@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     await expect(
@@ -189,7 +189,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
         name: "B",
         email: "dup@example.com",
-        password: "secret123",
+        password: "Str0ng#Pass9",
         wallet: Keypair.generate().publicKey.toBase58(),
       }),
     ).rejects.toThrow(ConflictException);
@@ -231,13 +231,13 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "login@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     await service.verifyEmail("login@example.com", "123456");
     const result = await service.login({
       email: "login@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       emailOtpCode: "123456",
     });
     expect("requiresTotp" in result).toBe(false);
@@ -269,7 +269,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "T",
       email: "setup@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     const result = await service.setupTotp("u1");
@@ -306,7 +306,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "T",
       email: "totp2@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     await service.verifyEmail("totp2@example.com", "123456");
@@ -316,7 +316,7 @@ describe("AuthService", () => {
     });
     const result = await service.login({
       email: "totp2@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       emailOtpCode: "123456",
     });
     expect(result).toEqual({ requiresTotp: true });
@@ -324,7 +324,7 @@ describe("AuthService", () => {
     await expect(
       service.login({
         email: "totp2@example.com",
-        password: "secret123",
+        password: "Str0ng#Pass9",
         emailOtpCode: "123456",
         totpCode: "000000",
       }),
@@ -333,7 +333,7 @@ describe("AuthService", () => {
     const validCode = totpCodeAt(secret, Math.floor(Date.now() / 1000 / 30));
     const okResult = await service.login({
       email: "totp2@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       emailOtpCode: "123456",
       totpCode: validCode,
     });
@@ -372,7 +372,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "D",
       email: "dual@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     await service.verifyEmail("dual@example.com", "123456");
@@ -388,14 +388,14 @@ describe("AuthService", () => {
     // 第一步：无邮箱验证码 → 要求邮箱验证码
     const step1 = await service.login({
       email: "dual@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
     });
     expect(step1).toEqual({ requiresEmailOtp: true });
 
     // 第二步：带邮箱验证码 → 通过并写入标记 → 要求 TOTP
     const step2 = await service.login({
       email: "dual@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       emailOtpCode: "123456",
     });
     expect(step2).toEqual({ requiresTotp: true });
@@ -407,7 +407,7 @@ describe("AuthService", () => {
     );
     const okResult = await service.login({
       email: "dual@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       emailOtpCode: "123456",
       totpCode: validCode,
     });
@@ -434,7 +434,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "T",
       email: "enable@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     await prisma.user.update({
@@ -462,7 +462,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "T",
       email: "disable@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     await prisma.user.update({
@@ -494,13 +494,13 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "audit-login@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     await service.verifyEmail("audit-login@example.com", "123456");
     await service.login({
       email: "audit-login@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       emailOtpCode: "123456",
     });
     expect(audit.record).toHaveBeenCalledWith(
@@ -523,7 +523,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "change@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({
@@ -538,7 +538,7 @@ describe("AuthService", () => {
       mustChangePassword: false,
     });
     await expect(
-      service.changePassword("u1", "wrong-pass", "newpass1234", "123456"),
+      service.changePassword("u1", "wrong-pass", "N3w#Str0ng9!", "123456"),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -558,7 +558,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "audit-pass@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
@@ -576,7 +576,7 @@ describe("AuthService", () => {
             }
           : null,
     );
-    await service.changePassword(reg.user.id, "secret123", "secret1234", "123456");
+    await service.changePassword(reg.user.id, "Str0ng#Pass9", "N3w#Str0ng9!", "123456");
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: "AUTH_PASSWORD_CHANGED" }),
     );
@@ -598,7 +598,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "pending@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
 
@@ -635,7 +635,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
         name: "A",
         email: "send-fail@example.com",
-        password: "secret123",
+        password: "Str0ng#Pass9",
       }),
     ).rejects.toThrow(ServiceUnavailableException);
     expect(prisma.user.create).not.toHaveBeenCalled();
@@ -656,7 +656,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "activate@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
     });
     const result = await service.verifyEmail("activate@example.com", "123456");
 
@@ -697,11 +697,11 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "unverified@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     await expect(
-      service.login({ email: "unverified@example.com", password: "secret123" }),
+      service.login({ email: "unverified@example.com", password: "Str0ng#Pass9" }),
     ).rejects.toThrow(ForbiddenException);
   });
 
@@ -720,14 +720,14 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "otp-login@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     await service.verifyEmail("otp-login@example.com", "123456");
 
     const result = await service.login({
       email: "otp-login@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
     });
 
     expect(result).toEqual({ requiresEmailOtp: true });
@@ -750,14 +750,14 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "otp-login2@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
     await service.verifyEmail("otp-login2@example.com", "123456");
 
     const result = await service.login({
       email: "otp-login2@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       emailOtpCode: "123456",
     });
 
@@ -827,10 +827,10 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "cp-code@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: Keypair.generate().publicKey.toBase58(),
     });
-    await service.changePassword("u1", "secret123", "secret1234", "123456");
+    await service.changePassword("u1", "Str0ng#Pass9", "N3w#Str0ng9!", "123456");
     expect(emailVerification.verifyCode).toHaveBeenCalledWith(
       "cp-code@example.com",
       "123456",
@@ -853,7 +853,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "ops-change@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
@@ -874,10 +874,10 @@ describe("AuthService", () => {
           : null,
     );
     await expect(
-      service.changePassword("u1", "secret123", "secret1234", undefined),
+      service.changePassword("u1", "Str0ng#Pass9", "N3w#Str0ng9!", undefined),
     ).rejects.toThrow(BadRequestException);
     await expect(
-      service.changePassword("u1", "secret123", "secret1234", "123456"),
+      service.changePassword("u1", "Str0ng#Pass9", "N3w#Str0ng9!", "123456"),
     ).resolves.toBeTruthy();
     expect(emailVerification.verifyCode).toHaveBeenCalledWith(
       created.email,
@@ -901,7 +901,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "bootstrap@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
@@ -922,7 +922,7 @@ describe("AuthService", () => {
           : null,
     );
     await expect(
-      service.changePassword("u1", "secret123", "secret1234", undefined),
+      service.changePassword("u1", "Str0ng#Pass9", "N3w#Str0ng9!", undefined),
     ).resolves.toBeTruthy();
     expect(emailVerification.verifyCode).not.toHaveBeenCalled();
   });
@@ -943,7 +943,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "totp-pass@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
@@ -968,11 +968,11 @@ describe("AuthService", () => {
     );
     // 开启两步验证后：错误/缺失 TOTP → 拒绝（即使有邮箱验证码）
     await expect(
-      service.changePassword("u1", "secret123", "secret1234", "123456"),
+      service.changePassword("u1", "Str0ng#Pass9", "N3w#Str0ng9!", "123456"),
     ).rejects.toThrow(BadRequestException);
     // 有效 TOTP → 通过
     await expect(
-      service.changePassword("u1", "secret123", "secret1234", goodCode),
+      service.changePassword("u1", "Str0ng#Pass9", "N3w#Str0ng9!", goodCode),
     ).resolves.toBeTruthy();
   });
 
@@ -992,7 +992,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "totp-wallet@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet,
     });
     const created = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
@@ -1040,7 +1040,7 @@ describe("AuthService", () => {
       inviteCode: "AB12CD",
       name: "A",
       email: "bind-wallet@example.com",
-      password: "secret123",
+      password: "Str0ng#Pass9",
       wallet: wallet1,
     });
     const user = await service.bindWallet("u1", wallet2, "123456");
@@ -1067,14 +1067,14 @@ describe("AuthService invite codes", () => {
   it("rejects invalid invite code format", async () => {
     const service = makeService(makePrisma());
     await expect(
-      service.register({ name: "A", email: "a@example.com", password: "secret123", inviteCode: "abc" }),
+      service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "abc" }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it("rejects unknown invite code", async () => {
     const service = makeService(makePrisma());
     await expect(
-      service.register({ name: "A", email: "a@example.com", password: "secret123", inviteCode: "ZZZZ99" }),
+      service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "ZZZZ99" }),
     ).rejects.toThrow("邀请码无效");
   });
 
@@ -1083,7 +1083,7 @@ describe("AuthService invite codes", () => {
     (prisma.inviteCode.findUnique as jest.Mock).mockResolvedValue({ id: "ic1", usedAt: new Date() });
     const service = makeService(prisma);
     await expect(
-      service.register({ name: "A", email: "a@example.com", password: "secret123", inviteCode: "AB12CD" }),
+      service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "AB12CD" }),
     ).rejects.toThrow("邀请码已被使用");
   });
 
@@ -1091,7 +1091,7 @@ describe("AuthService invite codes", () => {
     const prisma = makePrisma();
     const service = makeService(prisma);
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({ name: "A", email: "a@example.com", password: "secret123", wallet, inviteCode: "AB12CD" });
+    await service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", wallet, inviteCode: "AB12CD" });
     // user.create 收到 inviteCodeId
     const createCall = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
     expect(createCall.inviteCodeId).toBe("ic1");
