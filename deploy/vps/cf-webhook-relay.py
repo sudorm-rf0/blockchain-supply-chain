@@ -60,6 +60,21 @@ def send_resend(cfg, subject, body):
         os.unlink(tmp)
 
 
+# Cloudflare 通知严重度过滤（2026-08-18）：只有严重/重要类型才转发邮件，
+# 其余（用量/带宽/流量/负载/分析等提示类）仅记录日志，避免打扰。
+SEVERE_HINTS = (
+    "ddos", "dos attack", "攻击", "ssl", "certificate", "证书",
+    "security", "安全", "origin", "源站", "error rate", "错误率",
+    "phishing", "钓鱼", "malware", "恶意",
+)
+def is_severe(payload):
+    name = str(payload.get("name", ""))
+    text = str(payload.get("text", ""))
+    data = payload.get("data", {}) or {}
+    alert_type = str(data.get("alert_type", ""))
+    blob = f"{name} {text} {alert_type}".lower()
+    return any(h in blob for h in SEVERE_HINTS)
+
 def build_email(payload):
     name = payload.get("name", "未知告警")
     text = payload.get("text", "")
@@ -115,6 +130,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._reply(401, b"unauthorized\n")
                 return
             payload = json.loads(raw.decode("utf-8", errors="replace"))
+            if not is_severe(payload):
+                print(f"{now_str()} Cloudflare 通知非严重，仅记录不转发邮件: {payload.get('name','')} {payload.get('data',{}).get('alert_type','')}", flush=True)
+                self._reply(200, b"ok\n")
+                return
             subject, body = build_email(payload)
             rc, out = send_resend(cfg, subject, body)
             if rc == 0 and '"id"' in out:

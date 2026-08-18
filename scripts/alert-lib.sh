@@ -13,8 +13,11 @@ ALERT_COOLDOWN=1800   # 同一 key 两次告警最小间隔（秒）
 
 mkdir -p "$ALERT_STATE_DIR"
 
-# 邮件白名单默认值：系统/生产运营级（服务、数据、安全、证书）
-DEFAULT_EMAIL_KEYS="vps-mem,vps-disk,vps-containers,app-health,app-health-ready,indexer-api,indexer-failed,backup-missing,backup-stale,app-clamav,app-login-brute,cert-expire"
+# 邮件白名单默认值（2026-08-18 二次收紧）：**仅"会导致系统崩溃/站点不可用"才发邮件**——
+#   app-health / app-health-ready（站点不可用）、vps-containers（容器持续异常）。
+# 其余全部（内存/磁盘/备份/安全/索引器/证书预告等）仅写本地日志，不浪费邮件额度。
+# 证书续期失败仍由 renew-cert.sh 单独发邮件（证书过期=站点不可用）。
+DEFAULT_EMAIL_KEYS="app-health,app-health-ready,vps-containers"
 ALERT_EMAIL_KEYS="${ALERT_EMAIL_KEYS:-$DEFAULT_EMAIL_KEYS}"
 if [ -f /etc/supply-chain-alert.env ]; then
   _k=$(grep -E '^ALERT_EMAIL_KEYS=' /etc/supply-chain-alert.env 2>/dev/null | head -1 | cut -d= -f2-)
