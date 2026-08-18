@@ -16,37 +16,40 @@ const TINY_PNG_V2 = Buffer.from(
 
 // 注：CI 自托管 runner 使用独立 JWT_SECRET，注册接口不会传 confirmPassword。
 
+// 管理员当前密码（模块级跟踪，避免反复试错触发登录限流/锁定）
+let adminPassword = process.env.ADMIN_PASSWORD ?? "Admin123!";
+
 async function seedAdmin(): Promise<{ email: string; password: string }> {
   // CI 使用 seed 重建的种子管理员；本地重复运行时密码可能已被改密流程更新。
-  const candidates = ["Admin123!", "E2eAdmin2!"];
+  const candidates = [adminPassword, "Admin123!", "E2eAdmin2!"].filter(
+    (v, i, a) => !!v && a.indexOf(v) === i,
+  );
   for (const password of candidates) {
     const res = await fetch(`${BACKEND}/api/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email: "admin@supply-chain.io", password }),
     });
-    if (res.ok) return { email: "admin@supply-chain.io", password };
+    if (res.ok) {
+      adminPassword = password;
+      return { email: "admin@supply-chain.io", password };
+    }
   }
   throw new Error("seed admin login failed");
 }
 
-async function readDevCode(page: Page): Promise<string> {
-  const el = page.getByText(/开发模式验证码：\d{6}/).first();
-  await expect(el).toBeVisible({ timeout: 15_000 });
-  const text = (await el.textContent()) ?? "";
-  const m = text.match(/(\d{6})/);
-  if (!m) throw new Error(`devCode not found in: ${text}`);
-  return m[1];
-}
+// 超管当前密码（模块级跟踪）：首次登录可能强制改密，改密后记录新密码，
+// 避免后续测试反复用旧密码尝试触发后端登录失败锁定（429）。
+let superAdminPassword = process.env.SUPER_ADMIN_PASSWORD ?? "SuperAdmin123!";
 
 /** 生成邀请码：超管登录（兼容 H-6 强制改密）→ /api/admin/invite-codes/generate */
 async function generateInviteCode(): Promise<string> {
   const superEmail = process.env.SUPER_ADMIN_EMAIL ?? "root@supply-chain.io";
   const candidates = [
-    process.env.SUPER_ADMIN_PASSWORD,
-    "SuperAdmin123!",
+    superAdminPassword,
     "AdminChanged!1",
-  ].filter(Boolean);
+    "SuperAdmin123!",
+  ].filter((v, i, a) => !!v && a.indexOf(v) === i);
   let token = "";
   for (const password of candidates) {
     const res = await fetch(`${BACKEND}/api/auth/login`, {
@@ -68,8 +71,10 @@ async function generateInviteCode(): Promise<string> {
         body: JSON.stringify({ email: superEmail, password: "AdminChanged!1" }),
       });
       if (!re.ok) continue;
+      superAdminPassword = "AdminChanged!1";
       token = ((await re.json()) as { accessToken: string }).accessToken;
     } else {
+      superAdminPassword = password;
       token = login.accessToken;
     }
     if (token) break;
@@ -89,8 +94,14 @@ async function generateInviteCode(): Promise<string> {
 async function registerUser(page: Page): Promise<string> {
   const email = `ui-${Date.now()}@example.com`;
   const inviteCode = await generateInviteCode();
-  await page.goto(`${BASE}/`);
-  await page.evaluate(() => localStorage.setItem("dfr-locale", "zh-CN"));
+  // 在每次页面加载前注入语言设置（避免 navigate+evaluate 竞态导致 ERR_ABORTED）
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("dfr-locale", "zh-CN");
+    } catch {
+      // ignore
+    }
+  });
   await page.goto(`${BASE}/register`);
   await page.fill("#name", "UI User");
   await page.fill("#email", email);
@@ -110,26 +121,38 @@ async function registerUser(page: Page): Promise<string> {
   await page.click('button[type="submit"]');
   await page.waitForURL("**/login", { timeout: 15_000 });
 
-  // 登录（强制邮箱验证码）：注册已触发 60s 发送冷却，等按钮恢复后手动发码
+  // 登录：邮箱已验证后登录不再要求邮箱码，直接 UI 登录直达 /user/upload。
+  // 若仍出现邮箱码输入框（防御性兜底），读 devCode toast 填码。
   await page.fill("#email", email);
   await page.fill("#password", "Secret123!");
   await page.click('button[type="submit"]');
-  await expect(page.locator("#email-otp")).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(
-    () => {
-      const btn = Array.from(document.querySelectorAll("button")).find((b) =>
-        /发送验证码|s 后可重发/.test(b.textContent ?? ""),
-      );
-      return Boolean(btn && /发送验证码/.test(btn.textContent ?? ""));
-    },
-    undefined,
-    { timeout: 90_000 },
-  );
-  await page.getByRole("button", { name: "发送验证码" }).click();
-  const loginCode = await readDevCode(page);
-  await page.fill("#email-otp", loginCode);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/user/upload", { timeout: 15_000 });
+  try {
+    await page.waitForURL("**/user/upload", { timeout: 10_000 });
+  } catch {
+    // 邮箱 OTP：注册后 60s 冷却，等待「发送验证码」按钮可用（文本就绪且未 disabled）再点击
+    await expect(page.locator("#email-otp")).toBeVisible({ timeout: 10_000 });
+    await page.waitForFunction(
+      () => {
+        const btn = Array.from(document.querySelectorAll("button")).find((b) =>
+          /发送验证码|可重发/.test(b.textContent ?? ""),
+        );
+        return Boolean(btn && /发送验证码/.test(btn.textContent ?? "") && !btn.disabled);
+      },
+      undefined,
+      { timeout: 90_000 },
+    );
+    await page.locator("button", { hasText: "发送验证码" }).last().click({ timeout: 10_000, force: true });
+    const toast = page.getByText(/开发模式验证码：\d{6}/).first();
+    await expect(toast).toBeVisible({ timeout: 15_000 });
+    const t = (await toast.textContent()) ?? "";
+    const code = t.match(/(\d{6})/)?.[1];
+    if (!code) throw new Error("no OTP devCode for login fallback");
+    await page.fill("#email-otp", code);
+    await page.click('button[type="submit"]');
+    await page.waitForURL("**/user/upload", { timeout: 15_000 });
+  }
+  await page.goto(`${BASE}/user/upload`);
+  await expect(page).toHaveURL("**/user/upload", { timeout: 15_000 });
   return email;
 }
 
