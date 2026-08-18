@@ -73,6 +73,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, [router]);
 
+  // 隐形站长面板快捷键：Ctrl+Shift+O 直达（页面自身有超管守卫，非超管会被弹回）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        router.push("/admin/owner");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
+
   useEffect(() => {
     if (!hydrated) return;
     if (!user) {

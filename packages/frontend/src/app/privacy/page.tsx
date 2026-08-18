@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
-const SECTIONS = Array.from({ length: 18 }, (_, i) => `s${i + 1}`);
+const SECTIONS = Array.from({ length: 19 }, (_, i) => `s${i + 1}`);
 
 export default function PrivacyPage() {
   const { t } = useTranslation();

@@ -19,6 +19,7 @@ import { FeedbackModule } from "./feedback/feedback.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ReportsModule } from "./reports/reports.module";
 import { OnchainGovernanceModule } from "./onchain-governance/onchain-governance.module";
+import { OwnerPanelModule } from "./owner/owner.module";
 import { IntegrationsModule } from "./integrations/integrations.module";
 import { AiModule } from "./ai/ai.module";
 import { MetricsController } from "./shared/metrics.controller";
@@ -51,6 +52,7 @@ import { RedisService } from "@supply-chain/common";
     ReportsModule,
     OnchainGovernanceModule,
     IntegrationsModule,
+    OwnerPanelModule,
   ],
   controllers: [
     AppController,

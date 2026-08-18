@@ -400,3 +400,21 @@ model Feedback {
   @@index([createdAt])
   @@map("feedbacks")
 }
+
+model VisitLog {
+  id         String   @id @default(cuid())
+  ip         String?
+  userAgent  String?
+  path       String
+  method     String
+  statusCode Int
+  referrer   String?
+  userId     String?
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([ip])
+  @@map("visit_logs")
+}
