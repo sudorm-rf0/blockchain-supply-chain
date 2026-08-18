@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -15,17 +15,35 @@ export interface VisitRecord {
 
 const RETENTION_DAYS = 30;
 
+const FLUSH_INTERVAL_MS = 5_000;
+const FLUSH_BATCH = 100;
+
 @Injectable()
-export class VisitLogService {
+export class VisitLogService implements OnModuleDestroy {
   private readonly logger = new Logger(VisitLogService.name);
+  private readonly buffer: VisitRecord[] = [];
+  private flushTimer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    // 批量落库：内存缓冲 + 定时刷写，避免每个请求都写一次 DB（降低访问日志对业务的性能影响）
+    this.flushTimer = setInterval(() => void this.flush(), FLUSH_INTERVAL_MS);
+    this.flushTimer.unref?.();
+  }
 
-  /** 记录一次访问（写入失败静默降级，不影响业务请求） */
+  /** 记录一次访问（入缓冲；写入失败静默降级，不影响业务请求） */
   async record(v: VisitRecord): Promise<void> {
+    this.buffer.push(v);
+    if (this.buffer.length >= FLUSH_BATCH) {
+      await this.flush();
+    }
+  }
+
+  private async flush(): Promise<void> {
+    if (this.buffer.length === 0) return;
+    const batch = this.buffer.splice(0, this.buffer.length);
     try {
-      await this.prisma.visitLog.create({
-        data: {
+      await this.prisma.visitLog.createMany({
+        data: batch.map((v) => ({
           ip: v.ip?.slice(0, 64) ?? null,
           userAgent: v.userAgent?.slice(0, 300) ?? null,
           path: v.path.slice(0, 500),
@@ -34,11 +52,19 @@ export class VisitLogService {
           referrer: v.referrer?.slice(0, 500) ?? null,
           userId: v.userId ?? null,
           durationMs: v.durationMs,
-        },
+        })),
       });
     } catch (e) {
-      this.logger.warn(`visit log write failed: ${String(e)}`);
+      this.logger.warn(`visit log batch write failed: ${String(e)}`);
     }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+    await this.flush();
   }
 
   /** 每天清理超过保留期的访问记录 */

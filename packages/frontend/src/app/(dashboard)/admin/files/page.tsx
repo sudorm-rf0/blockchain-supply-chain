@@ -7,6 +7,11 @@ import { useTranslation } from "react-i18next";
 import { Bot, ExternalLink, Eye, RefreshCw, Route } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
+const AiAssistantDialog = dynamic(
+  () => import("@/components/AiAssistantDialog").then((m) => m.AiAssistantDialog),
+  { ssr: false },
+);
+
 const FilePreviewDialog = dynamic(
   () =>
     import("@/components/FilePreviewDialog").then((m) => m.FilePreviewDialog),
@@ -58,7 +63,6 @@ import {
   type AiReviewReport,
   type FileRecord,
 } from "@/lib/api";
-import { AiAssistantDialog } from "@/components/AiAssistantDialog";
 import { formatDateTime } from "@/lib/format";
 import { solscanTxUrl } from "@/lib/solscan";
 import { regionLabel } from "@/lib/region";

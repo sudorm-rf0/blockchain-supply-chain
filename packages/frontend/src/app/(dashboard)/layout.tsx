@@ -6,7 +6,10 @@ import { Languages, LogOut, Menu, ShieldCheck, User as UserIcon, UserCog } from 
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Sidebar } from "@/components/Sidebar";
-import { AiAssistant } from "@/components/AiAssistant";
+
+// AI 助手为客户端悬浮面板，动态加载以减小看板首载 JS
+const AiAssistant = dynamic(() => import("@/components/AiAssistant").then((m) => m.AiAssistant), { ssr: false });
+import dynamic from "next/dynamic";
 import { LogoMark } from "@/components/LogoMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
