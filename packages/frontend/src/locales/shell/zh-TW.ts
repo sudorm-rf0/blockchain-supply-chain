@@ -1,6 +1,5 @@
 const zh_TW = {
   "sidebar.dashboard": "資料看板",
-  "sidebar.currentPage": "當前位置",
   "sidebar.accounts": "帳號管理",
   "sidebar.systemSettings": "系統設定",
   "sidebar.fileReview": "檔案審核",

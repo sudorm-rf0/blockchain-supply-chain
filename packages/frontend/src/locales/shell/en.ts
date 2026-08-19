@@ -1,6 +1,5 @@
 const en = {
   "sidebar.dashboard": "Dashboard",
-  "sidebar.currentPage": "Current page",
   "sidebar.accounts": "Account Management",
   "sidebar.systemSettings": "System Settings",
   "sidebar.fileReview": "File Review",

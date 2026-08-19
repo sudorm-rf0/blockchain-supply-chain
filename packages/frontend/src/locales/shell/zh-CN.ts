@@ -1,6 +1,5 @@
 const zh_CN = {
   "sidebar.dashboard": "数据看板",
-  "sidebar.currentPage": "当前位置",
   "sidebar.accounts": "账号管理",
   "sidebar.systemSettings": "系统设置",
   "sidebar.fileReview": "文件审核",
