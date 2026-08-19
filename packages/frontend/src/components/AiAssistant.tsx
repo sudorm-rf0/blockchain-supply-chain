@@ -102,8 +102,8 @@ export function AiAssistant() {
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       void refreshSessions();
     } catch (error) {
+      // 失败时保留用户消息（不回滚），仅提示错误；AI 服务恢复后可重试
       toast.error(error instanceof Error ? error.message : t("shell.aiAssistant.sendFailed"));
-      setMessages(messages);
     } finally {
       setSending(false);
     }

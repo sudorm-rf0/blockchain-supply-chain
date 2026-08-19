@@ -48,4 +48,21 @@ describe("AiAssistant", () => {
     });
     expect(await screen.findByText("AI 回答")).toBeTruthy();
   });
+
+  it("AI 请求失败时保留用户消息并可重试", async () => {
+    chatMock.mockRejectedValueOnce(new Error("503 AI down"));
+    render(<AiAssistant />);
+    fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+    const input = await screen.findByPlaceholderText("输入问题，Enter 发送");
+    fireEvent.change(input, { target: { value: "测试消息XYZ789" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => {
+      expect(chatMock).toHaveBeenCalled();
+    });
+    // 用户消息应保留（欢迎语消失）
+    await waitFor(() => {
+      expect(screen.queryByText(/平台 AI 助手/)).toBeNull();
+    });
+    expect(screen.getByText("测试消息XYZ789")).toBeTruthy();
+  });
 });
