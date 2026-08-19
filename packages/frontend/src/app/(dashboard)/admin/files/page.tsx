@@ -472,21 +472,29 @@ export default function AdminFilesPage({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{t("files.totalCount", { n: total })}</p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            {t("files.previousPage")}
-          </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {t("files.pageIndicator", {
+              page,
+              totalPages: Math.max(1, Math.ceil(total / LIMIT)),
+            })}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              {t("files.previousPage")}
+            </Button>
           <Button
             variant="outline"
             disabled={page * LIMIT >= total}
             onClick={() => setPage((p) => p + 1)}
           >
             {t("files.nextPage")}
-          </Button>
+            </Button>
+          </div>
         </div>
       </div>
 

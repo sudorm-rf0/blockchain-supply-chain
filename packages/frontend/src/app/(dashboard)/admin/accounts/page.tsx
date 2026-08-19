@@ -294,23 +294,28 @@ export default function AccountsPage() {
             <span>
               {t("accounts.page", { page, total: totalPages })}
             </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                {t("accounts.previousPage")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {t("accounts.nextPage")}
-              </Button>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">
+                {t("accounts.pageIndicator", { page, totalPages })}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  {t("accounts.previousPage")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  {t("accounts.nextPage")}
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>

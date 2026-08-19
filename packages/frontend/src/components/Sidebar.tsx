@@ -97,10 +97,48 @@ export function Sidebar({ role, onNavigate }: SidebarProps) {
     return want === have;
   };
 
+  const status = searchParams.get("status");
+  const currentLabel = (() => {
+    if (pathname === "/dashboard") return t("sidebar.dashboard");
+    if (pathname === "/notifications") return t("panels.sidebar.notifications");
+    if (pathname === "/user/upload") return t("sidebar.uploadFile");
+    if (pathname === "/user/files") return t("sidebar.myFiles");
+    if (pathname.startsWith("/orders")) return t("sidebar.myOrders");
+    if (pathname === "/trade/new") return t("dashboard.createOrder");
+    if (pathname === "/financing") return t("sidebar.financing");
+    if (pathname === "/admin/files")
+      return status === "ALL" ? t("sidebar.allFiles") : t("sidebar.fileReview");
+    if (pathname === "/admin/audit") return t("sidebar.auditLog");
+    if (pathname === "/admin/trades") return t("sidebar.allOrders");
+    if (pathname === "/admin/accounts") return t("sidebar.accounts");
+    if (pathname === "/admin/invite-codes") return t("sidebar.inviteStats");
+    if (pathname === "/admin/settings") return t("sidebar.systemSettings");
+    if (pathname === "/admin/onchain-governance") return t("panels.sidebar.governance");
+    if (pathname === "/admin/supply-chain") return t("sidebar.supplyChain");
+    if (pathname === "/admin/withdrawals") return t("sidebar.withdrawals");
+    if (pathname === "/admin/financing") return t("sidebar.financingReview");
+    if (pathname === "/admin/feedback") return t("sidebar.feedbackAdmin");
+    if (pathname === "/admin/ai-stats") return t("sidebar.aiStats");
+    if (pathname === "/admin/reports") return t("panels.sidebar.reports");
+    if (pathname === "/admin/integrations") return t("panels.sidebar.integrations");
+    if (pathname === "/admin/owner") return t("panels.sidebar.owner", { defaultValue: "数据看板" });
+    return pathname;
+  })();
+
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-background">
       <div className="border-b border-border px-5 py-4 font-mono text-[16px] font-semibold tracking-widest text-foreground">
         DFR SUPPLY CHAIN
+      </div>
+      {/* 当前位置指示：无论当前页面是否在菜单中，都显示所在位置 */}
+      <div className="flex items-center gap-2 border-b border-border/70 bg-muted/30 px-5 py-2.5">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-[#00E676]" />
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {t("sidebar.currentPage")}：
+        </span>
+        <span className="truncate text-sm font-semibold text-foreground">
+          {currentLabel}
+        </span>
       </div>
       <nav className="flex-1 space-y-px overflow-y-auto p-2">
         <Link

@@ -15,6 +15,7 @@ const zh_CN = {
   "audit.total": "共 {{total}} 条",
   "audit.prev": "上一页",
   "audit.next": "下一页",
+  "audit.pageIndicator": "第 {{page}} / {{totalPages}} 页",
   "audit.action.fileApproved": "文件通过",
   "audit.action.fileRejected": "文件驳回",
   "audit.action.fileDeleted": "文件删除",

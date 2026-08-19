@@ -241,21 +241,29 @@ export default function UserFilesPage() {
         <p className="text-sm text-muted-foreground">
           {t("files.total", { count: total })}
         </p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            {t("files.previous")}
-          </Button>
-          <Button
-            variant="outline"
-            disabled={page * LIMIT >= total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("files.next")}
-          </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {t("files.pageIndicator", {
+              page,
+              totalPages: Math.max(1, Math.ceil(total / LIMIT)),
+            })}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              {t("files.previous")}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={page * LIMIT >= total}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              {t("files.next")}
+            </Button>
+          </div>
         </div>
       </div>
 

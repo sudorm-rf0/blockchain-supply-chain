@@ -15,6 +15,7 @@ const zh_TW = {
   "audit.total": "共 {{total}} 筆",
   "audit.prev": "上一頁",
   "audit.next": "下一頁",
+  "audit.pageIndicator": "第 {{page}} / {{totalPages}} 頁",
   "audit.action.fileApproved": "檔案通過",
   "audit.action.fileRejected": "檔案駁回",
   "audit.action.fileDeleted": "檔案刪除",

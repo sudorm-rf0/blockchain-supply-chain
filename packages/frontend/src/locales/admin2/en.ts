@@ -15,6 +15,7 @@ const en = {
   "audit.total": "{{total}} records",
   "audit.prev": "Previous",
   "audit.next": "Next",
+  "audit.pageIndicator": "Page {{page}} / {{totalPages}}",
   "audit.action.fileApproved": "File approved",
   "audit.action.fileRejected": "File rejected",
   "audit.action.fileDeleted": "File deleted",

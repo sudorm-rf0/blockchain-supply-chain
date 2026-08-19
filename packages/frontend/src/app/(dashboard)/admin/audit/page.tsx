@@ -271,21 +271,29 @@ export default function AuditLogsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{t("audit.total", { total })}</p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            {t("audit.prev")}
-          </Button>
-          <Button
-            variant="outline"
-            disabled={page * LIMIT >= total}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("audit.next")}
-          </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {t("audit.pageIndicator", {
+              page,
+              totalPages: Math.max(1, Math.ceil(total / LIMIT)),
+            })}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              {t("audit.prev")}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={page * LIMIT >= total}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              {t("audit.next")}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
