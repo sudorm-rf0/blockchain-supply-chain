@@ -292,7 +292,7 @@ export default function AdminFilesPage({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold">{t("files.title")}</h1>
         <div className="flex flex-wrap items-center gap-2">

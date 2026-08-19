@@ -107,7 +107,7 @@ export default function UserFilesPage() {
   }, {});
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">{t("files.title")}</h1>
         <Select value={status} onValueChange={setStatus}>
