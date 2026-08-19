@@ -206,7 +206,7 @@ export default function NotificationsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBroadcastOpen(false)}>
-              {t("panels.integrations.cancel") ?? "取消"}
+              {t("panels.notifications.cancel") ?? "取消"}
             </Button>
             <Button onClick={() => void handleBroadcast()} disabled={sending || !bcTitle.trim()}>
               {sending ? t("panels.reports.loading") : t("panels.notifications.bcSend")}
