@@ -24,4 +24,13 @@ export class AiChatDto {
   @IsString()
   @MaxLength(64)
   sessionId?: string;
+
+  @ApiPropertyOptional({
+    description: "界面语言（zh-CN / zh-TW / en），用于让 AI 用对应语言回复",
+    example: "zh-CN",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  lang?: string;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLanguage } from "@/components/LanguageProvider";
 import {
   ArrowLeft,
   Bot,
@@ -48,7 +49,9 @@ const QUICK_COMMANDS = [
 
 export function AiAssistant() {
   const { t } = useTranslation();
+  const { locale } = useLanguage();
   const [open, setOpen] = useState(false);
+  const [showQuick, setShowQuick] = useState(true);
   const [messages, setMessages] = useState<AiAssistantMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [input, setInput] = useState("");
@@ -87,11 +90,13 @@ export function AiAssistant() {
     setMessages(next);
     setInput("");
     setSending(true);
+    setShowQuick(false);
     try {
       const { reply, sessionId: sid } = await aiChat(
         message,
         messages.slice(-10),
         sessionId,
+        locale,
       );
       setSessionId(sid);
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
@@ -150,6 +155,7 @@ export function AiAssistant() {
     setMessages([]);
     setSessionId(undefined);
     setHistoryOpen(false);
+    setShowQuick(true);
   };
 
   const latest = sessions[0];
@@ -283,7 +289,7 @@ export function AiAssistant() {
                   </Button>
                 </div>
               )}
-              <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+              <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4 pb-8">
                 {messages.length === 0 && (
                   <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
                     {t("shell.aiAssistant.welcome")}
@@ -310,22 +316,26 @@ export function AiAssistant() {
               </div>
 
               <div className="border-t p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t("shell.aiAssistant.quickTitle")}
-                </p>
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                  {QUICK_COMMANDS.map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      disabled={sending}
-                      onClick={() => void handleSend(t(key))}
-                      className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-[#00E676]/50 hover:text-[#00E676] disabled:opacity-50"
-                    >
-                      {t(key)}
-                    </button>
-                  ))}
-                </div>
+                {showQuick && (
+                  <>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t("shell.aiAssistant.quickTitle")}
+                    </p>
+                    <div className="mb-3 flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+                      {QUICK_COMMANDS.map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={sending}
+                          onClick={() => void handleSend(t(key))}
+                          className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-[#00E676]/50 hover:text-[#00E676] disabled:opacity-50"
+                        >
+                          {t(key)}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
                 <div className="flex items-center gap-2">
                   <Input
                     value={input}

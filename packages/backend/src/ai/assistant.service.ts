@@ -165,8 +165,17 @@ export class AssistantService {
       .filter((m) => m.content.length > 0);
     const history = storedHistory.length > 0 ? storedHistory : fallbackHistory;
 
+    const langMap: Record<string, string> = {
+      "zh-CN": "请始终使用简体中文回答用户问题。",
+      "zh-TW": "請始終使用繁體中文回答用戶問題。",
+      en: "Always reply to the user in English.",
+    };
+    const langInstruction =
+      langMap[(dto.lang ?? "zh-CN").trim()] ??
+      "请始终使用简体中文回答用户问题。";
+    const systemContent = `${SYSTEM_PROMPT}\n【语言要求】${langInstruction}`;
     const messages: AiChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemContent },
       ...history,
       { role: "user", content: dto.message },
     ];

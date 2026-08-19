@@ -43,6 +43,7 @@ describe("AiAssistant", () => {
         "如何上传单据？",
         expect.any(Array),
         undefined,
+        "zh-CN",
       );
     });
     expect(await screen.findByText("AI 回答")).toBeTruthy();

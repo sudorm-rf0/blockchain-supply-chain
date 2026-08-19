@@ -25,11 +25,12 @@ export async function aiChat(
   message: string,
   history?: AiChatMessage[],
   sessionId?: string,
+  lang?: string,
 ): Promise<{ reply: string; sessionId: string }> {
   return request(`${BACKEND_URL}/api/ai/chat`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ message, history: history ?? [], sessionId }),
+    body: JSON.stringify({ message, history: history ?? [], sessionId, lang }),
   });
 }
 
