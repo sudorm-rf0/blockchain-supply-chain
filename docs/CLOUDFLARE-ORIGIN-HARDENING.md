@@ -105,3 +105,51 @@ ufw disable
 - 经 tcpdump 实测：公网来源（120.229.163.11）直连 103.39.79.7:443 的 SYN 被静默丢弃（无 SYN-ACK）——源站收紧对公网真实生效
 - 经 Cloudflare 访问 /health 200 正常；SSH 正常
 - 8080 本机验证 200（防火墙未对其设限）；外网端到端验证受本机代理干扰，未能独立复核，见遗留项
+
+
+## 八、公开页 HTML 边缘缓存（2026-08-20 配置）
+
+> 目的：让登录/注册/验证/隐私等公开页面被 Cloudflare 边缘缓存，减少大陆用户回源香港的耗时。
+
+### 1) 源站 nginx（已部署）
+
+`deploy/vps/nginx.conf` 中对以下公开路径覆盖 Cache-Control 为 `public, s-maxage=300, stale-while-revalidate=60`：
+`/login`、`/register`、`/verify`（含 /verify-email）、`/change-password`、`/privacy`、`/terms`
+
+```nginx
+# 公开页面 HTML：允许 Cloudflare 边缘缓存（s-maxage=300）
+location ~ ^/(login|register|verify-email|change-password|verify|privacy|terms)(/.*)?$ {
+    set $up_frontend http://frontend:3000;
+    proxy_pass $up_frontend;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_hide_header Cache-Control;
+    add_header Cache-Control "public, s-maxage=300, stale-while-revalidate=60" always;
+    # ... 安全响应头（HSTS/X-Frame/X-Content/Referrer/Permissions）...
+}
+```
+
+> ⚠️ nginx 容器为文件级 bind mount：替换 nginx.conf 后必须 **重启 nginx 容器**（`docker restart supply-chain-nginx`）才会读到新文件。
+
+### 2) Cloudflare Cache Rule（已配置，2026-08-20）
+
+Zone `supplychain.de5.net` 缓存规则集新增（保留原有 `/_next/static/` 规则）：
+
+| 项 | 值 |
+|---|---|
+| 条件 | `(starts_with(http.request.uri.path, "/login") or starts_with(http.request.uri.path, "/register") or starts_with(http.request.uri.path, "/verify") or starts_with(http.request.uri.path, "/change-password") or starts_with(http.request.uri.path, "/privacy") or starts_with(http.request.uri.path, "/terms"))` |
+| 动作 | `set_cache_settings`，`cache=true`，`edge_ttl` override_origin default=300 |
+| 验证 | 同 URL 二次请求 `cf-cache-status: HIT` ✅ |
+
+复现命令（需带 Cache Rules:Edit 权限的 Token，`<ZONE>`=`6a970137e4b9e350eb89b188b95d03cf`）：
+```bash
+TOKEN=<带 Cache Rules:Edit 的 Token>
+ZONE=6a970137e4b9e350eb89b188b95d03cf
+# 先取现有规则集（保留静态规则），再 PUT 追加公开页规则；action 用 set_cache_settings
+curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE/rulesets/phases/http_request_cache_settings/entrypoint" -H "Authorization: Bearer $TOKEN"
+```
+
+> 说明：现有本机 `packages/backend/.env` 中的 Token 有 WAF/限速权限但**无 Cache Rules 权限**；本次使用用户另提供的区域级 Token（已建议轮换）。
