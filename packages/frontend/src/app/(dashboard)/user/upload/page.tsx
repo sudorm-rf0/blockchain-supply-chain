@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useDropzone } from "react-dropzone";
-import { Camera, CheckCircle2, Loader2, Trash2, XCircle } from "lucide-react";
+import { Camera, CheckCircle2, Loader2, Trash2, UploadCloud, XCircle } from "lucide-react";
 import { Transaction } from "@solana/web3.js";
 import { confirmTransactionWithTimeout } from "@/lib/solana";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useWalletContext } from "@/hooks/useWalletContext";
 import {
@@ -75,6 +82,7 @@ export default function UploadPage() {
   const [description, setDescription] = useState("");
   const [remark, setRemark] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [resultOpen, setResultOpen] = useState(false);
   const [attachedTradeId, setAttachedTradeId] = useState("");
   const { connection, connected, publicKey, sendTransaction } =
     useWalletContext();
@@ -108,6 +116,8 @@ export default function UploadPage() {
   ).length;
   const successCount = items.filter((i) => i.status === "success").length;
   const failCount = items.filter((i) => i.status === "error").length;
+  const successItems = items.filter((i) => i.status === "success");
+  const failedItems = items.filter((i) => i.status === "error");
 
   const patchItem = (localId: string, patch: Partial<UploadItem>) => {
     setItems((prev) =>
@@ -153,6 +163,9 @@ export default function UploadPage() {
     }
     setUploading(false);
     setAttachedTradeId(tradeId.trim());
+    if (targets.length > 0) {
+      setResultOpen(true);
+    }
     if (failed === 0) {
       toast.success(t("upload.toasts.uploadSuccess"));
     } else {
@@ -488,6 +501,61 @@ export default function UploadPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 拖拽到上传区时的提示弹窗 */}
+      {isDragActive && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-[#00E676]/60 bg-background p-8 text-center shadow-2xl">
+            <UploadCloud className="h-10 w-10 text-[#00E676]" />
+            <p className="text-base font-semibold text-foreground">
+              {t("upload.dropHint", { defaultValue: "松开鼠标即可上传" })}
+            </p>
+            <p className="text-xs text-muted-foreground">{t("upload.multiHint")}</p>
+          </div>
+        </div>
+      )}
+
+      {/* 上传完成弹窗：显示成功的文件与数量 */}
+      <Dialog open={resultOpen} onOpenChange={setResultOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[#00E676]" />
+              {t("upload.resultTitle", { defaultValue: "上传完成" })}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t("upload.resultDesc", {
+              defaultValue: "成功 {{success}} 个，失败 {{failed}} 个",
+              success: successItems.length,
+              failed: failedItems.length,
+            })}
+          </p>
+          <div className="max-h-[48vh] space-y-1.5 overflow-y-auto">
+            {successItems.map((item) => (
+              <div
+                key={item.localId}
+                className="flex items-center justify-between gap-2 rounded-md border border-border/70 p-2 text-sm"
+              >
+                <span className="min-w-0 truncate">{item.file.name}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatSize(item.file.size)}
+                </span>
+              </div>
+            ))}
+            {failedItems.length > 0 && (
+              <p className="pt-1 text-xs text-red-500">
+                {t("upload.failedCount", { count: failedItems.length })}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setResultOpen(false)}>
+              {t("upload.resultOk", { defaultValue: "知道了" })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

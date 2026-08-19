@@ -105,7 +105,7 @@ describe("UploadPage", () => {
     expect(uploadMock.mock.calls[0][0].name).toBe("invoice.png");
     // 拖拽框内成功统计 + 列表显示文件名与哈希
     expect(screen.getByText(/上传成功 1 个文件/)).toBeTruthy();
-    expect(screen.getByText("invoice.png")).toBeTruthy();
+    expect(screen.getAllByText("invoice.png").length).toBeGreaterThan(0);
     expect(screen.getByText("文件哈希：hash-invoice.png（版本 v1）")).toBeTruthy();
     expect(toastSuccess).toHaveBeenCalledWith("上传成功");
   });
@@ -120,8 +120,8 @@ describe("UploadPage", () => {
       expect(uploadMock).toHaveBeenCalledTimes(2);
     });
     expect(screen.getByText(/上传成功 2 个文件/)).toBeTruthy();
-    expect(screen.getByText("a.png")).toBeTruthy();
-    expect(screen.getByText("b.pdf")).toBeTruthy();
+    expect(screen.getAllByText("a.png").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("b.pdf").length).toBeGreaterThan(0);
     expect(screen.getByText("文件哈希：hash-a.png（版本 v1）")).toBeTruthy();
     expect(screen.getByText("文件哈希：hash-b.pdf（版本 v1）")).toBeTruthy();
   });
@@ -137,10 +137,10 @@ describe("UploadPage", () => {
     clickUploadAll();
 
     await waitFor(() => {
-      expect(screen.getByText(/1 个文件上传失败/)).toBeTruthy();
+      expect(screen.getAllByText(/1 个文件上传失败/).length).toBeGreaterThan(0);
     });
-    expect(screen.getByText("good.png")).toBeTruthy();
-    expect(screen.getByText("bad.pdf")).toBeTruthy();
+    expect(screen.getAllByText("good.png").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("bad.pdf").length).toBeGreaterThan(0);
     expect(screen.getByText(/上传失败：network down/)).toBeTruthy();
     // 成功那个仍有哈希
     expect(screen.getByText("文件哈希：hash-good.png（版本 v1）")).toBeTruthy();
@@ -149,7 +149,7 @@ describe("UploadPage", () => {
   it("lets user remove a pending file from the list", async () => {
     render(<UploadPage />);
     dropFiles([makePngFile("remove-me.png")]);
-    expect(screen.getByText("remove-me.png")).toBeTruthy();
+    expect(screen.getAllByText("remove-me.png").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByLabelText("移除该文件"));
     expect(screen.queryByText("remove-me.png")).toBeNull();
   });
