@@ -80,5 +80,30 @@ chk "池 USDC 托管余额 > 0" "$bal_ok" "$bal TEST_USDC"
 lp=$(rpc getTokenSupply "[\"$LP\"]" | python3 -c "import sys,json;d=json.load(sys.stdin);r=d.get('result',{}).get('value');print(r['uiAmount'] if r else '0')")
 chk "LP supply 可读" "$(python3 -c "print(1 if float('$lp') > 0 else 0)")" "$lp LP"
 
+
+# 6) 池金库实有余额 vs 账面 tracked_vault（独立复测 H-3 权威记账）
+# tracked_vault 在 PoolState data offset 321（LE u64，8 字节 discriminator 后）。
+# deposit/redeem 等入口强制实时金库 == tracked_vault；外部直接捐赠会导致偏差。
+BAL_TOLERANCE="${BAL_TOLERANCE:-0}"
+tv=$(rpc getAccountInfo "[\"$POOL\",{\"encoding\":\"base64\"}]" | python3 -c "
+import sys,json,base64
+d=json.load(sys.stdin)
+r=d.get('result',{}).get('value')
+if not r: print('NO_POOL'); sys.exit()
+data=base64.b64decode(r['data'][0])
+print(int.from_bytes(data[321:329], 'little'))
+")
+actual=$(rpc getTokenAccountBalance "[\"$VAULT_ATA\"]" | python3 -c "import sys,json;d=json.load(sys.stdin);r=d.get('result',{}).get('value');print(int(r['amount']) if r else -1)")
+if [ "$tv" = "NO_POOL" ] || [ "$actual" = "-1" ]; then
+  chk "池金库 vs 账面偏差" 0 "无法读取池或金库"
+else
+  dev=$(python3 -c "print(abs(int('$actual') - int('$tv')))")
+  if [ "$dev" -le "$BAL_TOLERANCE" ]; then
+    chk "池金库 vs 账面偏差" 1 "偏差=${dev}（vault=${actual} tracked=${tv}）"
+  else
+    chk "池金库 vs 账面偏差" 0 "偏差=${dev} > 容差 ${BAL_TOLERANCE}（vault=${actual} tracked=${tv}）"
+  fi
+fi
+
 echo ""
 if [ "$fail" = "1" ]; then echo "❌ 链上安全巡检失败"; exit 1; else echo "✅ 链上安全巡检全部通过"; exit 0; fi

@@ -3,8 +3,8 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [programs.localnet]
-supply_chain = "Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk"
-trade_finance = "9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3"
+supply_chain = "BGSBnaAs2uhsYhUA2KJBmirMcK551JLm9thy7P2y2cDh"
+trade_finance = "8GSbCjUhgpvgQ35tx7wqFZCznP5HW2mn1jUYcGahC4tq"
 
 [programs.devnet]
 supply_chain = "BGSBnaAs2uhsYhUA2KJBmirMcK551JLm9thy7P2y2cDh"
@@ -27,3 +27,9 @@ test = "bash scripts/test-anchor.sh"
 # （CONTRACTS_TRADE_KEYPAIR / CONTRACTS_SUPPLY_KEYPAIR）恢复本机缺失的
 # devnet/localnet 程序 keypair，使地址与 declare_id! 一致，避免
 # DeclaredProgramIdMismatch(4100)。主网 keypair 不在此列，保持离线冷存储。
+
+# H-2 审计：initialize_pool/initialize_registry 要求 admin == upgrade authority。
+# anchor test 默认以不可升级(--bpf-program)部署，UA=1111 会被 H-2 拒绝；
+# upgradeable=true 使测试程序可升级部署，初始 UA=provider.wallet，测试才能初始化。
+[test]
+upgradeable = true

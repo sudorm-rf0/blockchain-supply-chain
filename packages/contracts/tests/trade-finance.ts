@@ -229,7 +229,6 @@ describe("trade-finance full lifecycle", () => {
         airdrop(keypair.publicKey),
       ),
     );
-
     poolStatePda = PublicKey.findProgramAddressSync(
       POOL_SEEDS,
       program.programId,
