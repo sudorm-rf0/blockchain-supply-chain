@@ -9,10 +9,10 @@
 |---|---|---|---|---|
 | devnet 旧部署钱包 `3rF9fK7...` | 旧合约 UA / 旧池 admin | **丢失**（本地/VPS 均未找到） | ❌ 无 | ⚠️ 已废弃（旧合约停用） |
 | devnet 旧程序 keypair `9c8eND94/Dcxixk89` | 旧版合约（120/129 字节） | `target/deploy/legacy/` | ✅ 已备份 | ⚠️ 已废弃 |
-| **devnet 新部署钱包 `FAB17dFi...`** | 新合约 UA / 新池 admin / 平台钱包 | `target/deploy/devnet-new/deployer-keypair.json` | ⚠️ **待冷备份** | ✅ 当前 devnet 在用 |
-| devnet 新程序 keypair `8GSbCjUh/BGSBnaAs` | 新版合约 | `target/deploy/`（gitignore） | ✅ 已有副本 | ✅ 当前 devnet 在用 |
-| mainnet 程序 keypair | 主网合约（未部署） | `target/deploy/mainnet/*.json` | ⚠️ **需离线冷存储** | 主网部署用 |
-| 本地开发钱包 `9zEYzF...` | 本地/localnet 开发 | `~/.config/solana/id.json` | ⚠️ 需备份 | 普通钱包，非部署 |
+| **devnet 新部署钱包 `FAB17dFi...`** | 新合约 UA / 新池 admin / 平台钱包 | `target/deploy/devnet-new/deployer-keypair.json` | ✅ 已备份(本地电脑) | ✅ 当前 devnet 在用 |
+| devnet 新程序 keypair `8GSbCjUh/BGSBnaAs` | 新版合约 | `target/deploy/`（gitignore） | ✅ 已备份(本地电脑) | ✅ 当前 devnet 在用 |
+| mainnet 程序 keypair + 部署钱包 | 主网合约（未部署） | `target/deploy/mainnet/*.json` | ✅ 已备份(本地电脑) | 主网部署用（部署钱包 `E9Xtgfgq...` 未注资） |
+| 本地开发钱包 `9zEYzF...` | 本地/localnet 开发 | `~/.config/solana/id.json` | ✅ 已备份(本地电脑) | 普通钱包，非部署 |
 
 ## 2. 硬性规定（红线）
 
@@ -42,3 +42,17 @@
 - pool: `BGuPKjqfC8tsBPmHUKkS2KVDMBGvbk21QH1R976KQm2r`
 - USDC: `5kEWE1EbC6DYfg5548UBksbJ2VPue4yxiX3VUuHddRcC` / LP: `4fJthZiYPZ9uAqr38Uj2p2DJbPWjxUDP94Vo3RcwaWtw`
 - 生产 `.env.app` 已指向以上地址（备份 `.env.app.bak.*`）
+
+## 6. 备份记录（2026-08-20）
+
+**备份位置**：`~/Documents/区块链供应链-密钥备份-20260820/`（本地电脑，项目外）
+
+包含：
+- `devnet-current/`：当前 devnet 新部署钱包 + 2 个新版程序 keypair
+- `mainnet/`：主网部署钱包 `E9Xtgfgq...` + 2 个主网程序 keypair（未部署）
+- `legacy-old-devnet/`：已废弃旧 devnet 程序 keypair（追溯）
+- `local-dev/id.json`：本地开发钱包
+- `README.md` + `SHA256SUMS.txt`：用途说明 + 校验和
+
+**建议**：将备份目录放入加密容器（macOS 加密 DMG / 密码管理器）二次保护；
+恢复后用 `shasum -a 256 -c SHA256SUMS.txt` 验证完整性。
