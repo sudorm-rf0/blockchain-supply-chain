@@ -42,7 +42,8 @@ table_sql() {
 }
 
 psql() {
-  docker exec "${CONTAINER}" psql -U "${POSTGRES_USER}" "$@"
+  # 管理命令（CREATE/DROP DATABASE）需连到一个存在的库；count_rows 显式传 -d 时后值优先。
+  docker exec "${CONTAINER}" psql -U "${POSTGRES_USER}" -d postgres "$@"
 }
 
 pg_dump_cmd() {
