@@ -1,9 +1,37 @@
-# Blockchain Supply Chain Monorepo
+<div align="center">
 
-Solana/Anchor 供应链金融平台：单据上传审核、Solana 存证、贸易订单创建与
-资金池快照。使用 pnpm workspaces + Turbo 管理。
+# ⛓️ Blockchain Supply Chain Monorepo
 
-## 包结构
+**Solana/Anchor 供应链金融平台** · 单据审核 · 链上存证 · 贸易订单 · 资金池
+
+![Solana](https://img.shields.io/badge/Solana-purple?logo=solana&logoColor=white)
+![Anchor](https://img.shields.io/badge/Anchor-0.31.1-512BD4?logo=solana&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-black?logo=rust&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-F69220?logo=pnpm&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?logo=kubernetes&logoColor=white)
+
+![GitHub stars](https://img.shields.io/github/stars/sudorm-rf0/blockchain-supply-chain)
+![GitHub last commit](https://img.shields.io/github/last-commit/sudorm-rf0/blockchain-supply-chain)
+
+</div>
+
+---
+
+基于 **Solana/Anchor** 的供应链金融平台，覆盖**单据上传审核 → 链上存证 → 贸易订单 → 资金池**全流程。`pnpm workspaces + Turbo` 管理。
+
+## ✨ 特性
+
+- 🔗 **链上存证** — 单据哈希上链，防篡改可审计
+- 📋 **单据审核** — 管理员审核、文件管理、权限化注册
+- 💱 **贸易订单** — 创建、预构建、链上确认全生命周期
+- 💰 **资金池** — LP 充值/赎回、NAV 快照、链上账户监听回写
+- 🛡 **权限体系** — 三级角色（USER / ADMIN / SUPER_ADMIN）
+- 🔐 **安全审计** — 独立审计报告，1 Critical + 6 High 已全部修复复测
+
+## 📦 包结构
 
 - `packages/contracts`: Anchor 0.31.1 合约（`trade-finance` 全生命周期 + `supply-chain`），
   工具链为 Agave 4.1.2 + SBFv3。`supply-chain` 采用权限化注册：管理员（Registry）可
@@ -15,7 +43,7 @@ Solana/Anchor 供应链金融平台：单据上传审核、Solana 存证、贸�
 - `packages/frontend`: Next.js 15 App Router + Tailwind + shadcn/ui + Solana 钱包。
   支持 Phantom / Backpack / Solflare / Coinbase Wallet / UnsolvedBloom。
 
-## 系统架构
+## 🏗 系统架构
 
 ```mermaid
 flowchart LR
@@ -48,7 +76,7 @@ flowchart LR
   PL -->|资金池快照| PG
 ```
 
-## 本地启动
+## 🚀 本地启动
 
 ```bash
 ./init-monorepo.sh --infra
@@ -117,7 +145,7 @@ FRONTEND_PORT=3100 pnpm dev
 bash scripts/health-check.sh
 ```
 
-## 测试
+## 🧪 测试
 
 ```bash
 pnpm --filter @supply-chain/backend exec jest --runInBand
@@ -135,12 +163,12 @@ CI 说明：`changes` 前置 job 按路径过滤，backend/frontend/security-aud
 备份 job 使用 GitHub 托管 runner。密钥扫描由 `scripts/scan-secrets.sh` 执行
 （工作区 + Git 历史），发现疑似凭据即失败。
 
-## 部署
+## 🚢 部署
 
 Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，上线前
 核对项见 [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md)。
 
-## 文档
+## 📚 文档
 
 - [本地试用手册](docs/DEMO.md)：本地账号、流程与重置
 - [部署手册](docs/DEPLOYMENT.md)（中文）/[DEPLOYMENT.en.md](docs/DEPLOYMENT.en.md)（English）
