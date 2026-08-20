@@ -586,4 +586,89 @@ describe("PoolService", () => {
       service.buildRedeemLp({ lpWallet: "other-wallet", lpAmount: "100" }, "user-1"),
     ).rejects.toThrow(ForbiddenException);
   });
+
+  it("方案A: USER 换绑钱包 24h 冷静期内提款被拒", async () => {
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: "user-1",
+          wallet: "lpWallet",
+          role: "USER",
+          walletChangedAt: new Date(), // 刚换绑
+        })),
+      },
+    });
+    const service = new PoolService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.requestWithdrawal({ lpWallet: "lpWallet", amount: "100" }, "user-1"),
+    ).rejects.toThrow(/冷静期/);
+  });
+
+  it("方案A: USER 换绑钱包超过冷静期后可提款", async () => {
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: "user-1",
+          wallet: "lpWallet",
+          role: "USER",
+          walletChangedAt: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25h 前
+        })),
+      },
+    });
+    const service = new PoolService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    // 冷静期已过，正常创建提款请求（不抛冷静期错误）
+    await expect(
+      service.requestWithdrawal({ lpWallet: "lpWallet", amount: "100" }, "user-1"),
+    ).resolves.toBeDefined();
+  });
+
+  it("方案A: USER 换绑钱包 24h 冷静期内赎回被拒", async () => {
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: "user-1",
+          wallet: "lpWallet",
+          role: "USER",
+          walletChangedAt: new Date(),
+        })),
+      },
+    });
+    const service = new PoolService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.buildRedeemLp({ lpWallet: "lpWallet", lpAmount: "100" }, "user-1"),
+    ).rejects.toThrow(/冷静期/);
+  });
+
+  it("方案A: 管理员换绑钱包不受冷静期限制", async () => {
+    const prisma = makePrisma({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: "admin-1",
+          wallet: "adminWallet",
+          role: "ADMIN",
+          walletChangedAt: new Date(),
+        })),
+      },
+    });
+    const service = new PoolService(
+      prisma as never,
+      makeRedis() as never,
+      makeAudit() as never,
+    );
+    await expect(
+      service.requestWithdrawal({ lpWallet: "adminWallet", amount: "100" }, "admin-1"),
+    ).resolves.toBeDefined();
+  });
 });
