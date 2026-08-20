@@ -108,6 +108,7 @@ const en = {
   "security.wallet.invalidAddress": "Invalid wallet address format",
   "security.wallet.codeRequired": "Please enter the 6-digit email code",
   "security.wallet.bound": "Wallet bound",
+  "security.wallet.cooldownHint": "24-hour cooldown started: withdrawals/redemptions are blocked during this period to protect your funds",
   "security.wallet.bindFailed": "Failed to bind wallet, please try again",
   "security.totpTitle": "Two-Factor Authentication (TOTP)",
   "security.totpEnabledDesc": "Enabled: you will need the 6-digit code from your authenticator app when signing in.",

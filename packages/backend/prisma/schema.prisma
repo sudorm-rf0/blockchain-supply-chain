@@ -42,6 +42,8 @@ model User {
   emailVerifiedAt      DateTime?
   /// 账号注销时间（软删除：注销后禁止登录，保留数据完整性）
   deletedAt            DateTime?
+  /// 最近一次钱包换绑时间（方案A 冷静期：USER 换绑后 24h 内禁止提款/赎回）
+  walletChangedAt      DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

@@ -108,6 +108,7 @@ const zh_TW = {
   "security.wallet.invalidAddress": "錢包地址格式不正確",
   "security.wallet.codeRequired": "請輸入 6 位信箱驗證碼",
   "security.wallet.bound": "錢包已綁定",
+  "security.wallet.cooldownHint": "已進入 24 小時冷靜期：期間不能提款/贖回，防止帳號被盜後資金被轉移",
   "security.wallet.bindFailed": "綁定失敗，請重試",
   "security.totpTitle": "兩步驟驗證（TOTP）",
   "security.totpEnabledDesc": "已開啟：登入時需輸入驗證器 App 的 6 位動態碼。",

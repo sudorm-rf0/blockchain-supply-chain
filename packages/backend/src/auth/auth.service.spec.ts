@@ -139,6 +139,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
       service.register({
@@ -154,6 +155,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
       service.register({
@@ -175,6 +177,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -207,6 +210,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
       service.login(
@@ -225,6 +229,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -264,6 +269,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -300,6 +306,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     // 密码正确性仍校验：用真实注册流程生成合法密码哈希
     await service.register({
@@ -367,6 +374,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -429,6 +437,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -457,6 +466,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -488,6 +498,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -517,6 +528,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -552,6 +564,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     const reg = await service.register({
@@ -592,6 +605,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     const result = await service.register({
@@ -629,6 +643,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
       service.register({
@@ -651,6 +666,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -677,6 +693,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
       service.verifyEmail("nobody@example.com", "123456"),
@@ -692,6 +709,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -715,6 +733,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -745,6 +764,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -780,6 +800,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
       makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({
       id: "u1",
@@ -822,6 +843,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     await service.register({
       inviteCode: "AB12CD",
@@ -847,6 +869,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -895,6 +918,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -937,6 +961,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -986,6 +1011,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
     await service.register({
@@ -1033,6 +1059,7 @@ describe("AuthService", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       emailVerification as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
     const wallet1 = Keypair.generate().publicKey.toBase58();
     const wallet2 = Keypair.generate().publicKey.toBase58();
@@ -1061,6 +1088,7 @@ describe("AuthService invite codes", () => {
       { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
       makeEmailVerification() as never,
     makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
     );
   }
 

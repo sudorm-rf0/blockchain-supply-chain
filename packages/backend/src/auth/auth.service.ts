@@ -18,6 +18,7 @@ import { getRedisFailureCount, RedisService } from "@supply-chain/common";
 import { AuditService } from "../audit/audit.service";
 import { TurnstileService } from "./turnstile.service";
 import { SettingsService } from "../settings/settings.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { EmailVerificationService } from "../email-verification/email-verification.service";
 import { signJwt } from "@supply-chain/common";
 import {
@@ -200,6 +201,7 @@ export class AuthService {
     private readonly turnstile: TurnstileService,
     private readonly emailVerification: EmailVerificationService,
     private readonly settings: SettingsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async register(body: {
@@ -733,9 +735,9 @@ export class AuthService {
       throw new ConflictException("该钱包地址已被其他用户绑定");
     }
     try {
-      const user = await this.prisma.user.update({
+      const changed = await this.prisma.user.update({
         where: { id: userId },
-        data: { wallet },
+        data: { wallet, walletChangedAt: new Date() },
       });
       await this.audit.record({
         actorId: userId,
@@ -744,7 +746,28 @@ export class AuthService {
         targetId: userId,
         metadata: { wallet },
       });
-      return this.publicUser(user);
+      // 方案A：换绑钱包属资金安全敏感操作，通知所有管理员留痕
+      try {
+        const admins = await this.prisma.user.findMany({
+          where: { deletedAt: null, role: { in: ["ADMIN", "SUPER_ADMIN"] } },
+          select: { id: true },
+        });
+        await Promise.all(
+          admins.map((a) =>
+            this.notifications.create({
+              userId: a.id,
+              type: "WALLET_REBOUND",
+              title: "用户更换了绑定钱包",
+              body: `用户 ${changed.email ?? changed.id} 已将绑定钱包更换为 ${wallet}（方案A 冷静期 24h 生效）`,
+              metadata: { wallet, actorId: userId, changedAt: changed.walletChangedAt?.toISOString() },
+            }),
+          ),
+        );
+      } catch (notifyErr) {
+        // 通知失败不影响换绑主流程（审计已留痕）
+        this.logger.warn(`notify admins on wallet rebind failed: ${notifyErr}`);
+      }
+      return this.publicUser(changed);
     } catch (error: any) {
       if (error?.code === "P2002") {
         throw new ConflictException("该钱包地址已被其他用户绑定");

@@ -132,6 +132,10 @@ export default function SecurityPage() {
       setAuth(updated);
       setWalletCode("");
       toast.success(t("security.wallet.bound"));
+      // 方案A：USER 换绑钱包后进入 24h 冷静期（期间禁止提款/赎回）
+      if (updated.role === "USER") {
+        toast.info(t("security.wallet.cooldownHint"));
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("security.wallet.bindFailed"));
     } finally {

@@ -108,6 +108,7 @@ const zh_CN = {
   "security.wallet.invalidAddress": "钱包地址格式不正确",
   "security.wallet.codeRequired": "请输入 6 位邮箱验证码",
   "security.wallet.bound": "钱包已绑定",
+  "security.wallet.cooldownHint": "已进入 24 小时冷静期：期间不能提款/赎回，防止账号被盗后资金被转移",
   "security.wallet.bindFailed": "绑定失败，请重试",
   "security.totpTitle": "两步验证（TOTP）",
   "security.totpEnabledDesc": "已开启：登录时需要输入验证器 App 的 6 位动态码。",

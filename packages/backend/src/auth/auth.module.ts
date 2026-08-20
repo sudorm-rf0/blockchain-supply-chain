@@ -13,9 +13,10 @@ import {
 import { AuditModule } from "../audit/audit.module";
 import { SettingsModule } from "../settings/settings.module";
 import { EmailVerificationModule } from "../email-verification/email-verification.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
-  imports: [AuditModule, EmailVerificationModule, SettingsModule],
+  imports: [AuditModule, EmailVerificationModule, SettingsModule, NotificationsModule],
   controllers: [AuthController],
   providers: [
     AuthService,

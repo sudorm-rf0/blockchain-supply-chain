@@ -26,6 +26,8 @@ import { WithdrawRequestResponseDto } from "./dto/withdraw-request-response.dto"
 
 const NOTICE_DAYS = 7;
 const NOTICE_SECONDS = NOTICE_DAYS * 24 * 60 * 60;
+// 方案A：USER 换绑钱包后 24h 冷静期（防盗号后立即提款/赎回卷走资金）
+const WALLET_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const U64_MAX = (1n << 64n) - 1n;
 const OVERVIEW_CACHE_KEY = "pool:overview:v1";
 const OVERVIEW_CACHE_SECONDS = 30;
@@ -205,6 +207,19 @@ export class PoolService {
       throw new ForbiddenException(
         "lp wallet does not match the signed-in user",
       );
+    }
+    // 方案A：USER 换绑钱包后 24h 冷静期内禁止提款/赎回
+    if (user.role === "USER" && user.walletChangedAt) {
+      const elapsed = Date.now() - user.walletChangedAt.getTime();
+      if (elapsed < WALLET_COOLDOWN_MS) {
+        const remainHours = Math.max(
+          1,
+          Math.ceil((WALLET_COOLDOWN_MS - elapsed) / 3_600_000),
+        );
+        throw new ForbiddenException(
+          `钱包换绑冷静期内（约剩 ${remainHours} 小时），暂不能提款/赎回`,
+        );
+      }
     }
 
     const key = `lp:withdraw:${dto.lpWallet}`;
@@ -409,6 +424,19 @@ export class PoolService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.wallet !== dto.lpWallet) {
       throw new ForbiddenException("lp wallet does not match the signed-in user");
+    }
+    // 方案A：USER 换绑钱包后 24h 冷静期内禁止提款/赎回
+    if (user.role === "USER" && user.walletChangedAt) {
+      const elapsed = Date.now() - user.walletChangedAt.getTime();
+      if (elapsed < WALLET_COOLDOWN_MS) {
+        const remainHours = Math.max(
+          1,
+          Math.ceil((WALLET_COOLDOWN_MS - elapsed) / 3_600_000),
+        );
+        throw new ForbiddenException(
+          `钱包换绑冷静期内（约剩 ${remainHours} 小时），暂不能提款/赎回`,
+        );
+      }
     }
     let lpAmount: bigint;
     try {
