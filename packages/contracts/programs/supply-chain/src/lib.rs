@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hash;
 
-declare_id!("Dcxixk89HPaC6yHKk1rP5HGMFgBMcRrYku6ze951C6Lk");
+declare_id!("BGSBnaAs2uhsYhUA2KJBmirMcK551JLm9thy7P2y2cDh");
 
 /// Squads v4 多签程序 ID（审计 H-1 链上强制，与 trade-finance 一致）。
 pub const SQUADS_PROGRAM_ID: Pubkey = pubkey!("SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf");

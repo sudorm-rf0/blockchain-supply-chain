@@ -18,7 +18,7 @@ use crate::state::{
     DividendClaim,
 };
 
-declare_id!("9c8eND94LxNZgDbhvApGsRKojHyxhgEVUBSUHU9tRVU3");
+declare_id!("8GSbCjUhgpvgQ35tx7wqFZCznP5HW2mn1jUYcGahC4tq");
 
 pub mod error;
 pub mod events;
