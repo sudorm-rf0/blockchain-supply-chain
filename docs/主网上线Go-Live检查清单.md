@@ -10,7 +10,7 @@
 
 - [ ] DFR-2026-0148 无保留意见（通过）已取得（✅ 已取得）
 - [ ] 生产构建**不带** `test-build` feature（`anchor build` 默认）
-- [ ] 测试套件通过：Rust 22/22、Anchor 65/65
+- [x] 测试套件通过：Rust 22/22、Anchor 84/84（2026-08-20 实测 `scripts/test.sh` 全绿）
 - [ ] 主网 RPC 付费档就绪（Helius/QuickNode）
 
 ---

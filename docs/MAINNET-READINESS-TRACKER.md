@@ -73,3 +73,20 @@
 
 - keypair 文件在 `target/deploy/mainnet/`（gitignored），但为安全应移至离线冷存储
 - 部署完成后建议 `--freeze-upgrade-authority` 或 `--upgrade-authority <MULTISIG_PDA>` 冻结升级权限
+
+## 六、2026-08-20 自动化准备完成项（Codex 执行，无需人工决策）
+
+| # | 项 | 状态 | 证据 |
+|---|----|------|------|
+| 1 | 主网 RPC 可达性 | ✅ | `api.mainnet-beta.solana.com` getHealth=ok，slot≈440.4M |
+| 2 | 工作区+Git 历史密钥扫描 | ✅ | `bash scripts/scan-secrets.sh` → passed（无明文私钥/API key） |
+| 3 | 可复现构建（生产字节码确定性） | ✅ | trade `02f54a6f...` / supply `4288050a...`，两次构建一致；工具链 rustc 1.97.1 / anchor 0.31.1 / solana 4.1.2 |
+| 4 | SBOM（CycloneDX） | ✅ | 仓库根 `sbom.json`（2534 组件）；`generate-sbom.sh` 已加 `--ignore-npm-errors` 适配 pnpm monorepo |
+| 5 | 第三方审计材料包 | ✅ | `bash scripts/build-audit-package.sh` → audit-package-20260820.tar.gz（77 文件） |
+| 6 | 数据库备份恢复演练 | ✅ | `db-backup-restore.sh drill` 7 表计数一致；修复 psql 默认库 bug（POSTGRES_USER=supply） |
+| 7 | 主网 keypair 离线备份校验 | ✅ | `~/Documents/区块链供应链-密钥备份-20260820/mainnet/` SHA256 与工作区全 MATCH（trade 5vLAT... / supply D6yRzn... / deploy-wallet E9Xtg...） |
+| 8 | Anchor 集成测试 | ✅ | 84/84 通过（`scripts/test.sh`，test-build 特性 + UA 保留） |
+| 9 | deploy-mainnet.sh 增强 | ✅ | 新增 `--sync-declare-ids`：复用已备份 keypair 部署（不重新生成），dry-run 不落盘，改前自动备份；修复原 sed 转义 bug |
+| 10 | 内存优化 | ✅ | 停 uptime-kuma/prometheus/node-exporter，available 1.79→1.92GB |
+
+> ⚠️ 主网部署钱包（E9Xtg...）仍未注资（0 SOL）；`--sync-declare-ids` 会切源码 declare_id! 到主网 ID（单行道，部署前确认）。

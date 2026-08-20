@@ -4,6 +4,7 @@
 # 用法：
 #   bash scripts/deploy-mainnet.sh --yes                # 部署（必须先显式确认）
 #   bash scripts/deploy-mainnet.sh --yes --generate-keypairs   # 自动生成全新 Program keypair
+#   bash scripts/deploy-mainnet.sh --yes --sync-declare-ids    # 复用已备份 keypair，仅同步 declare_id!/Anchor.toml
 #   bash scripts/deploy-mainnet.sh --dry-run --yes      # 只打印命令不执行
 #   bash scripts/deploy-mainnet.sh --yes --freeze-upgrade-authority  # 部署后冻结升级权限
 #   bash scripts/deploy-mainnet.sh --yes --upgrade-authority <MULTISIG_PDA>  # 部署后把 UA 交给多签（N-03 推荐）
@@ -41,6 +42,7 @@ export PATH="${SOLANA_BIN}:$HOME/.cargo/bin:$PATH"
 CONFIRM=0
 DRY_RUN=0
 GENERATE_KEYS=0
+SYNC_IDS=0
 FREEZE=0
 MULTISIG_PDA=""
 # 审计 M-06：--upgrade-authority 必须用 while + shift 正确取参（for 循环里 $2/shift 无效）。
@@ -49,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --yes) CONFIRM=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --generate-keypairs) GENERATE_KEYS=1; shift ;;
+    --sync-declare-ids) SYNC_IDS=1; shift ;;
     --freeze-upgrade-authority) FREEZE=1; shift ;;
     --upgrade-authority)
       if [[ $# -lt 2 ]]; then
@@ -138,13 +141,12 @@ fi
 # 主网 Program ID 由部署 keypair 决定；字节码中 declare_id!（crate::ID）必须与之一致，
 # 否则 C-1 的 program_data PDA 绑定、全部 PDA 派生（pool/authority/registry）与客户端
 # 调用都会按旧 ID 计算 → 主网程序不可用。--generate-keypairs 生成新 keypair 后自动同步。
-if [[ "${GENERATE_KEYS}" == "1" ]]; then
-  log "==> [M-05] 同步 declare_id! / Anchor.toml 到新 Program ID"
+sync_declare_ids() {
   for spec in "trade_finance:${TRADE_KEYPAIR}" "supply_chain:${SUPPLY_KEYPAIR}"; do
     name="${spec%%:*}"; kp="${spec#*:}"
     id="$(solana-keygen pubkey "${kp}")"
     lib="${CONTRACTS_DIR}/programs/${name}/src/lib.rs"
-    sed -i '' "s|declare_id!("[1-9A-HJ-NP-Za-km-z]*")|declare_id!("${id}")|" "${lib}"
+    sed -i '' "s|declare_id!(\"[1-9A-HJ-NP-Za-km-z]*\")|declare_id!(\"${id}\")|" "${lib}"
   done
   TRADE_ID="$(solana-keygen pubkey "${TRADE_KEYPAIR}")"
   SUPPLY_ID="$(solana-keygen pubkey "${SUPPLY_KEYPAIR}")"
@@ -152,7 +154,34 @@ if [[ "${GENERATE_KEYS}" == "1" ]]; then
   perl -pi -e "s/supply_chain = \"[1-9A-HJ-NP-Za-km-z]*\"/supply_chain = \"${SUPPLY_ID}\"/g" "${CONTRACTS_DIR}/Anchor.toml"
   log "  trade_finance -> ${TRADE_ID}"
   log "  supply_chain  -> ${SUPPLY_ID}"
+}
+
+if [[ "${GENERATE_KEYS}" == "1" ]]; then
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    log "==> [dry-run] 将生成全新 Program keypair 并同步 declare_id!（未执行）"
+  else
+    log "==> [M-05] 生成全新 Program keypair 并同步 declare_id! / Anchor.toml"
+    sync_declare_ids
+  fi
+elif [[ "${SYNC_IDS}" == "1" ]]; then
+  for f in "${TRADE_KEYPAIR}" "${SUPPLY_KEYPAIR}"; do
+    [[ -f "${f}" ]] || { echo "❌ 缺少 Program keypair：${f}" >&2; exit 1; }
+  done
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    log "==> [dry-run] 将复用 keypair 同步 declare_id! -> $(solana-keygen pubkey "${TRADE_KEYPAIR}") / $(solana-keygen pubkey "${SUPPLY_KEYPAIR}")（未改动文件）"
+  else
+    log "==> [M-05] 复用现有（已备份）keypair 同步 declare_id! / Anchor.toml"
+    BK_DIR="${CONTRACTS_DIR}/target/deploy/mainnet/backup-sync-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "${BK_DIR}"
+    cp "${CONTRACTS_DIR}/programs/trade-finance/src/lib.rs" "${BK_DIR}/trade-finance-lib.rs.bak"
+    cp "${CONTRACTS_DIR}/programs/supply-chain/src/lib.rs" "${BK_DIR}/supply-chain-lib.rs.bak"
+    cp "${CONTRACTS_DIR}/Anchor.toml" "${BK_DIR}/Anchor.toml.bak"
+    log "  已备份 lib.rs / Anchor.toml -> ${BK_DIR}"
+    sync_declare_ids
+    log "  ⚠️ 源码 declare_id! 已切到主网 ID（单行道）；回滚：git checkout -- packages/contracts/programs/*/src/lib.rs packages/contracts/Anchor.toml"
+  fi
 fi
+
 TRADE_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${CONTRACTS_DIR}/programs/trade-finance/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
 SUPPLY_DECLARE_ID="$(grep -oE 'declare_id!\("[1-9A-HJ-NP-Za-km-z]{32,44}"\)' "${CONTRACTS_DIR}/programs/supply-chain/src/lib.rs" | grep -oE '"[1-9A-HJ-NP-Za-km-z]{32,44}"' | tr -d '"')"
 if [[ "${TRADE_DECLARE_ID}" != "${TRADE_PROGRAM_ID}" || "${SUPPLY_DECLARE_ID}" != "${SUPPLY_PROGRAM_ID}" ]]; then
@@ -228,7 +257,7 @@ echo "trade_finance: ${TRADE_PROGRAM_ID}"
 echo "supply_chain:  ${SUPPLY_PROGRAM_ID}"
 echo ""
 echo "⚠️ 后续步骤（涉及真实资金，未自动执行）："
-echo "  1) 初始化资金池 + 真实存款：node scripts/init-localnet.mjs（换成主网 RPC/mint）"
+echo "  1) 初始化资金池 + 真实存款：bash scripts/init-mainnet.sh --yes --skip-deposit（或含存款，见 init-mainnet-pool.mjs）"
 echo "  2) 初始化供应链注册中心：node scripts/init-supply-chain.mjs <真实供应商公钥...>"
 echo "  3) 配置服务环境变量（见 docs/MAINNET-MIGRATION.md 配置替换表）"
 echo "  4) 小额真实资金冒烟：node scripts/smoke-e2e.mjs"

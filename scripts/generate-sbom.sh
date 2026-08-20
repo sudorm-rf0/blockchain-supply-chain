@@ -8,5 +8,5 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SBOM_OUT="${SBOM_OUT:-${ROOT}/sbom.json}"
 
 cd "${ROOT}"
-pnpm dlx @cyclonedx/cyclonedx-npm --output-file "${SBOM_OUT}"
+pnpm dlx @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file "${SBOM_OUT}"
 echo "SBOM written: ${SBOM_OUT}"
