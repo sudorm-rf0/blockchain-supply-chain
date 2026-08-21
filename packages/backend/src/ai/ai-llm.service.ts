@@ -46,16 +46,18 @@ export function sanitizeAiText(text: string): string {
 export class AiLlmService {
   private readonly logger = new Logger(AiLlmService.name);
   private readonly apiKey: string;
-  private readonly baseUrl: string;
+  private readonly baseUrls: string[];
   private readonly model: string;
   private readonly reasoningEffort: string;
   private readonly enabled: boolean;
 
   constructor() {
     this.apiKey = (process.env.AI_API_KEY ?? "").trim();
-    this.baseUrl = (process.env.AI_BASE_URL ?? "https://api.openai.com/v1")
-      .trim()
-      .replace(/\/+$/, "");
+    // 支持逗号分隔多个 OpenAI 兼容节点：主节点失败自动切换备用（提高可用性）
+    this.baseUrls = (process.env.AI_BASE_URL ?? "https://api.openai.com/v1")
+      .split(",")
+      .map((s) => s.trim().replace(/\/+$/, ""))
+      .filter(Boolean);
     this.model = (process.env.AI_MODEL ?? "gpt-4o-mini").trim();
     this.reasoningEffort = (process.env.AI_REASONING_EFFORT ?? "none").trim();
     this.enabled = this.apiKey.length > 0;
@@ -69,46 +71,55 @@ export class AiLlmService {
     if (!this.enabled) {
       throw new ServiceUnavailableException("AI 服务未配置，请联系管理员（AI_API_KEY）");
     }
-    let response: Response;
-    try {
-      response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages,
-          temperature: 0.2,
-          max_tokens: maxTokens,
-          // 思考强度拉到最低（DeepSeek v4：none=最低，high=默认）
-          ...(this.reasoningEffort ? { reasoning_effort: this.reasoningEffort } : {}),
-        }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (error) {
-      this.logger.error(`ai request threw: ${String(error)}`);
-      throw new ServiceUnavailableException("AI 服务暂不可用，请稍后重试");
+    let lastError: Error | null = null;
+    for (const baseUrl of this.baseUrls) {
+      try {
+        const response = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages,
+            temperature: 0.2,
+            max_tokens: maxTokens,
+            // 思考强度拉到最低（DeepSeek v4：none=最低，high=默认）
+            ...(this.reasoningEffort ? { reasoning_effort: this.reasoningEffort } : {}),
+          }),
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+        if (!response.ok) {
+          const body = await response.text().catch(() => "");
+          this.logger.error(`ai api ${response.status} @${baseUrl}: ${body.slice(0, 300)}`);
+          if (response.status === 401) {
+            throw new ServiceUnavailableException("AI 服务鉴权失败，请检查 AI_API_KEY");
+          }
+          throw new ServiceUnavailableException(`AI 服务调用失败（HTTP ${response.status}）`);
+        }
+        const data = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+        const content = data.choices?.[0]?.message?.content?.trim();
+        if (!content) {
+          throw new ServiceUnavailableException("AI 服务返回为空，请重试");
+        }
+        // 统一清理星号/杠/省略号等装饰符号，确保所有 AI 回答都不出现这些字符
+        return sanitizeAiText(content);
+      } catch (error) {
+        const e = error as Error;
+        lastError = e;
+        // 鉴权失败对所有节点都无效，直接抛出；网络/超时/5xx 等则切换下一节点
+        if (e instanceof ServiceUnavailableException && e.message.includes("鉴权失败")) {
+          throw e;
+        }
+        this.logger.warn(`ai request to ${baseUrl} failed, switching fallback: ${String(e)}`);
+      }
     }
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      this.logger.error(`ai api ${response.status}: ${body.slice(0, 300)}`);
-      throw new ServiceUnavailableException(
-        response.status === 401
-          ? "AI 服务鉴权失败，请检查 AI_API_KEY"
-          : `AI 服务调用失败（HTTP ${response.status}）`,
-      );
-    }
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      throw new ServiceUnavailableException("AI 服务返回为空，请重试");
-    }
-    // 统一清理星号/杠/省略号等装饰符号，确保所有 AI 回答都不出现这些字符
-    return sanitizeAiText(content);
+    // 全部节点失败：统一抛 503（细节已记录在日志）
+    void lastError;
+    throw new ServiceUnavailableException("AI 服务暂不可用，请稍后重试");
   }
 
   get modelName(): string {
