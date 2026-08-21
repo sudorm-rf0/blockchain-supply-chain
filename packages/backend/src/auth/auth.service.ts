@@ -204,6 +204,36 @@ export class AuthService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  /**
+   * 账号级敏感操作频率限制：windowSec 秒内最多 max 次，超限抛 429。
+   * Redis 异常时 fail-open（不阻断主流程；登录防暴破的计数逻辑独立于本方法，仍 fail-closed）。
+   */
+  private async enforceAccountRateLimit(
+    scope: string,
+    keyId: string,
+    max: number,
+    windowSec: number,
+  ): Promise<void> {
+    const rk = `rate:${scope}:${keyId}`;
+    try {
+      const count = await this.redis.incr(rk);
+      if (count === 1) {
+        await this.redis.expire(rk, windowSec);
+      }
+      if (count > max) {
+        throw new HttpException(
+          "操作过于频繁，请稍后再试",
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.warn(`rate limit ${scope} degraded (fail-open): ${String(error)}`);
+    }
+  }
+
   async register(body: {
     name: string;
     email: string;
@@ -391,6 +421,13 @@ export class AuthService {
       );
     }
     if (fails >= maxLoginFailures || (ipKey && ipFails >= 20)) {
+      await this.audit.record({
+        actorId: null,
+        action: "AUTH_LOGIN_FAILED",
+        targetType: "AUTH",
+        targetId: body.email,
+        metadata: { reason: "locked", clientIp: clientIp ?? null },
+      });
       throw new HttpException(
         `尝试次数过多，请 ${lockoutMinutes} 分钟后再试`,
         HttpStatus.TOO_MANY_REQUESTS,
@@ -401,15 +438,36 @@ export class AuthService {
       where: { email: body.email },
     });
     if (!user?.passwordHash) {
+      await this.audit.record({
+        actorId: null,
+        action: "AUTH_LOGIN_FAILED",
+        targetType: "AUTH",
+        targetId: body.email,
+        metadata: { reason: "no_user", clientIp: clientIp ?? null },
+      });
       throw new UnauthorizedException("邮箱或密码错误");
     }
     const [salt, storedHash] = user.passwordHash.split(":");
     const hash = await hashPassword(body.password, salt);
     const stored = Buffer.from(storedHash, "hex");
     if (hash.length !== stored.length || !timingSafeEqual(hash, stored)) {
+      await this.audit.record({
+        actorId: user.id,
+        action: "AUTH_LOGIN_FAILED",
+        targetType: "AUTH",
+        targetId: user.id,
+        metadata: { reason: "bad_password", clientIp: clientIp ?? null },
+      });
       throw new UnauthorizedException("邮箱或密码错误");
     }
     if (user.deletedAt) {
+      await this.audit.record({
+        actorId: user.id,
+        action: "AUTH_LOGIN_FAILED",
+        targetType: "AUTH",
+        targetId: user.id,
+        metadata: { reason: "deleted", clientIp: clientIp ?? null },
+      });
       throw new UnauthorizedException("账号已注销，无法登录");
     }
     if (user.emailVerified === false) {
@@ -472,6 +530,13 @@ export class AuthService {
         return { requiresTotp: true };
       }
       if (!isValidTotpCode(body.totpCode, secret)) {
+        await this.audit.record({
+          actorId: user.id,
+          action: "AUTH_LOGIN_FAILED",
+          targetType: "AUTH",
+          targetId: user.id,
+          metadata: { reason: "bad_totp", clientIp: clientIp ?? null },
+        });
         throw new UnauthorizedException("TOTP 验证码错误");
       }
     }
@@ -654,6 +719,8 @@ export class AuthService {
     currentRefreshToken?: string | undefined,
     turnstileToken?: string,
   ): Promise<PublicUser> {
+
+    await this.enforceAccountRateLimit("sensitive", userId, 3, 600);
     if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
@@ -724,6 +791,7 @@ export class AuthService {
   }
 
   async bindWallet(userId: string, wallet: string, emailCode: string) {
+    await this.enforceAccountRateLimit("sensitive", userId, 3, 600);
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("用户不存在");
     // 敏感操作：开启两步验证须通过 TOTP；否则须通过邮箱验证码（引导账号无邮箱豁免）
@@ -782,6 +850,8 @@ export class AuthService {
     code: string | undefined,
     turnstileToken?: string,
   ): Promise<{ ok: boolean }> {
+
+    await this.enforceAccountRateLimit("sensitive", userId, 3, 600);
     if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
@@ -851,6 +921,8 @@ export class AuthService {
     totpCode?: string,
     currentEmailCode?: string,
   ): Promise<PublicUser> {
+
+    await this.enforceAccountRateLimit("sensitive", userId, 3, 600);
     if (!(await this.turnstile.verify(turnstileToken, { expectedAction: "sensitive" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
@@ -955,6 +1027,7 @@ export class AuthService {
   }
 
   async setupTotp(userId: string) {
+    await this.enforceAccountRateLimit("totp", userId, 5, 600);
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException("用户不存在");
     if (user.totpEnabled) throw new ConflictException("TOTP 已启用");
@@ -974,6 +1047,7 @@ export class AuthService {
   }
 
   async enableTotp(userId: string, code: string) {
+    await this.enforceAccountRateLimit("totp", userId, 5, 600);
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.totpSecret) throw new BadRequestException("请先生成 TOTP 密钥");
     const secret = decryptTotpSecret(user.totpSecret);
@@ -994,6 +1068,7 @@ export class AuthService {
   }
 
   async disableTotp(userId: string, code: string) {
+    await this.enforceAccountRateLimit("totp", userId, 5, 600);
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.totpEnabled) throw new BadRequestException("TOTP 未启用");
     const secret = decryptTotpSecret(user.totpSecret);

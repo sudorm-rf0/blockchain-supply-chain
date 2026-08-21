@@ -1128,4 +1128,55 @@ describe("AuthService invite codes", () => {
     expect(updateCall[0].where.id).toBe("ic1");
     expect(updateCall[0].data.usedById).toBeTruthy();
   });
+
+  it("records AUTH_LOGIN_FAILED on bad password (account risk audit)", async () => {
+    const prisma = makePrisma();
+    const audit = makeAudit();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      audit as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+      makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({
+      inviteCode: "AB12CD",
+      name: "A",
+      email: "fail-audit@example.com",
+      password: "Str0ng#Pass9",
+      wallet,
+    });
+    await service.verifyEmail("fail-audit@example.com", "123456");
+    await expect(
+      service.login({ email: "fail-audit@example.com", password: "wrong-pass" }, "198.51.100.9"),
+    ).rejects.toThrow(UnauthorizedException);
+    const actions = (audit.record as jest.Mock).mock.calls.map((c) => c[0].action);
+    expect(actions).toContain("AUTH_LOGIN_FAILED");
+    const failed = (audit.record as jest.Mock).mock.calls.find((c) => c[0].action === "AUTH_LOGIN_FAILED")![0];
+    expect(failed.metadata.reason).toBe("bad_password");
+    expect(failed.metadata.clientIp).toBe("198.51.100.9");
+  });
+
+  it("enforces account-level rate limit on sensitive ops (changePassword)", async () => {
+    const redis = makeRedis();
+    (redis.incr as jest.Mock).mockImplementation(async (key: string) =>
+      key.startsWith("rate:sensitive:") ? 4 : 1,
+    );
+    const service = new AuthService(
+      makePrisma() as never,
+      redis as never,
+      makeAudit() as never,
+      { verify: jest.fn(async (_t?: string, _o?: unknown) => true) } as never,
+      makeEmailVerification() as never,
+      makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
+    );
+    await expect(
+      service.changePassword("u1", "OldPass#1", "NewPass#2", undefined, undefined, "tok"),
+    ).rejects.toThrow(HttpException);
+  });
+
 });

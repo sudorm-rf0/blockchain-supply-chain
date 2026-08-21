@@ -85,6 +85,7 @@ export class AuthController {
 
   @Post("totp/setup")
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(AuthGuard)
   async setupTotp(@Req() req: Request) {
     return this.authService.setupTotp(req.user!.sub);
@@ -92,6 +93,7 @@ export class AuthController {
 
   @Post("totp/enable")
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(AuthGuard)
   async enableTotp(
     @Req() req: Request,
@@ -105,6 +107,7 @@ export class AuthController {
 
   @Post("totp/disable")
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(AuthGuard)
   async disableTotp(
     @Req() req: Request,
@@ -148,6 +151,7 @@ export class AuthController {
   }
 
   @Post("sessions/revoke-others")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   async revokeOtherSessions(@Req() req: Request) {
@@ -161,6 +165,7 @@ export class AuthController {
   }
 
   @Post("sessions/:id/revoke")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   async revokeSession(
@@ -198,6 +203,7 @@ export class AuthController {
   }
 
   @Post("change-name")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
   async changeName(@Body() body: ChangeNameDto, @Req() req: Request) {
@@ -211,6 +217,7 @@ export class AuthController {
   }
 
   @Post("change-password")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
   async changePassword(
@@ -233,6 +240,7 @@ export class AuthController {
 
   /** 修改绑定邮箱（需新邮箱验证码） */
   @Post("change-email")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
   async changeEmail(@Body() body: ChangeEmailDto, @Req() req: Request) {
@@ -249,6 +257,7 @@ export class AuthController {
 
   /** 注销账号（软删除，需二次确认由前端弹窗完成） */
   @Post("delete-account")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
   async deleteAccount(@Req() req: Request, @Body() body: DeleteAccountDto) {
@@ -256,6 +265,7 @@ export class AuthController {
   }
 
   @Patch("wallet")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(AuthGuard)
   bindWallet(@Req() req: Request, @Body() body: BindWalletDto) {
     try {
