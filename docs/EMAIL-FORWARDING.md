@@ -7,10 +7,10 @@
 
 - [x] **Email Routing 已启用**（API 启用 → enabled=true, status=ready）
 - [x] **DNS 记录就绪**（Cloudflare 自动添加，公网已生效：MX 51/13/26、SPF、DKIM、DMARC）
-- [x] **目标地址已添加并验证**：`xrf0521@outlook.com`
-- [x] **转发规则已建**（均为 enabled）：
-  - `info@supplychain.de5.net` → xrf0521@outlook.com
-  - `1@supplychain.de5.net` → xrf0521@outlook.com
+- [x] **目标地址已添加并验证**：`14777904019@139.com`（主）、`xrf0521@outlook.com`（备用）
+- [x] **转发规则已建**（均为 enabled，最终以 139 为主）：
+  - `info@supplychain.de5.net` → 14777904019@139.com
+  - `1@supplychain.de5.net` → 14777904019@139.com
 - [ ] **Catch-all 未开**（token 无账号级权限；控制台一键开启，见下）
 - [ ] 实收验证（从任意邮箱发信到 info@supplychain.de5.net）
 
