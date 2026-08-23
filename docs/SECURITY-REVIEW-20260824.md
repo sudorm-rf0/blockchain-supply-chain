@@ -48,3 +48,16 @@
    systemd unit。建议：非 root 运行 + unit 文件 chmod 600 + 如非必要收紧暴露。
 3. **私链 RPC 鉴权**：Hardhat 节点当前无鉴权（含 hardhat_ 系列管理方法），现靠防火墙内网隔离；
    若未来需对外提供 RPC，必须先加方法白名单/鉴权网关。
+
+## 五、第二轮修复（2026-08-24 同日追加）
+
+1. **GitHub 仓库已转 Private**：消除 VPS IP / 部署拓扑 / nginx 配置等信息暴露。
+2. **PrivacyPool USDT demo 加固**：
+   - 改为非 root 用户 `privacypool` 运行（NoNewPrivileges）
+   - 监听从 `0.0.0.0:4173` 收紧为 `127.0.0.1:4173`，删除 ufw 公网放行
+   - systemd unit `chmod 600`（原 644 导致 ADMIN_TOKEN 所有用户可读）
+3. **私链 Hardhat RPC 加固**（详情见 `deploy/vps/RPC-GATEWAY.md`）：
+   - 节点绑定 `127.0.0.1:8545`、非 root（usdt-chain 用户）
+   - 新增 fail-closed 方法白名单网关 `:8546`（仅只读方法，拒绝 hardhat_/evm_/personal_/eth_sendTransaction 等）
+   - nginx `/rpc` 改走网关
+4. **外部可达性复测（HK/JP/SG）**：8545 / 8546 / 8080 / 4173 全部不可达。
