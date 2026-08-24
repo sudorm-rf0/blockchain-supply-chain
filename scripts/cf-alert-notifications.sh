@@ -8,6 +8,8 @@
 #   bash scripts/cf-alert-notifications.sh webhook  # 显示 webhook 目的地并发送测试
 # 可选：设置 CF_WEBHOOK_ID 后，ensure 创建/更新策略时同时加入 webhook 投递（邮箱验证不可用时的替代通道）。
 #   webhook 目的地 id 保存在 ~/.cf-secrets/cf-webhook-id
+# 2026-08-24 告警收紧：仅保留严重策略（DDoS/证书/IP封禁/Tunnel健康/事故/健康检查/源站监控）；
+# 已禁用并移除「负载均衡健康告警」（系统未使用 LB）与「Default budget alert」（预算非紧急）。
 # 令牌来源（按优先级）：CLOUDFLARE_ALERT_TOKEN 环境变量
 #   > ~/.cf-secrets/supply-chain-alert-token（推荐，自建令牌，Notifications 权限）
 #   > CLOUDFLARE_API_TOKEN 环境变量（通用回退）
@@ -50,7 +52,6 @@ POLICIES=(
   "自定义 SSL 证书事件告警|custom_ssl_certificate_event_type|自定义 SSL 证书事件通知|"
   "IP 封禁新增告警|block_notification_new_block|Cloudflare 新增 IP 封禁时通知|"
   "健康检查状态告警|health_check_status_notification|健康检查状态变化通知|{\"status\":[\"Unhealthy\"]}"
-  "负载均衡健康告警|load_balancing_health_alert|负载均衡健康状态变化通知|"
   "Tunnel 健康告警|tunnel_health_event|Tunnel 健康事件通知|"
   "Cloudflare 事故通知|incident_alert|Cloudflare 平台事故创建/更新/解决通知|"
   "真实源站监控告警|real_origin_monitoring|真实源站 IP 变化通知|"
