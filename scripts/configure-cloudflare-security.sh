@@ -75,9 +75,9 @@ warn "跳过：托管质询不适用于 API（fetch 无法自动通过质询，�
 warn "API 防护请依赖：Turnstile 人机验证 + 速率限制 + 后端限速（已启用）。"
 
 echo "== 5/8 速率限制（登录/注册防爆破）=="
-RATELIMIT='{"rules":[{"action":"block","ratelimit":{"characteristics":["cf.colo.id","ip.src"],"period":10,"requests_per_period":4,"mitigation_timeout":10},"expression":"(http.request.uri.path contains \"/api/auth/login\" or http.request.uri.path contains \"/api/auth/register\" or http.request.uri.path contains \"/api/email-verification/send\" or http.request.uri.path contains \"/api/auth/email-otp/send\" or http.request.uri.path contains \"/api/auth/change-password\" or http.request.uri.path contains \"/api/auth/change-email\" or http.request.uri.path contains \"/api/auth/delete-account\" or http.request.uri.path contains \"/api/financing/apply\")","description":"sensitive endpoints 4/10s (login/register/otp/password/email/delete/financing)"}]}'
+RATELIMIT='{"rules":[{"action":"block","ratelimit":{"characteristics":["cf.colo.id","ip.src"],"period":10,"requests_per_period":10,"mitigation_timeout":10},"expression":"(http.request.uri.path contains \"/api/auth/login\" or http.request.uri.path contains \"/api/auth/register\" or http.request.uri.path contains \"/api/email-verification/send\" or http.request.uri.path contains \"/api/auth/email-otp/send\" or http.request.uri.path contains \"/api/auth/change-password\" or http.request.uri.path contains \"/api/auth/change-email\" or http.request.uri.path contains \"/api/auth/delete-account\" or http.request.uri.path contains \"/api/financing/apply\")","description":"sensitive endpoints 10/10s (login/register/otp/password/email/delete/financing)"}]}'
 if cf PUT "/zones/$ZONE/rulesets/phases/http_ratelimit/entrypoint" "$RATELIMIT" | python3 -c "import json,sys; raise SystemExit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
-  ok "速率限制已生效（/api/auth/* 每 10 秒超 4 次封禁；免费版参数限制 period/timeout=10）"
+  ok "速率限制已生效（/api/auth/* 每 10 秒超 10 次封禁；免费版参数限制 period/timeout=10）"
 else
   warn "速率限制设置失败 → 手动：安全性 → 速率限制（免费版：period 10s、超限封禁 10s）"
 fi
