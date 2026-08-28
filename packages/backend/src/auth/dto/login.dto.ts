@@ -24,4 +24,10 @@ export class LoginDto {
   @IsString()
   @MaxLength(4096)
   turnstileToken?: string;
+
+  /** 界面语言（zh-CN / zh-TW / en），用于邮件与验证码本地化 */
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  lang?: string;
 }

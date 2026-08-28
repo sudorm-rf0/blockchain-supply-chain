@@ -47,6 +47,7 @@ function makeService(env: Record<string, string> = {}) {
   process.env.RESEND_FROM =
     env.RESEND_FROM ?? "SupplyChain <noreply@example.com>";
   process.env.NODE_ENV = env.NODE_ENV ?? "test";
+  process.env.ALLOW_DEVCODE = env.ALLOW_DEVCODE ?? "0";
   const send = jest.fn();
   ResendMock.mockImplementation(() => ({ emails: { send } }));
   const redis = makeRedis();
@@ -155,6 +156,7 @@ describe("EmailVerificationService", () => {
       const { service, redis, send } = makeService({
         RESEND_API_KEY: "",
         NODE_ENV: "development",
+        ALLOW_DEVCODE: "1",
       });
 
       const result = await service.sendCode(EMAIL);
@@ -232,5 +234,35 @@ describe("EmailVerificationService", () => {
       );
       expect(redis.store.has(CODE_KEY)).toBe(false);
     });
+  });
+});
+
+describe("EmailVerificationService 多语言邮件", () => {
+  it("lang=en 时发送英文主题与正文", async () => {
+    const { service, send } = makeService();
+    send.mockResolvedValue({ data: { id: "email_1" }, error: null });
+    await service.sendCode(EMAIL, "en");
+    expect(send).toHaveBeenCalledTimes(1);
+    const arg = send.mock.calls[0][0] as { subject: string; html: string };
+    expect(arg.subject).toContain("Email Verification Code");
+    expect(arg.html).toContain("verification code");
+  });
+
+  it("lang=zh-TW 时发送繁体主题与正文", async () => {
+    const { service, send } = makeService();
+    send.mockResolvedValue({ data: { id: "email_1" }, error: null });
+    await service.sendCode(EMAIL, "zh-TW");
+    const arg = send.mock.calls[0][0] as { subject: string; html: string };
+    expect(arg.subject).toContain("郵箱驗證碼");
+    expect(arg.html).toContain("驗證碼");
+  });
+
+  it("未传 lang 时默认简体中文", async () => {
+    const { service, send } = makeService();
+    send.mockResolvedValue({ data: { id: "email_1" }, error: null });
+    await service.sendCode(EMAIL);
+    const arg = send.mock.calls[0][0] as { subject: string; html: string };
+    expect(arg.subject).toContain("邮箱验证码");
+    expect(arg.html).toContain("验证码");
   });
 });

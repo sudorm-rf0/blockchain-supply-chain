@@ -22,6 +22,41 @@ const MAX_ATTEMPTS = 5;
 /** 验证码位数 */
 const CODE_LENGTH = 6;
 
+/** 邮件语言：简体 / 繁体 / 英文 */
+export type EmailLocale = "zh-CN" | "zh-TW" | "en";
+
+/** 规范化语言：仅接受 zh-CN / zh-TW / en，其余（含 undefined）回退简体 */
+export function normalizeLocale(lang?: string | null): EmailLocale {
+  if (lang === "zh-TW") return "zh-TW";
+  if (lang === "en") return "en";
+  return "zh-CN";
+}
+
+/** 各语言邮件文案 */
+const EMAIL_I18N: Record<
+  EmailLocale,
+  { subject: string; greeting: string; tip: string; footer: string }
+> = {
+  "zh-CN": {
+    subject: "DFR 供应链金融平台 · 邮箱验证码",
+    greeting: "您正在使用邮箱验证，本次验证码为：",
+    tip: `验证码 ${CODE_TTL_SECONDS / 60} 分钟内有效，且只能使用一次，请勿泄露给他人。`,
+    footer: "如非本人操作，请忽略此邮件。",
+  },
+  "zh-TW": {
+    subject: "DFR 供應鏈金融平台 · 郵箱驗證碼",
+    greeting: "您正在使用郵箱驗證，本次驗證碼為：",
+    tip: `驗證碼 ${CODE_TTL_SECONDS / 60} 分鐘內有效，且只能使用一次，請勿洩露給他人。`,
+    footer: "如非本人操作，請忽略此郵件。",
+  },
+  en: {
+    subject: "DFR Supply Chain Platform · Email Verification Code",
+    greeting: "You are verifying your email. Your verification code is:",
+    tip: `The code expires in ${CODE_TTL_SECONDS / 60} minutes and can only be used once. Do not share it with anyone.`,
+    footer: "If you did not request this, you can safely ignore this email.",
+  },
+};
+
 interface StoredCode {
   code: string;
   attempts: number;
@@ -77,6 +112,7 @@ export class EmailVerificationService {
   // 注册/登录内部流程调用（无 token 会误伤）；防滥用由 60s 冷却 + 每小时上限 + 全局限流 + IP 限流兜底。
   async sendCode(
     email: string,
+    lang?: string | null,
   ): Promise<{
     expiresIn: number;
     cooldownSeconds: number;
@@ -132,13 +168,15 @@ export class EmailVerificationService {
       JSON.stringify(stored),
     );
 
-    // 4) 未配置邮件服务：生产 fail-closed，开发返回 devCode
+    // 4) 未配置邮件服务：默认 fail-closed；仅当显式设置 ALLOW_DEVCODE=1 才签发 devCode
+    //    （审计 P0-3：非生产标记部署即泄露 OTP → 账号接管；改为显式开关，任何环境默认安全）
     if (!this.resend) {
-      if (process.env.NODE_ENV === "production") {
+      const allowDevCode = (process.env.ALLOW_DEVCODE ?? "").trim() === "1";
+      if (!allowDevCode) {
         throw new ServiceUnavailableException("邮件服务未配置，请联系管理员");
       }
       this.logger.warn(
-        `[dev] 未配置邮件服务，验证码=${code} 仅记录日志：${normalized}`,
+        `[dev] ALLOW_DEVCODE=1，验证码=${code} 仅记录日志：${normalized}`,
       );
       await this.audit.record({
         actorEmail: normalized,
@@ -161,11 +199,12 @@ export class EmailVerificationService {
 
     // 5) 通过 Resend 发送
     try {
+      const locale = normalizeLocale(lang);
       const { data, error } = await this.resend.emails.send({
         from: this.from,
         to: [normalized],
-        subject: "DFR 供应链金融平台邮箱验证码",
-        html: this.renderCodeEmail(code),
+        subject: EMAIL_I18N[locale].subject,
+        html: this.renderCodeEmail(locale, code),
       });
       if (error) {
         this.logger.error(`resend send failed: ${error.message}`);
@@ -252,14 +291,15 @@ export class EmailVerificationService {
     return { verified: true, email: normalized };
   }
 
-  private renderCodeEmail(code: string): string {
+  private renderCodeEmail(locale: EmailLocale, code: string): string {
+    const t = EMAIL_I18N[locale];
     return `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;">
-        <h2 style="margin:0 0 16px;font-size:20px;">供应链金融平台 · 邮箱验证码</h2>
-        <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">您正在使用邮箱验证，本次验证码为：</p>
+        <h2 style="margin:0 0 16px;font-size:20px;">${t.subject}</h2>
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">${t.greeting}</p>
         <p style="margin:0 0 24px;font-size:32px;font-weight:700;letter-spacing:6px;color:#2563eb;">${code}</p>
-        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">验证码 ${CODE_TTL_SECONDS / 60} 分钟内有效，且只能使用一次，请勿泄露给他人。</p>
-        <p style="margin:0;font-size:13px;color:#9ca3af;">如非本人操作，请忽略此邮件。</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">${t.tip}</p>
+        <p style="margin:0;font-size:13px;color:#9ca3af;">${t.footer}</p>
       </div>`;
   }
 }

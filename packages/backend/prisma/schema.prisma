@@ -44,6 +44,8 @@ model User {
   deletedAt            DateTime?
   /// 最近一次钱包换绑时间（方案A 冷静期：USER 换绑后 24h 内禁止提款/赎回）
   walletChangedAt      DateTime?
+  /// 用户语言偏好（zh-CN / zh-TW / en），用于邮件与验证码本地化
+  locale               String    @default("zh-CN")
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

@@ -21,7 +21,7 @@ export class EmailVerificationController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async send(@Body() body: SendEmailCodeDto) {
-    const result = await this.emailVerificationService.sendCode(body.email);
+    const result = await this.emailVerificationService.sendCode(body.email, body.lang);
     return { ok: true, ...result };
   }
 

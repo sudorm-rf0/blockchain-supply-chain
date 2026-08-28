@@ -16,7 +16,9 @@ async function bootstrap() {
   initSentry("backend");
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // H-3：nginx 反代后还原真实客户端 IP（登录防暴破/限流依赖 req.ip）
-  app.set("trust proxy", true);
+  // 只信任最近一跳代理（nginx）：客户端伪造 X-Forwarded-For 不再被采纳，
+  // request.ip = nginx 覆盖后的真实 IP（审计 P0-1：XFF 信任/限速绕过/Origin 回环豁免）。
+  app.set("trust proxy", 1);
   app.use(compression());
   app.use(helmet());
   app.use(cookieParser());

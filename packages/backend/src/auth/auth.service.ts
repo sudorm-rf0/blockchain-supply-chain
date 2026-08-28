@@ -19,7 +19,7 @@ import { AuditService } from "../audit/audit.service";
 import { TurnstileService } from "./turnstile.service";
 import { SettingsService } from "../settings/settings.service";
 import { NotificationsService } from "../notifications/notifications.service";
-import { EmailVerificationService } from "../email-verification/email-verification.service";
+import { EmailVerificationService, normalizeLocale } from "../email-verification/email-verification.service";
 import { signJwt } from "@supply-chain/common";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
@@ -241,6 +241,7 @@ export class AuthService {
     wallet?: string;
     inviteCode: string;
     turnstileToken?: string;
+    lang?: string;
   }): Promise<RegisterResult> {
     if (!(await this.turnstile.verify(body.turnstileToken, { expectedAction: "signup" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
@@ -285,7 +286,7 @@ export class AuthService {
 
     // 防垃圾注册：先发送验证码（失败则不创建账号），账号创建后为未验证状态，
     // 输入验证码激活前不可登录。验证码 5 分钟有效、单次使用。
-    const sent = await this.emailVerification.sendCode(body.email);
+    const sent = await this.emailVerification.sendCode(body.email, body.lang);
 
     // 邀请码校验：必须存在且未被使用
     const invite = await this.prisma.inviteCode.findUnique({
@@ -315,6 +316,7 @@ export class AuthService {
             emailVerified: false,
             // 最高安全：真实注册账号强制开启邮箱验证码登录
             emailOtpEnabled: true,
+            locale: normalizeLocale(body.lang),
             inviteCodeId: invite.id,
           },
         });
@@ -385,6 +387,7 @@ export class AuthService {
       totpCode?: string;
       emailOtpCode?: string;
       turnstileToken?: string;
+      lang?: string;
     },
     clientIp?: string,
   ): Promise<
@@ -503,7 +506,7 @@ export class AuthService {
       } else if (!body.emailOtpCode && !emailAlreadyVerified) {
         // 首次提交：向邮箱发送验证码并提示输入（冷却期内不重复发送）
         try {
-          const sent = await this.emailVerification.sendCode(user.email);
+          const sent = await this.emailVerification.sendCode(user.email, body.lang);
           // 仅开发环境（未配置邮件服务）返回 devCode，便于本地联调与 e2e
           return {
             requiresEmailOtp: true,
@@ -556,6 +559,12 @@ export class AuthService {
       targetId: user.id,
       metadata: { clientIp: clientIp ?? null },
     });
+    // 记住用户语言偏好（用于后续邮件本地化）；失败不阻塞登录
+    if (body.lang && body.lang !== user.locale) {
+      await this.prisma.user
+        .update({ where: { id: user.id }, data: { locale: normalizeLocale(body.lang) } })
+        .catch(() => undefined);
+    }
     return this.issueSession(user);
   }
 
@@ -979,7 +988,7 @@ export class AuthService {
   }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.email) throw new UnauthorizedException("用户不存在");
-    const sent = await this.emailVerification.sendCode(user.email);
+    const sent = await this.emailVerification.sendCode(user.email, user.locale);
     return {
       expiresIn: sent.expiresIn,
       cooldownSeconds: sent.cooldownSeconds,
