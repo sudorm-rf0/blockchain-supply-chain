@@ -68,5 +68,6 @@ export interface PoolSnapshotPayload {
   pendingMultisigDelaySecs: string;
   /// 多签轮换提案对应的金库索引。
   pendingMultisigVaultIndex: number;
+  requireMultisig: boolean;
   capturedAt: string;
 }

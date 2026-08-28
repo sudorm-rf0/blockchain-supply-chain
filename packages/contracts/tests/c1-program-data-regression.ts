@@ -51,7 +51,7 @@ describe("C-1 forged program_data regression (independent audit)", () => {
 
     await assert.rejects(
       program.methods
-        .initializePool(attacker.publicKey, new anchor.BN(1))
+        .initializePool(attacker.publicKey, new anchor.BN(1), false)
         .accounts({
           poolState: poolStatePda,
           admin: attacker.publicKey,

@@ -219,6 +219,9 @@ pub struct PoolState {
     pub pending_multisig_delay_secs: i64,
     /// 多签轮换提案对应的金库索引（审计 H-1 第 6 轮）。
     pub pending_multisig_vault_index: u8,
+    /// 审计 P0（多签强制）：true 时禁止单管理员直签，所有 admin 指令必须走多签。
+    /// 尾部追加字段，不改变既有偏移（与 H-1 多签字段同法）。
+    pub require_multisig: bool,
 }
 
 impl PoolState {
@@ -268,6 +271,7 @@ impl PoolState {
             + 8  // pending_multisig_proposed_at (审计 H-1)
             + 8  // pending_multisig_delay_secs (审计 H-1)
             + 1  // pending_multisig_vault_index (审计 H-1 第 6 轮)
+            + 1  // require_multisig (审计 P0 多签强制)
     }
 
     /// 累加待分配 LP 分红，溢出时返回 MathOverflow。
@@ -492,6 +496,7 @@ mod tests {
             pending_multisig_proposed_at: 0,
             pending_multisig_delay_secs: 0,
             pending_multisig_vault_index: 0,
+            require_multisig: false,
         };
         assert!(pool.calculate_nav(1_000, 0, 0).is_err());
         // 审计 N-01：NAV 每 LP token（1e6 raw）计，1_000_000 * 1e6 / 1_000 = 1_000_000_000
@@ -544,6 +549,7 @@ mod tests {
             pending_multisig_proposed_at: 0,
             pending_multisig_delay_secs: 0,
             pending_multisig_vault_index: 0,
+            require_multisig: false,
         };
         assert!(pool.add_pending_dividends(1).is_err());
         pool.pending_dividends = 100;
@@ -601,6 +607,7 @@ mod tests {
             pending_multisig_proposed_at: 0,
             pending_multisig_delay_secs: 0,
             pending_multisig_vault_index: 0,
+            require_multisig: false,
         };
         assert!(pool.ensure_not_paused().is_err());
         pool.paused = false;
@@ -666,6 +673,7 @@ mod tests {
             pending_multisig_proposed_at: 0,
             pending_multisig_delay_secs: 0,
             pending_multisig_vault_index: 0,
+            require_multisig: false,
         }
     }
 

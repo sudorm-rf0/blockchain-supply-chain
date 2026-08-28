@@ -15,7 +15,7 @@ import { PoolSnapshotPayload } from "./payloads";
 // + pending_multisig_proposed_at(8) + pending_multisig_delay_secs(8)
 // + pending_multisig_vault_index(1) = 485。
 // 与 state.rs PoolState::space() 逐字段一致。
-export const POOL_STATE_ACCOUNT_SIZE = 485;
+export const POOL_STATE_ACCOUNT_SIZE = 486;
 /** 旧版合约 PoolState 布局（初始版）：disc(8)+admin(32)+5×u64+platform_wallet(32)+nav(8)=120。
  * 链上已存在的旧池账户仍为 120 字节；解析器需兼容（前缀偏移一致，扩展字段取默认值）。 */
 export const LEGACY_POOL_STATE_ACCOUNT_SIZE = 120;
@@ -58,6 +58,7 @@ const OFFSET_PENDING_MULTISIG = OFFSET_MULTISIG_VAULT_INDEX + 1;
 const OFFSET_PENDING_MULTISIG_PROPOSED_AT = OFFSET_PENDING_MULTISIG + PUBKEY_SIZE;
 const OFFSET_PENDING_MULTISIG_DELAY_SECS = OFFSET_PENDING_MULTISIG_PROPOSED_AT + U64_SIZE;
 const OFFSET_PENDING_MULTISIG_VAULT_INDEX = OFFSET_PENDING_MULTISIG_DELAY_SECS + U64_SIZE;
+const OFFSET_REQUIRE_MULTISIG = OFFSET_PENDING_MULTISIG_VAULT_INDEX + 1;
 
 export function parsePoolStateBuffer(
   data: Buffer,
@@ -124,6 +125,9 @@ export function parsePoolStateBuffer(
   const pendingMultisigVaultIndex = legacy
     ? 0
     : data.readUInt8(OFFSET_PENDING_MULTISIG_VAULT_INDEX);
+  const requireMultisig = legacy
+    ? false
+    : data.readUInt8(OFFSET_REQUIRE_MULTISIG) === 1;
 
   return {
     poolAddress,
@@ -155,6 +159,7 @@ export function parsePoolStateBuffer(
     pendingMultisigProposedAt: pendingMultisigProposedAt.toString(10),
     pendingMultisigDelaySecs: pendingMultisigDelaySecs.toString(10),
     pendingMultisigVaultIndex,
+    requireMultisig,
     capturedAt: capturedAt.toISOString(),
   };
 }

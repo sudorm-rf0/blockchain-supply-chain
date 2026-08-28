@@ -276,7 +276,7 @@ describe("trade-finance full lifecycle", () => {
 
   it("Initializes Pool State", async () => {
     await program.methods
-      .initializePool(platformWallet.publicKey, new anchor.BN(1))
+      .initializePool(platformWallet.publicKey, new anchor.BN(1), false)
       .accounts({
         poolState: poolStatePda,
         admin: provider.wallet.publicKey,
@@ -330,7 +330,7 @@ describe("trade-finance full lifecycle", () => {
   it("Rejects re-initializing the pool", async () => {
     await assert.rejects(
       program.methods
-        .initializePool(platformWallet.publicKey, new anchor.BN(1))
+        .initializePool(platformWallet.publicKey, new anchor.BN(1), false)
         .accounts({
           poolState: poolStatePda,
           admin: provider.wallet.publicKey,

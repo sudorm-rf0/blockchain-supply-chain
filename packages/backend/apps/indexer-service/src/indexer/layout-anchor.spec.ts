@@ -71,9 +71,10 @@ const EXPECTED_TRADE_DEAL_SIZE =
 //   8  pending_multisig_proposed_at (审计 H-1)
 //   8  pending_multisig_delay_secs (审计 H-1)
 //   1  pending_multisig_vault_index (审计 H-1 第 6 轮)
+//   1  require_multisig (审计 P0 多签强制)
 const EXPECTED_POOL_STATE_SIZE =
   8 + 32 + 8 + 8 + 8 + 8 + 8 + 32 + 8 + 1 + 32 + 32 + 8 + 8 + 8 + 8 + 32 + 8 +
-  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 8 + 32 + 32 + 1 + 32 + 1 + 32 + 8 + 8 + 1;
+  8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 8 + 32 + 32 + 1 + 32 + 1 + 32 + 8 + 8 + 1 + 1;
 
 describe("chain account layout anchor", () => {
   it("TradeDeal parser size matches state.rs layout", () => {
@@ -82,7 +83,7 @@ describe("chain account layout anchor", () => {
   });
 
   it("PoolState parser size matches state.rs layout", () => {
-    expect(EXPECTED_POOL_STATE_SIZE).toBe(485);
+    expect(EXPECTED_POOL_STATE_SIZE).toBe(486);
     expect(POOL_STATE_ACCOUNT_SIZE).toBe(EXPECTED_POOL_STATE_SIZE);
   });
 
@@ -143,6 +144,7 @@ describe("chain account layout anchor", () => {
     buf.writeBigInt64LE(1_700_000_000n, 468);  // pending_multisig_proposed_at
     buf.writeBigInt64LE(86_400n, 476);         // pending_multisig_delay_secs
     buf.writeUInt8(3, 484);                    // pending_multisig_vault_index
+    buf.writeUInt8(1, 485);                    // require_multisig (审计 P0)
 
     const payload = parsePoolStateBuffer(buf, "pool-pda");
     expect(payload.poolAddress).toBe("pool-pda");
@@ -167,6 +169,7 @@ describe("chain account layout anchor", () => {
     expect(payload.pendingMultisigProposedAt).toBe("1700000000");
     expect(payload.pendingMultisigDelaySecs).toBe("86400");
     expect(payload.pendingMultisigVaultIndex).toBe(3);
+    expect(payload.requireMultisig).toBe(true);
   });
 
   it("PoolState parses multisig=None as null", () => {

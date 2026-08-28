@@ -193,6 +193,10 @@ pub enum TradeFinanceError {
     #[msg("Multisig enforcement active: admin signer must be the Squads vault PDA")]
     MultisigEnforced,
 
+    /// 审计 P0（多签强制）：require_multisig=true 时禁止单管理员直签资金/治理指令。
+    #[msg("Multisig is required: single-admin direct sign is disabled (require_multisig)")]
+    MultisigRequired,
+
     /// 审计 H-1：多签轮换已存在待接受提案。
     #[msg("A multisig rotation is already pending")]
     PendingMultisigExists,
