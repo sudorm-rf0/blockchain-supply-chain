@@ -46,8 +46,11 @@ async function bootstrap() {
     .setVersion("1.0")
     .addBearerAuth()
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api-docs", app, document);
+  // L4：生产环境禁用 Swagger/OpenAPI 文档（避免暴露全部路由与 DTO 结构）
+  if ((process.env.NODE_ENV ?? "").trim() !== "production") {
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup("api-docs", app, document);
+  }
 
   await app.listen(Number(process.env.PORT ?? 3001));
 }

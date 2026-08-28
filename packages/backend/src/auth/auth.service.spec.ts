@@ -616,7 +616,7 @@ describe("AuthService", () => {
       wallet,
     });
 
-    expect(emailVerification.sendCode).toHaveBeenCalledWith("pending@example.com", undefined);
+    expect(emailVerification.sendCode).toHaveBeenCalledWith("pending@example.com", undefined, undefined);
     expect(result).toEqual(
       expect.objectContaining({
         requiresEmailVerification: true,
@@ -752,6 +752,7 @@ describe("AuthService", () => {
     expect(result).toEqual({ requiresEmailOtp: true });
     expect(emailVerification.sendCode).toHaveBeenLastCalledWith(
       "otp-login@example.com",
+      undefined,
       undefined,
     );
   });

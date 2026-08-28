@@ -48,6 +48,7 @@ function makeService(env: Record<string, string> = {}) {
     env.RESEND_FROM ?? "SupplyChain <noreply@example.com>";
   process.env.NODE_ENV = env.NODE_ENV ?? "test";
   process.env.ALLOW_DEVCODE = env.ALLOW_DEVCODE ?? "0";
+  process.env.ALLOW_DEVCODE_IPS = env.ALLOW_DEVCODE_IPS ?? "127.0.0.1,::1";
   const send = jest.fn();
   ResendMock.mockImplementation(() => ({ emails: { send } }));
   const redis = makeRedis();
@@ -264,5 +265,41 @@ describe("EmailVerificationService 多语言邮件", () => {
     const arg = send.mock.calls[0][0] as { subject: string; html: string };
     expect(arg.subject).toContain("邮箱验证码");
     expect(arg.html).toContain("验证码");
+  });
+});
+
+describe("EmailVerificationService W3 devCode IP 白名单", () => {
+  it("ALLOW_DEVCODE=1 但来源 IP 不在白名单时拒绝签发", async () => {
+    const { service } = makeService({
+      RESEND_API_KEY: "",
+      NODE_ENV: "development",
+      ALLOW_DEVCODE: "1",
+    });
+    await expect(
+      service.sendCode(EMAIL, undefined, "203.0.113.9"),
+    ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it("白名单 IP 可签发 devCode", async () => {
+    const { service, redis } = makeService({
+      RESEND_API_KEY: "",
+      NODE_ENV: "development",
+      ALLOW_DEVCODE: "1",
+      ALLOW_DEVCODE_IPS: "127.0.0.1,::1,203.0.113.9",
+    });
+    const result = await service.sendCode(EMAIL, undefined, "203.0.113.9");
+    expect(result.devCode).toMatch(/^\d{6}$/);
+    expect(redis.store.has(COOLDOWN_KEY)).toBe(true);
+  });
+
+  it("默认仅允许本机 IP（127.0.0.1/::1）", async () => {
+    const { service } = makeService({
+      RESEND_API_KEY: "",
+      NODE_ENV: "development",
+      ALLOW_DEVCODE: "1",
+    });
+    await expect(service.sendCode(EMAIL, undefined, "198.51.100.7")).rejects.toThrow(
+      ServiceUnavailableException,
+    );
   });
 });

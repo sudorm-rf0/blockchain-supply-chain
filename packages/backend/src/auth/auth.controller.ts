@@ -42,9 +42,9 @@ export class AuthController {
 
   @Post("register")
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  async register(@Body() body: RegisterDto) {
+  async register(@Body() body: RegisterDto, @Req() req: Request) {
     // 防垃圾注册：注册后不直接登录，需先输入邮箱验证码激活账号
-    const result = await this.authService.register(body);
+    const result = await this.authService.register(body, getClientIp(req));
     return result;
   }
 

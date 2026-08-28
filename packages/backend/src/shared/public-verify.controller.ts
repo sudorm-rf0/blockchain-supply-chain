@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { SkipThrottle } from "@nestjs/throttler";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -34,6 +35,7 @@ export class PublicVerifyController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get("verify")
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async verify(
     @Query("hash") hash?: string,
     @Query("id") id?: string,

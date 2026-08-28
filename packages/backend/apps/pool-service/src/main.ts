@@ -41,7 +41,10 @@ async function bootstrap(): Promise<void> {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("docs", app, document);
+  // L4：生产环境禁用 Swagger/OpenAPI 文档
+  if ((process.env.NODE_ENV ?? "").trim() !== "production") {
+    SwaggerModule.setup("docs", app, document);
+  }
 
   await app.listen(POOL_ENV.port);
   Logger.log(`pool-service listening on ${POOL_ENV.port}`, "Bootstrap");

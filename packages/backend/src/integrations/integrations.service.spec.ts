@@ -127,3 +127,39 @@ describe("IntegrationsService webhook SSRF 防护", () => {
     expect(res.url).toBe("https://example.com/hook");
   });
 });
+
+describe("IntegrationsService NEW-B1 IPv6 私网 SSRF 防护", () => {
+  const makeWebhookPrisma2 = () => ({
+    apiKey: { findMany: jest.fn(async () => []), create: jest.fn(async (x: unknown) => x), updateMany: jest.fn(async () => ({ count: 0 })) },
+    webhook: {
+      findMany: jest.fn(async () => []),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "w1", ...data })),
+      findFirst: jest.fn(async () => null),
+      update: jest.fn(async () => ({})),
+      deleteMany: jest.fn(async () => ({ count: 0 })),
+    },
+  });
+
+  it("拒绝 IPv6 环回/私网/映射地址（URL.hostname 带方括号）", async () => {
+    const service = new IntegrationsService(makeWebhookPrisma2() as never);
+    for (const url of [
+      "http://[::1]:6379/x",
+      "http://[fd00::1]/x",
+      "http://[::ffff:127.0.0.1]:8080/",
+      "http://[fe80::1]/x",
+    ]) {
+      await expect(
+        service.createWebhook("u1", { name: "x", url }),
+      ).rejects.toThrow(/内网|保留/);
+    }
+  });
+
+  it("允许公网 IPv6", async () => {
+    const service = new IntegrationsService(makeWebhookPrisma2() as never);
+    const res = await service.createWebhook("u1", {
+      name: "x",
+      url: "http://[2606:4700:4700::1111]/hook",
+    });
+    expect(res.url).toContain("2606:4700");
+  });
+});

@@ -12,14 +12,34 @@ import type { AiChatDto } from "./dto/ai-chat.dto";
 
 /** 提示注入检测（fail-closed）：命中即拒绝调用 LLM，防止系统提示词泄露/越狱 */
 const INJECTION_PATTERNS: RegExp[] = [
-  /system\s*prompt|系统提示词|系统指令|你的指令|你的规则|你的提示词|原始提示词|提示词内容/i,
-  /越狱|jailbreak|jail\s*broken|开发者模式|DAN\s*模式|忽略(以上|之前|前述|所有).{0,8}(指令|规则|要求)|无视.{0,8}(规则|限制|指令)|绕过.{0,8}(限制|安全|审核)/i,
-  /现在你是|假装你是|扮演.{0,8}(黑客|攻击者|管理员|上帝|无限制|不受限|无情)/i,
-  /泄露.{0,6}(用户|密码|私钥|密钥|验证码)|导出.{0,6}(用户|数据|配置)/i,
+  // 中文 + 英文改写（覆盖 ignore/disregard/reveal/print/act as 等常见绕过句式）
+  /system\s*prompt|系统提示词|系统指令|你的指令|你的规则|你的提示词|原始提示词|提示词内容|instructions|your\s*(rules|instructions|prompt)|initial\s*prompt/i,
+  /(ignore|disregard|forget|bypass|override)\s+(all\s+|any\s+|the\s+|previous\s+|above\s+)?(instructions|rules|prompts?|system|limits?|restrictions?)|忽略(以上|之前|前述|所有).{0,12}(指令|规则|要求)|无视.{0,8}(规则|限制|指令)|绕过.{0,8}(限制|安全|审核)|越狱|jailbreak|jail\s*broken|developer\s*mode|DAN\s*mode|开发者模式|DAN\s*模式/i,
+  /(reveal|show|print|output|repeat|leak)\s+(the\s+|your\s+)?(system\s*prompt|instructions?|rules?|full\s*prompt)|现在你是|假装你是|(act|pretend)\s+as.{0,20}(hacker|admin|god|unrestricted|unlimited)|扮演.{0,8}(黑客|攻击者|管理员|上帝|无限制|不受限|无情)/i,
+  /泄露.{0,6}(用户|密码|私钥|密钥|验证码)|导出.{0,6}(用户|数据|配置)|extract.{0,15}(password|secret|key|private)|list.{0,15}(users|passwords)/i,
 ];
 
+/** 剥离零宽字符/不可见字符后检测（防 \u200B 等改写绕过） */
+function stripInvisible(text: string): string {
+  return text.replace(/[\u200B-\u200D\u2060\uFEFF\u00AD\u200E\u200F]/g, "");
+}
+
 function looksLikeInjection(text: string): boolean {
-  return INJECTION_PATTERNS.some((re) => re.test(text));
+  return INJECTION_PATTERNS.some((re) => re.test(stripInvisible(text)));
+}
+
+/** 系统提示词特征片段：模型回复中出现即视为提示词泄露，予以拦截替换 */
+const PROMPT_LEAK_MARKERS = [
+  "【常用操作指引】",
+  "【回答规范】",
+  "【安全边界",
+  "构建在 Solana 区块链上的供应链金融系统",
+  "角色分为普通用户、管理员、超级管理员",
+  "DFR 供应链金融平台」的 AI 助手，负责引导",
+];
+
+function outputLooksLikeLeak(reply: string): boolean {
+  return PROMPT_LEAK_MARKERS.some((marker) => reply.includes(marker));
 }
 
 const INJECTION_REPLY =
@@ -236,12 +256,14 @@ export class AssistantService {
       { role: "user", content: dto.message },
     ];
     const reply = await this.llm.complete(messages, 1000);
+    // W2 输出侧过滤：若模型回复泄露系统提示词内容，替换为拒绝回复（fail-closed）
+    const safeReply = outputLooksLikeLeak(reply) ? INJECTION_REPLY : reply;
 
     // 持久化：追加用户消息 + AI 回复，刷新 30 天 TTL
     const nextMessages: StoredMessage[] = [
       ...session.messages,
       { role: "user" as const, content: dto.message },
-      { role: "assistant" as const, content: reply },
+      { role: "assistant" as const, content: safeReply },
     ].slice(-MAX_MESSAGES);
     session.messages = nextMessages;
     session.updatedAt = new Date().toISOString();
@@ -267,7 +289,7 @@ export class AssistantService {
         question: dto.message.slice(0, 200),
       },
     });
-    return { reply, sessionId: session.id };
+    return { reply: safeReply, sessionId: session.id };
   }
 
   /** 历史会话列表（按最近更新倒序） */

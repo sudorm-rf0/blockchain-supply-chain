@@ -241,15 +241,18 @@ export class AuthService {
     }
   }
 
-  async register(body: {
-    name: string;
-    email: string;
-    password: string;
-    wallet?: string;
-    inviteCode: string;
-    turnstileToken?: string;
-    lang?: string;
-  }): Promise<RegisterResult> {
+  async register(
+    body: {
+      name: string;
+      email: string;
+      password: string;
+      wallet?: string;
+      inviteCode: string;
+      turnstileToken?: string;
+      lang?: string;
+    },
+    clientIp?: string,
+  ): Promise<RegisterResult> {
     if (!(await this.turnstile.verify(body.turnstileToken, { expectedAction: "signup" }))) {
       throw new BadRequestException("人机验证未通过，请重试");
     }
@@ -293,7 +296,7 @@ export class AuthService {
 
     // 防垃圾注册：先发送验证码（失败则不创建账号），账号创建后为未验证状态，
     // 输入验证码激活前不可登录。验证码 5 分钟有效、单次使用。
-    const sent = await this.emailVerification.sendCode(body.email, body.lang);
+    const sent = await this.emailVerification.sendCode(body.email, body.lang, clientIp);
 
     // 邀请码校验：必须存在且未被使用
     const invite = await this.prisma.inviteCode.findUnique({
@@ -513,7 +516,11 @@ export class AuthService {
       } else if (!body.emailOtpCode && !emailAlreadyVerified) {
         // 首次提交：向邮箱发送验证码并提示输入（冷却期内不重复发送）
         try {
-          const sent = await this.emailVerification.sendCode(user.email, body.lang);
+          const sent = await this.emailVerification.sendCode(
+            user.email,
+            body.lang,
+            clientIp,
+          );
           // 仅开发环境（未配置邮件服务）返回 devCode，便于本地联调与 e2e
           return {
             requiresEmailOtp: true,

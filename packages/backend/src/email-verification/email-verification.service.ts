@@ -113,6 +113,7 @@ export class EmailVerificationService {
   async sendCode(
     email: string,
     lang?: string | null,
+    clientIp?: string | null,
   ): Promise<{
     expiresIn: number;
     cooldownSeconds: number;
@@ -172,7 +173,12 @@ export class EmailVerificationService {
     //    （审计 P0-3：非生产标记部署即泄露 OTP → 账号接管；改为显式开关，任何环境默认安全）
     if (!this.resend) {
       const allowDevCode = (process.env.ALLOW_DEVCODE ?? "").trim() === "1";
-      if (!allowDevCode) {
+      // W3：显式开关 + IP 白名单（默认仅本机；配置 ALLOW_DEVCODE_IPS 逗号分隔）
+      const devIpWhitelist = (process.env.ALLOW_DEVCODE_IPS ?? "127.0.0.1,::1")
+        .split(",").map((ip) => ip.trim()).filter(Boolean);
+      const ip = (clientIp ?? "").trim();
+      const ipAllowed = ip === "" || devIpWhitelist.includes(ip);
+      if (!allowDevCode || !ipAllowed) {
         throw new ServiceUnavailableException("邮件服务未配置，请联系管理员");
       }
       this.logger.warn(

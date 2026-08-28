@@ -4,7 +4,9 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
 } from "@nestjs/common";
+import type { Request } from "express";
 import { Throttle } from "@nestjs/throttler";
 import { EmailVerificationService } from "./email-verification.service";
 import { SendEmailCodeDto } from "./dto/send-email-code.dto";
@@ -20,8 +22,12 @@ export class EmailVerificationController {
   @Post("send")
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  async send(@Body() body: SendEmailCodeDto) {
-    const result = await this.emailVerificationService.sendCode(body.email, body.lang);
+  async send(@Body() body: SendEmailCodeDto, @Req() req: Request) {
+    const result = await this.emailVerificationService.sendCode(
+      body.email,
+      body.lang,
+      req.ip ?? "",
+    );
     return { ok: true, ...result };
   }
 

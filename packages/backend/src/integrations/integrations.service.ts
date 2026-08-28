@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { PrismaService } from "../prisma/prisma.service";
@@ -36,7 +36,21 @@ function isPrivateIp(ip: string): boolean {
     if (lower === "::" || lower === "::1") return true;
     if (/^f[cd]/i.test(lower)) return true; // fc00::/7
     if (/^fe[89ab]/.test(lower)) return true; // fe80::/10 link-local
-    if (/^::ffff:(127|10|192\.168)\./.test(lower)) return true; // v4-mapped 私网
+    // IPv4-mapped（::ffff:127.0.0.1 或压缩十六进制 ::ffff:7f00:1）→ 转 IPv4 递归判断
+    const mapped = lower.match(
+      /^::ffff:(?:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/,
+    );
+    if (mapped) {
+      let v4: string;
+      if (mapped[1]) {
+        v4 = mapped[1];
+      } else {
+        const hi = parseInt(mapped[2], 16);
+        const lo = parseInt(mapped[3], 16);
+        v4 = `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+      }
+      return isPrivateIp(v4);
+    }
     return false;
   }
   return true; // 无法识别按私网处理（fail-closed）
@@ -61,7 +75,9 @@ function validateWebhookUrl(rawUrl: string): URL {
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new BadRequestException("Webhook URL 仅支持 http/https");
   }
-  const host = parsed.hostname;
+  // NEW-B1：URL.hostname 对 IPv6 返回带方括号（如 [::1]），net.isIP 会判为 0，
+  // 导致 IPv6 私网地址走域名分支被跳过——先剥离方括号再判断。
+  const host = parsed.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host)) {
     if (isPrivateIp(host)) {
       throw new BadRequestException("Webhook URL 不允许指向内网/保留地址");
@@ -235,8 +251,9 @@ export class IntegrationsService {
         );
       }
       const body = JSON.stringify(payload);
-      const signature = createHash("sha256")
-        .update(`${secret}${body}`)
+      // NEW-B4：改用标准 HMAC（keyed hash），替代非标准的 secret+body 拼接摘要
+      const signature = createHmac("sha256", secret)
+        .update(body)
         .digest("hex");
       const res = await fetch(hook.url, {
         method: "POST",
@@ -246,6 +263,9 @@ export class IntegrationsService {
           "user-agent": "dfr-supply-chain-webhook/1.0",
         },
         body,
+        // NEW-B2：禁止自动跟随重定向——公网 URL 302 到元数据/回环即可 SSRF；
+        // 3xx 直接视为失败（webhook 端点不应重定向）
+        redirect: "manual",
         signal: AbortSignal.timeout(10_000),
       });
       await this.prisma.webhook.update({
