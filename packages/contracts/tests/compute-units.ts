@@ -18,10 +18,10 @@ describe("compute units measurement", () => {
   const program: any = anchor.workspace.TradeFinance;
   const connection = provider.connection;
 
-  const POOL_SEEDS = [Buffer.from("trade_finance"), Buffer.from("pool")];
+  const POOL_SEEDS = [Buffer.from("trade_finance"), Buffer.from("trade_pool")];
   const POOL_AUTHORITY_SEEDS = [
     Buffer.from("trade_finance"),
-    Buffer.from("pool_usdc"),
+    Buffer.from("trade_pool_usdc"),
   ];
 
   let payer: anchor.web3.Keypair;

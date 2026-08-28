@@ -10,8 +10,8 @@ import { readFileSync } from "node:fs";
 const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const TRADE = process.env.TRADE_FINANCE_PROGRAM_ID ?? "8GSbCjUhgpvgQ35tx7wqFZCznP5HW2mn1jUYcGahC4tq";
 const SUPPLY = process.env.SUPPLY_CHAIN_PROGRAM_ID ?? "BGSBnaAs2uhsYhUA2KJBmirMcK551JLm9thy7P2y2cDh";
-const USDC = process.env.USDC_MINT ?? "5kEWE1EbC6DYfg5548UBksbJ2VPue4yxiX3VUuHddRcC";
-const LP = process.env.LP_MINT ?? "4fJthZiYPZ9uAqr38Uj2p2DJbPWjxUDP94Vo3RcwaWtw";
+const USDC = process.env.USDC_MINT ?? "9N7QUgFr1MviKhWBAikKYuCFLHqZzMyGGuy5wabwoQhF";
+const LP = process.env.LP_MINT ?? "516Wdy9BN239rJ3f44fY4kVccriWawFRTK8K8xdP2zmy";
 const POOL = process.env.POOL; // 可选，缺省按 PDA 推导
 const EXPECTED_UA = process.env.EXPECTED_UPGRADE_AUTHORITY; // 期望 upgrade authority（防篡改）
 const JSON_OUT = process.argv.includes("--json");
@@ -49,9 +49,9 @@ async function checkPool() {
   if (POOL) {
     poolPda = new PublicKey(POOL);
   } else {
-    [poolPda] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool")], prog);
+    [poolPda] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool")], prog);
   }
-  const [poolAuth] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool_usdc")], prog);
+  const [poolAuth] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")], prog);
   const info = await conn.getAccountInfo(poolPda);
   if (!info) return add("池账户存在", false, `${poolPda.toBase58()} 不存在`);
   const legacy = info.data.length < 400;

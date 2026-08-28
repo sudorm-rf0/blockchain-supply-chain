@@ -65,7 +65,7 @@ console.log("multisig txIndex:", ms.transactionIndex.toString());
 
 // 2) 合约池：读取当前 multisig 配置
 const [poolState] = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool")], TRADE_PID,
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool")], TRADE_PID,
 );
 const poolAcc = await conn.getAccountInfo(poolState);
 if (!poolAcc) { console.error("❌ 合约池不存在（先 initialize_pool）"); process.exit(2); }

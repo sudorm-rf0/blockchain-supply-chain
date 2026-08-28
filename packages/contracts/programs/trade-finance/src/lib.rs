@@ -683,7 +683,7 @@ pub mod trade_finance {
         require!(shares > 0, TradeFinanceError::ZeroShareMint);
 
         let pool_bump = [ctx.bumps.pool_authority];
-        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"trade_pool_usdc", &pool_bump];
         token::mint_to(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
@@ -857,7 +857,7 @@ pub mod trade_finance {
         );
 
         let pool_bump = [ctx.bumps.pool_authority];
-        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"trade_pool_usdc", &pool_bump];
 
         token::burn(
             CpiContext::new(
@@ -945,7 +945,7 @@ pub mod trade_finance {
 
         // 放款：资金池 vault 实际转入订单托管账户；到货后再由托管释放给卖方。
         let pool_bump = [ctx.bumps.pool_authority];
-        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"trade_pool_usdc", &pool_bump];
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -1253,7 +1253,7 @@ pub mod trade_finance {
         ctx.accounts.pool_token_account.reload()?;
 
         let pool_bump = [ctx.bumps.pool_authority];
-        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"trade_pool_usdc", &pool_bump];
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -1498,7 +1498,7 @@ pub mod trade_finance {
         require!(amount <= share_cap, TradeFinanceError::InvalidAmount);
 
         let pool_bump = [ctx.bumps.pool_authority];
-        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"trade_pool_usdc", &pool_bump];
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -1778,7 +1778,7 @@ pub mod trade_finance {
         );
 
         let pool_bump = [ctx.bumps.pool_authority];
-        let pool_signer: &[&[u8]] = &[b"trade_finance", b"pool_usdc", &pool_bump];
+        let pool_signer: &[&[u8]] = &[b"trade_finance", b"trade_pool_usdc", &pool_bump];
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -2077,7 +2077,7 @@ pub struct InitializePool<'info> {
         init,
         payer = admin,
         space = PoolState::space(),
-        seeds = [b"trade_finance", b"pool" as &[u8]],
+        seeds = [b"trade_finance", b"trade_pool" as &[u8]],
         bump
     )]
     pub pool_state: Account<'info, PoolState>,
@@ -2088,7 +2088,7 @@ pub struct InitializePool<'info> {
     /// LP Mint：authority 必须为 pool_authority、无 freeze authority、decimals 匹配（审计 C-01/L-05/M-09）。
     pub lp_mint: Account<'info, Mint>,
     /// CHECK: 资金池 USDC 托管账户的 PDA authority（同时作为 LP 铸币 authority，审计 C-01）。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
     /// 程序数据账户（原生格式，手动解析）：upgrade authority 必须为初始化者（审计 H-01/N-05）。
     /// CHECK: 仅用于读取 upgrade authority，不反序列化 anchor 结构。
@@ -2098,13 +2098,13 @@ pub struct InitializePool<'info> {
 
 #[derive(Accounts)]
 pub struct GetPoolInfo<'info> {
-    #[account(seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 }
 
 #[derive(Accounts)]
 pub struct SetPaused<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2112,7 +2112,7 @@ pub struct SetPaused<'info> {
 
 #[derive(Accounts)]
 pub struct ProposeAdmin<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2120,7 +2120,7 @@ pub struct ProposeAdmin<'info> {
 
 #[derive(Accounts)]
 pub struct AcceptAdmin<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     /// 待接受的新管理员：必须是提案中的 pending_admin（审计 H-03）。
@@ -2130,7 +2130,7 @@ pub struct AcceptAdmin<'info> {
 /// 审计 H-1 链上强制多签：第一步提案（当前授权者签名）。
 #[derive(Accounts)]
 pub struct ProposeMultisig<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     /// 当前授权者（单签模式=pool.admin；多签模式=Squads vault PDA）。
@@ -2140,7 +2140,7 @@ pub struct ProposeMultisig<'info> {
 /// 审计 H-1 链上强制多签：第二步接受（时锁结束后，当前授权者签名）。
 #[derive(Accounts)]
 pub struct AcceptMultisig<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     /// 当前授权者（与 propose 相同授权域）。
@@ -2151,7 +2151,7 @@ pub struct AcceptMultisig<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64, file_hash: [u8; 32], uri: String)]
 pub struct AttestDocument<'info> {
-    #[account(seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     #[account(mut)]
@@ -2194,7 +2194,7 @@ pub struct AttestDocument<'info> {
 #[derive(Accounts)]
 #[instruction(id: u64, seller: Pubkey, amount: u64, tenor_days: u64)]
 pub struct CreateDeal<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     #[account(mut)]
@@ -2236,7 +2236,7 @@ pub struct CreateDeal<'info> {
     pub system_program: Program<'info, System>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     /// 资金池金库（审计 M-08：集中度上限改为基于可用流动性）。
@@ -2251,7 +2251,7 @@ pub struct CreateDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct FundDeal<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2275,7 +2275,7 @@ pub struct FundDeal<'info> {
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2306,7 +2306,7 @@ pub struct FundDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64, target_status: u8)]
 pub struct AdvanceDeal<'info> {
-    #[account(seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2331,7 +2331,7 @@ pub struct AdvanceDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct ReleaseToSeller<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2375,13 +2375,13 @@ pub struct ReleaseToSeller<'info> {
 
 #[derive(Accounts)]
 pub struct RefreshNav<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2403,7 +2403,7 @@ pub struct RefreshNav<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct RepayDeal<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     #[account(mut)]
@@ -2438,7 +2438,7 @@ pub struct RepayDeal<'info> {
     pub platform_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2472,7 +2472,7 @@ pub struct RepayDeal<'info> {
 
 #[derive(Accounts)]
 pub struct DistributeDividends<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     #[account(mut)]
@@ -2496,7 +2496,7 @@ pub struct DistributeDividends<'info> {
     pub recipient_lp_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2529,7 +2529,7 @@ pub struct DistributeDividends<'info> {
 }
 #[derive(Accounts)]
 pub struct DepositPool<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub depositor: Signer<'info>,
@@ -2542,7 +2542,7 @@ pub struct DepositPool<'info> {
     pub depositor_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2574,7 +2574,7 @@ pub struct DepositPool<'info> {
 
 #[derive(Accounts)]
 pub struct RedeemLp<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub lp_user: Signer<'info>,
@@ -2594,7 +2594,7 @@ pub struct RedeemLp<'info> {
     pub lp_user_usdc_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2619,7 +2619,7 @@ pub struct RedeemLp<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct DefaultDeal<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2641,7 +2641,7 @@ pub struct DefaultDeal<'info> {
     pub deal: Account<'info, TradeDeal>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2673,7 +2673,7 @@ pub struct DefaultDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct CancelDeal<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     /// 买方：取消自己的 PENDING 订单并收回首付（审计 H-7）。
@@ -2719,7 +2719,7 @@ pub struct CancelDeal<'info> {
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
 pub struct CloseDeal<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     /// 买方：推导订单 PDA，并作为租金退还接收方签名关闭（审计 L-02）。
@@ -2754,7 +2754,7 @@ pub struct CloseDeal<'info> {
 
 #[derive(Accounts)]
 pub struct DepositFirstLoss<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     /// 平台运营钱包（注入首损资金）。
@@ -2769,7 +2769,7 @@ pub struct DepositFirstLoss<'info> {
     pub depositor_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2790,7 +2790,7 @@ pub struct DepositFirstLoss<'info> {
 
 #[derive(Accounts)]
 pub struct SetAdminDelay<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2799,7 +2799,7 @@ pub struct SetAdminDelay<'info> {
 /// 治理时锁（H-1）：propose_* 共用账户（pool_state + admin）。
 #[derive(Accounts)]
 pub struct ProposeGovernance<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2808,7 +2808,7 @@ pub struct ProposeGovernance<'info> {
 /// 治理时锁（H-1）：执行更换平台运营钱包。
 #[derive(Accounts)]
 pub struct ExecutePlatformWallet<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2817,7 +2817,7 @@ pub struct ExecutePlatformWallet<'info> {
 /// 治理时锁（H-1）：执行提取首损资金。
 #[derive(Accounts)]
 pub struct ExecuteWithdrawFirstLoss<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     #[account(mut)]
@@ -2831,7 +2831,7 @@ pub struct ExecuteWithdrawFirstLoss<'info> {
     pub recipient_token_account: Account<'info, TokenAccount>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 
     #[account(
@@ -2851,7 +2851,7 @@ pub struct ExecuteWithdrawFirstLoss<'info> {
 /// 治理时锁（H-1）：执行更换 LP Mint。
 #[derive(Accounts)]
 pub struct ExecuteSetLpMint<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2866,14 +2866,14 @@ pub struct ExecuteSetLpMint<'info> {
     pub new_lp_mint: Account<'info, Mint>,
 
     /// CHECK: 资金池 USDC 托管账户的 PDA authority（新 LP mint 的 authority）。
-    #[account(seeds = [b"trade_finance", b"pool_usdc" as &[u8]], bump)]
+    #[account(seeds = [b"trade_finance", b"trade_pool_usdc" as &[u8]], bump)]
     pub pool_authority: AccountInfo<'info>,
 }
 
 /// 治理时锁（H-1）：执行更新费率与分配参数。
 #[derive(Accounts)]
 pub struct ExecuteSetFeeParams<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2882,7 +2882,7 @@ pub struct ExecuteSetFeeParams<'info> {
 /// 治理时锁（H-1）：执行更新风控参数。
 #[derive(Accounts)]
 pub struct ExecuteSetRiskParams<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,
@@ -2891,7 +2891,7 @@ pub struct ExecuteSetRiskParams<'info> {
 /// 治理时锁（H-1）：取消待执行提案。
 #[derive(Accounts)]
 pub struct CancelGovernance<'info> {
-    #[account(mut, seeds = [b"trade_finance", b"pool"], bump)]
+    #[account(mut, seeds = [b"trade_finance", b"trade_pool"], bump)]
     pub pool_state: Account<'info, PoolState>,
 
     pub admin: Signer<'info>,

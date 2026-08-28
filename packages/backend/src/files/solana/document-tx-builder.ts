@@ -58,7 +58,7 @@ export function encodeBorshString(value: string): Buffer {
 
 export function derivePoolStatePda(): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [DOCUMENT_SEED, Buffer.from("pool")],
+    [DOCUMENT_SEED, Buffer.from("trade_pool")],
     getProgramId(),
   )[0];
 }

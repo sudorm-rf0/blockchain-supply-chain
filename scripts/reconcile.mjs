@@ -75,11 +75,11 @@ function parseDeal(data) {
 const prog = new PublicKey(PROGRAM_ID);
 const conn = new Connection(RPC, "confirmed");
 const poolState = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool")],
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool")],
   prog,
 )[0];
 const poolAuthority = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool_usdc")],
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")],
   prog,
 )[0];
 const encodeU64 = (v) => {

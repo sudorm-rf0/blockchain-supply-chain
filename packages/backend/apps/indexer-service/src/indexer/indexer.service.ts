@@ -40,7 +40,7 @@ export class IndexerService implements OnModuleInit, OnModuleDestroy {
     this.poolStateAddress = INDEXER_ENV.poolStateAddress
       ? new PublicKey(INDEXER_ENV.poolStateAddress)
       : PublicKey.findProgramAddressSync(
-          [Buffer.from("trade_finance"), Buffer.from("pool")],
+          [Buffer.from("trade_finance"), Buffer.from("trade_pool")],
           this.programId,
         )[0];
   }

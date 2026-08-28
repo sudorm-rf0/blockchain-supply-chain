@@ -35,11 +35,11 @@ function deriveAta(owner: PublicKey, mint: PublicKey): PublicKey {
 }
 
 export function derivePoolStatePda(): PublicKey {
-  return derivePda([Buffer.from("trade_finance"), Buffer.from("pool")]);
+  return derivePda([Buffer.from("trade_finance"), Buffer.from("trade_pool")]);
 }
 
 export function derivePoolAuthorityPda(): PublicKey {
-  return derivePda([Buffer.from("trade_finance"), Buffer.from("pool_usdc")]);
+  return derivePda([Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")]);
 }
 
 export function deriveUsdcAta(owner: PublicKey): PublicKey {

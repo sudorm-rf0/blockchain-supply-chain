@@ -33,12 +33,12 @@ console.log("模拟多签(member):", member.publicKey.toBase58());
 // 创建 USDC / LP mint（LP authority = pool_authority PDA）
 const usdcMint = await createMint(conn, oldAdmin, oldAdmin.publicKey, null, 6);
 const [poolAuthority] = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool_usdc")], TRADE_PID);
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")], TRADE_PID);
 const lpMint = await createMint(conn, oldAdmin, poolAuthority, null, 6);
 console.log("USDC mint:", usdcMint.toBase58(), "| LP mint:", lpMint.toBase58());
 
 const [poolState] = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool")], TRADE_PID);
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool")], TRADE_PID);
 console.log("poolState PDA:", poolState.toBase58());
 const [programData] = PublicKey.findProgramAddressSync([TRADE_PID.toBuffer()], BPF_LOADER);
 console.log("programData PDA:", programData.toBase58());

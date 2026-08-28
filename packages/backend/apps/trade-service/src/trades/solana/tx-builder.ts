@@ -81,14 +81,14 @@ export function isValidTenor(tenorDays: bigint): boolean {
 
 export function derivePoolStatePda(programId: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("trade_finance"), Buffer.from("pool")],
+    [Buffer.from("trade_finance"), Buffer.from("trade_pool")],
     programId,
   )[0];
 }
 
 export function derivePoolAuthorityPda(programId: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("trade_finance"), Buffer.from("pool_usdc")],
+    [Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")],
     programId,
   )[0];
 }

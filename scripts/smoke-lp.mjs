@@ -48,9 +48,9 @@ const admin = Keypair.fromSecretKey(Uint8Array.from(adminSecret));
 const lp = Keypair.generate();
 
 const poolStatePda = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool")], new PublicKey(PROGRAM_ID))[0];
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool")], new PublicKey(PROGRAM_ID))[0];
 const poolAuthorityPda = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool_usdc")], new PublicKey(PROGRAM_ID))[0];
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")], new PublicKey(PROGRAM_ID))[0];
 
 async function airdrop(pubkey, lamports = 2 * LAMPORTS_PER_SOL) {
   const sig = await conn.requestAirdrop(pubkey, lamports);

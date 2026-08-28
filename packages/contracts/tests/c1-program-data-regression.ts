@@ -34,11 +34,11 @@ describe("C-1 forged program_data regression (independent audit)", () => {
     const usdcMint = await createMint(connection, payer, payer.publicKey, null, 6);
     const lpMint = await createMint(connection, payer, payer.publicKey, null, 6);
     const poolStatePda = PublicKey.findProgramAddressSync(
-      [Buffer.from("trade_finance"), Buffer.from("pool")],
+      [Buffer.from("trade_finance"), Buffer.from("trade_pool")],
       program.programId,
     )[0];
     const poolAuthorityPda = PublicKey.findProgramAddressSync(
-      [Buffer.from("trade_finance"), Buffer.from("pool_usdc")],
+      [Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")],
       program.programId,
     )[0];
     // 正样本：本程序真实 ProgramData PDA（仅对照，非本次断言目标）

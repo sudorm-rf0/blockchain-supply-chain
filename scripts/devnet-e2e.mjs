@@ -2,12 +2,12 @@
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 const RPC = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
 const PROGRAM_ID = process.env.TRADE_FINANCE_PROGRAM_ID ?? "8GSbCjUhgpvgQ35tx7wqFZCznP5HW2mn1jUYcGahC4tq";
-const USDC_MINT = process.env.USDC_MINT ?? "5kEWE1EbC6DYfg5548UBksbJ2VPue4yxiX3VUuHddRcC";
-const LP_MINT = process.env.LP_MINT ?? "4fJthZiYPZ9uAqr38Uj2p2DJbPWjxUDP94Vo3RcwaWtw";
+const USDC_MINT = process.env.USDC_MINT ?? "9N7QUgFr1MviKhWBAikKYuCFLHqZzMyGGuy5wabwoQhF";
+const LP_MINT = process.env.LP_MINT ?? "516Wdy9BN239rJ3f44fY4kVccriWawFRTK8K8xdP2zmy";
 const KEYPAIR_PATH = process.env.SOLANA_KEYPAIR_PATH ?? "packages/contracts/target/deploy/devnet-new/deployer-keypair.json";
 
 const conn = new Connection(RPC, "confirmed");
@@ -18,8 +18,8 @@ const usdcMint = new PublicKey(USDC_MINT);
 const lpMint = new PublicKey(LP_MINT);
 const seller = Keypair.generate();
 
-const [poolState] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool")], programId);
-const [poolAuthority] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool_usdc")], programId);
+const [poolState] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool")], programId);
+const [poolAuthority] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")], programId);
 const dealPda = (buyer, id) => {
   const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(id));
   return PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("deal"), buyer.toBuffer(), b], programId)[0];
@@ -55,6 +55,9 @@ console.log("deal PDA:", deal.toBase58());
 
 // 0) pool vault ATA
 const poolVaultCreate = (await getOrCreateAssociatedTokenAccount(conn, admin, usdcMint, poolAuthority, true)).address;
+
+// 0.5) mint 测试 USDC 给买家（USDC mint authority = admin）
+await mintTo(conn, admin, usdcMint, buyerUsdcAta, admin, BigInt(50_000_000));
 
 // 1) create_deal
 console.log("\n==> create_deal (50 USDC, 30% 首付)");

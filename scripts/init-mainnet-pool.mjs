@@ -60,11 +60,11 @@ const usdcMint = new PublicKey(USDC_MINT);
 const lpMint = new PublicKey(LP_MINT);
 
 const poolState = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool")],
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool")],
   programId,
 )[0];
 const poolAuthority = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool_usdc")],
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")],
   programId,
 )[0];
 // 程序数据账户：initialize_pool 用于校验 upgrade authority（审计 H-01/N-05）。

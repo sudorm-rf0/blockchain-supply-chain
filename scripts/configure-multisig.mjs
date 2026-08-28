@@ -48,7 +48,7 @@ function loadIdl(name) {
 const tradeProg = new Program({ ...loadIdl("trade_finance"), address: new PublicKey(TRADE) }, provider);
 const supplyProg = new Program({ ...loadIdl("supply_chain"), address: new PublicKey(SUPPLY) }, provider);
 const [poolPda] = PublicKey.findProgramAddressSync(
-  [Buffer.from("trade_finance"), Buffer.from("pool")], tradeProg.programId,
+  [Buffer.from("trade_finance"), Buffer.from("trade_pool")], tradeProg.programId,
 );
 const [regPda] = PublicKey.findProgramAddressSync(
   [Buffer.from("supply_chain"), Buffer.from("registry")], supplyProg.programId,

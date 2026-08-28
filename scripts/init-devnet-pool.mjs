@@ -17,8 +17,8 @@ const secret = JSON.parse(readFileSync(KEYPAIR_PATH, "utf8"));
 const admin = Keypair.fromSecretKey(Uint8Array.from(secret));
 const programId = new PublicKey(PROGRAM_ID);
 
-const [poolState] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool")], programId);
-const [poolAuthority] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool_usdc")], programId);
+const [poolState] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool")], programId);
+const [poolAuthority] = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")], programId);
 const programData = PublicKey.findProgramAddressSync([programId.toBuffer()], new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111"))[0];
 const disc = (name) => createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
 const u64 = (v) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(v); return b; };
@@ -58,7 +58,7 @@ if (!poolExists) {
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
     programId,
-    data: Buffer.concat([disc("initialize_pool"), admin.publicKey.toBuffer(), u64(86400n)]),
+    data: Buffer.concat([disc("initialize_pool"), admin.publicKey.toBuffer(), u64(86400n), Buffer.from([0])]), // require_multisig=false (devnet 测试)
   }));
   tx.sign(admin);
   await conn.confirmTransaction(await conn.sendRawTransaction(tx.serialize()), "confirmed");

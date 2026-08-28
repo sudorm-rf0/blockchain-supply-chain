@@ -19,8 +19,8 @@ const adminSecret = JSON.parse(readFileSync(keypairPath, "utf8"));
 const admin = Keypair.fromSecretKey(Uint8Array.from(adminSecret));
 const programId = new PublicKey(PROGRAM_ID);
 
-const poolState = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool")], programId)[0];
-const poolAuthority = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("pool_usdc")], programId)[0];
+const poolState = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool")], programId)[0];
+const poolAuthority = PublicKey.findProgramAddressSync([Buffer.from("trade_finance"), Buffer.from("trade_pool_usdc")], programId)[0];
 // 程序数据账户：initialize_pool 用于校验 upgrade authority（审计 H-01/N-05）。
 const programData = PublicKey.findProgramAddressSync(
   [programId.toBuffer()],
