@@ -2,12 +2,14 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { DealStatus, Prisma } from "@prisma/client";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService, pickRpcUrl } from "@supply-chain/common";
@@ -447,11 +449,19 @@ export class PoolService {
     } catch {
       throw new BadRequestException("invalid lpAmount");
     }
-    const { transaction, blockhash } = await buildRedeemLpTransaction(
-      new PublicKey(dto.lpWallet),
-      lpAmount,
-      getConnection(),
-    );
+    let built: { transaction: Transaction; blockhash: string };
+    try {
+      built = await buildRedeemLpTransaction(
+        new PublicKey(dto.lpWallet),
+        lpAmount,
+        getConnection(),
+      );
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      Logger.error(`buildRedeemLp 链上构建失败: ${String(error)}`, PoolService.name);
+      throw new ServiceUnavailableException("链上服务暂不可用，请稍后重试");
+    }
+    const { transaction, blockhash } = built;
     return {
       transaction: transaction
         .serialize({ requireAllSignatures: false, verifySignatures: false })

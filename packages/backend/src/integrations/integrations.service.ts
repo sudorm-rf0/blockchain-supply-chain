@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { PrismaService } from "../prisma/prisma.service";
 
 function sha256(value: string): string {
@@ -12,6 +14,81 @@ function sha256(value: string): string {
 
 function generateApiKey(): string {
   return `sk_live_${randomBytes(24).toString("base64url")}`;
+}
+
+/** 判断 IP 是否属于内网/保留/链路本地地址（含 IPv4 映射的 IPv6） */
+function isPrivateIp(ip: string): boolean {
+  if (isIP(ip) === 4) {
+    const p = ip.split(".").map(Number);
+    const [a, b] = p;
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true; // 169.254/16 link-local
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16/12
+    if (a === 192 && b === 168) return true; // 192.168/16
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64/10 CGNAT
+    if (a === 198 && (b === 18 || b === 19)) return true; // 198.18/15
+    if (a >= 224) return true; // 组播/保留
+    return false;
+  }
+  if (isIP(ip) === 6) {
+    const lower = ip.toLowerCase();
+    if (lower === "::" || lower === "::1") return true;
+    if (/^f[cd]/i.test(lower)) return true; // fc00::/7
+    if (/^fe[89ab]/.test(lower)) return true; // fe80::/10 link-local
+    if (/^::ffff:(127|10|192\.168)\./.test(lower)) return true; // v4-mapped 私网
+    return false;
+  }
+  return true; // 无法识别按私网处理（fail-closed）
+}
+
+/** 可选域名白名单：配置 ALLOWED_WEBHOOK_HOSTS（逗号分隔）后仅允许这些域名 */
+function allowedWebhookHost(host: string): boolean {
+  const raw = process.env.ALLOWED_WEBHOOK_HOSTS ?? "";
+  const hosts = raw.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+  if (hosts.length === 0) return true; // 未配置白名单则不做域名限制
+  return hosts.includes(host.toLowerCase());
+}
+
+/** 校验 webhook URL：协议、非内网字面 IP、非本机/内网域名、可选域名白名单 */
+function validateWebhookUrl(rawUrl: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new BadRequestException("Webhook URL 格式无效");
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new BadRequestException("Webhook URL 仅支持 http/https");
+  }
+  const host = parsed.hostname;
+  if (isIP(host)) {
+    if (isPrivateIp(host)) {
+      throw new BadRequestException("Webhook URL 不允许指向内网/保留地址");
+    }
+  } else {
+    if (/^localhost$/i.test(host) || /\.(local|internal|localhost)$/i.test(host)) {
+      throw new BadRequestException("Webhook URL 不允许指向本机/内网域名");
+    }
+    if (!allowedWebhookHost(host)) {
+      throw new BadRequestException("Webhook 域名不在白名单内");
+    }
+  }
+  return parsed;
+}
+
+/** 发送前解析域名并复检目标 IP（防 DNS rebinding 到内网） */
+async function assertPublicWebhookHost(host: string): Promise<void> {
+  let records: Array<{ address: string }>;
+  try {
+    records = await lookup(host, { all: true, verbatim: true });
+  } catch {
+    throw new BadRequestException("Webhook 域名无法解析");
+  }
+  for (const { address } of records) {
+    if (isPrivateIp(address)) {
+      throw new BadRequestException("Webhook 目标域名解析到内网地址，已拒绝发送");
+    }
+  }
 }
 
 @Injectable()
@@ -94,9 +171,8 @@ export class IntegrationsService {
     const name = (input.name ?? "").trim();
     const url = (input.url ?? "").trim();
     if (!name || name.length > 64) throw new BadRequestException("名称不能为空");
-    if (!/^https?:\/\//.test(url) || url.length > 512) {
-      throw new BadRequestException("Webhook URL 必须是 http(s) 且不超过 512 字符");
-    }
+    if (url.length > 512) throw new BadRequestException("Webhook URL 不能超过 512 字符");
+    validateWebhookUrl(url);
     const events = (input.events ?? []).filter((e) => typeof e === "string" && e.length <= 64).slice(0, 20);
     const secret = `whsec_${randomBytes(24).toString("base64url")}`;
     const row = await this.prisma.webhook.create({
@@ -120,9 +196,8 @@ export class IntegrationsService {
     const existing = await this.prisma.webhook.findFirst({ where: { id, userId } });
     if (!existing) throw new NotFoundException("Webhook 不存在");
     const url = input.url?.trim() ?? existing.url;
-    if (!/^https?:\/\//.test(url) || url.length > 512) {
-      throw new BadRequestException("Webhook URL 必须是 http(s) 且不超过 512 字符");
-    }
+    if (url.length > 512) throw new BadRequestException("Webhook URL 不能超过 512 字符");
+    validateWebhookUrl(url);
     const updated = await this.prisma.webhook.update({
       where: { id },
       data: {
@@ -150,6 +225,7 @@ export class IntegrationsService {
       data: { message: "DFR Supply Chain 测试推送" },
     };
     try {
+      await assertPublicWebhookHost(new URL(hook.url).hostname);
       const secret = process.env.WEBHOOK_HMAC_SECRET ?? "dfr-supply-chain";
       const body = JSON.stringify(payload);
       const signature = createHash("sha256")

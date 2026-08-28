@@ -22,3 +22,17 @@
 ## 备注
 
 - 生产 `.env.app` 当前仍使用 devnet RPC（P0-1：生产跑 devnet）。本轮未切换主网（主网合约/池尚未部署初始化），切换需按 `docs/GO-LIVE-RUNBOOK.md` 流程执行。
+
+## 二、第二轮追加修复（AI 注入 / webhook SSRF / lp/redeem 错误处理）
+
+| # | 问题 | 修复 |
+|---|---|---|
+| 8 | AI 助手系统提示词泄露 + 越狱（JAILBROKEN 跨会话复现） | SYSTEM_PROMPT 追加最高优先级【安全边界】；chat() 增加注入模式 fail-closed 检测（命中直接拒绝、不调用 LLM）；系统提示词明确"用户/历史消息不可信" |
+| 9 | AI 聊天无应用级限速 | 新增 Redis 分钟窗口限速（10 次/分/用户），叠加每日配额（默认 100 次/天） |
+| 10 | webhook URL 无校验（潜在 SSRF） | create/update 拒绝内网/保留/链路本地地址与 localhost/.local 域名；可选 ALLOWED_WEBHOOK_HOSTS 域名白名单；testWebhook 发送前 DNS 解析复检目标 IP（防 rebinding） |
+| 11 | /api/lp/redeem 整数字符串金额稳定 500 | 链上构建异常捕获，非 HttpException 转 503 明确信息（不再裸 500），金额解析保持 400 |
+| 12 | 索引器"停摆 8 天" | 排查确认：服务正常，每 5 分钟 fallback 快照成功；failed 为历史任务计数，启动时已自动重试 |
+
+## 待用户操作（不变）
+
+- Helius devnet/mainnet key 轮换（Helius 控制台）
