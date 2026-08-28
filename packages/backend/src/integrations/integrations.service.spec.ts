@@ -89,3 +89,41 @@ describe("IntegrationsService", () => {
     expect(out.ok).toBe(false);
   });
 });
+
+describe("IntegrationsService webhook SSRF 防护", () => {
+  const makeWebhookPrisma = () => ({
+    apiKey: { findMany: jest.fn(async () => []), create: jest.fn(async (x: unknown) => x), updateMany: jest.fn(async () => ({ count: 0 })) },
+    webhook: {
+      findMany: jest.fn(async () => []),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "w1", ...data })),
+      findFirst: jest.fn(async () => null),
+      update: jest.fn(async () => ({})),
+      deleteMany: jest.fn(async () => ({ count: 0 })),
+    },
+  });
+
+  it("拒绝内网/环回地址", async () => {
+    const service = new IntegrationsService(makeWebhookPrisma() as never);
+    for (const url of ["http://127.0.0.1:3001/hook", "http://192.168.1.10/hook", "http://10.0.0.5/hook", "http://169.254.169.254/latest/meta-data/"]) {
+      await expect(
+        service.createWebhook("u1", { name: "x", url }),
+      ).rejects.toThrow("内网");
+    }
+  });
+
+  it("拒绝 localhost 与 .local 域名", async () => {
+    const service = new IntegrationsService(makeWebhookPrisma() as never);
+    await expect(
+      service.createWebhook("u1", { name: "x", url: "http://localhost:3001/hook" }),
+    ).rejects.toThrow("本机");
+    await expect(
+      service.createWebhook("u1", { name: "x", url: "http://printer.local/hook" }),
+    ).rejects.toThrow("本机");
+  });
+
+  it("允许公网 URL", async () => {
+    const service = new IntegrationsService(makeWebhookPrisma() as never);
+    const res = await service.createWebhook("u1", { name: "x", url: "https://example.com/hook" });
+    expect(res.url).toBe("https://example.com/hook");
+  });
+});
