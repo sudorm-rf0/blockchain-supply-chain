@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
 import { lookup } from "node:dns/promises";
@@ -226,7 +227,13 @@ export class IntegrationsService {
     };
     try {
       await assertPublicWebhookHost(new URL(hook.url).hostname);
-      const secret = process.env.WEBHOOK_HMAC_SECRET ?? "dfr-supply-chain";
+      // 审计 P0-1：禁止默认密钥——未配置 WEBHOOK_SECRET 时拒绝发送（fail-closed）
+      const secret = process.env.WEBHOOK_SECRET;
+      if (!secret) {
+        throw new ServiceUnavailableException(
+          "WEBHOOK_SECRET 未配置，无法发送 webhook（请联系管理员）",
+        );
+      }
       const body = JSON.stringify(payload);
       const signature = createHash("sha256")
         .update(`${secret}${body}`)

@@ -16,7 +16,8 @@ async function bootstrap(): Promise<void> {
   initSentry("indexer-service");
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // H-3：nginx 反代后还原真实客户端 IP（登录防暴破/限流依赖 req.ip）
-  app.set("trust proxy", true);
+  // 只信任最近一跳代理（nginx）：客户端伪造 X-Forwarded-For 不再被采纳（审计 P0-1）
+  app.set("trust proxy", 1);
   app.use(compression());
   app.use(helmet());
   app.use(cookieParser());

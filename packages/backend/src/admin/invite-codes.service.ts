@@ -21,28 +21,34 @@ export interface InviteCodeRecord {
 export class InviteCodesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** 加密安全随机字符（拒绝采样避免取模偏差，全部使用 randomBytes） */
   private randomChar(): string {
-    const buf = randomBytes(1);
-    return CHARSET[buf[0] % CHARSET.length];
-  }
-
-  /** 生成一个 6 位邀请码：保证至少含 1 个数字与 1 个字母。 */
-  private randomCode(): string {
-    const chars: string[] = [];
-    // 随机放一个数字位置与一个字母位置，其余随机，保证"数字+字母混合"
-    const numIdx = Math.floor(Math.random() * CODE_LENGTH);
-    const letterIdx = (numIdx + 1 + Math.floor(Math.random() * (CODE_LENGTH - 1))) % CODE_LENGTH;
-    for (let i = 0; i < CODE_LENGTH; i++) {
-      if (i === numIdx) {
-        chars.push(String(Math.floor(Math.random() * 10)));
-      } else if (i === letterIdx) {
-        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        chars.push(letters[Math.floor(Math.random() * letters.length)]);
-      } else {
-        chars.push(this.randomChar());
+    while (true) {
+      const b = randomBytes(1)[0];
+      // 拒绝 256 % 57 = 28 的偏差区，保证均匀分布（审计 P0-1：邀请码熵）
+      if (b < 256 - (256 % CHARSET.length)) {
+        return CHARSET[b % CHARSET.length];
       }
     }
-    return chars.join("");
+  }
+
+  /** 生成一个 6 位邀请码：全程 crypto 随机，保证至少含 1 个数字与 1 个字母。 */
+  private randomCode(): string {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      let chars = "";
+      for (let i = 0; i < CODE_LENGTH; i += 1) {
+        chars += this.randomChar();
+      }
+      if (/\d/.test(chars) && /[A-Za-z]/.test(chars)) {
+        return chars;
+      }
+    }
+    // 兜底：仍使用 crypto 随机生成（避免无限循环）
+    let chars = "";
+    for (let i = 0; i < CODE_LENGTH; i += 1) {
+      chars += this.randomChar();
+    }
+    return chars;
   }
 
   async generate(count: number, createdById: string): Promise<string[]> {
