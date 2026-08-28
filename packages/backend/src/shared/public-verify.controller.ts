@@ -51,7 +51,6 @@ export class PublicVerifyController {
         status: file.status,
         createdAt: file.createdAt.toISOString(),
         analyzedAt: file.analyzedAt?.toISOString() ?? null,
-        authScore: file.authScore,
         attestedAt: file.attestedAt?.toISOString() ?? null,
         txSignature: file.txSignature,
         documentPda: file.documentPda,
@@ -115,7 +114,7 @@ export class PublicVerifyController {
           type: "ANALYZE",
           label: "真伪与内容分析",
           timestamp: file.analyzedAt.toISOString(),
-          detail: file.authScore != null ? `风险评分 ${file.authScore} / 100` : undefined,
+          detail: undefined,
         });
       }
       if (file.attestedAt && file.txSignature) {

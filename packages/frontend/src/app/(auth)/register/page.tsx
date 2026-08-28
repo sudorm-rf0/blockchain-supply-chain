@@ -18,7 +18,7 @@ import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import { useUserStore } from "@/stores/user-store";
 
 export default function RegisterPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -100,6 +100,7 @@ export default function RegisterPage() {
         wallet: values.wallet || undefined,
         inviteCode: values.inviteCode.trim(),
         turnstileToken: turnstileToken || undefined,
+        lang: i18n.language,
       });
       if (result.requiresEmailVerification) {
         // 防垃圾注册：注册后需先输入邮箱验证码激活账号

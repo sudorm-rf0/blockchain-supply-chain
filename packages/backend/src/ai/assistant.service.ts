@@ -213,6 +213,14 @@ export class AssistantService {
       .filter((m) => m.content.length > 0);
     const history = storedHistory.length > 0 ? storedHistory : fallbackHistory;
 
+    // 审计 P0-2：history 注入扫描（含服务端历史与客户端传入 history），
+    // 防止将注入指令藏在历史会话中跨会话越狱/泄露系统提示词。
+    for (const m of history) {
+      if (m.role === "user" && looksLikeInjection(m.content)) {
+        return { reply: INJECTION_REPLY, sessionId: dto.sessionId ?? "" };
+      }
+    }
+
     const langMap: Record<string, string> = {
       "zh-CN": "请始终使用简体中文回答用户问题。",
       "zh-TW": "請始終使用繁體中文回答用戶問題。",

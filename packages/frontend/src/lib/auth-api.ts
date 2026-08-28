@@ -11,6 +11,7 @@ export async function login(
   totpCode?: string,
   emailOtpCode?: string,
   turnstileToken?: string,
+  lang?: string,
 ): Promise<{
   accessToken?: string;
   user: AuthUser;
@@ -22,7 +23,7 @@ export async function login(
   return request(`${BACKEND_URL}/api/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password, totpCode, emailOtpCode, turnstileToken }),
+    body: JSON.stringify({ email, password, totpCode, emailOtpCode, turnstileToken, lang }),
   });
 }
 
@@ -82,6 +83,7 @@ export async function register(input: {
   wallet?: string;
   inviteCode: string;
   turnstileToken?: string;
+  lang?: string;
 }): Promise<{
   accessToken?: string;
   user: AuthUser;
@@ -125,6 +127,7 @@ export async function verifyEmail(
 /** 重新发送邮箱验证码（60 秒冷却、每小时最多 5 封） */
 export async function sendEmailCode(
   email: string,
+  lang?: string,
 ): Promise<{
   ok: boolean;
   expiresIn: number;
@@ -134,7 +137,7 @@ export async function sendEmailCode(
   return request(`${BACKEND_URL}/api/email-verification/send`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, lang }),
   });
 }
 

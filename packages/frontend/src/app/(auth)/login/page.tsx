@@ -19,7 +19,7 @@ import { TURNSTILE_SITE_KEY } from "@/lib/env";
 import { useUserStore } from "@/stores/user-store";
 
 export default function LoginPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const setAuth = useUserStore((state) => state.setAuth);
   const [requiresTotp, setRequiresTotp] = useState(false);
@@ -65,7 +65,7 @@ export default function LoginPage() {
     }
     setSendingEmailOtp(true);
     try {
-      const result = await sendEmailCode(emailValue);
+      const result = await sendEmailCode(emailValue, i18n.language);
       setEmailOtpCooldown(result.cooldownSeconds ?? 60);
       toast.success(t("login.toast.emailCodeSent"));
       // 开发模式（未配置邮件服务）返回 devCode，须 toast 展示，否则本地/e2e 拿不到验证码
@@ -92,6 +92,7 @@ export default function LoginPage() {
         totpCode || undefined,
         emailOtpCode || undefined,
         turnstileToken || undefined,
+        i18n.language,
       );
       if (result.requiresEmailOtp) {
         setRequiresEmailOtp(true);

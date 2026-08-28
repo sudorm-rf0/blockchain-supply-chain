@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { sendEmailCode, verifyEmail } from "@/lib/api";
 
 function VerifyEmailForm() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = (searchParams.get("email") ?? "").trim();
@@ -62,7 +62,7 @@ function VerifyEmailForm() {
     if (!email || cooldown > 0) return;
     setResending(true);
     try {
-      const result = await sendEmailCode(email);
+      const result = await sendEmailCode(email, i18n.language);
       setCooldown(result.cooldownSeconds ?? 60);
       toast.success(t("verifyEmail.toast.resent"));
       if (shouldShowSpamHint()) setSpamOpen(true);
