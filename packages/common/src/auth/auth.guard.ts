@@ -57,11 +57,11 @@ export class AuthGuard implements CanActivate {
       header && header.startsWith("Bearer ") ? header.slice(7) : undefined;
     const token = cookieToken ?? bearerToken;
     if (!token) {
-      throw new UnauthorizedException("未登录");
+      throw new UnauthorizedException("登录状态已失效，请重新登录");
     }
     const payload = verifyJwt(token);
     if (!payload) {
-      throw new UnauthorizedException("登录已过期");
+      throw new UnauthorizedException("登录状态已失效，请重新登录");
     }
     const cached = userStateCache.get(payload.sub);
     let mustChangePassword: boolean;
@@ -73,7 +73,7 @@ export class AuthGuard implements CanActivate {
         select: { id: true, mustChangePassword: true },
       });
       if (!user) {
-        throw new UnauthorizedException("用户不存在");
+        throw new UnauthorizedException("登录状态已失效，请重新登录");
       }
       mustChangePassword = user.mustChangePassword;
       if (userStateCache.size >= USER_STATE_CACHE_MAX) {

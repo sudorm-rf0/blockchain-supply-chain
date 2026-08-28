@@ -32,9 +32,10 @@ export class PoolController {
   constructor(private readonly poolService: PoolService) {}
 
   @Get("pool/overview")
+  @UseGuards(AuthGuard)
   @ApiOperation({
     summary: "资金池总览",
-    description: "返回最新 PoolSnapshot、TradeDeal 汇总与实时 APR",
+    description: "返回最新 PoolSnapshot、TradeDeal 汇总与实时 APR（需登录）",
   })
   @ApiOkResponse({ type: PoolOverviewResponseDto })
   getOverview(): Promise<PoolOverviewResponseDto> {

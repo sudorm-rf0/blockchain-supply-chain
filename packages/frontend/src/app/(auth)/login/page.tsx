@@ -69,7 +69,7 @@ export default function LoginPage() {
       setEmailOtpCooldown(result.cooldownSeconds ?? 60);
       toast.success(t("login.toast.emailCodeSent"));
       // 开发模式（未配置邮件服务）返回 devCode，须 toast 展示，否则本地/e2e 拿不到验证码
-      if (result.devCode) {
+      if (result.devCode && process.env.NODE_ENV !== "production") {
         toast.info(t("login.toast.devCode", { code: result.devCode }));
       }
     } catch (error) {
@@ -100,7 +100,7 @@ export default function LoginPage() {
         setTurnstileToken("");
         toast.info(t("login.toast.emailOtpRequired"));
         if (shouldShowSpamHint()) setSpamOpen(true);
-        if (result.devCode) {
+        if (result.devCode && process.env.NODE_ENV !== "production") {
           toast.info(t("login.toast.devCode", { code: result.devCode }));
         }
         return;

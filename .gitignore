@@ -35,3 +35,4 @@ deploy/vps/.env.data
 
 # 审计材料包产物（用 scripts/build-audit-package.sh 重新生成）
 dist-audit/
+deploy/vps/*.bak.*

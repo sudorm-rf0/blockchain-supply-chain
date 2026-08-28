@@ -15,6 +15,8 @@ const CODE_TTL_SECONDS = 5 * 60;
 const COOLDOWN_SECONDS = 60;
 /** 同一邮箱每小时发送上限 */
 const MAX_SENDS_PER_HOUR = 5;
+/** 全站每分钟发送上限（防多邮箱轰炸消耗邮件配额/费用） */
+const GLOBAL_MAX_SENDS_PER_MINUTE = 20;
 /** 单次验证码最多可尝试次数（超出即作废） */
 const MAX_ATTEMPTS = 5;
 /** 验证码位数 */
@@ -72,7 +74,7 @@ export class EmailVerificationService {
   }
 
   // 说明：不在此处强制 Turnstile——注册/登录入口已有人机验证，且该接口被
-  // 注册/登录内部流程调用（无 token 会误伤）；防滥用由 60s 冷却 + 每小时上限 + IP 限流兜底。
+  // 注册/登录内部流程调用（无 token 会误伤）；防滥用由 60s 冷却 + 每小时上限 + 全局限流 + IP 限流兜底。
   async sendCode(
     email: string,
   ): Promise<{
@@ -105,6 +107,17 @@ export class EmailVerificationService {
     }
     if (sent > MAX_SENDS_PER_HOUR) {
       throw new BadRequestException("该邮箱发送过于频繁，请 1 小时后再试");
+    }
+
+    // 2.5) 全局限流：防多邮箱轰炸（邮件费用滥用），与 IP 限流/单邮箱冷却叠加
+    const minuteBucket = Math.floor(nowSeconds / 60);
+    const globalKey = `email-code:global-rl:${minuteBucket}`;
+    const globalSent = await this.redis.incr(globalKey);
+    if (globalSent === 1) {
+      await this.redis.expire(globalKey, 120);
+    }
+    if (globalSent > GLOBAL_MAX_SENDS_PER_MINUTE) {
+      throw new BadRequestException("系统繁忙，请稍后再试");
     }
 
     // 3) 生成验证码并入库（5 分钟有效、单次使用）

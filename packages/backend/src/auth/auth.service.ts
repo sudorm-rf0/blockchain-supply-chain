@@ -341,7 +341,9 @@ export class AuthService {
       requiresEmailVerification: true,
       expiresIn: sent.expiresIn,
       cooldownSeconds: sent.cooldownSeconds,
-      ...(sent.devCode ? { devCode: sent.devCode } : {}),
+      ...(sent.devCode && process.env.NODE_ENV !== "production"
+        ? { devCode: sent.devCode }
+        : {}),
       user: this.publicUser(user),
     };
   }
@@ -505,7 +507,9 @@ export class AuthService {
           // 仅开发环境（未配置邮件服务）返回 devCode，便于本地联调与 e2e
           return {
             requiresEmailOtp: true,
-            ...(sent.devCode ? { devCode: sent.devCode } : {}),
+            ...(sent.devCode && process.env.NODE_ENV !== "production"
+        ? { devCode: sent.devCode }
+        : {}),
           };
         } catch (error) {
           // 60s 冷却 / 小时上限等场景：已有验证码在途，继续要求输入
@@ -979,7 +983,9 @@ export class AuthService {
     return {
       expiresIn: sent.expiresIn,
       cooldownSeconds: sent.cooldownSeconds,
-      ...(sent.devCode ? { devCode: sent.devCode } : {}),
+      ...(sent.devCode && process.env.NODE_ENV !== "production"
+        ? { devCode: sent.devCode }
+        : {}),
     };
   }
 

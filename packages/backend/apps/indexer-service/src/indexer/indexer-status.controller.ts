@@ -1,6 +1,6 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, UseGuards } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
-import { RedisService } from "@supply-chain/common";
+import { AuthGuard, RedisService } from "@supply-chain/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { SyncQueueService } from "./sync-queue.service";
 
@@ -17,8 +17,9 @@ export class IndexerStatusController {
   ) {}
 
   @Get("status")
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: "索引器同步状态" })
-  @ApiOkResponse({ description: "队列与最近同步时间" })
+  @ApiOkResponse({ description: "队列与最近同步时间（需登录）" })
   async status() {
     // 5s Redis 缓存：/api/indexer/status 是压测中最慢读接口（每次 BullMQ 统计 + 3 个 Prisma 查询）。
     const cached = await this.redis.get(IndexerStatusController.CACHE_KEY);

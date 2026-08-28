@@ -104,7 +104,7 @@ export default function RegisterPage() {
       if (result.requiresEmailVerification) {
         // 防垃圾注册：注册后需先输入邮箱验证码激活账号
         toast.success(t("register.toast.verifySent"));
-        if (result.devCode) {
+        if (result.devCode && process.env.NODE_ENV !== "production") {
           toast.info(t("register.toast.devCode", { code: result.devCode }));
         }
         router.push(
