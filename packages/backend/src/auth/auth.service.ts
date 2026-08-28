@@ -126,6 +126,13 @@ function totpUri(secret: string, accountName: string): string {
 }
 
 function totpEncryptionKey(): Buffer {
+  // 审计 P2（TOTP 密钥独立）：优先使用独立密钥 TOTP_ENCRYPTION_KEY，
+  // 避免 TOTP secret 与 JWT 使用同一派生密钥（防单点泄露连带）。
+  // 未配置时回退到 JWT_SECRET 派生（向后兼容；生产建议配置独立 TOTP_ENCRYPTION_KEY）。
+  const independent = process.env.TOTP_ENCRYPTION_KEY;
+  if (independent && independent.length >= 32) {
+    return createHash("sha256").update(`${independent}:totp`).digest();
+  }
   // 启动期已由 validateStartupEnv 强制 JWT_SECRET（>= 32 字符），此处不再允许任何
   // dev 固定值兜底（OFF-AUTH-1）：缺失时直接失败，而不是用弱密钥加密 TOTP。
   const secret = process.env.JWT_SECRET;

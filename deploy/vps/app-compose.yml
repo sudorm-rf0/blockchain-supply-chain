@@ -21,6 +21,10 @@ services:
     image: supply-chain-backend:latest
     mem_limit: 768m
     container_name: supply-chain-backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     command: ["npm", "run", "start"]
     env_file: [.env.app]
@@ -41,6 +45,10 @@ services:
     image: supply-chain-backend:latest
     mem_limit: 384m
     container_name: supply-chain-indexer
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     command: ["npm", "run", "start:indexer"]
     env_file: [.env.app]
@@ -59,6 +67,10 @@ services:
     image: supply-chain-backend:latest
     mem_limit: 384m
     container_name: supply-chain-trade
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     command: ["npm", "run", "start:trade"]
     env_file: [.env.app]
@@ -77,6 +89,10 @@ services:
     image: supply-chain-backend:latest
     mem_limit: 384m
     container_name: supply-chain-pool
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     command: ["npm", "run", "start:pool"]
     env_file: [.env.app]
@@ -107,6 +123,10 @@ services:
     image: supply-chain-frontend:latest
     mem_limit: 512m
     container_name: supply-chain-frontend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -124,6 +144,10 @@ services:
     image: clamav/clamav:stable
     mem_limit: 1536m
     container_name: supply-chain-clamav
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     volumes:
       - clamav_db:/var/lib/clamav
@@ -139,6 +163,12 @@ services:
     image: nginx:1.27-alpine
     mem_limit: 256m
     container_name: supply-chain-nginx
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     restart: unless-stopped
     ports:
       - "80:80"
@@ -159,6 +189,10 @@ services:
     image: python:3.12-alpine
     mem_limit: 128m
     container_name: supply-chain-cf-relay
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
     networks: [supply-chain-net]
     volumes:
