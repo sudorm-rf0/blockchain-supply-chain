@@ -71,10 +71,14 @@ print(data[120])
 ")
 if [ "$paused" = "0" ]; then chk "池未暂停" 1 ""; else chk "池未暂停" 0 "paused=$paused"; fi
 
-# 4) 池 USDC 托管余额
+# 4) 池 USDC 托管余额 + 阈值告警（金库余额低于 VAULT_MIN_BALANCE_USDC 即失败 → cron 告警）
 bal=$(rpc getTokenAccountBalance "[\"$VAULT_ATA\"]" | python3 -c "import sys,json;d=json.load(sys.stdin);r=d.get('result',{}).get('value');print(r['uiAmount'] if r else '0')")
 bal_ok=$(python3 -c "print(1 if float('$bal') > 0 else 0)")
 chk "池 USDC 托管余额 > 0" "$bal_ok" "$bal TEST_USDC"
+# 金融级：金库余额低于安全下限（默认 100 USDC，可用 VAULT_MIN_BALANCE_USDC 覆盖）→ 告警
+VAULT_MIN_BALANCE_USDC="${VAULT_MIN_BALANCE_USDC:-100}"
+bal_min_ok=$(python3 -c "print(1 if float('$bal') >= float('$VAULT_MIN_BALANCE_USDC') else 0)")
+chk "池金库余额 >= ${VAULT_MIN_BALANCE_USDC} USDC（阈值告警）" "$bal_min_ok" "$bal TEST_USDC"
 
 # 5) LP supply
 lp=$(rpc getTokenSupply "[\"$LP\"]" | python3 -c "import sys,json;d=json.load(sys.stdin);r=d.get('result',{}).get('value');print(r['uiAmount'] if r else '0')")

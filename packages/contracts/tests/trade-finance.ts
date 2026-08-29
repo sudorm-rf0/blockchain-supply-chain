@@ -2058,6 +2058,22 @@ describe("trade-finance full lifecycle", () => {
           .rpc(),
         /InvalidFeeParams/,
       );
+      // 金融级约束：platform_share_bps 超过 50%（5000 bps）必须拒绝（即使总和=10000）
+      await assert.rejects(
+        program.methods
+          .proposeSetFeeParams(
+            new anchor.BN(670),
+            new anchor.BN(1000),
+            new anchor.BN(6000),
+            new anchor.BN(3000),
+          )
+          .accounts({
+            poolState: poolStatePda,
+            admin: provider.wallet.publicKey,
+          })
+          .rpc(),
+        /InvalidFeeParams/,
+      );
       // 恢复默认（基准档 670）
       await program.methods
         .proposeSetFeeParams(

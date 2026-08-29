@@ -45,6 +45,8 @@ pub const DEFAULT_FEE_APY_BPS: u64 = 670;
 pub const DEFAULT_LP_SHARE_BPS: u64 = 4000;
 /// 默认平台分成比例（万分位）。
 pub const DEFAULT_PLATFORM_SHARE_BPS: u64 = 5000;
+/// 平台分成上限（万分位，金融级约束：≤ 50%，与 LP/返利合计 100% 配合）。
+pub const MAX_PLATFORM_SHARE_BPS: u64 = 5000;
 /// 默认买方返利比例（万分位）。
 pub const DEFAULT_REBATE_SHARE_BPS: u64 = 1000;
 /// 单笔费率上限（占垫付额万分位，H-04 D7：默认 5%P）。

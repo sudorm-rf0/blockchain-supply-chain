@@ -6,7 +6,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 use crate::state::{
     LP_MINT_DECIMALS, ADMIN_TRANSFER_DELAY_SECS, MIN_ADMIN_DELAY_SECS,
     DEFAULT_FEE_APY_BPS, DEFAULT_LP_SHARE_BPS, DEFAULT_PLATFORM_SHARE_BPS, DEFAULT_REBATE_SHARE_BPS,
-    DEFAULT_MIN_INSURANCE_ABS,
+    DEFAULT_MIN_INSURANCE_ABS, MAX_PLATFORM_SHARE_BPS,
     MAX_SINGLE_FEE_BPS, MIN_FIRST_LOSS_ABS,
     GOV_ACTION_NONE, GOV_ACTION_PLATFORM_WALLET, GOV_ACTION_WITHDRAW_FIRST_LOSS,
     GOV_ACTION_LP_MINT, GOV_ACTION_FEE_PARAMS, GOV_ACTION_RISK_PARAMS,
@@ -225,6 +225,8 @@ pub mod trade_finance {
         pool.rebate_share_bps = DEFAULT_REBATE_SHARE_BPS;
         pool.first_loss_reserve = 0;
         pool.min_insurance_abs = DEFAULT_MIN_INSURANCE_ABS;
+        // 金融级约束：保险金下限必须 > 0（防御未来参数化初始化）
+        require!(pool.min_insurance_abs > 0, TradeFinanceError::InvalidFeeParams);
         pool.overdue_fee_apy_bps = 0;
         // 审计 H-05/L-13：初始时锁由部署方注入。
         // 测试构建（feature test-build，无任何白名单后门）允许小值验证锁定期；
@@ -1915,6 +1917,11 @@ pub mod trade_finance {
             .checked_add(rebate_share_bps)
             .ok_or(TradeFinanceError::MathOverflow)?;
         require!(total_share == BPS_BASE, TradeFinanceError::InvalidFeeParams);
+        // 金融级约束：平台分成不得超过 50%（防止治理提案将平台分成设为 100%）
+        require!(
+            platform_share_bps <= MAX_PLATFORM_SHARE_BPS,
+            TradeFinanceError::InvalidFeeParams
+        );
         require!(
             fee_apy_bps > 0 && fee_apy_bps <= 5000,
             TradeFinanceError::InvalidFeeParams
