@@ -105,8 +105,8 @@ const zh_CN = {
   "panels.security.device.pc": "电脑",
   "panels.security.device.unknown": "未知设备",
   "panels.security.activeSessions": "活跃登录会话",
-  "panels.security.revokeAll": "注销所有会话",
-  "panels.security.revoked": "已注销所有会话，请重新登录",
+  "panels.security.revokeAll": "登出所有会话",
+  "panels.security.revoked": "已登出所有会话，请重新登录",
 
   "panels.sidebar.notifications": "通知",
   "panels.sidebar.reports": "报表",

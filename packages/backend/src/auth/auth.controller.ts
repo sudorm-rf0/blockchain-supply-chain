@@ -142,7 +142,11 @@ export class AuthController {
     const refreshToken = (req.cookies as Record<string, string> | undefined)?.[
       REFRESH_TOKEN_COOKIE
     ];
-    const session = await this.authService.refresh(refreshToken ?? "");
+    const session = await this.authService.refresh(refreshToken ?? "", {
+      ip: getClientIp(req),
+      userAgent: req.headers["user-agent"],
+      country: cfCountry(req),
+    });
     setAuthCookies(res, session.accessToken, session.refreshToken);
     return {
       accessToken: session.accessToken,
