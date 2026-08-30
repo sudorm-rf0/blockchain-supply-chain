@@ -98,6 +98,12 @@ const zh_CN = {
   "panels.audit.viewSolscan": "Solscan",
 
   "panels.security.sessions": "会话管理",
+  "panels.security.expires": "到期",
+  "panels.security.geoUnknown": "未知地区",
+  "panels.security.device.mobile": "手机",
+  "panels.security.device.tablet": "平板",
+  "panels.security.device.pc": "电脑",
+  "panels.security.device.unknown": "未知设备",
   "panels.security.activeSessions": "活跃登录会话",
   "panels.security.revokeAll": "注销所有会话",
   "panels.security.revoked": "已注销所有会话，请重新登录",

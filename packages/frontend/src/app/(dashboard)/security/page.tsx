@@ -26,6 +26,7 @@ import { useUserStore } from "@/stores/user-store";
 import { fetchSessions, revokeOtherSessions } from "@/lib/auth-api";
 import { formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { parseUserAgent, COUNTRY_NAMES } from "@/lib/session-info";
 
 export default function SecurityPage() {
   const { t } = useTranslation();
@@ -309,7 +310,17 @@ export default function SecurityPage() {
 
 function SessionCard() {
   const { t } = useTranslation();
-  const [sessions, setSessions] = useState<Array<{ id: string; createdAt: string; expiresAt: string; current: boolean }>>([]);
+  const [sessions, setSessions] = useState<
+    Array<{
+      id: string;
+      createdAt: string;
+      expiresAt: string;
+      current: boolean;
+      ipAddress?: string | null;
+      geoCountry?: string | null;
+      userAgent?: string | null;
+    }>
+  >([]);
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -347,17 +358,42 @@ function SessionCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         <ul className="divide-y divide-border/60 rounded-md border border-border/60">
-          {sessions.slice(0, 10).map((s) => (
-            <li key={s.id} className="flex items-center justify-between px-3 py-2 text-sm">
-              <span className="font-mono text-xs text-muted-foreground">{s.createdAt ? formatDateTime(s.createdAt) : "-"}</span>
-              <span className="font-mono text-xs text-muted-foreground">{formatDateTime(s.expiresAt)}</span>
-              {s.current && (
-                <Badge variant="outline" className="border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]">
-                  {t("panels.security.current")}
-                </Badge>
-              )}
-            </li>
-          ))}
+          {sessions.slice(0, 10).map((s) => {
+            const info = parseUserAgent(s.userAgent);
+            const deviceLabel =
+              info.deviceType === "mobile"
+                ? t("panels.security.device.mobile")
+                : info.deviceType === "tablet"
+                  ? t("panels.security.device.tablet")
+                  : info.deviceType === "pc"
+                    ? t("panels.security.device.pc")
+                    : t("panels.security.device.unknown");
+            const geo = s.geoCountry ? (COUNTRY_NAMES[s.geoCountry] ?? s.geoCountry) : t("panels.security.geoUnknown");
+            return (
+              <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                {/* 左侧：登录时间 */}
+                <div className="min-w-0">
+                  <p className="font-mono text-xs text-foreground">
+                    {s.createdAt ? formatDateTime(s.createdAt) : "-"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("panels.security.expires")} {formatDateTime(s.expiresAt)}
+                  </p>
+                </div>
+                {/* 右侧：位置 + 设备信息 */}
+                <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                  <span title={s.ipAddress ?? undefined}>
+                    {geo} · {deviceLabel} · {info.browser} · {info.os}
+                  </span>
+                  {s.current && (
+                    <Badge variant="outline" className="border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676]">
+                      {t("panels.security.current")}
+                    </Badge>
+                  )}
+                </div>
+              </li>
+            );
+          })}
           {sessions.length === 0 && (
             <li className="px-3 py-2 text-sm text-muted-foreground">{t("panels.integrations.empty")}</li>
           )}

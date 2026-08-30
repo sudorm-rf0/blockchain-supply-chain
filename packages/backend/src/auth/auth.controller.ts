@@ -32,6 +32,12 @@ import {
   setAuthCookies,
 } from "./session";
 
+
+/** 国家代码：优先取 Cloudflare CF-IPCountry（站点在 CF 后面），否则未知 */
+function cfCountry(req: Request): string | undefined {
+  const v = req.headers["cf-ipcountry"];
+  return typeof v === "string" && v.length > 0 ? v.toUpperCase() : undefined;
+}
 function getClientIp(request: Request): string {
   return request.ip ?? "unknown";
 }
@@ -64,7 +70,15 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const session = await this.authService.login(body, getClientIp(req));
+    const session = await this.authService.login(
+      body,
+      getClientIp(req),
+      {
+        ip: getClientIp(req),
+        userAgent: req.headers["user-agent"],
+        country: cfCountry(req),
+      },
+    );
     if ("requiresTotp" in session) {
       return { requiresTotp: true };
     }

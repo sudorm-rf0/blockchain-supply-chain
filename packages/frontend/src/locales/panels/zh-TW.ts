@@ -98,6 +98,12 @@ const zh_TW = {
   "panels.audit.viewSolscan": "Solscan",
 
   "panels.security.sessions": "工作階段",
+  "panels.security.expires": "到期",
+  "panels.security.geoUnknown": "未知地區",
+  "panels.security.device.mobile": "手機",
+  "panels.security.device.tablet": "平板",
+  "panels.security.device.pc": "電腦",
+  "panels.security.device.unknown": "未知裝置",
   "panels.security.activeSessions": "活躍登入工作階段",
   "panels.security.revokeAll": "登出所有工作階段",
   "panels.security.revoked": "已登出所有工作階段，請重新登入",

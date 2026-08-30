@@ -98,6 +98,12 @@ const en = {
   "panels.audit.viewSolscan": "Solscan",
 
   "panels.security.sessions": "Sessions",
+  "panels.security.expires": "Expires",
+  "panels.security.geoUnknown": "Unknown region",
+  "panels.security.device.mobile": "Mobile",
+  "panels.security.device.tablet": "Tablet",
+  "panels.security.device.pc": "Computer",
+  "panels.security.device.unknown": "Unknown device",
   "panels.security.activeSessions": "Active login sessions",
   "panels.security.revokeAll": "Revoke all sessions",
   "panels.security.revoked": "All sessions revoked, please sign in again",

@@ -54,6 +54,21 @@ async function hashPassword(password: string, salt: string): Promise<Buffer> {
   return scryptAsync(password, salt, 64);
 }
 
+/** 会话 IP 掩码：展示时隐藏后段，避免完整暴露客户端地址 */
+export function maskIp(ip: string | null): string | null {
+  if (!ip) return null;
+  if (ip.includes(":")) {
+    // IPv6：保留前 4 段
+    const parts = ip.split(":");
+    return parts.slice(0, 4).join(":") + ":…";
+  }
+  const parts = ip.split(".");
+  if (parts.length === 4) {
+    return `${parts[0]}.${parts[1]}.*.*`;
+  }
+  return ip.slice(0, 8) + "…";
+}
+
 // ---- TOTP：RFC 6238，node:crypto 原生实现（零依赖，避免 otplib 打包问题）----
 const TOTP_ISSUER = "SupplyChain";
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -400,6 +415,7 @@ export class AuthService {
       lang?: string;
     },
     clientIp?: string,
+    meta?: { ip?: string; userAgent?: string; country?: string },
   ): Promise<
     | SessionResult
     | { requiresTotp: true }
@@ -579,10 +595,13 @@ export class AuthService {
         .update({ where: { id: user.id }, data: { locale: normalizeLocale(body.lang) } })
         .catch(() => undefined);
     }
-    return this.issueSession(user);
+    return this.issueSession(user, undefined, meta);
   }
 
-  async refresh(rawRefreshToken: string): Promise<SessionResult> {
+  async refresh(
+    rawRefreshToken: string,
+    meta?: { ip?: string; userAgent?: string; country?: string },
+  ): Promise<SessionResult> {
     if (!rawRefreshToken) {
       throw new UnauthorizedException("登录已过期");
     }
@@ -626,6 +645,9 @@ export class AuthService {
         tokenHash: nextHash,
         userId: user.id,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+        ipAddress: meta?.ip?.slice(0, 64) ?? null,
+        userAgent: meta?.userAgent?.slice(0, 512) ?? null,
+        geoCountry: meta?.country?.slice(0, 16) ?? null,
       },
     });
     await this.prisma.refreshToken.deleteMany({
@@ -661,6 +683,9 @@ export class AuthService {
       revokedAt: null,
       active: true,
       current: currentTokenHash ? r.tokenHash === currentTokenHash : false,
+      ipAddress: maskIp(r.ipAddress ?? null),
+      geoCountry: r.geoCountry ?? null,
+      userAgent: r.userAgent ?? null,
     }));
   }
 
@@ -1120,6 +1145,7 @@ export class AuthService {
   private async issueSession(
     user: { id: string; email: string | null; name: string | null; role: string; wallet?: string | null; mustChangePassword?: boolean },
     existingRefreshToken?: string,
+    meta?: { ip?: string; userAgent?: string; country?: string },
   ): Promise<SessionResult> {
     const refreshToken = existingRefreshToken ?? generateRefreshToken();
     if (!existingRefreshToken) {
@@ -1132,6 +1158,9 @@ export class AuthService {
           expiresAt: new Date(
             Date.now() + sessionHours * 3600 * 1000,
           ),
+          ipAddress: meta?.ip?.slice(0, 64) ?? null,
+          userAgent: meta?.userAgent?.slice(0, 512) ?? null,
+          geoCountry: meta?.country?.slice(0, 16) ?? null,
         },
       });
     }

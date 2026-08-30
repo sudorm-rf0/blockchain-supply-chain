@@ -223,6 +223,12 @@ export interface SessionRecord {
   revokedAt: string | null;
   active: boolean;
   current: boolean;
+  /** 掩码后的客户端 IP */
+  ipAddress?: string | null;
+  /** 地理位置（国家代码，如 CN/HK/US） */
+  geoCountry?: string | null;
+  /** 登录设备 User-Agent */
+  userAgent?: string | null;
 }
 
 export async function fetchSessions(): Promise<SessionRecord[]> {

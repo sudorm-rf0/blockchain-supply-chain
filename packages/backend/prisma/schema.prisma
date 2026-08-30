@@ -90,6 +90,12 @@ model RefreshToken {
   createdAt           DateTime @default(now())
   revokedAt           DateTime?
   replacedByTokenHash String?
+  /// 登录时的客户端 IP（仅存原始地址，展示时掩码）
+  ipAddress           String?
+  /// 登录时的 User-Agent（前端据此解析设备/浏览器/系统）
+  userAgent           String?
+  /// 登录时的地理位置（Cloudflare CF-IPCountry 国家代码，如 CN/HK/US）
+  geoCountry          String?
 
   @@index([userId])
   @@index([expiresAt])
