@@ -31,6 +31,14 @@ import { invalidateUserState } from "@supply-chain/common";
 import { captureException } from "../shared/sentry";
 import { createHmac } from "node:crypto";
 
+/** 一次性/临时邮箱域名黑名单（审计 2026-08-31）：拦截批量注册薅羊毛 */
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  "mailinator.com","10minutemail.com","guerrillamail.com","sharklasers.com",
+  "yopmail.com","tempmail.com","throwawaymail.com","getnada.com","maildrop.cc",
+  "dispostable.com","mytemp.email","temp-mail.org","trashmail.com","spamgourmet.com",
+  "33mail.com","mailnesia.com","mintemail.com","mailexpire.com","emailondeck.com",
+  "tempinbox.com","burnermail.io","tempr.email","tmpmail.org","fakemail.net",
+]);
 const scryptAsync = promisify(scrypt) as (
   password: string,
   salt: string,
@@ -188,6 +196,7 @@ export interface PublicUser {
   id: string;
   email: string;
   name: string;
+  company?: string | null;
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
   wallet: string;
   mustChangePassword: boolean;
@@ -261,8 +270,10 @@ export class AuthService {
       name: string;
       email: string;
       password: string;
+      company?: string;
       wallet?: string;
       inviteCode: string;
+      agreeTerms?: boolean;
       turnstileToken?: string;
       lang?: string;
     },
@@ -277,6 +288,29 @@ export class AuthService {
     }
     if (!body.name || !body.email || !body.password) {
       throw new BadRequestException("缺少注册字段");
+    }
+    // 审计 2026-08-31：必须勾选同意服务条款与隐私政策
+    if (body.agreeTerms !== true) {
+      throw new BadRequestException("请先阅读并同意服务条款与隐私政策");
+    }
+    // 审计 2026-08-31：一次性/临时邮箱域名黑名单，防批量注册
+    const emailDomain = body.email.trim().toLowerCase().split("@")[1] ?? "";
+    if (DISPOSABLE_EMAIL_DOMAINS.has(emailDomain)) {
+      throw new BadRequestException("暂不支持临时邮箱注册，请使用常用邮箱");
+    }
+    // 审计 2026-08-31：同 IP 注册频率限制（24h 内最多 5 次），防批量注册
+    if (clientIp) {
+      const ipKey = `register:ip:${clientIp}`;
+      const ipCount = await this.redis.incr(ipKey).catch(() => 0);
+      if (ipCount === 1) {
+        await this.redis.expire(ipKey, 86400).catch(() => {});
+      }
+      if (ipCount > 5) {
+        throw new HttpException(
+          "该网络注册过于频繁，请 24 小时后再试",
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
     }
     const policyErr = passwordPolicyError(body.password);
     if (policyErr) {
@@ -336,6 +370,7 @@ export class AuthService {
             wallet,
             email: body.email,
             name: body.name,
+            company: body.company?.trim().slice(0, 200) || null,
             passwordHash: `${salt}:${passwordHash}`,
             role: "USER",
             emailVerified: false,
@@ -362,7 +397,7 @@ export class AuthService {
       action: "AUTH_REGISTER",
       targetType: "AUTH",
       targetId: user.id,
-      metadata: { email: body.email },
+      metadata: { email: body.email, clientIp: clientIp ?? null },
     });
     return {
       requiresEmailVerification: true,
@@ -1248,6 +1283,7 @@ export class AuthService {
     id: string;
     email: string | null;
     name: string | null;
+    company?: string | null;
     role: string;
     wallet?: string | null;
     mustChangePassword?: boolean;
@@ -1258,6 +1294,7 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email ?? "",
+      company: user.company ?? null,
       name: user.name ?? "",
       role:
         user.role === "ADMIN" || user.role === "SUPER_ADMIN"

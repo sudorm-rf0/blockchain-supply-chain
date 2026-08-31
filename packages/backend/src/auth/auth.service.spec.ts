@@ -142,7 +142,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
-      service.register({
+      service.register({ agreeTerms: true, 
       inviteCode: "AB12CD", name: "A", email: "a@example.com", password: "123" }),
     ).rejects.toThrow(BadRequestException);
   });
@@ -158,7 +158,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
-      service.register({
+      service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
         name: "A",
         email: "a@example.com",
@@ -180,7 +180,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "dup@example.com",
@@ -188,7 +188,7 @@ describe("AuthService", () => {
       wallet,
     });
     await expect(
-      service.register({
+      service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
         name: "B",
         email: "dup@example.com",
@@ -232,7 +232,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "login@example.com",
@@ -271,7 +271,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "T",
       email: "setup@example.com",
@@ -309,7 +309,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     // 密码正确性仍校验：用真实注册流程生成合法密码哈希
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "T",
       email: "totp2@example.com",
@@ -376,7 +376,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "D",
       email: "dual@example.com",
@@ -439,7 +439,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "T",
       email: "enable@example.com",
@@ -468,7 +468,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "T",
       email: "disable@example.com",
@@ -501,7 +501,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "audit-login@example.com",
@@ -531,7 +531,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "change@example.com",
@@ -567,7 +567,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    const reg = await service.register({
+    const reg = await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "audit-pass@example.com",
@@ -608,7 +608,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    const result = await service.register({
+    const result = await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "pending@example.com",
@@ -646,7 +646,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     await expect(
-      service.register({
+      service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
         name: "A",
         email: "send-fail@example.com",
@@ -668,7 +668,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "activate@example.com",
@@ -711,7 +711,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "unverified@example.com",
@@ -735,7 +735,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "otp-login@example.com",
@@ -768,7 +768,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "otp-login2@example.com",
@@ -847,7 +847,7 @@ describe("AuthService", () => {
     makeSettings() as never,
       { create: jest.fn(async () => ({})) } as never,
     );
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "cp-code@example.com",
@@ -874,7 +874,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "ops-change@example.com",
@@ -923,7 +923,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "bootstrap@example.com",
@@ -966,7 +966,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "totp-pass@example.com",
@@ -1016,7 +1016,7 @@ describe("AuthService", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "totp-wallet@example.com",
@@ -1065,7 +1065,7 @@ describe("AuthService", () => {
     );
     const wallet1 = Keypair.generate().publicKey.toBase58();
     const wallet2 = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "bind-wallet@example.com",
@@ -1097,14 +1097,14 @@ describe("AuthService invite codes", () => {
   it("rejects invalid invite code format", async () => {
     const service = makeService(makePrisma());
     await expect(
-      service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "abc" }),
+      service.register({ agreeTerms: true,  name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "abc" }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it("rejects unknown invite code", async () => {
     const service = makeService(makePrisma());
     await expect(
-      service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "ZZZZ99" }),
+      service.register({ agreeTerms: true,  name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "ZZZZ99" }),
     ).rejects.toThrow("邀请码无效");
   });
 
@@ -1113,7 +1113,7 @@ describe("AuthService invite codes", () => {
     (prisma.inviteCode.findUnique as jest.Mock).mockResolvedValue({ id: "ic1", usedAt: new Date() });
     const service = makeService(prisma);
     await expect(
-      service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "AB12CD" }),
+      service.register({ agreeTerms: true,  name: "A", email: "a@example.com", password: "Str0ng#Pass9", inviteCode: "AB12CD" }),
     ).rejects.toThrow("邀请码已被使用");
   });
 
@@ -1121,7 +1121,7 @@ describe("AuthService invite codes", () => {
     const prisma = makePrisma();
     const service = makeService(prisma);
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({ name: "A", email: "a@example.com", password: "Str0ng#Pass9", wallet, inviteCode: "AB12CD" });
+    await service.register({ agreeTerms: true,  name: "A", email: "a@example.com", password: "Str0ng#Pass9", wallet, inviteCode: "AB12CD" });
     // user.create 收到 inviteCodeId
     const createCall = (prisma.user.create as jest.Mock).mock.calls[0][0].data;
     expect(createCall.inviteCodeId).toBe("ic1");
@@ -1144,7 +1144,7 @@ describe("AuthService invite codes", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({
+    await service.register({ agreeTerms: true, 
       inviteCode: "AB12CD",
       name: "A",
       email: "fail-audit@example.com",
@@ -1196,7 +1196,7 @@ describe("AuthService invite codes", () => {
       { create: jest.fn(async () => ({})) } as never,
     );
     const wallet = Keypair.generate().publicKey.toBase58();
-    await service.register({ inviteCode: "AB12CD", name: "A", email: "reset@example.com", password: "Str0ng#Pass9", wallet });
+    await service.register({ agreeTerms: true,  inviteCode: "AB12CD", name: "A", email: "reset@example.com", password: "Str0ng#Pass9", wallet });
     await service.verifyEmail("reset@example.com", "123456");
     const res = await service.resetPassword("reset@example.com", "123456", "NewStr0ng#Pass1");
     expect(res.ok).toBe(true);

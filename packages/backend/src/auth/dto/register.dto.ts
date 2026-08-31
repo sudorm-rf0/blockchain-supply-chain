@@ -28,6 +28,15 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
+  company?: string;
+
+  /** 同意服务条款与隐私政策（必填 true） */
+  @IsOptional()
+  agreeTerms?: boolean;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(64)
   wallet?: string;
 

@@ -33,6 +33,12 @@ const en = {
 
   "register.title": "Register",
   "register.name": "Name",
+  "register.company": "Company/Organization",
+  "register.companyPlaceholder": "Optional, e.g. XX Supply Chain Co.",
+  "register.agreeTerms": "I have read and agree to the",
+  "register.termsLink": "Terms of Service",
+  "register.privacyLink": "Privacy Policy",
+  "register.validation.agreeTerms": "Please read and agree to the Terms of Service and Privacy Policy",
   "register.email": "Email",
   "register.password": "Password",
   "register.confirmPassword": "Confirm password",

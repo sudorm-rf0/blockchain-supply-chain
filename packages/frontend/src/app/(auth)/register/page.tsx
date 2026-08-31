@@ -28,6 +28,8 @@ export default function RegisterPage() {
       z
         .object({
           name: z.string().min(1, t("register.validation.name")),
+          company: z.string().max(200).optional().or(z.literal("")),
+          agreeTerms: z.boolean().refine((v) => v === true, t("register.validation.agreeTerms")),
           email: z.string().email(t("register.validation.email")),
           password: z
             .string()
@@ -66,6 +68,8 @@ export default function RegisterPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
+      company: "",
+      agreeTerms: false,
       email: "",
       password: "",
       confirmPassword: "",
@@ -95,6 +99,8 @@ export default function RegisterPage() {
       }
       const result = await registerApi({
         name: values.name,
+        company: values.company || undefined,
+        agreeTerms: values.agreeTerms,
         email: values.email,
         password: values.password,
         wallet: values.wallet || undefined,
@@ -134,6 +140,10 @@ export default function RegisterPage() {
             <div className="space-y-2">
               <Label htmlFor="name">{t("register.name")}</Label>
               <Input id="name" {...register("name")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="company">{t("register.company")}</Label>
+              <Input id="company" placeholder={t("register.companyPlaceholder")} {...register("company")} />
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name.message}</p>
               )}
@@ -208,6 +218,17 @@ export default function RegisterPage() {
               />
             </div>
             <Turnstile key={captchaKey} action="signup" onVerify={setTurnstileToken} />
+              <div className="flex items-start gap-2 py-1">
+                <input id="agreeTerms" type="checkbox" className="mt-1 h-4 w-4" {...register("agreeTerms")} />
+                <Label htmlFor="agreeTerms" className="text-sm text-muted-foreground">
+                  {t("register.agreeTerms")}{" "}
+                  <a href="/terms" className="underline" target="_blank">{t("register.termsLink")}</a>
+                  {" / "}
+                  <a href="/privacy" className="underline" target="_blank">{t("register.privacyLink")}</a>
+                </Label>
+              </div>
+              {errors.agreeTerms && <p className="text-sm text-red-500">{errors.agreeTerms.message}</p>}
+
             <Button
               type="submit"
               className="w-full"

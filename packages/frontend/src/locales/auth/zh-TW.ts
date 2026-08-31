@@ -33,6 +33,12 @@ const zh_TW = {
 
   "register.title": "註冊",
   "register.name": "姓名",
+  "register.company": "公司/單位名稱",
+  "register.companyPlaceholder": "選填，如：XX供應鏈有限公司",
+  "register.agreeTerms": "我已閱讀並同意",
+  "register.termsLink": "服務條款",
+  "register.privacyLink": "隱私政策",
+  "register.validation.agreeTerms": "請先閱讀並同意服務條款與隱私政策",
   "register.email": "電子郵件",
   "register.password": "密碼",
   "register.confirmPassword": "確認密碼",

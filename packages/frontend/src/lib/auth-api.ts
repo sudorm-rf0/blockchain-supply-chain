@@ -80,6 +80,8 @@ export async function register(input: {
   name: string;
   email: string;
   password: string;
+  company?: string;
+  agreeTerms?: boolean;
   wallet?: string;
   inviteCode: string;
   turnstileToken?: string;

@@ -26,6 +26,7 @@ model User {
   email                String?   @unique
   passwordHash         String?
   name                 String?
+  company              String?   /// 注册单位/公司名称（审计 2026-08-31）
   role                 String    @default("USER")
   mustChangePassword   Boolean   @default(false)
   lastPasswordChangeAt DateTime?
