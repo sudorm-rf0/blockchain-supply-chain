@@ -1,5 +1,22 @@
-import { Body, Controller, HttpCode, Logger, Post } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  Logger,
+  Post,
+} from "@nestjs/common";
 import { MetricsService } from "./shared/metrics.service";
+
+/** CSP report 端点输入防护（审计 2026-08-31）：拒绝非 CSP Content-Type 与超大 body，
+ * 防止日志污染/刷量掩盖真实安全事件。 */
+const MAX_CSP_BODY_BYTES = 16 * 1024; // 16KB
+const ALLOWED_CSP_CONTENT_TYPES = [
+  "application/csp-report",
+  "application/json",
+  "application/reports+json",
+];
 
 interface CspReportData {
   directive: string;
@@ -41,7 +58,22 @@ export class CspReportController {
 
   @Post()
   @HttpCode(204)
-  cspReport(@Body() body: unknown) {
+  cspReport(
+    @Body() body: unknown,
+    @Headers("content-type") contentType?: string,
+    @Headers("content-length") contentLength?: string,
+  ) {
+    if (!body || (typeof body === "object" && Object.keys(body).length === 0)) {
+      throw new BadRequestException("empty CSP report");
+    }
+    const ct = (contentType ?? "").toLowerCase().split(";")[0].trim();
+    if (ct && !ALLOWED_CSP_CONTENT_TYPES.includes(ct)) {
+      throw new BadRequestException("unsupported content-type");
+    }
+    const len = Number(contentLength ?? 0);
+    if (len > MAX_CSP_BODY_BYTES) {
+      throw new BadRequestException("CSP report too large");
+    }
     const { directive, disposition, blockedUri, sourceFile } =
       extractReport(body);
     this.metrics.recordCspViolation(directive, disposition);

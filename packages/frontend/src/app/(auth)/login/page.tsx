@@ -256,6 +256,11 @@ export default function LoginPage() {
                 {t("onchain.verify.entry")} · {t("onchain.trace.entry")}
               </Link>
             </p>
+            <div className="flex justify-end -mt-2 mb-2">
+              <Link href="/forgot-password" className="text-xs text-muted-foreground hover:underline">
+                忘记密码？
+              </Link>
+            </div>
           </form>
         </CardContent>
     </Card>

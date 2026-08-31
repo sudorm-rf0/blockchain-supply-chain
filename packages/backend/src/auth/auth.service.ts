@@ -763,6 +763,68 @@ export class AuthService {
     return { ok: true };
   }
 
+  /** 忘记密码：向邮箱发送重置验证码（复用 email-verification 的冷却/限流）。 */
+  async forgotPassword(
+    email: string,
+    clientIp?: string | null,
+  ): Promise<{ expiresIn: number; cooldownSeconds: number; devCode?: string }> {
+    const normalized = (email ?? "").trim().toLowerCase();
+    if (!normalized || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
+      throw new BadRequestException("邮箱格式不正确");
+    }
+    const user = await this.prisma.user.findUnique({ where: { email: normalized } });
+    // 不泄露账号是否存在：无论是否存在都走发送流程（不存在时照常生成验证码但不落库）
+    if (!user) {
+      const sent = await this.emailVerification.sendCode(normalized, null, clientIp);
+      return { expiresIn: sent.expiresIn, cooldownSeconds: sent.cooldownSeconds, ...(sent.devCode ? { devCode: sent.devCode } : {}) };
+    }
+    const sent = await this.emailVerification.sendCode(normalized, null, clientIp);
+    return { expiresIn: sent.expiresIn, cooldownSeconds: sent.cooldownSeconds, ...(sent.devCode ? { devCode: sent.devCode } : {}) };
+  }
+
+  /** 重置密码：校验邮箱验证码 → 更新密码哈希 → 撤销该用户全部会话 → 审计。 */
+  async resetPassword(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<{ ok: true }> {
+    const normalized = (email ?? "").trim().toLowerCase();
+    const policyErr = passwordPolicyError(newPassword);
+    if (policyErr) {
+      throw new BadRequestException(`新密码${policyErr.replace("密码", "")}`);
+    }
+    // 1) 先校验验证码（单次有效，verifyCode 成功即作废）
+    await this.emailVerification.verifyCode(normalized, code);
+    // 2) 找到用户（验证码有效说明邮箱可达）
+    const user = await this.prisma.user.findUnique({ where: { email: normalized } });
+    if (!user) {
+      throw new BadRequestException("用户不存在");
+    }
+    const salt = randomBytes(16).toString("hex");
+    const nextHash = (await hashPassword(newPassword, salt)).toString("hex");
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: `${salt}:${nextHash}`,
+        mustChangePassword: false,
+        lastPasswordChangeAt: new Date(),
+      },
+    });
+    // 3) 撤销该用户全部会话（密码重置后强制重新登录）
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    invalidateUserState(user.id);
+    await this.audit.record({
+      actorId: user.id,
+      action: "AUTH_PASSWORD_RESET",
+      targetType: "AUTH",
+      targetId: user.id,
+    });
+    return { ok: true };
+  }
+
   async changePassword(
     userId: string,
     currentPassword: string,

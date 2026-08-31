@@ -234,6 +234,27 @@ export class AuthController {
     return { ok: true, user };
   }
 
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async forgotPassword(
+    @Body("email") email: string,
+    @Req() req: Request,
+  ) {
+    return this.authService.forgotPassword(email, getClientIp(req));
+  }
+
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async resetPassword(
+    @Body("email") email: string,
+    @Body("code") code: string,
+    @Body("newPassword") newPassword: string,
+  ) {
+    return this.authService.resetPassword(email, code, newPassword);
+  }
+
   @Post("change-password")
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)

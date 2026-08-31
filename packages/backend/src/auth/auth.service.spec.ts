@@ -1181,4 +1181,42 @@ describe("AuthService invite codes", () => {
     ).rejects.toThrow(HttpException);
   });
 
+
+  it("resetPassword verifies code, rotates password and revokes sessions", async () => {
+    const prisma = makePrisma();
+    const audit = makeAudit();
+    const emailVerification = makeEmailVerification();
+    const service = new AuthService(
+      prisma as never,
+      makeRedis() as never,
+      audit as never,
+      { verify: jest.fn(async () => true) } as never,
+      emailVerification as never,
+      makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
+    );
+    const wallet = Keypair.generate().publicKey.toBase58();
+    await service.register({ inviteCode: "AB12CD", name: "A", email: "reset@example.com", password: "Str0ng#Pass9", wallet });
+    await service.verifyEmail("reset@example.com", "123456");
+    const res = await service.resetPassword("reset@example.com", "123456", "NewStr0ng#Pass1");
+    expect(res.ok).toBe(true);
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: "AUTH_PASSWORD_RESET" }));
+    // 会话全部撤销
+    const revokeCall = (prisma.refreshToken.updateMany as jest.Mock).mock.calls.find((c) => c[0].where.userId === "u1");
+    expect(revokeCall).toBeTruthy();
+  });
+
+  it("resetPassword rejects weak new password", async () => {
+    const service = new AuthService(
+      makePrisma() as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async () => true) } as never,
+      makeEmailVerification() as never,
+      makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
+    );
+    await expect(service.resetPassword("a@example.com", "123456", "weakpass")).rejects.toThrow("新密码");
+  });
+
 });
