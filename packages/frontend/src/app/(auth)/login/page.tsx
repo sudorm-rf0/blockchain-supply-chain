@@ -149,10 +149,10 @@ export default function LoginPage() {
   return (
     <>
         <Card className="w-full shadow-xl">
-        <CardHeader>
+        <CardHeader className="px-5">
           <CardTitle className="text-center text-xl">{t("login.title")}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5">
           {unverifiedEmail && (
             <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
               {t("login.unverifiedNotice")}{" "}

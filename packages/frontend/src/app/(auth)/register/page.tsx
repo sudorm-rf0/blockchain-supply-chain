@@ -132,10 +132,10 @@ export default function RegisterPage() {
 
   return (
         <Card className="w-full shadow-xl">
-        <CardHeader>
+        <CardHeader className="px-5">
           <CardTitle className="text-center text-xl">{t("register.title")}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">{t("register.name")}</Label>

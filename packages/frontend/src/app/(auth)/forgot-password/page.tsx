@@ -57,10 +57,10 @@ export default function ForgotPasswordPage() {
 
   return (
     <Card className="w-full shadow-xl">
-      <CardHeader>
+      <CardHeader className="px-5">
         <CardTitle className="text-center text-xl">找回密码</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 px-5">
 
         {step === "email" && (
           <form onSubmit={emailForm.handleSubmit(onSend)} className="space-y-2.5">
