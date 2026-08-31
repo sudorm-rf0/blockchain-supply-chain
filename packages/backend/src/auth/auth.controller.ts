@@ -239,9 +239,10 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async forgotPassword(
     @Body("email") email: string,
+    @Body("turnstileToken") turnstileToken: string | undefined,
     @Req() req: Request,
   ) {
-    return this.authService.forgotPassword(email, getClientIp(req));
+    return this.authService.forgotPassword(email, getClientIp(req), turnstileToken);
   }
 
   @Post("reset-password")

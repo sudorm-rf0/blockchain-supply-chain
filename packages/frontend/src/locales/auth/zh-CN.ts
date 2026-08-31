@@ -34,7 +34,7 @@ const zh_CN = {
   "register.title": "注册",
   "register.name": "姓名",
   "register.company": "公司/单位名称",
-  "register.companyPlaceholder": "选填，如：XX供应链有限公司",
+  "register.companyPlaceholder": "选填，如：XX有限公司",
   "register.agreeTerms": "我已阅读并同意",
   "register.termsLink": "服务条款",
   "register.privacyLink": "隐私政策",

@@ -164,11 +164,11 @@ export {
 } from "./integrations-api";
 export type { ApiKeyRecord, WebhookRecord } from "./integrations-api";
 
-export async function forgotPassword(email: string): Promise<{ expiresIn: number; cooldownSeconds: number; devCode?: string }> {
+export async function forgotPassword(email: string, turnstileToken?: string): Promise<{ expiresIn: number; cooldownSeconds: number; devCode?: string }> {
   const res = await fetch("/api/auth/forgot-password", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, turnstileToken }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

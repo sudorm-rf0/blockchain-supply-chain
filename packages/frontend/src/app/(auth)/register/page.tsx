@@ -222,9 +222,9 @@ export default function RegisterPage() {
                 <input id="agreeTerms" type="checkbox" className="mt-1 h-4 w-4" {...register("agreeTerms")} />
                 <Label htmlFor="agreeTerms" className="text-sm text-muted-foreground">
                   {t("register.agreeTerms")}{" "}
-                  <a href="/terms" className="underline" target="_blank">{t("register.termsLink")}</a>
+                  <Link href="/terms" className="underline">{t("register.termsLink")}</Link>
                   {" / "}
-                  <a href="/privacy" className="underline" target="_blank">{t("register.privacyLink")}</a>
+                  <Link href="/privacy" className="underline">{t("register.privacyLink")}</Link>
                 </Label>
               </div>
               {errors.agreeTerms && <p className="text-sm text-red-500">{errors.agreeTerms.message}</p>}

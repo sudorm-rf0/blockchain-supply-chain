@@ -802,7 +802,11 @@ export class AuthService {
   async forgotPassword(
     email: string,
     clientIp?: string | null,
+    turnstileToken?: string,
   ): Promise<{ expiresIn: number; cooldownSeconds: number; devCode?: string }> {
+    if (!(await this.turnstile.verify(turnstileToken ?? undefined, { remoteIp: clientIp ?? undefined, expectedAction: "forgot" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     const normalized = (email ?? "").trim().toLowerCase();
     if (!normalized || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
       throw new BadRequestException("邮箱格式不正确");

@@ -121,12 +121,12 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* 表单右栏 */}
-      <div className="relative flex min-w-0 items-center justify-center bg-background p-4 pt-24 sm:p-6">
-        <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-6 sm:top-6">
+      <div className="relative flex min-h-screen flex-col items-center bg-background p-4 sm:p-6">
+        <div className="mb-4 flex w-full max-w-md items-center justify-end gap-2">
           <LanguageSwitcher />
           <ThemeToggle />
         </div>
-        <div className="w-full max-w-md">{children}</div>
+        <div className="flex w-full max-w-md flex-1 items-center justify-center pb-6">{children}</div>
       </div>
     </div>
   );
