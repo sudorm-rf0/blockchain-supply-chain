@@ -99,5 +99,7 @@ export default function Turnstile({ onVerify, action }: TurnstileProps) {
   }, [language]);
 
   if (!TURNSTILE_SITE_KEY) return null;
-  return <div ref={containerRef} className="cf-turnstile-widget" />;
+  // 固定容器宽度（Cloudflare Turnstile iframe 标准宽度约 300px）：
+  // 无论小组件是否渲染，表单宽度都保持稳定，不跳动。
+  return <div ref={containerRef} className="cf-turnstile-widget mx-auto w-full min-w-[300px] max-w-[300px]" />;
 }
