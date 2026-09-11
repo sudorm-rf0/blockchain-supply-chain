@@ -60,6 +60,8 @@ const EMAIL_I18N: Record<
 interface StoredCode {
   code: string;
   attempts: number;
+  /** 过期时间戳（ms）。审计 2026-09-12：显式过期检查，不依赖 Redis TTL 单点。 */
+  expiresAt: number;
 }
 
 function sha256(input: string): string {
@@ -161,7 +163,11 @@ export class EmailVerificationService {
     const code = randomInt(0, 10 ** CODE_LENGTH)
       .toString()
       .padStart(CODE_LENGTH, "0");
-    const stored: StoredCode = { code, attempts: 0 };
+    const stored: StoredCode = {
+      code,
+      attempts: 0,
+      expiresAt: Date.now() + CODE_TTL_SECONDS * 1000,
+    };
     const codeKey = `email-code:code:${digest}`;
     await this.redis.setEx(
       codeKey,
@@ -270,6 +276,14 @@ export class EmailVerificationService {
       await this.redis.del(codeKey);
       throw new BadRequestException("验证码不存在或已过期，请重新获取");
     }
+    // 审计 2026-09-12：显式过期检查（防止 Redis TTL 被续期/丢失导致长期有效）
+    if (
+      typeof stored.expiresAt === "number" &&
+      Date.now() > stored.expiresAt
+    ) {
+      await this.redis.del(codeKey);
+      throw new BadRequestException("验证码不存在或已过期，请重新获取");
+    }
 
     if (stored.attempts >= MAX_ATTEMPTS) {
       await this.redis.del(codeKey);
@@ -278,9 +292,15 @@ export class EmailVerificationService {
 
     if (!/^\d{6}$/.test(code) || !isCodeEqual(stored.code, code)) {
       stored.attempts += 1;
+      // 审计 2026-09-12：失败重写必须沿用「剩余 TTL」，不能重置为完整 TTL，
+      // 否则攻击者可反复失败尝试把验证码有效期无限续期（绕过 5 分钟过期）。
+      const remainingSec = Math.max(
+        1,
+        Math.ceil(((stored.expiresAt || 0) - Date.now()) / 1000),
+      );
       await this.redis.setEx(
         codeKey,
-        CODE_TTL_SECONDS,
+        remainingSec,
         JSON.stringify(stored),
       );
       throw new BadRequestException("验证码错误");

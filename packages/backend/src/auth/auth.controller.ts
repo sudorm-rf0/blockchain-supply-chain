@@ -252,8 +252,16 @@ export class AuthController {
     @Body("email") email: string,
     @Body("code") code: string,
     @Body("newPassword") newPassword: string,
+    @Body("turnstileToken") turnstileToken: string | undefined,
+    @Req() req: Request,
   ) {
-    return this.authService.resetPassword(email, code, newPassword);
+    return this.authService.resetPassword(
+      email,
+      code,
+      newPassword,
+      turnstileToken,
+      getClientIp(req),
+    );
   }
 
   @Post("change-password")

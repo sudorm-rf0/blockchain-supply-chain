@@ -27,6 +27,7 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<"email" | "reset" | "done">("email");
   const [email, setEmail] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [resetTurnstileToken, setResetTurnstileToken] = useState("");
 
   const emailForm = useForm({ resolver: zodResolver(emailSchema), defaultValues: { email: "" } });
   const resetForm = useForm({ resolver: zodResolver(resetSchema), defaultValues: { email: "", code: "", newPassword: "" } });
@@ -48,7 +49,11 @@ export default function ForgotPasswordPage() {
 
   const onReset = async (values: { email: string; code: string; newPassword: string }) => {
     try {
-      await resetPassword(values.email, values.code, values.newPassword);
+      if (TURNSTILE_SITE_KEY && !resetTurnstileToken) {
+        resetForm.setError("root", { message: "请完成人机验证" });
+        return;
+      }
+      await resetPassword(values.email, values.code, values.newPassword, resetTurnstileToken);
       setStep("done");
     } catch (e) {
       resetForm.setError("root", { message: e instanceof Error ? e.message : "重置失败" });
@@ -80,6 +85,7 @@ export default function ForgotPasswordPage() {
             <Input type="password" placeholder="新密码（≥8位，含大小写/数字/特殊符号）" {...resetForm.register("newPassword")} />
             {resetForm.formState.errors.newPassword && <p className="text-sm text-red-500">{resetForm.formState.errors.newPassword.message}</p>}
             {resetForm.formState.errors.root && <p className="text-sm text-red-500">{resetForm.formState.errors.root.message}</p>}
+            <Turnstile action="reset" onVerify={setResetTurnstileToken} />
             <Button type="submit" className="w-full">重置密码</Button>
           </form>
         )}

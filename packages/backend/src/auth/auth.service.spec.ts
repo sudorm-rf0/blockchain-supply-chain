@@ -1219,4 +1219,73 @@ describe("AuthService invite codes", () => {
     await expect(service.resetPassword("a@example.com", "123456", "weakpass")).rejects.toThrow("新密码");
   });
 
+
+  it("resetPassword rejects when turnstile fails (audit 2026-09-12)", async () => {
+    const service = new AuthService(
+      makePrisma() as never,
+      makeRedis() as never,
+      makeAudit() as never,
+      { verify: jest.fn(async () => false) } as never,
+      makeEmailVerification() as never,
+      makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
+    );
+    await expect(
+      service.resetPassword("a@example.com", "123456", "NewStr0ng#Pass1", "bad-token"),
+    ).rejects.toThrow("人机验证未通过");
+  });
+
+  it("logout is idempotent and audits anonymous / invalid attempts", async () => {
+    const audit = makeAudit();
+    const service = new AuthService(
+      makePrisma() as never,
+      makeRedis() as never,
+      audit as never,
+      { verify: jest.fn(async () => true) } as never,
+      makeEmailVerification() as never,
+      makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
+    );
+    // 无 token：仍返回 ok（幂等），并留下 AUTH_LOGOUT_ANON 审计
+    await expect(service.logout("")).resolves.toEqual({ ok: true });
+    const actions = (audit.record as jest.Mock).mock.calls.map((c) => c[0].action);
+    expect(actions).toContain("AUTH_LOGOUT_ANON");
+
+    // 无效 token：返回 ok，并记录 AUTH_LOGOUT + AUTH_LOGOUT_INVALID
+    (audit.record as jest.Mock).mockClear();
+    await expect(service.logout("not-a-real-token")).resolves.toEqual({ ok: true });
+    const actions2 = (audit.record as jest.Mock).mock.calls.map((c) => c[0].action);
+    expect(actions2).toContain("AUTH_LOGOUT");
+    expect(actions2).toContain("AUTH_LOGOUT_INVALID");
+  });
+
+
+  it("resetPassword audits failed attempts (invalid code) for abuse detection", async () => {
+    const audit = makeAudit();
+    const emailVerification = {
+      sendCode: jest.fn(async () => ({ expiresIn: 300, cooldownSeconds: 60 })),
+      verifyCode: jest.fn(async () => {
+        throw new BadRequestException("验证码错误");
+      }),
+    };
+    const service = new AuthService(
+      makePrisma() as never,
+      makeRedis() as never,
+      audit as never,
+      { verify: jest.fn(async () => true) } as never,
+      emailVerification as never,
+      makeSettings() as never,
+      { create: jest.fn(async () => ({})) } as never,
+    );
+    await expect(
+      service.resetPassword("victim@example.com", "000000", "NewStr0ng#Pass1", "tok", "203.0.113.5"),
+    ).rejects.toThrow("验证码错误");
+    const failed = (audit.record as jest.Mock).mock.calls.find(
+      (c) => c[0].action === "AUTH_PASSWORD_RESET_FAILED",
+    );
+    expect(failed).toBeTruthy();
+    expect(failed[0].metadata.reason).toBe("invalid_code");
+    expect(failed[0].metadata.clientIp).toBe("203.0.113.5");
+  });
+
 });

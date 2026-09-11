@@ -777,6 +777,13 @@ export class AuthService {
     return { ok: true, count: result.count };
   }
 
+  /**
+   * 登出（幂等，不强制认证）。
+   * 审计 2026-09-12：登出必须幂等——access token 过期时用户仍需能登出清理 cookie，
+   * 若强制 AuthGuard 会让用户卡在登录态。安全上按 refresh token hash 精确撤销
+   * （无效 token 匹配 0 行、无副作用），并对「无效 token / 匿名」尝试记录审计，
+   * 便于风控发现异常探测。
+   */
   async logout(rawRefreshToken: string): Promise<{ ok: true }> {
     if (rawRefreshToken) {
       const tokenHash = hashRefreshToken(rawRefreshToken);
@@ -793,6 +800,24 @@ export class AuthService {
         action: "AUTH_LOGOUT",
         targetType: "AUTH",
         targetId: record?.userId ?? "anonymous",
+        metadata: { tokenValid: Boolean(record) },
+      });
+      // 无效 refresh token 的登出尝试：记录以便发现异常探测
+      if (!record) {
+        await this.audit.record({
+          actorId: null,
+          action: "AUTH_LOGOUT_INVALID",
+          targetType: "AUTH",
+          targetId: "anonymous",
+        });
+      }
+    } else {
+      // 未携带会话凭据的登出：幂等返回 ok，但留痕
+      await this.audit.record({
+        actorId: null,
+        action: "AUTH_LOGOUT_ANON",
+        targetType: "AUTH",
+        targetId: "anonymous",
       });
     }
     return { ok: true };
@@ -826,17 +851,47 @@ export class AuthService {
     email: string,
     code: string,
     newPassword: string,
+    turnstileToken?: string,
+    clientIp?: string | null,
   ): Promise<{ ok: true }> {
+    // 审计 2026-09-12：重置密码同样需要人机验证（与 login/register/forgot 一致），
+    // 防止拿到有效重置码后自动化撞库/批量重置。
+    if (!(await this.turnstile.verify(turnstileToken ?? undefined, { remoteIp: clientIp ?? undefined, expectedAction: "reset" }))) {
+      throw new BadRequestException("人机验证未通过，请重试");
+    }
     const normalized = (email ?? "").trim().toLowerCase();
     const policyErr = passwordPolicyError(newPassword);
     if (policyErr) {
       throw new BadRequestException(`新密码${policyErr.replace("密码", "")}`);
     }
     // 1) 先校验验证码（单次有效，verifyCode 成功即作废）
-    await this.emailVerification.verifyCode(normalized, code);
+    // 审计 2026-09-12：失败的密码重置尝试写审计（含邮箱/IP/原因），用于滥用检测。
+    try {
+      await this.emailVerification.verifyCode(normalized, code);
+    } catch (error) {
+      await this.audit.record({
+        actorId: null,
+        action: "AUTH_PASSWORD_RESET_FAILED",
+        targetType: "AUTH",
+        targetId: normalized,
+        metadata: {
+          reason: "invalid_code",
+          clientIp: clientIp ?? null,
+          message: error instanceof Error ? error.message.slice(0, 80) : null,
+        },
+      });
+      throw error;
+    }
     // 2) 找到用户（验证码有效说明邮箱可达）
     const user = await this.prisma.user.findUnique({ where: { email: normalized } });
     if (!user) {
+      await this.audit.record({
+        actorId: null,
+        action: "AUTH_PASSWORD_RESET_FAILED",
+        targetType: "AUTH",
+        targetId: normalized,
+        metadata: { reason: "no_user", clientIp: clientIp ?? null },
+      });
       throw new BadRequestException("用户不存在");
     }
     const salt = randomBytes(16).toString("hex");

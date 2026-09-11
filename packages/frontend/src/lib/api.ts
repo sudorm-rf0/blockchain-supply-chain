@@ -177,11 +177,16 @@ export async function forgotPassword(email: string, turnstileToken?: string): Pr
   return res.json();
 }
 
-export async function resetPassword(email: string, code: string, newPassword: string): Promise<{ ok: true }> {
+export async function resetPassword(
+  email: string,
+  code: string,
+  newPassword: string,
+  turnstileToken?: string,
+): Promise<{ ok: true }> {
   const res = await fetch("/api/auth/reset-password", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, code, newPassword }),
+    body: JSON.stringify({ email, code, newPassword, turnstileToken }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
