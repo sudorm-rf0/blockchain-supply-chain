@@ -13,19 +13,32 @@ VPS 曾因资源耗尽整机冻结（见 `VPS-FREEZE-RECOVERY-20260922.md`）。
 | **隐私池 PrivacyPool** | **无实际服务**（全盘搜索仅有 Let's Encrypt 证书残留；`privacypool.de5.net` 此前只是落到供应链应用） | 删除 Cloudflare A 记录（`privacypool.de5.net`、`www`），域名已下线；DNS 记录备份于 `/tmp/dns-backup/privacypool-dns.json` |
 | **死隧道 ssh-backup-tunnel** | cloudflared 容器（Cloudflare 侧隧道已删除，容器空转） | `docker stop` + `restart=no` |
 
+### 第二批下线（2026-09-22 12:45，用户确认）
+| 项目 | 组件 | 数据保留位置 | 处理 |
+|------|------|--------------|------|
+| **chat 聊天平台** | `chat-chat-web-1`、`chat-chat-backend-1`、`chat-chat-db-1` + `chat-net-rules.service` | `/root/chat`（508K）+ 卷 `chat_chat-db-data`、`chat_chat-attachments` | stop + `restart=no`；systemd disable |
+| **钱包余额检查 wbc** | `wbc-app`、`wbc-tunnel` | `/opt/wallet-balance-checker`（84K） | stop + `restart=no` |
+| **Gitea**（GitHub 已恢复） | `gitea` | **`/opt/gitea/data`（22M）** | stop + `restart=no` |
+| **verdaccio**（私有 npm 源） | `verdaccio` | `/opt/verdaccio` + 卷 `crates-cache` 外的 registry 数据 | stop + `restart=no` |
+| **crates-proxy**（Rust 依赖镜像） | `crates-proxy` | `/opt/crates-proxy` | stop + `restart=no` |
+
+配置备份目录：`/root/_offline-backup2-20260922-124548/`
+
+> 域名影响：`wbc.dfr.cc.cd`、`chat.dfr.cc.cd` 因隧道停止返回 530（DNS 记录仍保留，需要时可恢复）。
+
 ### 副作用提示
 `chat.dfr.cc.cd` 与 `usdt.dfr.cc.cd` 原先共用 `cloudflared-usdt-escrow` 隧道，
 停隧道后这两个域名均返回 530（已下线）。若仍需 chat 对外，可单独恢复一条隧道。
 
 ## 三、资源变化
-| 指标 | 变更前 | 变更后 |
-|------|--------|--------|
-| 运行容器 | 31 | **24** |
-| 内存可用 | 759 MB | **1496 MB** |
+| 指标 | 最初 | 下线高考/USDT 后 | 第二轮下线后 |
+|------|------|-----------------|--------------|
+| 运行容器 | 31 | 24 | **16** |
+| 内存可用 | 759 MB | 1496 MB | **1794 MB** |
 | 负载 | — | 0.27 |
 | 供应链栈 | healthy | **healthy（未受影响）** |
 
-## 四、剩余可清理候选评估（待确认）
+## 四、候选清理结果（第二轮已执行）
 
 | 容器 | 内存 | 公网暴露 | 使用证据 | 建议 |
 |------|------|----------|----------|------|
