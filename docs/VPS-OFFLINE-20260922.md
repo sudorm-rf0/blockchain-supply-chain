@@ -64,3 +64,39 @@ systemctl enable --now usdt-chain cloudflared-usdt-escrow
 
 # 隐私池 DNS：从 /tmp/dns-backup/privacypool-dns.json 重新导入 A 记录
 ```
+
+## 六、彻底清理已停容器与镜像（2026-09-22 12:48）
+
+在确认服务可随时重建（配置/数据均在）后，执行了彻底清理：
+
+| 操作 | 结果 |
+|------|------|
+| 删除已停容器 | 17 个（gaokao×5、chat×3、wbc×2、gitea、verdaccio、crates-proxy、usd-usdt-escrow-frontend、ssh-backup-tunnel、旧 postgres/redis） |
+| 删除无用镜像 | 25 个（nocobase、pgvector、chat-server/web、gitea、verdaccio、postgres:15-alpine/16-alpine、redis:7-alpine、grafana、prometheus、alertmanager、node-exporter、uptime-kuma、trivy、node 等） |
+| **保留数据卷** | **71 个全部保留**（含 `gaokao_pgdata`、`chat_chat-db-data`、`crates-cache`、`supply-chain-*`） |
+| 保留绑定目录 | `/opt/gaokao-platform`(489M)、`/opt/usd-usdt-escrow`(488M)、`/opt/gitea/data`(22M)、`/root/chat`、`/opt/verdaccio`、`/opt/crates-proxy`、`/opt/wallet-balance-checker` |
+| 构建缓存 | 清理 324.7MB |
+| **补回证书镜像** | `certbot/certbot`、`certbot/dns-cloudflare`（每日 03:30 / 每周一 04:00 续期依赖，避免凌晨拉取失败） |
+
+### 清理成果
+| 指标 | 清理前 | 清理后 |
+|------|--------|--------|
+| 磁盘占用 | 25 GB / 33% | **18 GB / 24%**（释放 ~7GB） |
+| 镜像数 | 38 | **14** |
+| 容器数 | 33（含已停） | **16（全部运行中）** |
+| 数据卷 | 71 | **71（全保留）** |
+| 内存可用 | 759 MB（最初） | **1714 MB** |
+
+### 恢复方法
+服务镜像已删除，恢复时 Docker 会自动重新拉取/构建：
+```bash
+# 高考平台（重新拉镜像 + 起容器，数据卷/目录都在）
+cd /opt/gaokao-platform && docker compose -f docker-compose.vps.yml up -d
+
+# Gitea
+docker run -d --name gitea --restart unless-stopped   -v /opt/gitea/data:/data -p 3000:3000 gitea/gitea:1.22.6
+
+# USD→USDT
+systemctl enable --now usdt-chain cloudflared-usdt-escrow
+docker start usd-usdt-escrow-frontend   # 若已删除则按 backup 里的 compose 重建
+```
