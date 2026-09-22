@@ -6,6 +6,7 @@ services:
   postgres:
     image: postgres:15
     container_name: ${POSTGRES_CONTAINER_NAME:-supply-chain-postgres}
+    mem_limit: 1g   # 2026-09-22：防单容器占满内存拖垮整机
     restart: unless-stopped
     networks: [supply-chain-net]
     environment:
@@ -25,6 +26,7 @@ services:
   redis:
     image: redis:7
     container_name: ${REDIS_CONTAINER_NAME:-supply-chain-redis}
+    mem_limit: 512m   # 2026-09-22
     restart: unless-stopped
     networks: [supply-chain-net]
     command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
@@ -43,6 +45,7 @@ services:
   backup:
     image: postgres:15
     container_name: ${BACKUP_CONTAINER_NAME:-supply-chain-backup}
+    mem_limit: 256m   # 2026-09-22
     restart: unless-stopped
     networks: [supply-chain-net]
     entrypoint: ["/bin/sh", "-c"]
