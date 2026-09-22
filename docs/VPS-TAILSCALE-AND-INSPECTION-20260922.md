@@ -75,3 +75,42 @@ apt-get remove -y tailscale tailscale-archive-keyring
 
 ### 仍建议
 - 内存 4GB 仍是结构性瓶颈（ClamAV 已占 ~940MB），如后续再上项目建议扩容到 8GB。
+
+### ✅ 登录完成后的最终状态（2026-09-22 13:04）
+
+| 项目 | 值 |
+|------|-----|
+| VPS 节点名 | `supply-chain-vps-a` |
+| **VPS tailnet IP** | **`100.82.117.120`**（IPv6 `fd7a:115c:a1e0::e93a:7579`） |
+| Mac 节点 | `macbook-air` / `100.105.15.117` |
+| 后端状态 | Running / Online |
+| tailscaled 开机自启 | enabled |
+| tailnet ping | 0% 丢包（RTT 19-104ms） |
+| tailnet SSH | ✅ 成功 |
+
+### 零影响复核（登录后）
+| 项目 | 结果 |
+|------|------|
+| 默认路由 | `via 103.39.79.1 dev ens18`（**未变**）✅ |
+| `/etc/resolv.conf` | systemd-resolved stub，**无 100.100.100.100/tailscale** ✅ |
+| `tailscale0` | `100.82.117.120/32`（独立接口，不影响 ens18） ✅ |
+| 公网 SSH 22/2222 | 仍正常监听 ✅ |
+| 网站 health | **200** ✅ |
+
+### 日常使用（推荐作为管理主通道）
+```bash
+# 用 tailnet IP 登录（不经公网，不受 IP 封禁/防火墙影响）
+ssh -i ~/.ssh/supply_chain_vps_a root@100.82.117.120
+
+# 或用 MagicDNS 名称（如已在 tailnet 启用 MagicDNS）
+ssh -i ~/.ssh/supply_chain_vps_a root@supply-chain-vps-a
+```
+> 价值：tailnet 是**独立于公网 IP 的管理通道**——即使以后再被 ufw/fail2ban 误封，
+> 也能通过 `100.82.117.120` 进入修复，彻底摆脱"被封就失联"。
+
+### 关闭/卸载
+```bash
+tailscale down                      # 临时断开
+systemctl disable --now tailscaled  # 停止自启
+apt-get remove -y tailscale tailscale-archive-keyring   # 卸载
+```
