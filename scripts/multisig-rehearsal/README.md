@@ -1,60 +1,68 @@
-# 多签迁移演练脚本
+# Multisig migration rehearsal scripts
 
-| 脚本 | 用途 | 依赖 |
+| Script | Purpose | Dependencies |
 |---|---|---|
-| `squads-create.mjs` | 创建 Squads 3-of-5 多签（devnet/主网/本地） | `@sqds/multisig` `@solana/web3.js` |
-| `rehearsal-admin-migration.mjs` | 合约 propose_admin → 时锁 → accept_admin 迁移演练 | `@solana/web3.js` `@solana/spl-token` |
-| `devnet-governance-test.mjs` | 真实 devnet 治理投票测试：建测试多签 → 提案转账 → 3 票 → 多签执行 | `@sqds/multisig` `@solana/web3.js` |
-| `run.sh` | 编排：本地 validator + 部署 test-build 合约 + 跑迁移演练 | Solana/Anchor 工具链 |
+| `squads-create.mjs` | Create a Squads 3-of-5 multisig (devnet/mainnet/local) | `@sqds/multisig` `@solana/web3.js` |
+| `rehearsal-admin-migration.mjs` | Rehearse the program migration: propose_admin → time lock → accept_admin | `@solana/web3.js` `@solana/spl-token` |
+| `devnet-governance-test.mjs` | Real devnet governance vote test: create test multisig → propose transfer → 3 votes → multisig execute | `@sqds/multisig` `@solana/web3.js` |
+| `run.sh` | Orchestrator: local validator + deploy test-build programs + run the migration rehearsal | Solana/Anchor toolchain |
 
-## 本地演练（已验证通过）
+## Local rehearsal (verified)
+
 ```bash
 bash scripts/multisig-rehearsal/run.sh
-# 期望输出：🎉 演练通过：admin 已迁移到（模拟）多签 / RESULT=PASS
+# Expected output: 🎉 Rehearsal passed: admin migrated to the (simulated) multisig / RESULT=PASS
 ```
 
-## 真实 devnet 治理投票测试（已验证 PASS，2026-08-08）
+## Real devnet governance vote test (verified PASS, 2026-08-08)
+
 ```bash
 RPC=https://api.devnet.solana.com node scripts/multisig-rehearsal/devnet-governance-test.mjs
-# 期望输出：🎉 治理测试通过：3-of-5 提案 → 投票 → 多签执行转账成功 / GOV_TEST_RESULT=PASS
+# Expected output: 🎉 Governance test passed: 3-of-5 proposal → vote → multisig execute transfer / GOV_TEST_RESULT=PASS
 ```
-- 说明：每次运行创建**全新测试多签**（独立 createKey + 5 个临时成员，非项目成员），
-  vault 转入 0.001 SOL 到 payer，完整走通 `vaultTransactionCreate → proposalCreate(isDraft=false) → approve×3 → vaultTransactionExecute`。
-- Squads V4 规则：新建多签 `transaction_index=0`，第一条 vault 交易使用 index 1（链上 `+1` 规则）；
-  `@sqds 2.1.4` 解析器对 `transaction_index` 偏移读到 0 属已知问题，以链上为准。
-- 稳定性修复（2026-08-08）：每条交易 `confirmTransaction` 后再进入下一步（devnet 确认延迟会导致
-  状态竞争）；`isDraft=false` 时提案直接进入 Active，无需 `proposalActivate`。
-- 需 payer 有 devnet SOL（每次约消耗 0.05-0.1 SOL：5 成员转账 + 多签/提案/交易租金）。
+- Notes: each run creates a **brand-new test multisig** (independent createKey plus 5 temporary members, not project members),
+  the vault transfers 0.001 SOL back to the payer, and the full path runs:
+  `vaultTransactionCreate → proposalCreate(isDraft=false) → approve×3 → vaultTransactionExecute`.
+- Squads V4 rules: a new multisig has `transaction_index=0`, so the first vault transaction uses index 1 (the on-chain `+1` rule);
+  the `@sqds 2.1.4` parser reading 0 for the `transaction_index` offset is a known issue — the on-chain value is authoritative.
+- Stability fix (2026-08-08): `confirmTransaction` completes before moving to the next step (devnet confirmation latency used to
+  cause state races); with `isDraft=false` the proposal goes Active directly, so `proposalActivate` is unnecessary.
+- The payer needs devnet SOL (each run costs about 0.05-0.1 SOL: 5 member transfers plus multisig/proposal/transaction rent).
 
-## H-1 正路径演练（本地真实 Squads v4，已验证 PASS，2026-08-09）
+## H-1 positive-path rehearsal (local, real Squads v4, verified PASS, 2026-08-09)
+
 ```bash
 bash scripts/multisig-rehearsal/run.sh
-# 期望输出：✅ 全部演练通过（admin 迁移 + H-1 正路径）
-# 正路径：真实 Squads VaultTransaction 包裹合约 admin 指令 → 3/5 批准 → 执行成功
+# Expected output: ✅ All rehearsals passed (admin migration + H-1 positive path)
+# Positive path: a real Squads VaultTransaction wraps the program admin instruction → 3/5 approvals → execution succeeds
 ```
-- 说明：`run.sh` 会用 `solana-test-validator --clone` 拉取**真实 Squads v4 程序**
-  （program + ProgramData + ProgramConfig，从 devnet），创建真实 3-of-5 多签，
-  配置合约 `multisig` 后验证：单签被拒（MultisigEnforced）+ 多签 VaultTransaction 执行成功。
-- 这是审计要求的"真实 VaultTransaction 正路径测试"（非 fakeMultisig、非仅负向）。
-- devnet 版本：`RPC=<devnet> node devnet-multisig-admin-test.mjs`（需合约已部署并配置 multisig）。
+- Notes: `run.sh` uses `solana-test-validator --clone` to pull the **real Squads v4 program**
+  (program + ProgramData + ProgramConfig, from devnet), creates a real 3-of-5 multisig,
+  then configures the program `multisig` and verifies that a single signature is rejected (MultisigEnforced)
+  while the multisig VaultTransaction executes successfully.
+- This is the "real VaultTransaction positive-path test" required by the audit (not a fakeMultisig, not negative-only).
+- Devnet version: `RPC=<devnet> node devnet-multisig-admin-test.mjs` (requires the programs to be deployed and multisig configured).
 
-## 真实多签创建（需 SOL 的 devnet/主网）
+## Creating a real multisig (devnet/mainnet, requires SOL)
+
 ```bash
-# @sqds/multisig 已作为项目 devDependency（2.1.4）；payer 需有 SOL 且不能是 Program ID 账户
+# @sqds/multisig is a project devDependency (2.1.4); the payer needs SOL and must not be a Program ID account
 RPC=https://api.devnet.solana.com PAYER_KP=~/.config/solana/id.json \
   node scripts/multisig-rehearsal/squads-create.mjs
-# 自定义成员/阈值：
+# Custom members/threshold:
 #   MEMBERS="<a>,<b>,<c>,<d>,<e>" THRESHOLD=3 RPC=<rpc> PAYER_KP=<kp> \
 #     node scripts/multisig-rehearsal/squads-create.mjs
 ```
-> devnet 免费档对 requestAirdrop 有严格限流（429），且偶尔 faucet 全局干涸；如空投失败，请为 payer 转账少量 SOL 或用已 funded 钱包。
-> Squads V4 新版程序（`SQDS4ep65…`）要求 `treasury == ProgramConfig.treasury`，脚本已自动读取，无需手工指定。
+> The devnet free tier rate-limits `requestAirdrop` heavily (429) and the faucet occasionally runs dry globally; if the airdrop fails, transfer a small amount of SOL to the payer or use an already funded wallet.
+> The new Squads V4 program (`SQDS4ep65…`) requires `treasury == ProgramConfig.treasury`; the script reads it automatically, no manual input needed.
 
-## 演练记录（2026-08-08，devnet）
-- 3-of-5 多签已创建并链上验证：`MULTISIG_PDA=2NJfQrv4egYZzbmuHJNjAHyitM9TUMD9m5aFNJP3hZD5`（程序 `SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf`，timeLock=0）
-- 成员：DKjZeYsB… / F4WD7tD8… / SidAeEGs… / 2y5tHWpV… / Cw8hnS6t…
-- 创建钱包（createKey/payer）：`3xrRyw1xnGjaEYmCdFTARt8xVeKcZPUmarJRTwyJ4k8t`（devnet，演练用）
-- 主网多签：上线日由持钥冷钱包在 app.squads.so 或同一脚本（主网 RPC + 有钱主网钱包）创建，PDA 会因 createKey 不同而不同
+## Rehearsal record (2026-08-08, devnet)
 
-## 上线执行
-见 `docs/GO-LIVE-MULTISIG-RUNBOOK.md`（完整操作单）。
+- 3-of-5 multisig created and verified on-chain: `MULTISIG_PDA=2NJfQrv4egYZzbmuHJNjAHyitM9TUMD9m5aFNJP3hZD5` (program `SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf`, timeLock=0)
+- Members: DKjZeYsB… / F4WD7tD8… / SidAeEGs… / 2y5tHWpV… / Cw8hnS6t…
+- Creating wallet (createKey/payer): `3xrRyw1xnGjaEYmCdFTARt8xVeKcZPUmarJRTwyJ4k8t` (devnet, rehearsal only)
+- Mainnet multisig: created on launch day by the cold key holders via app.squads.so or the same script (mainnet RPC + funded mainnet wallet); the PDA differs because the createKey differs
+
+## Go-live execution
+
+See `docs/GO-LIVE-MULTISIG-RUNBOOK.md` (full runbook).
