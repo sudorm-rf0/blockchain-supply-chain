@@ -2,7 +2,7 @@
 
 # ⛓️ Blockchain Supply Chain Monorepo
 
-**Solana/Anchor 供应链金融平台** · 单据审核 · 链上存证 · 贸易订单 · 资金池
+**Solana/Anchor supply-chain finance platform** · Document review · On-chain notarization · Trade orders · Liquidity pool
 
 ![Solana](https://img.shields.io/badge/Solana-purple?logo=solana&logoColor=white)
 ![Anchor](https://img.shields.io/badge/Anchor-0.31.1-512BD4?logo=solana&logoColor=white)
@@ -20,79 +20,80 @@
 
 ---
 
-基于 **Solana/Anchor** 的供应链金融平台，覆盖**单据上传审核 → 链上存证 → 贸易订单 → 资金池**全流程。`pnpm workspaces + Turbo` 管理。
+A supply-chain finance platform built on **Solana/Anchor**, covering the full flow **document upload and review → on-chain notarization → trade orders → liquidity pool**. Managed with `pnpm workspaces + Turbo`.
 
-## ✨ 特性
+## ✨ Features
 
-- 🔗 **链上存证** — 单据哈希上链，防篡改可审计
-- 📋 **单据审核** — 管理员审核、文件管理、权限化注册
-- 💱 **贸易订单** — 创建、预构建、链上确认全生命周期
-- 💰 **资金池** — LP 充值/赎回、NAV 快照、链上账户监听回写
-- 🛡 **权限体系** — 三级角色（USER / ADMIN / SUPER_ADMIN）
-- 🔐 **安全审计** — 独立审计报告，1 Critical + 6 High 已全部修复复测
+- 🔗 **On-chain notarization** — document hashes are written on-chain: tamper-evident and auditable
+- 📋 **Document review** — admin review, file management, permissioned registration
+- 💱 **Trade orders** — full lifecycle: create → pre-build → on-chain confirmation
+- 💰 **Liquidity pool** — LP deposit/redeem, NAV snapshots, on-chain account listener write-back
+- 🛡 **Permission model** — three-tier roles (USER / ADMIN / SUPER_ADMIN)
+- 🔐 **Security audit** — independent audit report; 1 Critical + 6 High findings all fixed and re-tested
 
-## 📦 包结构
+## 📦 Packages
 
-- `packages/contracts`: Anchor 0.31.1 合约（`trade-finance` 全生命周期 + `supply-chain`），
-  工具链为 Agave 4.1.2 + SBFv3。`supply-chain` 采用权限化注册：管理员（Registry）可
-  授权/撤销供应商，仅管理员或已授权供应商可注册商品；主后端已接入供应链管理
-  API，前端「供应链管理」页支持钱包签名完成初始化/授权/注册（详见 `docs/API.md`）。
-- `packages/backend`: NestJS 11 主后端（认证、文件、存证）+ 3 个独立服务：
-  `indexer-service`（链上监听与 DB 回写）、`trade-service`（订单预构建与确认）、
-  `pool-service`（资金池总览与 LP 提款）。
-- `packages/frontend`: Next.js 15 App Router + Tailwind + shadcn/ui + Solana 钱包。
-  支持 Phantom / Backpack / Solflare / Coinbase Wallet / UnsolvedBloom。
+- `packages/contracts`: Anchor 0.31.1 programs (`trade-finance` full lifecycle + `supply-chain`),
+  toolchain Agave 4.1.2 + SBFv3. `supply-chain` uses permissioned registration: the admin (Registry) can
+  grant/revoke suppliers, and only the admin or an authorized supplier can register products. The main
+  backend is wired to the supply-chain management API, and the frontend "Supply Chain Management" page
+  supports wallet signing for initialize/authorize/register (see `docs/API.md`).
+- `packages/backend`: NestJS 11 main backend (auth, files, notarization) plus 3 standalone services:
+  `indexer-service` (on-chain listening and DB write-back), `trade-service` (order pre-build and
+  confirmation), `pool-service` (pool overview and LP withdrawal).
+- `packages/frontend`: Next.js 15 App Router + Tailwind + shadcn/ui + Solana wallet.
+  Supports Phantom / Backpack / Solflare / Coinbase Wallet / UnsolvedBloom.
 
-## 🏗 系统架构
+## 🏗 Architecture
 
 ```mermaid
 flowchart LR
-  subgraph Users["用户端"]
-    M["用户移动端<br/>拍照上传 / 钱包签名"]
-    P["管理端 PC<br/>文件审核 / 订单 / 看板"]
+  subgraph Users["Clients"]
+    M["Mobile app<br/>photo upload / wallet signing"]
+    P["Admin console (PC)<br/>file review / orders / dashboard"]
   end
-  subgraph Services["后端服务"]
-    B["主后端 3001<br/>auth / files / audit"]
+  subgraph Services["Backend services"]
+    B["Main backend 3001<br/>auth / files / audit"]
     T["trade-service 3004"]
     PL["pool-service 3005"]
     I["indexer-service 3003"]
   end
-  subgraph Data["数据层"]
+  subgraph Data["Data layer"]
     PG[("Postgres 5432")]
     RD[("Redis 6380")]
   end
   subgraph Chain["Solana"]
     S["localnet 8899 / devnet"]
   end
-  M -->|上传 / 存证| B
-  P -->|审核 / 建单| B
+  M -->|upload / notarize| B
+  P -->|review / create order| B
   B --> PG
   B --> RD
-  T -->|预构建 / 确认交易| S
-  PL -->|NAV / LP 赎回| S
-  I -->|监听账户变更| S
-  I -->|回写快照| PG
-  T -->|订单落库| PG
-  PL -->|资金池快照| PG
+  T -->|pre-build / confirm tx| S
+  PL -->|NAV / LP redeem| S
+  I -->|watch account changes| S
+  I -->|write snapshots| PG
+  T -->|persist orders| PG
+  PL -->|pool snapshots| PG
 ```
 
-## 🚀 本地启动
+## 🚀 Local setup
 
 ```bash
 ./init-monorepo.sh --infra
 cd packages/backend && pnpm exec prisma generate && pnpm exec prisma migrate deploy
 ```
 
-基础设施（Postgres / Redis / Solana localnet）：
+Infrastructure (Postgres / Redis / Solana localnet):
 
 ```bash
 docker compose up -d
 ```
 
-`solana-localnet` 首次会构建 Agave 4.1.2 镜像（固定 `linux/amd64`，
-Apple Silicon 上由 Docker 模拟运行），请确保构建时能访问 GitHub Releases。
+The first run of `solana-localnet` builds the Agave 4.1.2 image (pinned to `linux/amd64`,
+emulated by Docker on Apple Silicon), so make sure GitHub Releases is reachable during the build.
 
-合约构建与 localnet 部署：
+Build and deploy the programs to localnet:
 
 ```bash
 cd packages/contracts
@@ -104,48 +105,48 @@ PATH="$HOME/.local/share/solana/active_release/bin:$PATH" solana program deploy 
   target/deploy/supply_chain.so --program-id target/deploy/supply_chain-keypair.json
 ```
 
-后端服务（默认端口）：
+Backend services (default ports):
 
 ```bash
 cd packages/backend
-pnpm dev              # 主后端 3001
-pnpm dev:indexer      # 3003（需 REDIS_URL=redis://localhost:6380）
+pnpm dev              # main backend 3001
+pnpm dev:indexer      # 3003 (requires REDIS_URL=redis://localhost:6380)
 pnpm dev:trade        # 3004
-pnpm dev:pool         # 3005（需 REDIS_URL=redis://localhost:6380）
+pnpm dev:pool         # 3005 (requires REDIS_URL=redis://localhost:6380)
 ```
 
-一键启动全部本地服务（validator 需先由 `docker compose up -d` 提供，
-首次先 `node scripts/init-localnet.mjs | tee infra/config/localnet.env`）：
+Start every local service at once (the validator must already be running via `docker compose up -d`;
+run `node scripts/init-localnet.mjs | tee infra/config/localnet.env` first):
 
 ```bash
 bash scripts/dev-all.sh
 ```
 
-前端：
+Frontend:
 
 ```bash
 cd packages/frontend
 FRONTEND_PORT=3100 pnpm dev
 ```
 
-打开 `http://localhost:3100`。种子账号（可用 `pnpm --filter @supply-chain/backend prisma:seed` 重建）：
+Open `http://localhost:3100`. Seed accounts (rebuild with `pnpm --filter @supply-chain/backend prisma:seed`):
 
-| 角色 | 邮箱 | 密码 |
+| Role | Email | Password |
 | --- | --- | --- |
-| 超级管理员 | `root@supply-chain.io` | `SuperAdmin123!` |
-| 管理员 | `admin@supply-chain.io` | `Admin123!` |
+| Super admin | `root@supply-chain.io` | `SuperAdmin123!` |
+| Admin | `admin@supply-chain.io` | `Admin123!` |
 
-角色分三级：用户（USER）/ 管理员（ADMIN）/ 超级管理员（SUPER_ADMIN）。
-管理员可访问全部审核/管理页面；超级管理员额外拥有「账号管理」（查看所有账号
-信息与内容、添加管理员、调整账户类型）。
+There are three role tiers: user (USER) / admin (ADMIN) / super admin (SUPER_ADMIN).
+Admins can access all review and management pages; super admins additionally own
+**Account management** (view all accounts and their content, add admins, change account types).
 
-一键健康检查（后端、RPC、前端）：
+One-shot health check (backend, RPC, frontend):
 
 ```bash
 bash scripts/health-check.sh
 ```
 
-## 🧪 测试
+## 🧪 Testing
 
 ```bash
 pnpm --filter @supply-chain/backend exec jest --runInBand
@@ -153,36 +154,36 @@ cd packages/contracts && pnpm test
 cd packages/frontend && pnpm build
 ```
 
-合约测试（`packages/contracts` 的 `pnpm test`）会自动管理一个隔离的
-`solana-test-validator`：随机空闲端口（不占用 8899 等开发端口）、以
-`cargo build-sbf --arch v3`（SBFv3/eBPF，Agave 4.1.2 要求）构建并部署两个合约，
-跑完自动清理账本与验证器进程。
+The program tests (`pnpm test` in `packages/contracts`) manage an isolated
+`solana-test-validator` automatically: it picks a random free port (never 8899 or other dev ports),
+builds and deploys both programs with `cargo build-sbf --arch v3` (SBFv3/eBPF, required by Agave 4.1.2),
+then cleans up the ledger and validator processes when done.
 
-CI 说明：`changes` 前置 job 按路径过滤，backend/frontend/security-audit 可跑在
-本地 self-hosted runner（`codex-mac`，macOS ARM64，不计费）；合约/e2e/监控/
-备份 job 使用 GitHub 托管 runner。密钥扫描由 `scripts/scan-secrets.sh` 执行
-（工作区 + Git 历史），发现疑似凭据即失败。
+CI notes: the `changes` job filters by path up front; backend/frontend/security-audit jobs can run on
+a local self-hosted runner (`codex-mac`, macOS ARM64, not billed), while program/e2e/monitoring/
+backup jobs use GitHub-hosted runners. Secret scanning is performed by `scripts/scan-secrets.sh`
+(worktree + Git history) and fails on any suspected credential.
 
-## 🚢 部署
+## 🚢 Deployment
 
-Kubernetes 部署与镜像构建见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，上线前
-核对项见 [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md)。
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Kubernetes deployment and image builds, and
+[docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md) for the pre-launch checklist.
 
-## 📚 文档
+## 📚 Documentation
 
-- [本地试用手册](docs/DEMO.md)：本地账号、流程与重置
-- [部署手册](docs/DEPLOYMENT.md)（中文）/[DEPLOYMENT.en.md](docs/DEPLOYMENT.en.md)（English）
-- [操作手册](docs/OPERATIONS.md)（中文）/[OPERATIONS.en.md](docs/OPERATIONS.en.md)（English）
-- [视频脚本](docs/VIDEO-SCRIPT.md)：8 个分镜的中英文旁白与录屏建议
-- [接口文档](docs/API.md)：认证、文件、订单、资金池、索引器全部接口
-- [上线运行手册](docs/GO-LIVE-RUNBOOK.md) 与
-  [上线核对清单](docs/LAUNCH-CHECKLIST.md)
-- [Phase 2 云资源清单](docs/PHASE2-CLOUD-CHECKLIST.md)：真实上线前置资源与排期
-- [devnet → 主网迁移清单](docs/MAINNET-MIGRATION.md)：上线时链上重建/配置替换/测试重跑
-- [审计经济模型](docs/AUDIT-ECONOMIC-MODEL.md) 与 [已知风险](docs/AUDIT-KNOWN-RISKS.md)：第三方审计材料
-- [隐私/条款模板](docs/PRIVACY-TERMS-TEMPLATE.md) 与 [上线值班 SOP](docs/ONCALL-SOP.md)
-- [审计发送清单与询价模板](docs/AUDIT-DELIVERY.md)
-- [技术成本估算](docs/COSTS.md)（不含审计）
-- [应急预案](docs/INCIDENT-RUNBOOK.md)
-- [审计报告](docs/AUDIT-REPORT.md) 与
-  [压测报告](docs/LOAD-TEST-REPORT.md)、[NEST-11-UPGRADE.md](docs/NEST-11-UPGRADE.md)
+- [Local demo guide](docs/DEMO.md): local accounts, flows, and reset
+- [Deployment guide](docs/DEPLOYMENT.md) (Chinese) / [DEPLOYMENT.en.md](docs/DEPLOYMENT.en.md) (English)
+- [Operations guide](docs/OPERATIONS.md) (Chinese) / [OPERATIONS.en.md](docs/OPERATIONS.en.md) (English)
+- [Video script](docs/VIDEO-SCRIPT.md): 8 shots with Chinese/English narration and screen-recording tips
+- [API reference](docs/API.md): all endpoints for auth, files, orders, pool, and indexer
+- [Go-live runbook](docs/GO-LIVE-RUNBOOK.md) and
+  [launch checklist](docs/LAUNCH-CHECKLIST.md)
+- [Phase 2 cloud checklist](docs/PHASE2-CLOUD-CHECKLIST.md): resources and timeline required before a real launch
+- [devnet → mainnet migration checklist](docs/MAINNET-MIGRATION.md): on-chain rebuild, config swap, test rerun at launch
+- [Audit economic model](docs/AUDIT-ECONOMIC-MODEL.md) and [known risks](docs/AUDIT-KNOWN-RISKS.md): third-party audit material
+- [Privacy/terms template](docs/PRIVACY-TERMS-TEMPLATE.md) and [on-call SOP](docs/ONCALL-SOP.md)
+- [Audit delivery checklist and quote template](docs/AUDIT-DELIVERY.md)
+- [Technical cost estimate](docs/COSTS.md) (audit not included)
+- [Incident runbook](docs/INCIDENT-RUNBOOK.md)
+- [Audit report](docs/AUDIT-REPORT.md),
+  [load test report](docs/LOAD-TEST-REPORT.md), and [NEST-11-UPGRADE.md](docs/NEST-11-UPGRADE.md)
