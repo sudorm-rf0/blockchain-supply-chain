@@ -644,12 +644,13 @@ mod tests {
     #[test]
     fn c1_program_data_pda_matches_known() {
         // 独立复测 C-1：program_data 必须绑定本程序 ProgramData PDA，
-        // 锚定已知推导值，防止常量/推导被误改（如 test.sh sed 误伤）。
+        // 锚定当前 declare_id 对应的已知推导值，防止常量/推导被误改。
+        // 注意：HMimQ5Q… 对应旧主网占位 ID，不能用于当前 devnet/localnet ID。
         let (pda, _bump) = Pubkey::find_program_address(
             &[program_id().as_ref()],
             &BPF_LOADER_UPGRADEABLE,
         );
-        assert_eq!(pda.to_string(), "HMimQ5Qoa8diS6dfyKbgy72Sf2v6qyvu3T1cmPEWqZjB");
+        assert_eq!(pda.to_string(), "GpYHmTfM2Lyk9DYySLvCcykZ9rfFUxeZA5PCPWX1Jn6");
         assert_eq!(
             BPF_LOADER_UPGRADEABLE.to_string(),
             "BPFLoaderUpgradeab1e11111111111111111111111"
